@@ -4,7 +4,7 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 
 ## MVP: primera versión funcional
 
-### [ ] K-001 — Inicializar el repositorio y la aplicación
+### [x] K-001 — Inicializar el repositorio y la aplicación
 - Crear estructura sencilla `apps/desktop` (Tauri + React + TypeScript) y `services/api` (Python + FastAPI), con gestión de dependencias y scripts de arranque.
 - Añadir `.gitignore`, `.env.example` sin secretos y `README.md` con instrucciones para Ubuntu.
 - Crear una pantalla de inicio de Konsora y endpoint `/health`.
@@ -85,4 +85,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 
 | Fecha | Tarea | Resultado / bloqueos |
 | --- | --- | --- |
-| — | — | Pendiente de comenzar |
+| 2026-10-28 | K-001 | Completada: Tauri + React + TypeScript y FastAPI; tipos y builds web/nativo correctos, 6 pruebas de API correctas y arranque/conexión/error/recuperación/cierre verificados en Ubuntu. Detalle en [verificación K-001](docs/verification/K-001.md). Siguiente: K-002. |
