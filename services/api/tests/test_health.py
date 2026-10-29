@@ -1,15 +1,5 @@
-from collections.abc import Iterator
-
 import pytest
 from fastapi.testclient import TestClient
-
-from konsora_api.main import app
-
-
-@pytest.fixture
-def client() -> Iterator[TestClient]:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def test_health_returns_service_contract(client: TestClient) -> None:

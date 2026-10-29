@@ -11,7 +11,7 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Aceptación:** escritorio abre en Ubuntu; backend responde a `/health`; existen comandos claros para lanzar ambos en desarrollo.
 - **Pruebas:** compilar/comprobar tipos de frontend, test básico de `/health`, arranque manual del escritorio.
 
-### [ ] K-002 — Persistencia local y gestión de proyectos
+### [x] K-002 — Persistencia local y gestión de proyectos
 - Crear SQLite y esquema/migraciones mínimos para `projects` y entidades necesarias.
 - Implementar crear, listar, renombrar, abrir y eliminar proyecto con confirmación explícita.
 - **Aceptación:** los proyectos permanecen después de cerrar y abrir Konsora; errores de base de datos se gestionan sin perder datos.
@@ -86,3 +86,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | Fecha | Tarea | Resultado / bloqueos |
 | --- | --- | --- |
 | 2026-10-28 | K-001 | Completada: Tauri + React + TypeScript y FastAPI; tipos y builds web/nativo correctos, 6 pruebas de API correctas y arranque/conexión/error/recuperación/cierre verificados en Ubuntu. Detalle en [verificación K-001](docs/verification/K-001.md). Siguiente: K-002. |
+| 2026-10-29 | K-002 | Completada: SQLite con migraciones transaccionales y gestión de proyectos con borrado confirmado; 31 pruebas correctas, tipos y builds web/nativo correctos. CRUD y recuperación ante bloqueo probados en interfaz; persistencia verificada al reiniciar API y escritorio Ubuntu. README abreviado. Detalle en [verificación K-002](docs/verification/K-002.md). Siguiente: K-003. |
