@@ -83,6 +83,22 @@ input:focus-visible { outline: 2px solid #367b67; outline-offset: 2px; }
 .form-error { color: #922f25; }
 footer { display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid #dce3da; padding: 22px 0; font-size: 11px; color: #617168; }
 
+.model-connections { border-top: 1px solid #dce3da; margin-top: 48px; padding-top: 28px; }
+.model-connections h2 { font-size: 25px; margin-bottom: 12px; }
+.model-form { margin-top: 24px; }
+.model-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.model-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+select, textarea { width: 100%; min-width: 0; border: 1px solid #bdccbd; border-radius: 8px; padding: 12px; font: inherit; color: #20342e; background: #fff; }
+textarea { resize: vertical; min-height: 110px; }
+select:focus-visible, textarea:focus-visible { outline: 2px solid #367b67; outline-offset: 2px; }
+.provider-detail, .provider-notice { font-size: 12px; color: #53635b; overflow-wrap: anywhere; }
+.provider-notice { border-left: 3px solid #9c7a35; padding: 4px 14px; }
+.model-form button[type="submit"] { margin-top: 16px; }
+.model-result { margin-top: 24px; border: 1px solid #dce3da; border-radius: 12px; padding: 20px; background: #fff; overflow-wrap: anywhere; }
+.model-result h3 { margin: 0 0 12px; font-size: 13px; }
+.model-result p { white-space: pre-wrap; margin: 0; font-size: 14px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+
 @media (max-width: 700px) {
   .app-shell { padding: 0 24px; }
   .local-label { display: none; }
@@ -93,5 +109,6 @@ footer { display: flex; justify-content: space-between; gap: 20px; border-top: 1
   .project-open { flex-basis: 100%; }
   .project-row-actions { margin-left: 58px; margin-bottom: 8px; }
   .project-details { padding: 22px; }
+  .model-options { grid-template-columns: 1fr; }
   footer { flex-wrap: wrap; gap: 4px; }
 }

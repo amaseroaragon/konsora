@@ -23,6 +23,7 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - La UI debe mostrar proveedor/modelo disponibles y errores de autenticación/red.
 - **Aceptación:** puede enviarse un prompt y recibirse respuesta; hay una implementación simulada para probar sin gastar tokens.
 - **Pruebas:** tests de adaptador simulado y manejo de errores; test manual real solo si hay credenciales.
+- **Estado 2026-10-29:** interfaz común, adaptador REST oficial de OpenAI, configuración de credenciales en el entorno del backend, simulador y UI implementados. Verificación automatizada y de UI sin gasto de tokens; queda pendiente el envío real con una clave y saldo de API autorizados. ChatGPT Plus no proporciona ese acceso. Se mantiene `[ ]` hasta verificar la respuesta real; detalle en [verificación K-003](docs/verification/K-003.md).
 
 ### [ ] K-004 — Conversaciones por proyecto
 - Crear conversaciones y mensajes persistentes asociados a un proyecto.
@@ -87,3 +88,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | --- | --- | --- |
 | 2026-10-28 | K-001 | Completada: Tauri + React + TypeScript y FastAPI; tipos y builds web/nativo correctos, 6 pruebas de API correctas y arranque/conexión/error/recuperación/cierre verificados en Ubuntu. Detalle en [verificación K-001](docs/verification/K-001.md). Siguiente: K-002. |
 | 2026-10-29 | K-002 | Completada: SQLite con migraciones transaccionales y gestión de proyectos con borrado confirmado; 31 pruebas correctas, tipos y builds web/nativo correctos. CRUD y recuperación ante bloqueo probados en interfaz; persistencia verificada al reiniciar API y escritorio Ubuntu. README abreviado. Detalle en [verificación K-002](docs/verification/K-002.md). Siguiente: K-003. |
+| 2026-10-29 | K-003 | Implementación y pruebas sin conexión preparadas para OpenAI. Pendiente validación real: el usuario dispone de ChatGPT Plus y no ha autorizado configurar saldo ni consumir API. No se usan claves reales ni se hacen peticiones a modelos externos. K-003 continúa pendiente; después, K-004. |
