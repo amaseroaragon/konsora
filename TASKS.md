@@ -17,12 +17,13 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Aceptación:** los proyectos permanecen después de cerrar y abrir Konsora; errores de base de datos se gestionan sin perder datos.
 - **Pruebas:** CRUD automatizado de proyectos y comprobación manual de persistencia.
 
-### [ ] K-003 — Conexión a proveedores de modelos
-- Definir interfaz `ModelProvider` común y un adaptador para **un** proveedor oficial mediante API (OpenAI **o** Anthropic, el que pueda probarse con credenciales disponibles).
-- Añadir configuración local segura de credenciales; evitar registrar o devolver claves a la UI. No subir credenciales al repositorio.
-- La UI debe mostrar proveedor/modelo disponibles y errores de autenticación/red.
-- **Aceptación:** puede enviarse un prompt y recibirse respuesta; hay una implementación simulada para probar sin gastar tokens.
-- **Pruebas:** tests de adaptador simulado y manejo de errores; test manual real solo si hay credenciales.
+### [ ] K-003 — Conectar Codex CLI con la suscripción de ChatGPT
+- Definir interfaz común para conectores CLI y un simulador local; implementar primero Codex CLI mediante su modo oficial no interactivo.
+- Detectar instalación, versión compatible y sesión de ChatGPT mediante comandos oficiales. No leer archivos de autenticación ni solicitar claves. Rechazar login por API y eliminar claves del entorno del proceso hijo; sin fallback a APIs de pago.
+- Ejecutar solo prompts de texto, por stdin y sin shell, con herramientas desactivadas, sandbox de solo lectura, directorio aislado y límites de tiempo/salida. No permitir cambios en proyectos ni habilitar permisos amplios para solventar fallos.
+- Mostrar estado del conector, modelo predeterminado/configurado, carga, respuesta y errores controlados. El envío requiere confirmar el uso de cuota; no consumirla al consultar el estado.
+- **Aceptación:** prompt y respuesta reales con sesión de ChatGPT, sin facturación por API; simulador para verificar sin cuota. K-001 y K-002 siguen funcionando y no se exponen tokens, diagnósticos ni credenciales del CLI.
+- **Pruebas:** CLI falso/procesos reales locales para contratos, login por API rechazado, errores, límites, cancelación, salida segura y ausencia de herramientas; prueba real mínima con la sesión autorizada y verificación de UI.
 
 ### [ ] K-004 — Conversaciones por proyecto
 - Crear conversaciones y mensajes persistentes asociados a un proyecto.
@@ -30,11 +31,12 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Aceptación:** una conversación continúa tras reiniciar la aplicación y no mezcla mensajes de distintos proyectos.
 - **Pruebas:** aislamiento por proyecto, orden de mensajes, persistencia y prueba manual de UI.
 
-### [ ] K-005 — Segundo proveedor y deliberación independiente
-- Implementar adaptador para un segundo proveedor oficial y una pantalla «Debate» por proyecto.
+### [ ] K-005 — Claude Code y deliberación independiente
+- Verificar el mecanismo oficial permitido para integrar Claude Code con suscripción, sus condiciones y autenticación. No asumir que el Agent SDK admite credenciales de suscripción. Si el proveedor no permite el uso desde Konsora, documentar el bloqueo sin APIs de pago.
+- Implementar el segundo conector compatible y una pantalla «Debate» por proyecto.
 - Ejecutar dos propuestas **independientes** a partir del mismo problema y contexto, antes de compartirlas.
 - **Aceptación:** se conservan por separado ambas propuestas con identidad del modelo, fecha y estado; se informa de errores individuales.
-- **Pruebas:** tests con dos proveedores simulados que comprueben independencia y persistencia.
+- **Pruebas:** tests con dos conectores simulados que comprueben independencia y persistencia, y validación real con suscripción cuando el mecanismo esté permitido.
 
 ### [ ] K-006 — Rondas de debate y síntesis
 - Añadir revisión cruzada y hasta 2 rondas por defecto (configurable), límites de uso y parada por error o presupuesto.
@@ -52,7 +54,7 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 ### [ ] K-008 — Estabilizar y documentar el MVP
 - Añadir pruebas de integración del flujo proyecto → chat → debate → aprobación → tareas.
 - Corregir problemas de inicio, persistencia y gestión de errores; comprobar que no se registran secretos.
-- Documentar limitaciones reales: APIs y suscripciones son distintas; la app no sincroniza chats nativos de terceros.
+- Documentar compatibilidad y límites de las suscripciones, requisitos de las herramientas oficiales y ausencia de sincronización de chats nativos; sin APIs de pago ni fallback de facturación.
 - **Aceptación:** existe un flujo completo reproducible en Ubuntu y un README que permite levantarlo desde cero.
 - **Pruebas:** suite automatizada y checklist de prueba manual.
 
@@ -67,19 +69,24 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Aceptación:** gestión visual sin ciclos de dependencia y estados consistentes.
 
 ### [ ] K-011 — Agentes CLI y ejecución supervisada
-- Integrar herramientas CLI oficiales compatibles; definir permisos, límites y aprobaciones explícitas antes de escribir o ejecutar.
+- Ampliar los conectores de consulta existentes con ejecución supervisada; definir permisos, límites y aprobaciones explícitas antes de escribir o ejecutar código.
 - **Aceptación:** una tarea aprobada puede delegarse y deja un historial verificable de operaciones y resultados.
 
 ### [ ] K-012 — Empaquetado y distribución Ubuntu
-- Integrar inicio/parada segura del backend con Tauri, almacenamiento de credenciales del sistema, instalador y pruebas en una instalación limpia.
+- Integrar inicio/parada segura del backend y procesos CLI con Tauri, autenticación local del servicio, respeto al almacenamiento de credenciales de cada CLI, instalador y pruebas en una instalación limpia.
 - **Aceptación:** un usuario de Ubuntu puede instalar y usar Konsora sin ejecutar servicios manualmente.
+
+### [ ] K-013 — Compatibilidad oficial de Antigravity
+- Objetivo: incorporar Antigravity mediante un mecanismo que permita expresamente usar la suscripción desde Konsora. No implementar endpoints privados, copiar tokens, rotar cuentas ni sustituirlo por una API de pago.
+- **Bloqueo conocido (2026-10-29):** la [FAQ oficial](https://antigravity.google/docs/faq/) indica que envolver Antigravity CLI en aplicaciones de terceros no está soportado con planes de consumo. El modo headless para scripts/CI no autoriza ese uso.
+- **Aceptación:** documentación oficial que permita el caso de Konsora, permisos y límites identificados y prueba real con la suscripción. Mientras no exista, mantener pendiente y explicar la incompatibilidad.
 
 ## Decisiones abiertas (solo resolver cuando bloqueen una tarea)
 
 - Distribución inicial: desarrollo con dos procesos locales; empaquetado integrado en K-012.
-- Primer proveedor a conectar: OpenAI o Anthropic según credenciales oficiales disponibles.
-- Política de almacenamiento de credenciales y ciclo de vida del backend antes de distribuir.
-- Modelos/precios específicos y límites por proveedor: configurar, no codificar en duro.
+- Primer conector decidido: Codex CLI y login de ChatGPT; después Claude Code si sus condiciones permiten la integración. Antigravity queda condicionado a K-013.
+- El login y sus credenciales pertenecen a cada CLI. Antes de distribuir, asegurar comunicación local y ciclo de vida de sus procesos.
+- Modelos y límites de suscripción: usar los disponibles para la cuenta, configurar sin fijar modelos ni asumir cuota ilimitada. No activar APIs de pago.
 
 ## Registro breve de progreso
 
@@ -87,3 +94,5 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | --- | --- | --- |
 | 2026-10-28 | K-001 | Completada: Tauri + React + TypeScript y FastAPI; tipos y builds web/nativo correctos, 6 pruebas de API correctas y arranque/conexión/error/recuperación/cierre verificados en Ubuntu. Detalle en [verificación K-001](docs/verification/K-001.md). Siguiente: K-002. |
 | 2026-10-29 | K-002 | Completada: SQLite con migraciones transaccionales y gestión de proyectos con borrado confirmado; 31 pruebas correctas, tipos y builds web/nativo correctos. CRUD y recuperación ante bloqueo probados en interfaz; persistencia verificada al reiniciar API y escritorio Ubuntu. README abreviado. Detalle en [verificación K-002](docs/verification/K-002.md). Siguiente: K-003. |
+| 2026-10-29 | K-003 (API) | Revertida por petición del usuario mediante `git revert d4a8a77`, commit `0cabaf4`. El árbol volvió exactamente al estado de K-002, conservando su historial y K-001. |
+| 2026-10-29 | Cambio de enfoque | Sin APIs de pago: Codex CLI, Claude Code y Antigravity solo mediante mecanismos oficiales compatibles con suscripciones. K-003 se rehace empezando por Codex; Antigravity tiene una incompatibilidad documentada en K-013. |
