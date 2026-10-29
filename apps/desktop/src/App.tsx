@@ -1,6 +1,5 @@
 import ConnectionStatus from "./ConnectionStatus";
 import Projects from "./Projects";
-import ModelConnections from "./ModelConnections";
 
 export default function App() {
   return (
@@ -12,7 +11,7 @@ export default function App() {
         </a>
         <span className="local-label">Tu espacio de trabajo local</span>
       </header>
-      <main id="inicio"><Projects /><ModelConnections /></main>
+      <main id="inicio"><Projects /></main>
       <ConnectionStatus />
       <footer>
         <span>Konsora · 0.1.0</span>
