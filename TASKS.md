@@ -17,13 +17,14 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Aceptación:** los proyectos permanecen después de cerrar y abrir Konsora; errores de base de datos se gestionan sin perder datos.
 - **Pruebas:** CRUD automatizado de proyectos y comprobación manual de persistencia.
 
-### [ ] K-003 — Conectar Codex CLI con la suscripción de ChatGPT
+### [x] K-003 — Conectar Codex CLI con la suscripción de ChatGPT
 - Definir interfaz común para conectores CLI y un simulador local; implementar primero Codex CLI mediante su modo oficial no interactivo.
 - Detectar instalación, versión compatible y sesión de ChatGPT mediante comandos oficiales. No leer archivos de autenticación ni solicitar claves. Rechazar login por API y eliminar claves del entorno del proceso hijo; sin fallback a APIs de pago.
 - Ejecutar solo prompts de texto, por stdin y sin shell, con herramientas desactivadas, sandbox de solo lectura, directorio aislado y límites de tiempo/salida. No permitir cambios en proyectos ni habilitar permisos amplios para solventar fallos.
 - Mostrar estado del conector, modelo predeterminado/configurado, carga, respuesta y errores controlados. El envío requiere confirmar el uso de cuota; no consumirla al consultar el estado.
 - **Aceptación:** prompt y respuesta reales con sesión de ChatGPT, sin facturación por API; simulador para verificar sin cuota. K-001 y K-002 siguen funcionando y no se exponen tokens, diagnósticos ni credenciales del CLI.
 - **Pruebas:** CLI falso/procesos reales locales para contratos, login por API rechazado, errores, límites, cancelación, salida segura y ausencia de herramientas; prueba real mínima con la sesión autorizada y verificación de UI.
+- **Verificación 2026-10-29:** 72 pruebas, tipos y builds web/nativo correctos. UI → backend → Codex CLI 0.165.0 → sesión de ChatGPT devuelve `KONSORA_CLI_OK`; cancelación y errores probados con CLI falso, panel y cierre nativos verificados. Sin APIs de pago. Detalle en [verificación K-003](docs/verification/K-003.md).
 
 ### [ ] K-004 — Conversaciones por proyecto
 - Crear conversaciones y mensajes persistentes asociados a un proyecto.
@@ -96,3 +97,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | 2026-10-29 | K-002 | Completada: SQLite con migraciones transaccionales y gestión de proyectos con borrado confirmado; 31 pruebas correctas, tipos y builds web/nativo correctos. CRUD y recuperación ante bloqueo probados en interfaz; persistencia verificada al reiniciar API y escritorio Ubuntu. README abreviado. Detalle en [verificación K-002](docs/verification/K-002.md). Siguiente: K-003. |
 | 2026-10-29 | K-003 (API) | Revertida por petición del usuario mediante `git revert d4a8a77`, commit `0cabaf4`. El árbol volvió exactamente al estado de K-002, conservando su historial y K-001. |
 | 2026-10-29 | Cambio de enfoque | Sin APIs de pago: Codex CLI, Claude Code y Antigravity solo mediante mecanismos oficiales compatibles con suscripciones. K-003 se rehace empezando por Codex; Antigravity tiene una incompatibilidad documentada en K-013. |
+| 2026-10-29 | K-003 (CLI) | Completada con Codex CLI y sesión de ChatGPT: prueba real satisfactoria desde la UI, simulador y 72 pruebas correctas, builds web/nativo y apertura/cierre de escritorio correctos. Credenciales gestionadas por el CLI, sin login por API ni ejecución de herramientas. Siguiente: K-004. |
