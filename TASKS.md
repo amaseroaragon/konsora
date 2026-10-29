@@ -29,9 +29,11 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 ### [x] K-004 — Conversaciones por proyecto
 - Crear conversaciones y mensajes persistentes asociados a un proyecto.
 - Interfaz para abrir chats, enviar mensajes, escoger modelo y consultar historial; incluir estados de carga y error.
+- Selector de modelo mediante desplegable alimentado por el catálogo oficial de Codex y estado compacto del conector, sin panel de prompts de prueba.
 - **Aceptación:** una conversación continúa tras reiniciar la aplicación y no mezcla mensajes de distintos proyectos.
 - **Pruebas:** aislamiento por proyecto, orden de mensajes, persistencia y prueba manual de UI.
 - **Verificación 2026-10-29:** 100 pruebas correctas, tipos y builds web/nativo correctos. Historial y modelo por chat persistentes y aislados; continuidad probada con Codex real tras reiniciar API e interfaz, y recuperación del historial al reiniciar escritorio Ubuntu. Detalle en [verificación K-004](docs/verification/K-004.md).
+- **Ajuste de interfaz 2026-10-29:** desplegable con catálogo real del CLI y conservación de modelos guardados; panel de prueba sustituido por estado compacto y comprobación sin inferencia. 111 pruebas correctas, builds web/nativo y UI verificados. Cuotas planificadas en K-008 y previsión de tareas en K-011.
 
 ### [ ] K-005 — Claude Code y deliberación independiente
 - Verificar el mecanismo oficial permitido para integrar Claude Code con suscripción, sus condiciones y autenticación. No asumir que el Agent SDK admite credenciales de suscripción. Si el proveedor no permite el uso desde Konsora, documentar el bloqueo sin APIs de pago.
@@ -57,8 +59,10 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - Añadir pruebas de integración del flujo proyecto → chat → debate → aprobación → tareas.
 - Corregir problemas de inicio, persistencia y gestión de errores; comprobar que no se registran secretos.
 - Documentar compatibilidad y límites de las suscripciones, requisitos de las herramientas oficiales y ausencia de sincronización de chats nativos; sin APIs de pago ni fallback de facturación.
-- **Aceptación:** existe un flujo completo reproducible en Ubuntu y un README que permite levantarlo desde cero.
-- **Pruebas:** suite automatizada y checklist de prueba manual.
+- Mostrar cuota restante de la cuenta y próximo reinicio de las ventanas que exponga oficialmente cada conector (p. ej., 5 horas y semanal). Presentarla en una zona común, con fecha de actualización; no atribuirla a un proyecto ni asumir ventanas idénticas para todas las cuentas/modelos.
+- Consultar cuotas solo mediante mecanismos oficiales del CLI, sin inferencias, lectura de credenciales ni endpoints privados. Para Codex, revisar [`account/rateLimits/read`](https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt). Mostrar «no disponible» si no se puede consultar, sin inventar porcentajes ni activar consumo adicional. Actualizar tras envíos y permitir refresco manual con frecuencia acotada.
+- **Aceptación:** existe un flujo completo reproducible en Ubuntu y un README que permite levantarlo desde cero; se distinguen cuota restante, reinicio, datos desactualizados y datos no disponibles, teniendo en cuenta uso de la cuenta fuera de Konsora.
+- **Pruebas:** suite automatizada y checklist de prueba manual; cuotas simuladas de varias ventanas/modelos, ventanas ausentes, errores, datos obsoletos y actualización sin consumir cuota de inferencia.
 
 ## Posterior al MVP (no implementar aún)
 
@@ -72,7 +76,10 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 
 ### [ ] K-011 — Agentes CLI y ejecución supervisada
 - Ampliar los conectores de consulta existentes con ejecución supervisada; definir permisos, límites y aprobaciones explícitas antes de escribir o ejecutar código.
-- **Aceptación:** una tarea aprobada puede delegarse y deja un historial verificable de operaciones y resultados.
+- Antes de lanzar una tarea, consultar las cuotas de K-008 y estimar el consumo según modelo, contexto, alcance y experiencia de tareas anteriores cuando exista. Comparar con un margen de reserva configurable y advertir cuando la cuota pueda ser insuficiente; permitir posponer, reducir alcance o escoger otro modelo con aprobación humana.
+- Presentar la previsión como estimación con incertidumbre, sin garantizar que la tarea terminará dentro de la cuota. La ventana de 5 horas no representa horas de ejecución disponibles. Si faltan datos o están obsoletos, mostrarlo explícitamente, sin suponer cuota ilimitada ni comprar créditos o cambiar a APIs de pago.
+- **Aceptación:** una tarea aprobada puede delegarse y deja un historial verificable de operaciones y resultados; antes de lanzarla se muestran cuota consultada, estimación, incertidumbre y reserva, y los avisos requieren una decisión explícita del usuario.
+- **Pruebas:** estimaciones simuladas por modelo/tarea, reserva configurable, cuota insuficiente/agotada, cambios de cuota entre planificación y lanzamiento, datos ausentes/obsoletos y ausencia de ejecución o gasto automático.
 
 ### [ ] K-012 — Empaquetado y distribución Ubuntu
 - Integrar inicio/parada segura del backend y procesos CLI con Tauri, autenticación local del servicio, respeto al almacenamiento de credenciales de cada CLI, instalador y pruebas en una instalación limpia.
@@ -100,3 +107,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | 2026-10-29 | Cambio de enfoque | Sin APIs de pago: Codex CLI, Claude Code y Antigravity solo mediante mecanismos oficiales compatibles con suscripciones. K-003 se rehace empezando por Codex; Antigravity tiene una incompatibilidad documentada en K-013. |
 | 2026-10-29 | K-003 (CLI) | Completada con Codex CLI y sesión de ChatGPT: prueba real satisfactoria desde la UI, simulador y 72 pruebas correctas, builds web/nativo y apertura/cierre de escritorio correctos. Credenciales gestionadas por el CLI, sin login por API ni ejecución de herramientas. Siguiente: K-004. |
 | 2026-10-29 | K-004 | Completada: chats por proyecto, mensajes ordenados y contexto persistente, modelo por conversación, errores y cancelación. 100 pruebas y builds correctos; continuidad real con ChatGPT después de reiniciar, aislamiento en UI e historial recuperado en escritorio Ubuntu. Sin dependencias nuevas ni APIs de pago. Siguiente: K-005. |
+| 2026-10-29 | Ajuste K-004 | Desplegable de modelos desde catálogo oficial y estado compacto sin panel de prueba. 111 pruebas, builds web/nativo y UI correctos; catálogo real verificado sin inferencias. Cuotas restantes y reinicios previstos para K-008; previsión de consumo y reserva antes de tareas para K-011. Siguiente: K-005. |

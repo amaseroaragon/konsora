@@ -12,8 +12,8 @@ export default function App() {
         </a>
         <span className="local-label">Tu espacio de trabajo local</span>
       </header>
-      <main id="inicio"><Projects /><CLIConnections /></main>
-      <ConnectionStatus />
+      <main id="inicio"><Projects /></main>
+      <div className="connection-statuses"><ConnectionStatus /><CLIConnections /></div>
       <footer>
         <span>Konsora · 0.1.0</span>
         <span>Hecho para trabajar desde tu escritorio.</span>

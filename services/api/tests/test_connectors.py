@@ -45,6 +45,25 @@ elif args == ["login", "status"]:
     else:
         print("Not logged in", file=sys.stderr)
         sys.exit(1)
+elif args[:2] == ["debug", "models"]:
+    capture.write_text(json.dumps({{"args": args, "api_env": "OPENAI_API_KEY" in os.environ, "cwd": os.getcwd()}}))
+    if mode == "models_invalid":
+        print("invalid {SECRET}")
+    elif mode == "models_failure":
+        print("failure {SECRET}", file=sys.stderr)
+        sys.exit(1)
+    elif mode == "models_timeout":
+        time.sleep(30)
+    elif mode == "models_overflow":
+        print("x" * (9 * 1024 * 1024))
+    else:
+        print(json.dumps({{"models": [
+            {{"slug": "account-model", "display_name": "Modelo de la cuenta", "visibility": "list", "base_instructions": "{SECRET}"}},
+            {{"slug": "account-model", "display_name": "Duplicado", "visibility": "list"}},
+            {{"slug": "hidden", "display_name": "Oculto", "visibility": "hide"}},
+            {{"slug": "--unsafe", "display_name": "Inválido", "visibility": "list"}},
+            {{"slug": "secret-name", "display_name": "{SECRET}", "visibility": "list"}},
+        ]}}))
 else:
     prompt = sys.stdin.read()
     with capture.open("a") as log:
@@ -175,6 +194,62 @@ def test_chat_model_override_is_per_call_and_keeps_isolation(fake_cli, database_
     with pytest.raises(ConnectorError) as error:
         asyncio.run(connector.send("Hola", model="--bad"))
     assert error.value.code == "model"
+
+
+def test_models_catalog_uses_official_command_without_inference_or_secrets(fake_cli, database_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", SECRET)
+    connector, capture = fake_cli()
+    with TestClient(create_app(database_path, connectors={"codex": connector, "mock": MockConnector()}), base_url=BASE_URL) as client:
+        response = client.get("/connectors/codex/models")
+        assert response.status_code == 200
+        assert response.json() == [{"id": "account-model", "name": "Modelo de la cuenta"}]
+        assert SECRET not in response.text
+        assert client.get("/connectors/mock/models").json() == []
+        assert client.get("/connectors/unknown/models").status_code == 404
+        assert client.get("/connectors/codex/models", headers={"Origin": "https://foreign.invalid"}).status_code == 403
+        assert client.get("/connectors/codex/models", headers={"Host": "foreign.invalid"}).status_code == 403
+    captured = json.loads(capture.read_text())
+    assert captured["args"][:2] == ["debug", "models"]
+    assert 'forced_login_method="chatgpt"' in captured["args"]
+    assert 'model_provider="openai"' in captured["args"]
+    assert captured["api_env"] is False
+    assert not Path(captured["cwd"]).exists()
+    assert not database_path.exists()
+
+
+@pytest.mark.parametrize("login", ["api", "none"])
+def test_catalog_rejects_non_chatgpt_sessions_before_query(fake_cli, database_path, login):
+    connector, capture = fake_cli(login=login)
+    with TestClient(create_app(database_path, connectors={"codex": connector}), base_url=BASE_URL) as client:
+        assert client.get("/connectors/codex/models").status_code == 503
+    assert not capture.exists()
+
+
+@pytest.mark.parametrize("mode,status", [("models_invalid", 502), ("models_failure", 502), ("models_timeout", 503), ("models_overflow", 503)])
+def test_catalog_errors_are_bounded_and_controlled(fake_cli, database_path, monkeypatch, mode, status, caplog):
+    from konsora_api import connectors as module
+    original = module.run_cli
+
+    async def short_timeout(args, **kwargs):
+        if args[1:3] == ["debug", "models"]:
+            kwargs["timeout"] = 0.1 if mode == "models_timeout" else 5
+        return await original(args, **kwargs)
+
+    monkeypatch.setattr(module, "run_cli", short_timeout)
+    connector, _ = fake_cli(mode=mode)
+    with TestClient(create_app(database_path, connectors={"codex": connector}), base_url=BASE_URL) as client:
+        response = client.get("/connectors/codex/models")
+        assert response.status_code == status
+        assert response.json()["code"] == "models"
+        assert SECRET not in response.text + caplog.text
+    assert list(connector._workspace_root.iterdir()) == []
+
+
+@pytest.mark.parametrize("catalog", [None, [], {"models": "invalid"}, {"models": [None]}])
+def test_catalog_schema_rejected_without_raw_output(catalog):
+    with pytest.raises(ConnectorError) as error:
+        CodexCLIConnector.parse_models(json.dumps(catalog).encode())
+    assert error.value.code == "models"
 
 
 @pytest.mark.parametrize("mode,status,code", [

@@ -31,6 +31,11 @@ class PromptResult(BaseModel):
     text: str
 
 
+class ConnectorModel(BaseModel):
+    id: str
+    name: str
+
+
 class ConnectorError(Exception):
     def __init__(self, status_code: int, code: str, message: str):
         super().__init__(message)
@@ -41,10 +46,15 @@ class ConnectorError(Exception):
 class AgentConnector(Protocol):
     async def info(self) -> ConnectorInfo: ...
 
+    async def models(self) -> list[ConnectorModel]: ...
+
     async def send(self, prompt: str, *, model: str | None = None) -> PromptResult: ...
 
 
 class MockConnector:
+    async def models(self) -> list[ConnectorModel]:
+        return []
+
     async def info(self) -> ConnectorInfo:
         return ConnectorInfo(
             id="mock", name="Simulado", status="simulated", model="Simulado local",
@@ -158,6 +168,54 @@ class CodexCLIConnector:
         if selected_model:
             args.extend(["--model", selected_model])
         return [*args, "-"]
+
+    async def models(self) -> list[ConnectorModel]:
+        info = await self.info()
+        if info.status != "ready":
+            raise ConnectorError(503, info.status, info.detail)
+        binary = self.executable()
+        if binary is None:
+            raise ConnectorError(503, "missing", "Codex CLI ya no está disponible.")
+        try:
+            self._workspace_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+            with TemporaryDirectory(prefix="models-", dir=self._workspace_root) as directory:
+                workspace = Path(directory)
+                (workspace / ".git").mkdir()
+                # debug models no admite --ignore-user-config en 0.165.x.
+                # Solo consulta el catálogo: sin turnos, prompts ni herramientas.
+                result = await run_cli([
+                    binary, "debug", "models", "-c", 'forced_login_method="chatgpt"',
+                    "-c", 'model_provider="openai"', "--disable", "hooks", "--disable", "plugins",
+                ], cwd=workspace, timeout=15, output_limit=8 * 1024 * 1024)
+        except (OSError, ProcessTimeout, OutputLimit):
+            raise ConnectorError(503, "models", "No se pudo cargar el catálogo de modelos. Puedes reintentar o usar el predeterminado.") from None
+        if result.returncode:
+            raise ConnectorError(502, "models", "Codex no pudo consultar su catálogo de modelos. Actualiza el estado y reintenta.")
+        return self.parse_models(result.stdout)
+
+    @staticmethod
+    def parse_models(output: bytes) -> list[ConnectorModel]:
+        try:
+            catalog = json.loads(output)
+            if not isinstance(catalog, dict) or not isinstance(catalog.get("models"), list):
+                raise ValueError()
+            models: dict[str, ConnectorModel] = {}
+            for item in catalog["models"]:
+                if not isinstance(item, dict):
+                    raise ValueError()
+                if item.get("visibility") != "list":
+                    continue
+                identifier, name = item.get("slug"), item.get("display_name")
+                if not isinstance(identifier, str) or not valid_model(identifier):
+                    continue
+                if not isinstance(name, str) or not name.strip() or len(name) > 120:
+                    continue
+                if safe_text(name) != name:
+                    continue
+                models.setdefault(identifier, ConnectorModel(id=identifier, name=name))
+            return list(models.values())
+        except (ValueError, UnicodeDecodeError):
+            raise ConnectorError(502, "models", "El catálogo de Codex no tiene el formato esperado. Puedes usar el modelo predeterminado.") from None
 
     async def send(self, prompt: str, *, model: str | None = None) -> PromptResult:
         if model is not None and not valid_model(model):

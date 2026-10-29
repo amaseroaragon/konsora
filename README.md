@@ -50,7 +50,7 @@ Los proyectos, chats y mensajes se guardan en `.local/konsora.sqlite3`. Las migr
 
 1. Crea o abre un proyecto. En «Conversaciones», escribe un nombre y pulsa **+ Nuevo chat**.
 2. Envía un mensaje al **Simulado** para probar sin conexión ni cuota.
-3. Para conversar con ChatGPT, elige **Codex CLI**. En «Modelo de Codex» puedes escribir un identificador disponible para tu cuenta; vacío usa `KONSORA_CODEX_MODEL` o el predeterminado del CLI. No se presupone que todos los modelos estén disponibles: un rechazo del CLI se muestra como error.
+3. Para conversar con ChatGPT, elige **Codex CLI** y selecciona un modelo en el desplegable. La primera opción usa `KONSORA_CODEX_MODEL` o el predeterminado del CLI. El catálogo procede de Codex y no garantiza acceso a todos sus modelos: un rechazo del CLI se muestra como error. Un modelo guardado anteriormente se conserva aunque ya no figure en el catálogo.
 4. Confirma el envío del mensaje y del historial, y pulsa **Enviar a Codex**. Cada envío real requiere una confirmación nueva; no hay reintentos automáticos.
 5. Tras reiniciar, abre el mismo proyecto y chat para consultar el historial y continuar. El conector y el modelo elegidos se guardan al completar un turno. Cada respuesta conserva la identidad del conector/modelo usado, aunque cambies el siguiente turno.
 
@@ -71,15 +71,19 @@ codex login status
 Esta integración está validada con **Codex CLI 0.165.x**; otras versiones se rechazan hasta verificar sus opciones de aislamiento. El último comando debe indicar `Logged in using ChatGPT`. Konsora consulta ese estado sin leer archivos de autenticación. Si detecta login por API, deshabilita el envío: cambia la sesión mediante el CLI oficial, sin introducir claves en Konsora.
 
 1. Inicia API e interfaz con los comandos anteriores.
-2. En «Consulta con tu suscripción», prueba **Simulado** para verificar sin consumir cuota.
-3. Elige **Codex CLI** y pulsa **Actualizar conectores** si acabas de iniciar sesión.
-4. Escribe el prompt, confirma el uso de cuota y pulsa **Consultar Codex con ChatGPT**. La confirmación se solicita en cada envío.
+2. El estado compacto al pie de la aplicación indica si Codex está conectado. **Comprobar Codex** consulta instalación y login, sin enviar prompts ni consumir cuota de inferencia.
+3. Abre un proyecto/chat y elige **Codex CLI**. Pulsa **Actualizar historial y conectores** si acabas de iniciar sesión.
+4. Escoge el modelo, escribe el mensaje, confirma el uso de cuota y pulsa **Enviar a Codex**. La confirmación se solicita en cada envío. Para probar sin cuota, elige **Simulado** en el chat.
 
 El modelo predeterminado lo elige Codex. Para configurar un valor por defecto en Konsora, exporta `KONSORA_CODEX_MODEL` en la terminal del backend y reinicia el servicio; cada chat puede escoger otro modelo para sus envíos. Se utiliza la opción oficial [`--model` de Codex CLI](https://learn.chatgpt.com/docs/models). Si `codex` no está en su `PATH`, configura `KONSORA_CODEX_BIN` con la ruta del ejecutable oficial. No se admite configurar comandos, flags o URLs desde la UI.
 
-El panel «Consulta con tu suscripción» sigue disponible como prueba puntual sin guardar. Los chats por proyecto sí persisten. Ambos usan consultas de texto: sin archivos de proyectos, herramientas, comandos, hooks, plugins ni subagentes. Usan un directorio temporal bajo `.local/codex`, sandbox de solo lectura, entorno sin claves de API y configuración aislada por invocación; el CLI conserva y renueva su propia sesión. La configuración personal de modelos/plugins no se carga en estas consultas. El login y los tokens nunca se copian al repositorio ni se devuelven a la UI.
+Los chats por proyecto usan consultas de texto: sin archivos de proyectos, herramientas, comandos, hooks, plugins ni subagentes. Usan un directorio temporal bajo `.local/codex`, sandbox de solo lectura, entorno sin claves de API y configuración aislada por invocación; el CLI conserva y renueva su propia sesión. La configuración personal de modelos/plugins no se carga en las inferencias. El login y los tokens nunca se copian al repositorio ni se devuelven a la UI.
 
-Hay un límite de 120 segundos para la consulta y 512 KiB por flujo de salida. **Cancelar consulta** detiene el proceso local y sus descendientes; no devuelve la cuota ya consumida. No hay reenvíos automáticos desde Konsora. Las respuestas se muestran como texto y los fallos del CLI se convierten en mensajes controlados, sin mostrar sus diagnósticos.
+El desplegable consulta [`codex debug models`](https://learn.chatgpt.com/docs/cli/reference#codex-debug-models) sin lanzar turnos. Solo muestra nombres e identificadores visibles del catálogo, sin listas fijas; consultar el catálogo no confirma el acceso a un modelo. Si falla, permite reintentar y conserva el modelo del chat y la opción predeterminada. Este comando experimental se valida con la misma versión 0.165.x; utiliza su configuración habitual con proveedor oficial y login ChatGPT forzados, sin hooks/plugins, en un directorio aislado. Se acota a 15 segundos y 8 MiB por flujo para sus metadatos; el límite de las respuestas de chat sigue siendo 512 KiB.
+
+Hay un límite de 120 segundos para la consulta y 512 KiB por flujo de salida. **Cancelar mensaje** detiene el proceso local y sus descendientes; no devuelve la cuota ya consumida. No hay reenvíos automáticos desde Konsora. Las respuestas se muestran como texto y los fallos del CLI se convierten en mensajes controlados, sin mostrar sus diagnósticos.
+
+La visualización de cuota restante por ventana y sus reinicios está planificada para **K-008**. La previsión de si una tarea cabe en esa cuota, con margen de reserva y estimaciones por modelo, queda para **K-011**. Todavía no están implementadas; las previsiones no se presentarán como garantías de finalización.
 
 Claude Code queda para K-005, previa comprobación de sus condiciones de integración. Antigravity sigue condicionado a K-013: su [FAQ oficial](https://antigravity.google/docs/faq/) no permite envolver su CLI en aplicaciones de terceros con planes de consumo. No se sustituye por una API de pago. La ejecución supervisada corresponde a K-011; la autenticación del servicio local y el empaquetado se completarán antes de distribuir en K-012.
 

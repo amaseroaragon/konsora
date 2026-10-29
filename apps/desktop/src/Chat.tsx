@@ -4,6 +4,7 @@ import { listConnectors } from "./connectors";
 import type { ConnectorInfo } from "./connectors";
 import { openConversation, sendMessage } from "./conversations";
 import type { Conversation, ConversationHistory } from "./conversations";
+import ModelSelect from "./ModelSelect";
 
 const dateFormat = new Intl.DateTimeFormat("es", { dateStyle: "short", timeStyle: "short" });
 function errorMessage(cause: unknown) {
@@ -108,11 +109,9 @@ export default function Chat({ projectId, chatId, onSaved }: {
                   {connectors.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
-              {selected !== "mock" ? <div className="name-field"><label htmlFor="chat-model">Modelo de Codex</label>
-                <input id="chat-model" aria-describedby="chat-model-hint" value={model} maxLength={120} pattern="[A-Za-z0-9][A-Za-z0-9._\-]*"
-                  placeholder={connector?.model} onChange={(event) => { setModel(event.target.value); setConfirmed(false); }} />
-                <span id="chat-model-hint" className="field-hint">Vacío: {connector?.model}. Escribe un identificador disponible en tu cuenta.</span>
-              </div> : <div className="cli-model"><span>Modelo</span><strong>Simulado local</strong></div>}
+              {selected !== "mock" ? <ModelSelect key={selected} connector={connector} value={model} disabled={pending || loading}
+                revision={revision} onChange={(value) => { setModel(value); setConfirmed(false); }} />
+                : <div className="cli-model"><span>Modelo</span><strong>Simulado local</strong></div>}
             </div>
             <p className="cli-detail">{connector?.detail}</p>
             <label className="name-field">Mensaje

@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from konsora_api.connectors import AgentConnector, ConnectorInfo, PromptResult
+from konsora_api.connectors import AgentConnector, ConnectorInfo, ConnectorModel, PromptResult
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 LOCAL_ORIGINS = [
@@ -66,6 +66,14 @@ async def send_while_connected(
 @router.get("", response_model=list[ConnectorInfo], dependencies=[Depends(local_request)])
 async def list_connectors(connectors: Connectors) -> list[ConnectorInfo]:
     return list(await asyncio.gather(*(connector.info() for connector in connectors.values())))
+
+
+@router.get("/{connector_id}/models", response_model=list[ConnectorModel], dependencies=[Depends(local_request)])
+async def list_models(connector_id: str, connectors: Connectors) -> list[ConnectorModel]:
+    connector = connectors.get(connector_id)
+    if connector is None:
+        raise HTTPException(404, "El conector no está disponible.")
+    return await connector.models()
 
 
 @router.post("/{connector_id}/prompt", response_model=PromptResult, dependencies=[Depends(local_request)])
