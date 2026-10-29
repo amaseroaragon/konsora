@@ -41,7 +41,7 @@ class ConnectorError(Exception):
 class AgentConnector(Protocol):
     async def info(self) -> ConnectorInfo: ...
 
-    async def send(self, prompt: str) -> PromptResult: ...
+    async def send(self, prompt: str, *, model: str | None = None) -> PromptResult: ...
 
 
 class MockConnector:
@@ -51,8 +51,19 @@ class MockConnector:
             detail="Sin internet, sin iniciar un CLI y sin consumir cuota.",
         )
 
-    async def send(self, prompt: str) -> PromptResult:
+    async def send(self, prompt: str, *, model: str | None = None) -> PromptResult:
+        # El simulador muestra el último mensaje, sin repetir todo el historial.
+        try:
+            context = json.loads(prompt)
+            if isinstance(context, dict) and context.get("konsora_conversation") == 1:
+                prompt = context["messages"][-1]["content"]
+        except (ValueError, KeyError, IndexError, TypeError):
+            pass
         return PromptResult(connector="mock", model="Simulado local", text=f"Respuesta simulada: {prompt}")
+
+
+def valid_model(model: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}", model)) and safe_text(model) == model
 
 
 def safe_text(text: str) -> str:
@@ -100,10 +111,7 @@ class CodexCLIConnector:
         binary = self.executable()
         if binary is None:
             return self.status_info("missing", "No se encuentra Codex CLI. Instálalo desde la documentación oficial y reinicia el servicio local.")
-        if self._model and (
-            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}", self._model)
-            or safe_text(self._model) != self._model
-        ):
+        if self._model and not valid_model(self._model):
             return self.status_info("unsupported", "El modelo configurado no es válido. Revisa KONSORA_CODEX_MODEL en el backend.")
         try:
             version = await run_cli([binary, "--version"], cwd=ROOT, timeout=8)
@@ -120,7 +128,7 @@ class CodexCLIConnector:
             return self.status_info("api_login", "La sesión usa API. Konsora solo permite ChatGPT: cambia el login mediante codex login en tu terminal.")
         return self.status_info("login_required", "Inicia sesión con ChatGPT ejecutando codex login en tu terminal; después actualiza el estado.")
 
-    def command(self, binary: str, workspace: Path) -> list[str]:
+    def command(self, binary: str, workspace: Path, model: str | None = None) -> list[str]:
         args = [
             binary, "exec", "--ignore-user-config", "--ephemeral",
             "--json", "--color", "never", "--sandbox", "read-only",
@@ -146,11 +154,14 @@ class CodexCLIConnector:
             "unbounded_connection_retries",
         ):
             args.extend(["--disable", feature])
-        if self._model:
-            args.extend(["--model", self._model])
+        selected_model = model if model is not None else self._model
+        if selected_model:
+            args.extend(["--model", selected_model])
         return [*args, "-"]
 
-    async def send(self, prompt: str) -> PromptResult:
+    async def send(self, prompt: str, *, model: str | None = None) -> PromptResult:
+        if model is not None and not valid_model(model):
+            raise ConnectorError(422, "model", "El identificador del modelo no es válido.")
         if self._busy.locked():
             raise ConnectorError(409, "busy", "Codex ya está atendiendo una consulta. Espera a que termine.")
         async with self._busy:
@@ -167,7 +178,7 @@ class CodexCLIConnector:
                     # Evita heredar la configuración de un proyecto padre.
                     (workspace / ".git").mkdir()
                     result = await run_cli(
-                        self.command(binary, workspace), cwd=workspace,
+                        self.command(binary, workspace, model), cwd=workspace,
                         input_bytes=prompt.encode("utf-8"), timeout=self._timeout,
                     )
             except ProcessTimeout:
@@ -178,7 +189,8 @@ class CodexCLIConnector:
                 raise ConnectorError(503, "process", "No se pudo iniciar Codex o preparar su directorio aislado.") from None
             if result.returncode:
                 raise cli_failure((result.stdout + result.stderr).decode("utf-8", errors="replace"))
-            return self.parse_output(result.stdout)
+            parsed = self.parse_output(result.stdout)
+            return parsed.model_copy(update={"model": model}) if model is not None else parsed
 
     def parse_output(self, output: bytes) -> PromptResult:
         texts: list[str] = []

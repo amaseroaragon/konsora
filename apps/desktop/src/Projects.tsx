@@ -3,6 +3,7 @@ import { createProject, deleteProject, listProjects, openProject, renameProject 
 import type { Project } from "./api";
 import ProjectDialog from "./ProjectDialog";
 import type { ProjectDialogState } from "./ProjectDialog";
+import Conversations from "./Conversations";
 
 const dateFormat = new Intl.DateTimeFormat("es", { dateStyle: "medium", timeStyle: "short" });
 function formatDate(value: string) { return dateFormat.format(new Date(value)); }
@@ -116,8 +117,8 @@ export default function Projects() {
               <div><dt>Creado</dt><dd>{formatDate(selected.created_at)}</dd></div>
               <div><dt>Última modificación</dt><dd>{formatDate(selected.updated_at)}</dd></div>
             </dl>
-            <p>Tu proyecto está listo. Aquí reunirás su trabajo cuando estén disponibles las conversaciones y los modelos.</p>
           </div>
+          <Conversations key={selected.id} projectId={selected.id} />
         </section>
       ) : (
         <section aria-labelledby="projects-title">

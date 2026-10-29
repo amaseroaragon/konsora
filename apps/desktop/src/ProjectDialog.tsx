@@ -35,7 +35,7 @@ export default function ProjectDialog({ dialog, pending, error, onCancel, onConf
         {deleting ? (
           <p id="delete-description">
             ¿Quieres eliminar <strong>{dialog.project.name}</strong>?
-            {" "}El proyecto se borrará de este equipo. Esta acción no se puede deshacer.
+            {" "}El proyecto, sus chats y sus mensajes se borrarán de este equipo. Esta acción no se puede deshacer.
           </p>
         ) : (
           <label className="name-field">

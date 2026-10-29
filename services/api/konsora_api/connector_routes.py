@@ -39,7 +39,9 @@ def get_connectors(request: Request) -> dict[str, AgentConnector]:
 Connectors = Annotated[dict[str, AgentConnector], Depends(get_connectors)]
 
 
-async def send_while_connected(connector: AgentConnector, prompt: str, request: Request) -> PromptResult:
+async def send_while_connected(
+    connector: AgentConnector, prompt: str, request: Request, *, model: str | None = None,
+) -> PromptResult:
     async def wait_for_disconnect() -> None:
         # El cuerpo ya lo ha leído FastAPI. Esperar el evento ASGI evita sondeos
         # y permite cancelar la espera sin los CancelScope de is_disconnected().
@@ -48,7 +50,7 @@ async def send_while_connected(connector: AgentConnector, prompt: str, request: 
             if message["type"] == "http.disconnect":
                 return
 
-    sending = asyncio.create_task(connector.send(prompt))
+    sending = asyncio.create_task(connector.send(prompt, model=model) if model is not None else connector.send(prompt))
     disconnect = asyncio.create_task(wait_for_disconnect())
     try:
         done, _ = await asyncio.wait({sending, disconnect}, return_when=asyncio.FIRST_COMPLETED)

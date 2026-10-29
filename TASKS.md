@@ -26,11 +26,12 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Pruebas:** CLI falso/procesos reales locales para contratos, login por API rechazado, errores, límites, cancelación, salida segura y ausencia de herramientas; prueba real mínima con la sesión autorizada y verificación de UI.
 - **Verificación 2026-10-29:** 72 pruebas, tipos y builds web/nativo correctos. UI → backend → Codex CLI 0.165.0 → sesión de ChatGPT devuelve `KONSORA_CLI_OK`; cancelación y errores probados con CLI falso, panel y cierre nativos verificados. Sin APIs de pago. Detalle en [verificación K-003](docs/verification/K-003.md).
 
-### [ ] K-004 — Conversaciones por proyecto
+### [x] K-004 — Conversaciones por proyecto
 - Crear conversaciones y mensajes persistentes asociados a un proyecto.
 - Interfaz para abrir chats, enviar mensajes, escoger modelo y consultar historial; incluir estados de carga y error.
 - **Aceptación:** una conversación continúa tras reiniciar la aplicación y no mezcla mensajes de distintos proyectos.
 - **Pruebas:** aislamiento por proyecto, orden de mensajes, persistencia y prueba manual de UI.
+- **Verificación 2026-10-29:** 100 pruebas correctas, tipos y builds web/nativo correctos. Historial y modelo por chat persistentes y aislados; continuidad probada con Codex real tras reiniciar API e interfaz, y recuperación del historial al reiniciar escritorio Ubuntu. Detalle en [verificación K-004](docs/verification/K-004.md).
 
 ### [ ] K-005 — Claude Code y deliberación independiente
 - Verificar el mecanismo oficial permitido para integrar Claude Code con suscripción, sus condiciones y autenticación. No asumir que el Agent SDK admite credenciales de suscripción. Si el proveedor no permite el uso desde Konsora, documentar el bloqueo sin APIs de pago.
@@ -98,3 +99,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | 2026-10-29 | K-003 (API) | Revertida por petición del usuario mediante `git revert d4a8a77`, commit `0cabaf4`. El árbol volvió exactamente al estado de K-002, conservando su historial y K-001. |
 | 2026-10-29 | Cambio de enfoque | Sin APIs de pago: Codex CLI, Claude Code y Antigravity solo mediante mecanismos oficiales compatibles con suscripciones. K-003 se rehace empezando por Codex; Antigravity tiene una incompatibilidad documentada en K-013. |
 | 2026-10-29 | K-003 (CLI) | Completada con Codex CLI y sesión de ChatGPT: prueba real satisfactoria desde la UI, simulador y 72 pruebas correctas, builds web/nativo y apertura/cierre de escritorio correctos. Credenciales gestionadas por el CLI, sin login por API ni ejecución de herramientas. Siguiente: K-004. |
+| 2026-10-29 | K-004 | Completada: chats por proyecto, mensajes ordenados y contexto persistente, modelo por conversación, errores y cancelación. 100 pruebas y builds correctos; continuidad real con ChatGPT después de reiniciar, aislamiento en UI e historial recuperado en escritorio Ubuntu. Sin dependencias nuevas ni APIs de pago. Siguiente: K-005. |

@@ -16,6 +16,29 @@ MIGRATIONS = (
             updated_at TEXT NOT NULL
         )""",
     ),
+    (
+        """CREATE TABLE conversations (
+            id TEXT PRIMARY KEY NOT NULL,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            title TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 120),
+            connector TEXT NOT NULL,
+            model TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX conversations_project ON conversations(project_id, created_at, id)",
+        """CREATE TABLE messages (
+            id TEXT PRIMARY KEY NOT NULL,
+            conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL CHECK (position > 0),
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            connector TEXT NOT NULL,
+            model TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(conversation_id, position)
+        )""",
+    ),
 )
 
 

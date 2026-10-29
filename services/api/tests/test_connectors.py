@@ -154,6 +154,29 @@ def test_model_is_backend_configuration_only(fake_cli) -> None:
     assert SECRET not in info.model_dump_json()
 
 
+def test_chat_model_override_is_per_call_and_keeps_isolation(fake_cli, database_path: Path) -> None:
+    connector, capture = fake_cli()
+    connector._model = "backend-default"
+    with TestClient(create_app(database_path, connectors={"codex": connector}), base_url=BASE_URL) as client:
+        project = client.post("/projects", json={"name": "Proyecto"}).json()
+        base = f"/projects/{project['id']}/conversations"
+        chat = client.post(base, json={"title": "Chat", "connector": "codex", "model": "account-model"}).json()
+        response = client.post(f"{base}/{chat['id']}/messages", json={
+            "content": "Hola", "connector": "codex", "model": "account-model", "confirm_subscription_use": True,
+        })
+        assert response.status_code == 200
+        assert response.json()["messages"][1]["model"] == "account-model"
+    args = json.loads(capture.read_text())["args"]
+    assert args[args.index("--model") + 1] == "account-model"
+    assert args[args.index("--sandbox") + 1] == "read-only"
+    assert "--ignore-user-config" in args and "--ephemeral" in args
+    assert connector.model == "backend-default"
+    assert asyncio.run(connector.send("Siguiente")).model == "backend-default"
+    with pytest.raises(ConnectorError) as error:
+        asyncio.run(connector.send("Hola", model="--bad"))
+    assert error.value.code == "model"
+
+
 @pytest.mark.parametrize("mode,status,code", [
     ("authentication", 401, "authentication"), ("quota", 429, "quota"),
     ("network", 502, "network"), ("failure", 502, "cli_failed"),

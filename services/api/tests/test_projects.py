@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from konsora_api.database import Database, StorageError, default_database_path
+from konsora_api.database import MIGRATIONS, Database, StorageError, default_database_path
 from konsora_api.main import create_app
 
 
@@ -149,9 +149,9 @@ def test_migration_is_idempotent_and_transactional(
     project = client.post("/projects", json={"name": "Conservar en la migración"}).json()
     database = Database(database_path)
     with database.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
     with database.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
 
     # La segunda sentencia falla después de cambiar el esquema: ambas se revierten.
     from konsora_api import database as database_module
@@ -165,7 +165,7 @@ def test_migration_is_idempotent_and_transactional(
         with database.connect():
             pass
     with sqlite3.connect(database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
         assert connection.execute("SELECT name FROM sqlite_master WHERE name = 'pending'").fetchone() is None
         assert connection.execute("SELECT id, name FROM projects").fetchone() == (
             project["id"], project["name"]
