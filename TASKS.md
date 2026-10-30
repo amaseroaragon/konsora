@@ -76,13 +76,14 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - **Pruebas:** selección, filtros, persistencia y accesibilidad; UI con al menos dos proyectos y tareas bloqueadas; tipos y build web/nativo. Cambiar de proyecto no pierde las tarjetas guardadas.
 - **Verificación:** [K-017](docs/verification/K-017.md), 2026-10-30: tres pruebas focalizadas, recorrido UI con dos proyectos, filtros/selección, revisión/persistencia/errores y tipos/build web/nativo correctos. Ejecución deshabilitada.
 
-### [ ] K-017A — Contrato portable de tareas y resultados en el proyecto
+### [x] K-017A — Contrato portable de tareas y resultados en el proyecto
 - Definir y documentar el esquema versionado de `.konsora/tasks.json`: IDs estables, título, descripción, criterios, orden, estado y dependencias locales. Elegir una única representación; no interpretar Markdown arbitrario ni el `TASKS.md` de desarrollo como órdenes ejecutables.
 - Definir archivos portables de actividad, revisiones e intentos/resultados bajo `.konsora/`, con referencias a IDs e instantáneas/huellas del contenido utilizado. Los IDs no dependen del registro SQLite, de rutas absolutas ni de la instalación de Konsora.
 - Publicar esquema y ejemplo mínimo que cualquier IA pueda generar sin la aplicación. Conservar los campos y garantías útiles de K-016; validar duplicados, ciclos, autodependencias, referencias inexistentes, tamaño, esquema no compatible y JSON incompleto/inválido.
 - Separar estado declarado en archivos de aceptación humana y autorización de ejecución. Un resultado marcado hecho externamente no desbloquea trabajo automáticamente; especificar cómo se verifica la revisión y qué se invalida al cambiar el contenido o trasladar el proyecto, sin dar por fiables los archivos solo por contener un campo «aprobado».
 - **Aceptación:** tareas y resultados se entienden y validan desde una carpeta de ejemplo sin SQLite ni sesión de proveedor; formato y reglas permiten crearlos con una IA externa. Ningún archivo por sí solo inicia trabajo o fabrica una aprobación.
 - **Pruebas:** ejemplos válidos, formato/esquema inválidos, duplicados, dependencias/ciclos y cambio de contenido sin incrementar versión. Documentar el contrato antes de sustituir la persistencia.
+- **Verificación:** [formato v1](docs/formato-tareas.md), JSON Schema y ejemplo sin SQLite; 12 pruebas focalizadas correctas. El adaptador de almacenamiento y la comprobación de firmas se conectan en K-017B.
 
 ### [ ] K-017B — Usar los archivos como fuente del tablero y migrar sin pérdidas
 - Sustituir el almacenamiento autoritativo de tareas de K-016 por lectura/escritura del contrato K-017A dentro de la carpeta aprobada. El tablero y el detalle reutilizan los componentes actuales; SQLite solo podrá indexar/cachar datos reconstruibles.
