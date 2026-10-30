@@ -33,6 +33,13 @@ def cli_environment() -> dict[str, str]:
     return {name: value for name, value in os.environ.items() if name in names}
 
 
+async def discard_remaining(stream: asyncio.StreamReader) -> None:
+    # Tras matar el grupo, las tuberías aún pueden contener datos. Hay que
+    # vaciarlas para recibir EOF y liberar el transporte, sin retener la salida.
+    while await stream.read(8192):
+        pass
+
+
 async def run_cli(
     args: list[str], *, cwd: Path, input_bytes: bytes = b"", timeout: float = 120,
     output_limit: int = 512 * 1024,
@@ -50,7 +57,7 @@ async def run_cli(
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        await process.wait()
+        await asyncio.gather(discard_remaining(process.stdout), discard_remaining(process.stderr), process.wait())
         raise
 
     async def read(stream: asyncio.StreamReader) -> bytes:
@@ -93,4 +100,4 @@ async def run_cli(
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        await process.wait()
+        await asyncio.gather(discard_remaining(process.stdout), discard_remaining(process.stderr), process.wait())
