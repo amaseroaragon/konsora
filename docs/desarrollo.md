@@ -10,6 +10,7 @@ Aplicación de escritorio local-first para organizar el trabajo con modelos y ag
 - Eliminar proyectos con confirmación explícita.
 - Guardar los proyectos en SQLite y recuperarlos tras reiniciar.
 - Asociar, comprobar, cambiar o desvincular una carpeta local por proyecto, con selector nativo Ubuntu.
+- Gestionar tareas, dependencias, actividad e historial de intentos mediante API; el tablero llega en K-017.
 - Crear y abrir chats por proyecto, conservar mensajes ordenados y continuar con su historial tras reiniciar.
 - Elegir conector y modelo en cada conversación, con estados de carga, error y cancelación.
 - Comprobar la conexión con el servicio local y reintentar ante errores.
@@ -60,6 +61,29 @@ La migración SQLite v4 añade `workspace_path` opcional; todos los proyectos an
 Seleccionar una carpeta no ejecuta agentes ni concede autorización para ejecutar tareas; el aislamiento y la revalidación inmediatamente antes de ejecutar corresponden a K-019–K-021. No se crean archivos de sondeo ni se recorre el contenido para validar la carpeta.
 
 Se añade únicamente el [plugin oficial de diálogos de Tauri](https://v2.tauri.app/plugin/dialog/), en JavaScript y Rust, para el selector nativo. La ventana principal recibe `dialog:allow-open`, sin permisos de comandos de archivos ni shell. Evidencia: [K-015](verification/K-015.md).
+
+## Tareas y dependencias (API)
+
+La migración SQLite v5 añade tareas, dependencias, intentos y actividad sin cambiar las migraciones anteriores ni reutilizar debates históricos. El contrato TypeScript está en `apps/desktop/src/tasks.ts`; la UI de tareas se implementa en K-017.
+
+Todas las rutas siguientes dependen de `/projects/{project_id}/tasks`:
+
+| Método | Ruta | Operación |
+| --- | --- | --- |
+| GET | raíz | Listar por orden, fecha e ID; incluir dependencias, bloqueos y último error de intento. |
+| POST | raíz | Crear con `title`, `description`, `acceptance_criteria`, `sort_order` y `dependencies`; solo estado inicial `pending` o `proposal`. |
+| GET | `/{task_id}` | Detalle con tarea, intentos y actividad ordenados. |
+| PATCH | `/{task_id}` | Editar campos concretos con `expected_version`; los omitidos se conservan y no se admite `null`. |
+| POST | `/{task_id}/status` | Cambiar estado con `status`, `expected_version` y comentario opcional. |
+| DELETE | `/{task_id}?expected_version=N&confirm=true` | Borrar con confirmación; rechaza tareas activas o con otras tareas dependientes. |
+
+Título: 1–120 caracteres. Descripción y criterios: texto de hasta 16000 cada uno. Orden: entero no negativo; por defecto se añade al final. Dependencias: hasta 200 UUID únicos del mismo proyecto, sin autodependencias ni ciclos. Los cambios y su actividad se confirman juntos; una versión obsoleta devuelve 409. Los errores de validación no reflejan el cuerpo enviado.
+
+Transiciones manuales: `proposal → pending → in_progress → in_review → done`; desde en curso, en revisión o hecha se puede volver a pendiente. Una tarea bloqueada no puede avanzar a en curso, revisión o hecha. Solo aceptar como hecha la dependencia desbloquea las sucesoras; un proceso exitoso o una tarjeta en revisión no bastan. Cambiar título, descripción, criterios o dependencias de una tarea hecha/en revisión la devuelve a pendiente. Para editar el alcance de una tarea en curso, devolverla primero a pendiente. Mover una tarjeta no crea intentos ni inicia agentes.
+
+Los intentos tienen estado independiente (`running`, `succeeded`, `failed`, `cancelled`, `interrupted`), versión e instantánea de la tarea, conector/modelo, fechas, resultado y error. Su registro es interno y no tiene rutas HTTP de inicio/finalización: las funciones actuales solo persisten datos para el supervisor futuro. Un intento exitoso deja la tarea en revisión, los demás la devuelven a pendiente con sus evidencias parciales. Reintentar crea otro registro; un intento terminado no se puede sobrescribir. Mientras haya un intento activo se bloquean ediciones, movimientos y borrado, incluido el del proyecto. El borrado explícito y confirmado de una tarea/proyecto elimina también su historial local; nunca borra archivos de la carpeta.
+
+Evidencia y comandos focalizados: [K-016](verification/K-016.md). En esta tarea no se ejecutan procesos, no se consumen cuotas y no se implementa la cola ni la recuperación del supervisor de K-020.
 
 ## Conversaciones por proyecto
 

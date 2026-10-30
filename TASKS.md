@@ -53,12 +53,13 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 - **Pruebas:** migración sin pérdidas, rutas inexistentes/simbólicas, errores de permisos, cambio de carpeta y borrado de proyecto sin modificar archivos. Verificación manual del selector Ubuntu.
 - **Verificación:** [K-015](docs/verification/K-015.md), 2026-10-30: 70 pruebas afectadas correctas, tipos/build web y nativo, selector Ubuntu y conservación de archivos al borrar el proyecto.
 
-### [ ] K-016 — Modelo de tareas, dependencias y registro de intentos
+### [x] K-016 — Modelo de tareas, dependencias y registro de intentos
 - Crear tareas por proyecto: título, descripción, criterios de aceptación, orden, fechas y versión. Separar el estado de trabajo de la tarea del estado de cada intento de ejecución.
 - Estados de tarea: propuesta, pendiente, en curso, en revisión y hecha. Bloqueada se calcula por dependencias sin aceptar; cancelaciones y errores pertenecen al intento y se muestran en la tarjeta. Solo el usuario acepta una propuesta o marca hecha una tarea.
 - CRUD tipado y persistente, cambios de estado validados y dependencias del mismo proyecto sin ciclos. Registrar actividad y resultados; conservar intentos al reintentar, sin sobrescribir evidencias.
 - **Aceptación:** tareas manuales editables y persistentes, aisladas por proyecto; las dependencias se desbloquean al aceptar resultados. Un movimiento de tarjeta no inicia un agente ni acredita éxito.
 - **Pruebas:** contratos API, CRUD, transiciones, ciclos/autodependencias, dependencias entre proyectos rechazadas, rollback, reinicio e historial de intentos. Proteger el borrado de tareas de las que dependen otras y de tareas activas.
+- **Verificación:** [K-016](docs/verification/K-016.md), 2026-10-30: 19 pruebas de tareas y 43 de regresión afectada correctas; contrato TypeScript comprobado. Sin ejecución de agentes.
 
 ### [ ] K-017 — Tablero como interfaz principal y selección múltiple
 - Mantener una navegación lateral de proyectos y abrir su tablero por defecto. Añadir columnas por estado, tarjetas, filtros básicos y panel de detalle; chat como vista secundaria. Mostrar bloqueos, errores y actividad.
@@ -151,3 +152,4 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 - Esta revisión documental no completó tareas de implementación.
 - **2026-10-30 (K-014):** retirados Debate, sus rutas y simuladores, conservando migraciones y datos históricos. **Siguiente tarea: K-015.**
 - **2026-10-30 (K-015):** carpeta opcional persistente, validación canónica, estados recuperables y selector nativo verificados. **Siguiente tarea: K-016.**
+- **2026-10-30 (K-016):** modelo y API de tareas, dependencias, actividad e intentos persistentes verificados, con aceptación humana y control de versiones. **Siguiente tarea: K-017.**

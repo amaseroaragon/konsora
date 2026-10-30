@@ -117,6 +117,13 @@ def delete_project(
     confirm: Annotated[Literal["true"], Query()],
 ) -> Response:
     with database.connect() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        if connection.execute(
+            """SELECT 1 FROM tasks t WHERE project_id=? AND (status='in_progress' OR EXISTS
+               (SELECT 1 FROM task_attempts a WHERE a.task_id=t.id AND a.status='running')) LIMIT 1""",
+            (str(project_id),),
+        ).fetchone():
+            raise HTTPException(409, "El proyecto contiene tareas activas. Detén el trabajo antes de eliminarlo.")
         cursor = connection.execute("DELETE FROM projects WHERE id = ?", (str(project_id),))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="El proyecto ya no existe.")

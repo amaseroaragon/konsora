@@ -15,6 +15,7 @@ from konsora_api.projects import router as projects_router
 from konsora_api.connector_routes import LOCAL_ORIGINS, router as connector_router
 from konsora_api.connectors import AgentConnector, ConnectorError, configured_connectors
 from konsora_api.conversations import router as conversations_router
+from konsora_api.tasks import router as tasks_router
 
 
 class HealthResponse(BaseModel):
@@ -64,12 +65,17 @@ def create_app(
             return JSONResponse(status_code=422, content={
                 "detail": "Revisa el título (1–120), mensaje (1–16000), identificador de modelo y confirmación. No se admiten otros campos.",
             })
+        if "/tasks" in request.url.path:
+            return JSONResponse(status_code=422, content={
+                "detail": "Revisa título (1–120), descripción y criterios (hasta 16000), orden, dependencias y versión vigente. No se admiten otros campos.",
+            })
         return await request_validation_exception_handler(request, error)
 
     application.add_api_route("/health", health, response_model=HealthResponse)
     application.include_router(projects_router)
     application.include_router(connector_router)
     application.include_router(conversations_router)
+    application.include_router(tasks_router)
     return application
 
 

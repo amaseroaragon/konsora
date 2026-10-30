@@ -73,6 +73,60 @@ MIGRATIONS = (
     (
         "ALTER TABLE projects ADD COLUMN workspace_path TEXT",
     ),
+    (
+        """CREATE TABLE tasks (
+            id TEXT PRIMARY KEY NOT NULL,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            title TEXT NOT NULL CHECK (length(trim(title)) BETWEEN 1 AND 120),
+            description TEXT NOT NULL,
+            acceptance_criteria TEXT NOT NULL,
+            sort_order INTEGER NOT NULL CHECK (sort_order >= 0),
+            status TEXT NOT NULL CHECK (status IN ('proposal', 'pending', 'in_progress', 'in_review', 'done')),
+            version INTEGER NOT NULL CHECK (version > 0),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(id, project_id)
+        )""",
+        "CREATE INDEX tasks_project ON tasks(project_id, sort_order, created_at, id)",
+        """CREATE TABLE task_dependencies (
+            project_id TEXT NOT NULL,
+            task_id TEXT NOT NULL,
+            dependency_id TEXT NOT NULL,
+            PRIMARY KEY(task_id, dependency_id),
+            CHECK (task_id != dependency_id),
+            FOREIGN KEY(task_id, project_id) REFERENCES tasks(id, project_id) ON DELETE CASCADE,
+            FOREIGN KEY(dependency_id, project_id) REFERENCES tasks(id, project_id) DEFERRABLE INITIALLY DEFERRED
+        )""",
+        "CREATE INDEX task_dependents ON task_dependencies(dependency_id)",
+        """CREATE TABLE task_attempts (
+            id TEXT PRIMARY KEY NOT NULL,
+            task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            task_version INTEGER NOT NULL CHECK (task_version > 0),
+            task_snapshot TEXT NOT NULL,
+            connector TEXT NOT NULL,
+            model TEXT,
+            status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed', 'cancelled', 'interrupted')),
+            result TEXT NOT NULL,
+            error TEXT,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            CHECK ((status = 'running' AND finished_at IS NULL AND error IS NULL)
+                OR (status = 'succeeded' AND finished_at IS NOT NULL AND error IS NULL)
+                OR (status IN ('failed', 'cancelled', 'interrupted') AND finished_at IS NOT NULL AND error IS NOT NULL))
+        )""",
+        "CREATE UNIQUE INDEX task_one_active_attempt ON task_attempts(task_id) WHERE status = 'running'",
+        "CREATE INDEX task_attempt_history ON task_attempts(task_id, started_at, id)",
+        """CREATE TABLE task_activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            task_version INTEGER NOT NULL CHECK (task_version > 0),
+            event TEXT NOT NULL,
+            actor TEXT NOT NULL CHECK (actor IN ('user', 'supervisor')),
+            detail TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX task_activity_history ON task_activity(task_id, id)",
+    ),
 )
 
 
