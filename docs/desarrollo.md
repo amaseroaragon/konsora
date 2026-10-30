@@ -9,6 +9,7 @@ Aplicación de escritorio local-first para organizar el trabajo con modelos y ag
 - Crear, listar, abrir y renombrar proyectos.
 - Eliminar proyectos con confirmación explícita.
 - Guardar los proyectos en SQLite y recuperarlos tras reiniciar.
+- Asociar, comprobar, cambiar o desvincular una carpeta local por proyecto, con selector nativo Ubuntu.
 - Crear y abrir chats por proyecto, conservar mensajes ordenados y continuar con su historial tras reiniciar.
 - Elegir conector y modelo en cada conversación, con estados de carga, error y cancelación.
 - Comprobar la conexión con el servicio local y reintentar ante errores.
@@ -47,6 +48,18 @@ npm run dev:desktop
 La API escucha en `127.0.0.1:8000`. Detén cada proceso con `Ctrl+C`; cerrar la ventana no detiene la API. Para usar la interfaz en el navegador, ejecuta `npm run dev:web` en lugar del escritorio y abre `http://127.0.0.1:1420`.
 
 Los proyectos, chats y mensajes, junto con los registros históricos de debates y propuestas, se guardan en `.local/konsora.sqlite3`. Las migraciones conservan los datos existentes. Para elegir otro archivo, exporta `KONSORA_DATABASE_PATH` antes de iniciar la API. Los proyectos y el simulador de chat no requieren una cuenta. Las consultas reales de los chats utilizan los límites de tu suscripción de ChatGPT mediante Codex CLI; Konsora no integra APIs de pago.
+
+## Carpetas de trabajo
+
+Abre un proyecto, pulsa **Seleccionar carpeta…**, elige una carpeta existente y pulsa **Guardar carpeta**. La ruta canónica guardada se muestra en el proyecto. Cancelar el selector no cambia la asociación. En el navegador de desarrollo se introduce la ruta absoluta en el campo correspondiente.
+
+**Comprobar carpeta** actualiza su disponibilidad; **Desvincular carpeta** elimina solo la asociación. Los estados distinguen ausencia de asociación, carpeta disponible, perdida, sin acceso y ruta insegura. Ante una carpeta perdida o permisos insuficientes se conserva la ruta para poder recuperarla o cambiarla. El borrado confirmado de un proyecto elimina sus registros locales, nunca la carpeta ni sus archivos.
+
+La migración SQLite v4 añade `workspace_path` opcional; todos los proyectos anteriores quedan sin carpeta. `PATCH /projects/{id}/workspace` recibe `{ "workspace_path": "/ruta/al/proyecto" }`, o `null` para desvincular. No se asigna una carpeta al crear o abrir un proyecto. La validación exige un directorio existente con acceso de lectura/escritura/travesía, resuelve enlaces y rechaza rutas relativas, raíces amplias, el directorio personal completo y ubicaciones del sistema/configuración personal. Si la ruta canónica guardada se sustituye posteriormente por un enlace a otra carpeta, se marca insegura.
+
+Seleccionar una carpeta no ejecuta agentes ni concede autorización para ejecutar tareas; el aislamiento y la revalidación inmediatamente antes de ejecutar corresponden a K-019–K-021. No se crean archivos de sondeo ni se recorre el contenido para validar la carpeta.
+
+Se añade únicamente el [plugin oficial de diálogos de Tauri](https://v2.tauri.app/plugin/dialog/), en JavaScript y Rust, para el selector nativo. La ventana principal recibe `dialog:allow-open`, sin permisos de comandos de archivos ni shell. Evidencia: [K-015](verification/K-015.md).
 
 ## Conversaciones por proyecto
 

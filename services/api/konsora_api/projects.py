@@ -1,5 +1,6 @@
 """Contrato y operaciones de proyectos; cada escritura es una transacción."""
 
+import sqlite3
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
@@ -8,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from konsora_api.database import Database
+from konsora_api.workspaces import WorkspaceError, WorkspaceStatus, canonical_workspace, workspace_status
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -22,6 +24,19 @@ class Project(BaseModel):
     name: str
     created_at: datetime
     updated_at: datetime
+    workspace_path: str | None = None
+    workspace_status: WorkspaceStatus = "unassigned"
+
+
+class ProjectWorkspace(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace_path: str | None = Field(min_length=1, max_length=4096)
+
+
+def project_from_row(row: sqlite3.Row) -> Project:
+    project = Project.model_validate(dict(row))
+    project.workspace_status = workspace_status(project.workspace_path)
+    return project
 
 
 def get_database(request: Request) -> Database:
@@ -37,7 +52,7 @@ def list_projects(database: LocalDatabase) -> list[Project]:
         rows = connection.execute(
             "SELECT * FROM projects ORDER BY created_at DESC, id ASC"
         ).fetchall()
-    return [Project.model_validate(dict(row)) for row in rows]
+    return [project_from_row(row) for row in rows]
 
 
 @router.post("", response_model=Project, status_code=201)
@@ -60,7 +75,7 @@ def open_project(project_id: UUID, database: LocalDatabase) -> Project:
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="El proyecto ya no existe.")
-    return Project.model_validate(dict(row))
+    return project_from_row(row)
 
 
 @router.patch("/{project_id}", response_model=Project)
@@ -75,7 +90,24 @@ def rename_project(project_id: UUID, payload: ProjectName, database: LocalDataba
         row = connection.execute(
             "SELECT * FROM projects WHERE id = ?", (str(project_id),)
         ).fetchone()
-    return Project.model_validate(dict(row))
+    return project_from_row(row)
+
+
+@router.patch("/{project_id}/workspace", response_model=Project)
+def set_workspace(project_id: UUID, payload: ProjectWorkspace, database: LocalDatabase) -> Project:
+    try:
+        path = str(canonical_workspace(payload.workspace_path)) if payload.workspace_path is not None else None
+    except WorkspaceError as error:
+        raise HTTPException(422, str(error)) from error
+    with database.connect() as connection:
+        cursor = connection.execute(
+            "UPDATE projects SET workspace_path = ?, updated_at = ? WHERE id = ?",
+            (path, datetime.now(UTC).isoformat(), str(project_id)),
+        )
+        if cursor.rowcount == 0:
+            raise HTTPException(404, "El proyecto ya no existe.")
+        row = connection.execute("SELECT * FROM projects WHERE id = ?", (str(project_id),)).fetchone()
+    return project_from_row(row)
 
 
 @router.delete("/{project_id}", status_code=204)

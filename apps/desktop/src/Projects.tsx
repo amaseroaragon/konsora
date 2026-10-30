@@ -4,6 +4,7 @@ import type { Project } from "./api";
 import ProjectDialog from "./ProjectDialog";
 import type { ProjectDialogState } from "./ProjectDialog";
 import Conversations from "./Conversations";
+import ProjectWorkspace from "./ProjectWorkspace";
 
 const dateFormat = new Intl.DateTimeFormat("es", { dateStyle: "medium", timeStyle: "short" });
 function formatDate(value: string) { return dateFormat.format(new Date(value)); }
@@ -118,6 +119,10 @@ export default function Projects() {
               <div><dt>Última modificación</dt><dd>{formatDate(selected.updated_at)}</dd></div>
             </dl>
           </div>
+          <ProjectWorkspace key={selected.id} project={selected} disabled={pending} onUpdated={(project) => {
+            setSelected((current) => current?.id === project.id ? project : current);
+            setProjects((items) => items.map((item) => item.id === project.id ? project : item));
+          }} />
           <Conversations key={selected.id} projectId={selected.id} />
         </section>
       ) : (

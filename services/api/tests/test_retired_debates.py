@@ -17,7 +17,9 @@ TABLES = ("projects", "conversations", "messages", "debates", "proposals")
 def snapshot(path):
     with sqlite3.connect(path) as connection:
         return {
-            table: connection.execute(f"SELECT * FROM {table} ORDER BY id").fetchall()
+            table: connection.execute(
+                f"SELECT {'id, name, created_at, updated_at' if table == 'projects' else '*'} FROM {table} ORDER BY id"
+            ).fetchall()
             for table in TABLES
         }
 
@@ -67,7 +69,8 @@ def test_v3_history_stays_intact_across_restarts(database_path, historical_v3):
             assert history["messages"][0]["content"] == "Mensaje anterior"
             assert snapshot(database_path) == before
     with sqlite3.connect(database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
+        assert connection.execute("SELECT workspace_path FROM projects").fetchone()[0] is None
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 

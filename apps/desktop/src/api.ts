@@ -9,6 +9,8 @@ export interface Project {
   name: string;
   created_at: string;
   updated_at: string;
+  workspace_path: string | null;
+  workspace_status: "unassigned" | "ready" | "missing" | "inaccessible" | "unsafe";
 }
 
 export const API_URL = (
@@ -81,11 +83,17 @@ function parseProject(data: unknown): Project {
     !("name" in data) || typeof data.name !== "string" ||
     !("created_at" in data) || typeof data.created_at !== "string" ||
     !("updated_at" in data) || typeof data.updated_at !== "string" ||
+    !("workspace_path" in data) || (data.workspace_path !== null && typeof data.workspace_path !== "string") ||
+    !("workspace_status" in data) ||
+    !["unassigned", "ready", "missing", "inaccessible", "unsafe"].includes(String(data.workspace_status)) ||
     !Number.isFinite(Date.parse(data.created_at)) || !Number.isFinite(Date.parse(data.updated_at))
   ) {
     throw new Error("El servicio local devolvió un proyecto con un formato inesperado.");
   }
-  return { id: data.id, name: data.name, created_at: data.created_at, updated_at: data.updated_at };
+  return {
+    id: data.id, name: data.name, created_at: data.created_at, updated_at: data.updated_at,
+    workspace_path: data.workspace_path, workspace_status: data.workspace_status as Project["workspace_status"],
+  };
 }
 
 export async function listProjects(signal: AbortSignal): Promise<Project[]> {
@@ -116,4 +124,12 @@ export async function renameProject(id: string, name: string): Promise<Project> 
 
 export async function deleteProject(id: string): Promise<void> {
   await projectRequest(`/${encodeURIComponent(id)}?confirm=true`, { method: "DELETE" });
+}
+
+export async function setProjectWorkspace(id: string, workspacePath: string | null): Promise<Project> {
+  return parseProject(await projectRequest(`/${encodeURIComponent(id)}/workspace`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ workspace_path: workspacePath }),
+  }));
 }

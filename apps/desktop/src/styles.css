@@ -99,6 +99,11 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid #367b67; outli
 .cli-pending { display: flex; align-items: center; gap: 16px; margin-top: 20px; font-size: 13px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
 
+.workspace-folder { margin-top: 24px; border: 1px solid #dce3da; border-radius: 12px; padding: 22px; background: #fff; }
+.workspace-folder p { font-size: 13px; }
+.workspace-folder fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.workspace-path { overflow-wrap: anywhere; }
+.workspace-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .conversations { margin-top: 32px; }
 .conversations > .projects-heading h2 { font-size: 25px; }
 .new-chat { display: flex; gap: 14px; align-items: flex-end; margin: 18px 0 26px; }

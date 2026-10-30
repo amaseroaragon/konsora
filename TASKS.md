@@ -45,12 +45,13 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 - **Pruebas:** migración/apertura desde esquema v3, conservación de filas históricas, rutas retiradas inaccesibles, regresión de proyectos/chats, tipos, build y comprobación de escritorio.
 - **Verificación:** [K-014](docs/verification/K-014.md), 2026-10-30: 115 pruebas API, tipos, build web/nativo y comprobación del escritorio correctos.
 
-### [ ] K-015 — Asociar los proyectos a carpetas locales
+### [x] K-015 — Asociar los proyectos a carpetas locales
 - Añadir carpeta de trabajo opcional a proyectos existentes y selección explícita de una carpeta existente para los que se vayan a ejecutar. Crear/abrir un proyecto no lanza agentes ni modifica sus archivos.
 - Validar ruta canónica, disponibilidad y acceso; distinguir proyectos sin carpeta, carpeta perdida y errores recuperables. Resolver enlaces simbólicos antes de autorizar el alcance; rechazar ubicaciones que impliquen acceso indiscriminado al sistema.
 - Conservar los proyectos actuales sin inventarles rutas. Mantener el borrado como eliminación de registros locales confirmada, sin borrar nunca la carpeta de trabajo.
 - **Aceptación:** una carpeta autorizada queda asociada y persiste; solo se puede ejecutar sobre ella tras la aprobación de ejecución correspondiente. Los proyectos antiguos siguen abriéndose.
 - **Pruebas:** migración sin pérdidas, rutas inexistentes/simbólicas, errores de permisos, cambio de carpeta y borrado de proyecto sin modificar archivos. Verificación manual del selector Ubuntu.
+- **Verificación:** [K-015](docs/verification/K-015.md), 2026-10-30: 70 pruebas afectadas correctas, tipos/build web y nativo, selector Ubuntu y conservación de archivos al borrar el proyecto.
 
 ### [ ] K-016 — Modelo de tareas, dependencias y registro de intentos
 - Crear tareas por proyecto: título, descripción, criterios de aceptación, orden, fechas y versión. Separar el estado de trabajo de la tarea del estado de cada intento de ejecución.
@@ -149,3 +150,4 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 - **2026-10-30:** auditados código, esquema SQLite, navegación, conector, procesos, pruebas y arranque Tauri. Reutilizar la base; retirar el debate; adelantar tablero y ejecución al MVP. README reducido a 10 líneas y guía técnica trasladada a `docs/desarrollo.md`. Instrucciones de agentes alineadas con el nuevo alcance.
 - Esta revisión documental no completó tareas de implementación.
 - **2026-10-30 (K-014):** retirados Debate, sus rutas y simuladores, conservando migraciones y datos históricos. **Siguiente tarea: K-015.**
+- **2026-10-30 (K-015):** carpeta opcional persistente, validación canónica, estados recuperables y selector nativo verificados. **Siguiente tarea: K-016.**

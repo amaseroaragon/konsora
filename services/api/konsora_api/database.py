@@ -70,6 +70,9 @@ MIGRATIONS = (
                 OR (status IN ('pending', 'running') AND content IS NULL AND error IS NULL))
         )""",
     ),
+    (
+        "ALTER TABLE projects ADD COLUMN workspace_path TEXT",
+    ),
 )
 
 
