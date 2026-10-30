@@ -117,6 +117,39 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid #367b67; outli
 .message-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11px; color: #53635b; overflow-wrap: anywhere; }
 .message p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; margin: 10px 0 0; }
 
+.project-views { display: flex; gap: 10px; margin-top: 28px; padding-bottom: 16px; border-bottom: 1px solid #dce3da; }
+.project-views button[aria-pressed="true"] { background: #254b38; color: #fff; }
+.debates { margin-top: 24px; }
+.debates > .projects-heading h2 { font-size: 25px; }
+.simulation-notice { border: 1px solid #cad7cb; border-left: 4px solid #678761; background: #eef3e9; border-radius: 10px; padding: 18px; margin: 16px 0 24px; font-size: 13px; }
+.simulation-notice p { margin: 8px 0; }
+.simulation-notice button:disabled { cursor: default; }
+.new-debate { margin-bottom: 28px; }
+.new-debate fieldset { border: 1px solid #dce3da; border-radius: 12px; padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.new-debate legend { font-weight: 600; font-size: 14px; padding: 0 8px; }
+.new-debate button { justify-self: start; }
+.debate-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: start; }
+.debate-list-problem { display: block; }
+.chat-list small { display: block; margin-top: 6px; font-size: 10px; font-weight: 400; }
+.debate-panel { min-width: 0; }
+.debate-panel > .projects-heading { align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+.debate-panel h3 { font-size: 18px; margin: 0; }
+.debate-input { margin: 18px 0; padding: 16px; border: 1px solid #dce3da; border-radius: 10px; font-size: 13px; }
+.debate-input summary { cursor: pointer; font-weight: 600; }
+.debate-input h4 { margin: 12px 0 4px; }
+.debate-input p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 12px; }
+.proposal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.proposal { min-width: 0; border: 1px solid #dce3da; background: #fff; border-radius: 12px; padding: 18px; overflow-wrap: anywhere; }
+.proposal h4 { font-size: 18px; margin: 12px 0 6px; }
+.simulation-badge { font-size: 10px; font-weight: 600; background: #eef3e9; border-radius: 5px; padding: 4px 6px; }
+.proposal-state { font-size: 12px; font-weight: 600; }
+.proposal-completed .proposal-state { color: #316046; }
+.proposal-failed .proposal-state, .proposal-error { color: #922f25; }
+.proposal-identity, .proposal-dates { font-size: 11px; color: #617168; }
+.proposal-dates div { margin: 6px 0; }
+.proposal-dates dd { margin: 0; }
+.proposal-content, .proposal-error { white-space: pre-wrap; font-size: 13px; }
+
 @media (max-width: 700px) {
   .app-shell { padding: 0 24px; }
   .local-label { display: none; }
@@ -132,5 +165,6 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid #367b67; outli
   .chat-list { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
   .new-chat { align-items: stretch; flex-direction: column; }
   .chat-panel { padding: 16px; }
+  .debate-layout, .proposal-grid { grid-template-columns: 1fr; }
   footer { flex-wrap: wrap; gap: 4px; }
 }

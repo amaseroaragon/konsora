@@ -40,7 +40,7 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Plan de trabajo (2026-10-30):** el usuario aún no tiene suscripción de Claude. Empezar por K-005A, verificable sin cuenta ni consumo de cuota; dejar pendiente la integración y validación real de K-005B. No es necesario contratar Claude para trabajar en K-005A.
 - K-005 se marca como completada **solo cuando ambas fases cumplan sus criterios**. Completar la simulación no acredita que Claude funcione ni que sus condiciones permitan la integración.
 
-#### [ ] K-005A — Debate persistente con simuladores, sin suscripción
+#### [x] K-005A — Debate persistente con simuladores, sin suscripción
 
 1. Inspeccionar y reutilizar los contratos de conectores, la persistencia y el aislamiento por proyecto de K-003/K-004; no modificar el flujo de chats existente ni implementar todavía rondas, síntesis o tareas.
 2. Crear el debate asociado al proyecto y fijar su problema y contexto autorizado al iniciarlo. Guardar por separado cada participante, con identidad de conector/modelo, indicación de simulación, fechas, estado, propuesta y error cuando corresponda.
@@ -50,6 +50,7 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 
 - **Aceptación:** se crea y consulta un debate simulado por proyecto; ambas propuestas, su procedencia y sus estados permanecen tras reiniciar. Ningún resultado simulado se confunde con uno real, no se mezclan proyectos ni se consume cuota de suscripción. Los chats de K-004 siguen funcionando.
 - **Pruebas:** comprobar las entradas recibidas por cada simulador para demostrar igualdad de contexto y ausencia de propuestas ajenas; persistencia y orden, aislamiento por proyecto, fallo parcial, cancelación y conservación del resultado válido. Ejecutar regresión de chats, tipos, builds web/nativo y verificación manual de la UI y del historial tras reiniciar.
+- **Verificación 2026-10-30:** 146 pruebas correctas, tipos y builds web/nativo correctos. UI → API → SQLite comprobado con simuladores, incluyendo cancelación parcial, fallo individual y reinicio forzado de API; historial y chat anterior recuperados en dos arranques nativos con reinicio de API. Sin cuotas ni CLIs reales. Detalle en [verificación K-005A](docs/verification/K-005A.md). K-005B y K-005 continúan pendientes.
 
 #### [ ] K-005B — Claude Code oficial y validación real, pendiente de suscripción
 
@@ -130,3 +131,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | 2026-10-29 | K-004 | Completada: chats por proyecto, mensajes ordenados y contexto persistente, modelo por conversación, errores y cancelación. 100 pruebas y builds correctos; continuidad real con ChatGPT después de reiniciar, aislamiento en UI e historial recuperado en escritorio Ubuntu. Sin dependencias nuevas ni APIs de pago. Siguiente: K-005. |
 | 2026-10-29 | Ajuste K-004 | Desplegable de modelos desde catálogo oficial y estado compacto sin panel de prueba. 111 pruebas, builds web/nativo y UI correctos; catálogo real verificado sin inferencias. Cuotas restantes y reinicios previstos para K-008; previsión de consumo y reserva antes de tareas para K-011. Siguiente: K-005. |
 | 2026-10-30 | Plan K-005 | Dividida en K-005A (debate persistente y pruebas con dos simuladores explícitos, sin suscripción) y K-005B (Claude Code oficial y validación real, pendiente de suscripción y compatibilidad). Solo planificación; ambas fases siguen sin implementar. Siguiente: K-005A. K-006 conserva la dependencia de K-005 completa. |
+| 2026-10-30 | K-005A | Completada: debates simulados por proyecto, contexto fijado y propuestas independientes persistentes, errores individuales, cancelación y recuperación tras interrupción. 146 pruebas, builds web/nativo y UI correctos; chats conservados. La regresión detectó y permitió corregir una espera del supervisor de CLI al superar la salida. Sin dependencias nuevas ni uso de cuotas. Siguiente: K-005B, pendiente de suscripción y compatibilidad oficial; K-005 y K-006 no se dan por completadas. |

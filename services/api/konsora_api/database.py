@@ -39,6 +39,37 @@ MIGRATIONS = (
             UNIQUE(conversation_id, position)
         )""",
     ),
+    (
+        """CREATE TABLE debates (
+            id TEXT PRIMARY KEY NOT NULL,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            problem TEXT NOT NULL CHECK (length(trim(problem)) BETWEEN 1 AND 16000),
+            context TEXT NOT NULL,
+            simulated INTEGER NOT NULL CHECK (simulated = 1),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX debates_project ON debates(project_id, created_at, id)",
+        """CREATE TABLE proposals (
+            id TEXT PRIMARY KEY NOT NULL,
+            debate_id TEXT NOT NULL REFERENCES debates(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL CHECK (position IN (1, 2)),
+            name TEXT NOT NULL,
+            connector TEXT NOT NULL,
+            model TEXT NOT NULL,
+            simulated INTEGER NOT NULL CHECK (simulated = 1),
+            status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+            content TEXT,
+            error TEXT,
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            finished_at TEXT,
+            UNIQUE(debate_id, position),
+            CHECK ((status = 'completed' AND content IS NOT NULL AND error IS NULL)
+                OR (status IN ('failed', 'cancelled') AND content IS NULL AND error IS NOT NULL)
+                OR (status IN ('pending', 'running') AND content IS NULL AND error IS NULL))
+        )""",
+    ),
 )
 
 
