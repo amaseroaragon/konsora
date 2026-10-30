@@ -15,7 +15,6 @@ from konsora_api.projects import router as projects_router
 from konsora_api.connector_routes import LOCAL_ORIGINS, router as connector_router
 from konsora_api.connectors import AgentConnector, ConnectorError, configured_connectors
 from konsora_api.conversations import router as conversations_router
-from konsora_api.debates import DebateService, router as debates_router
 
 
 class HealthResponse(BaseModel):
@@ -30,7 +29,6 @@ async def health() -> HealthResponse:
 def create_app(
     database_path: Path | None = None,
     *, connectors: dict[str, AgentConnector] | None = None,
-    debate_participants: tuple[AgentConnector, AgentConnector] | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Konsora API", version="0.1.0")
     application.state.database = Database(
@@ -38,7 +36,6 @@ def create_app(
     )
     application.state.connectors = connectors if connectors is not None else configured_connectors()
     application.state.active_conversations = set()
-    application.state.debates = DebateService(application.state.database, participants=debate_participants)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=LOCAL_ORIGINS,
@@ -67,17 +64,12 @@ def create_app(
             return JSONResponse(status_code=422, content={
                 "detail": "Revisa el título (1–120), mensaje (1–16000), identificador de modelo y confirmación. No se admiten otros campos.",
             })
-        if "/debates" in request.url.path:
-            return JSONResponse(status_code=422, content={
-                "detail": "Revisa los identificadores, el problema (1–16000) y el contexto (hasta 32000 caracteres). No se admiten otros campos.",
-            })
         return await request_validation_exception_handler(request, error)
 
     application.add_api_route("/health", health, response_model=HealthResponse)
     application.include_router(projects_router)
     application.include_router(connector_router)
     application.include_router(conversations_router)
-    application.include_router(debates_router)
     return application
 
 

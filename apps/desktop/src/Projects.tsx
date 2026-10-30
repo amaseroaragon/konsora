@@ -3,7 +3,7 @@ import { createProject, deleteProject, listProjects, openProject, renameProject 
 import type { Project } from "./api";
 import ProjectDialog from "./ProjectDialog";
 import type { ProjectDialogState } from "./ProjectDialog";
-import ProjectViews from "./ProjectViews";
+import Conversations from "./Conversations";
 
 const dateFormat = new Intl.DateTimeFormat("es", { dateStyle: "medium", timeStyle: "short" });
 function formatDate(value: string) { return dateFormat.format(new Date(value)); }
@@ -118,7 +118,7 @@ export default function Projects() {
               <div><dt>Última modificación</dt><dd>{formatDate(selected.updated_at)}</dd></div>
             </dl>
           </div>
-          <ProjectViews key={selected.id} projectId={selected.id} />
+          <Conversations key={selected.id} projectId={selected.id} />
         </section>
       ) : (
         <section aria-labelledby="projects-title">

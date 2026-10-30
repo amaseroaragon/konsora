@@ -2,7 +2,7 @@
 
 Rediseño solicitado por el usuario el **2026-10-30**: un espacio visual de proyectos y tareas, con selección múltiple y ejecución supervisada mediante **una única cuenta y un único proveedor activos**. Se elimina el debate y la necesidad de mantener varias suscripciones.
 
-Este es el único backlog operativo. Ejecutar las tareas pendientes en el orden indicado, una por vez. Marcar `[x]` solo con aceptación y pruebas completas; documentar cualquier bloqueo esencial sin darlo por resuelto con simuladores. Esta revisión cambia documentación, no implementa todavía el tablero ni retira el debate del código.
+Este es el único backlog operativo. Ejecutar las tareas pendientes en el orden indicado, una por vez. Marcar `[x]` solo con aceptación y pruebas completas; documentar cualquier bloqueo esencial sin darlo por resuelto con simuladores. El avance de implementación se refleja en las casillas y los informes de verificación.
 
 ## Producto y recorrido principal
 
@@ -37,12 +37,13 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 
 ## MVP — Orden de implementación
 
-### [ ] K-014 — Retirar el debate y alinear la aplicación
+### [x] K-014 — Retirar el debate y alinear la aplicación
 - Eliminar la navegación Debate, simuladores de participantes y rutas que crean o ejecutan debates; retirar las menciones a Claude como segundo participante.
 - Mantener intactos proyectos, conversaciones y mensajes. Conservar las tablas y registros históricos de debates/propuestas, sin ofrecer nuevas operaciones ni convertirlos en tareas automáticamente; no reescribir ni quitar migraciones ya aplicadas.
 - Ajustar las pruebas del contrato retirado y conservar la regresión útil de procesos, errores y persistencia. Referenciar el nuevo plan desde la documentación técnica vigente.
 - **Aceptación:** no se puede crear ni ejecutar un debate desde UI o API; siguen funcionando proyectos y chats con las bases existentes, incluidos registros históricos intactos.
 - **Pruebas:** migración/apertura desde esquema v3, conservación de filas históricas, rutas retiradas inaccesibles, regresión de proyectos/chats, tipos, build y comprobación de escritorio.
+- **Verificación:** [K-014](docs/verification/K-014.md), 2026-10-30: 115 pruebas API, tipos, build web/nativo y comprobación del escritorio correctos.
 
 ### [ ] K-015 — Asociar los proyectos a carpetas locales
 - Añadir carpeta de trabajo opcional a proyectos existentes y selección explícita de una carpeta existente para los que se vayan a ejecutar. Crear/abrir un proyecto no lanza agentes ni modifica sus archivos.
@@ -146,4 +147,5 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 ## Registro de esta revisión
 
 - **2026-10-30:** auditados código, esquema SQLite, navegación, conector, procesos, pruebas y arranque Tauri. Reutilizar la base; retirar el debate; adelantar tablero y ejecución al MVP. README reducido a 10 líneas y guía técnica trasladada a `docs/desarrollo.md`. Instrucciones de agentes alineadas con el nuevo alcance.
-- No se marca ninguna tarea nueva como completada por editar el plan. **Siguiente tarea: K-014.**
+- Esta revisión documental no completó tareas de implementación.
+- **2026-10-30 (K-014):** retirados Debate, sus rutas y simuladores, conservando migraciones y datos históricos. **Siguiente tarea: K-015.**
