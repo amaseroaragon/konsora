@@ -13,7 +13,7 @@ if [[ -x "$repo_root/.tools/cargo/bin/cargo" ]]; then
 fi
 
 if ! command -v cargo >/dev/null 2>&1; then
-  echo "Falta Rust. Consulta los requisitos de Ubuntu en README.md." >&2
+  echo "Falta Rust. Consulta los requisitos de Ubuntu en docs/desarrollo.md." >&2
   exit 1
 fi
 

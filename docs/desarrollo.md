@@ -1,0 +1,110 @@
+> Guía técnica de la implementación existente a 2026-10-30, antes de aplicar el rediseño del tablero. La sección de debates describe una función retirada del alcance, todavía presente en el código hasta K-014. Las referencias antiguas a tareas se conservan como contexto técnico; el único orden operativo vigente está en `../TASKS.md`.
+
+# Konsora
+
+Aplicación de escritorio local-first para organizar el trabajo con modelos y agentes de IA desde Ubuntu.
+
+## Funcionalidades actuales
+
+- Crear, listar, abrir y renombrar proyectos.
+- Eliminar proyectos con confirmación explícita.
+- Guardar los proyectos en SQLite y recuperarlos tras reiniciar.
+- Crear y abrir chats por proyecto, conservar mensajes ordenados y continuar con su historial tras reiniciar.
+- Elegir conector y modelo en cada conversación, con estados de carga, error y cancelación.
+- Comprobar la conexión con el servicio local y reintentar ante errores.
+- Consultar Codex CLI con una sesión de ChatGPT, sin claves ni facturación por API.
+- Probar el flujo con un simulador sin conexión ni consumo de cuota.
+- Crear debates simulados por proyecto con dos propuestas independientes, estados y resultados persistentes.
+
+## Instalación
+
+Requiere Ubuntu 24.04 con sesión gráfica, Node.js 22.12+ (22 LTS recomendado), npm, Python 3.12 y [Rust estable](https://www.rust-lang.org/tools/install).
+
+```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config curl wget file \
+  libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+  libayatana-appindicator3-dev librsvg2-dev python3-venv
+
+npm ci
+python3 -m venv .venv
+.venv/bin/python -m pip install -r services/api/requirements-dev.txt
+```
+
+## Ejecución
+
+Desde la raíz del repositorio, inicia el servicio local:
+
+```bash
+npm run dev:api
+```
+
+En otra terminal, abre la aplicación:
+
+```bash
+npm run dev:desktop
+```
+
+La API escucha en `127.0.0.1:8000`. Detén cada proceso con `Ctrl+C`; cerrar la ventana no detiene la API. Para usar la interfaz en el navegador, ejecuta `npm run dev:web` en lugar del escritorio y abre `http://127.0.0.1:1420`.
+
+Los proyectos, chats, mensajes, debates y propuestas se guardan en `.local/konsora.sqlite3`. Las migraciones conservan los datos existentes. Para elegir otro archivo, exporta `KONSORA_DATABASE_PATH` antes de iniciar la API. Los proyectos y los simuladores no requieren una cuenta. Las consultas reales de los chats utilizan los límites de tu suscripción de ChatGPT mediante Codex CLI; Konsora no integra APIs de pago.
+
+## Conversaciones por proyecto
+
+1. Crea o abre un proyecto. En «Conversaciones», escribe un nombre y pulsa **+ Nuevo chat**.
+2. Envía un mensaje al **Simulado** para probar sin conexión ni cuota.
+3. Para conversar con ChatGPT, elige **Codex CLI** y selecciona un modelo en el desplegable. La primera opción usa `KONSORA_CODEX_MODEL` o el predeterminado del CLI. El catálogo procede de Codex y no garantiza acceso a todos sus modelos: un rechazo del CLI se muestra como error. Un modelo guardado anteriormente se conserva aunque ya no figure en el catálogo.
+4. Confirma el envío del mensaje y del historial, y pulsa **Enviar a Codex**. Cada envío real requiere una confirmación nueva; no hay reintentos automáticos.
+5. Tras reiniciar, abre el mismo proyecto y chat para consultar el historial y continuar. El conector y el modelo elegidos se guardan al completar un turno. Cada respuesta conserva la identidad del conector/modelo usado, aunque cambies el siguiente turno.
+
+Solo se transmite el historial del chat abierto, como texto, sin archivos del proyecto. Cada mensaje admite hasta 16000 caracteres y el contexto serializado completo hasta 64000; al superar este último límite se pide abrir otro chat, conservando todo el historial anterior. Konsora no recorta ni resume mensajes automáticamente ni sincroniza chats o memorias nativos de los proveedores.
+
+El mensaje y su respuesta se guardan juntos al terminar correctamente. Ante error o cancelación, el borrador permanece en pantalla y los turnos anteriores se conservan. **Actualizar historial y conectores** permite comprobar si un turno llegó a guardarse cuando se pierde la conexión justo después de responder. No reenvíes sin revisar el historial en ese caso. Cambiar de chat/proyecto o cerrar la ventana cancela la petición en curso; los borradores sin enviar no se guardan al salir del chat. Eliminar un proyecto elimina también sus chats, mensajes, debates y propuestas, previa confirmación explícita.
+
+## Debates simulados por proyecto
+
+1. Abre un proyecto y elige **Debate** junto a Conversaciones.
+2. Escribe el problema y, si procede, el contexto autorizado para ambos participantes. Pulsa **Crear debate simulado**. Solo se incluye ese texto: no se incorporan chats, archivos ni otros debates. El problema y el contexto quedan fijados al crear el debate.
+3. Pulsa **Iniciar simulación**. **Simulado A** y **Simulado B** reciben la misma entrada, sin conocer la propuesta del otro. Sus respuestas son ejemplos fijos de demostración, no inferencias de modelos reales; no requieren suscripción ni ejecutan Codex o Claude.
+4. Cada propuesta se guarda al terminar, con su identidad, fechas y estado. Si una falla o cancelas, la propuesta terminada se conserva. **Actualizar propuestas** permite consultar lo guardado tras un error de conexión. No hay reenvíos automáticos; para repetir debes crear otro debate.
+5. Tras reiniciar API o escritorio, vuelve a abrir el proyecto y selecciona el debate en la lista. Las propuestas interrumpidas por un cierre inesperado se marcan como canceladas al reabrir Debate, sin tocar las completadas. Cambiar de debate, de sección/proyecto o cerrar la ventana cancela una simulación en curso.
+
+El problema admite hasta 16000 caracteres y el contexto hasta 32000, con un límite conjunto de 64000 al serializarlos. Cada simulador tiene un límite de 5 segundos y una propuesta de hasta 24000 caracteres. Los resultados simulados siempre se identifican como tales. **Claude Code** aparece como no disponible y el debate real está deshabilitado: su conector y validación real pertenecen a K-005B. K-005A no incorpora rondas, síntesis ni ejecución de tareas.
+
+## Codex CLI con tu suscripción
+
+Instala el [Codex CLI oficial](https://learn.chatgpt.com/docs/cli) y entra con ChatGPT desde tu terminal:
+
+```bash
+codex --version
+codex login
+codex login status
+```
+
+Esta integración está validada con **Codex CLI 0.165.x**; otras versiones se rechazan hasta verificar sus opciones de aislamiento. El último comando debe indicar `Logged in using ChatGPT`. Konsora consulta ese estado sin leer archivos de autenticación. Si detecta login por API, deshabilita el envío: cambia la sesión mediante el CLI oficial, sin introducir claves en Konsora.
+
+1. Inicia API e interfaz con los comandos anteriores.
+2. El estado compacto al pie de la aplicación indica si Codex está conectado. **Comprobar Codex** consulta instalación y login, sin enviar prompts ni consumir cuota de inferencia.
+3. Abre un proyecto/chat y elige **Codex CLI**. Pulsa **Actualizar historial y conectores** si acabas de iniciar sesión.
+4. Escoge el modelo, escribe el mensaje, confirma el uso de cuota y pulsa **Enviar a Codex**. La confirmación se solicita en cada envío. Para probar sin cuota, elige **Simulado** en el chat.
+
+El modelo predeterminado lo elige Codex. Para configurar un valor por defecto en Konsora, exporta `KONSORA_CODEX_MODEL` en la terminal del backend y reinicia el servicio; cada chat puede escoger otro modelo para sus envíos. Se utiliza la opción oficial [`--model` de Codex CLI](https://learn.chatgpt.com/docs/models). Si `codex` no está en su `PATH`, configura `KONSORA_CODEX_BIN` con la ruta del ejecutable oficial. No se admite configurar comandos, flags o URLs desde la UI.
+
+Los chats por proyecto usan consultas de texto: sin archivos de proyectos, herramientas, comandos, hooks, plugins ni subagentes. Usan un directorio temporal bajo `.local/codex`, sandbox de solo lectura, entorno sin claves de API y configuración aislada por invocación; el CLI conserva y renueva su propia sesión. La configuración personal de modelos/plugins no se carga en las inferencias. El login y los tokens nunca se copian al repositorio ni se devuelven a la UI.
+
+El desplegable consulta [`codex debug models`](https://learn.chatgpt.com/docs/cli/reference#codex-debug-models) sin lanzar turnos. Solo muestra nombres e identificadores visibles del catálogo, sin listas fijas; consultar el catálogo no confirma el acceso a un modelo. Si falla, permite reintentar y conserva el modelo del chat y la opción predeterminada. Este comando experimental se valida con la misma versión 0.165.x; utiliza su configuración habitual con proveedor oficial y login ChatGPT forzados, sin hooks/plugins, en un directorio aislado. Se acota a 15 segundos y 8 MiB por flujo para sus metadatos; el límite de las respuestas de chat sigue siendo 512 KiB.
+
+Hay un límite de 120 segundos para la consulta y 512 KiB por flujo de salida. **Cancelar mensaje** detiene el proceso local y sus descendientes; no devuelve la cuota ya consumida. No hay reenvíos automáticos desde Konsora. Las respuestas se muestran como texto y los fallos del CLI se convierten en mensajes controlados, sin mostrar sus diagnósticos.
+
+La visualización de cuota restante por ventana y sus reinicios está planificada para **K-008**. La previsión de si una tarea cabe en esa cuota, con margen de reserva y estimaciones por modelo, queda para **K-011**. Todavía no están implementadas; las previsiones no se presentarán como garantías de finalización.
+
+Claude Code queda para K-005B, previa comprobación de sus condiciones de integración. Antigravity sigue condicionado a K-013: su [FAQ oficial](https://antigravity.google/docs/faq/) no permite envolver su CLI en aplicaciones de terceros con planes de consumo. No se sustituye por una API de pago. La ejecución supervisada corresponde a K-011; la autenticación del servicio local y el empaquetado se completarán antes de distribuir en K-012.
+
+## Comprobaciones
+
+```bash
+npm run check          # Tipos, compilación web y pruebas de API
+npm run build:desktop # Compilación nativa sin instalador
+```
+
+Las pruebas automatizadas usan simuladores y ejecutables ficticios locales; no invocan el Codex real ni consumen cuota. Debate simulado: [verificación K-005A](verification/K-005A.md). Conversaciones: [verificación K-004](verification/K-004.md). Conector y prueba real inicial: [verificación K-003](verification/K-003.md).

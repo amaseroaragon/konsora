@@ -1,11 +1,11 @@
 # Konsora — Guía para agentes de desarrollo
 
 ## Producto
-Konsora es una aplicación de escritorio **local-first**, inicialmente para Ubuntu, que unifica el trabajo con distintos modelos y agentes de IA.
+Konsora es una aplicación de escritorio **local-first**, inicialmente para Ubuntu, para organizar proyectos y tareas en un tablero visual y ejecutar las tareas seleccionadas con un agente de IA.
 
-El acceso se realiza mediante **Codex CLI, Claude Code y, cuando exista un mecanismo oficialmente compatible, Antigravity**, aprovechando las suscripciones del usuario. Se empieza por Codex CLI con inicio de sesión de ChatGPT. **No integrar APIs de pago ni usarlas como alternativa automática.**
+El acceso utiliza **una única cuenta y un único proveedor activos para toda la aplicación**, empezando por Codex CLI con inicio de sesión de ChatGPT. Cambiar de proveedor implica cerrar la sesión anterior e iniciar la nueva mediante mecanismos oficiales compatibles; no requiere mantener varias suscripciones. **No integrar APIs de pago ni usarlas como alternativa automática.**
 
-Capacidades objetivo: proyectos y chats, memoria persistente compartida, deliberación entre modelos, tareas y dependencias, ejecución supervisada y trazabilidad. **No** se pretende construir todo en la primera versión.
+El tablero es la vista principal; el chat sirve para planificar y proponer tareas. El MVP incluye proyectos con carpeta local, tareas y dependencias, selección múltiple, cola de ejecución supervisada y revisión de resultados. Inicialmente se ejecuta una tarea a la vez en toda la aplicación. Se elimina el debate entre modelos; memoria avanzada, grafo y paralelismo quedan para después del MVP.
 
 ## Forma de trabajar
 
@@ -26,20 +26,21 @@ Capacidades objetivo: proyectos y chats, memoria persistente compartida, deliber
 - Cada herramienta oficial gestiona su propio inicio de sesión y puede mantener o renovar su almacén local de credenciales. Konsora no lee, copia ni exporta esos archivos ni recibe tokens en la UI; no incluyas secretos en código, commits, logs o ejemplos.
 - Usa únicamente mecanismos oficiales que permitan expresamente la integración con la suscripción correspondiente. La existencia de un modo headless no demuestra que pueda envolverse en aplicaciones de terceros. Comprueba documentación y condiciones antes de implementar cada conector; documenta los bloqueos sin sustituirlos por APIs de pago, scraping, endpoints privados, extracción de OAuth o rotación de cuentas.
 - El primer conector es Codex CLI con sesión de ChatGPT. Rechaza la autenticación por API y no heredes claves del entorno. Las pruebas reales pueden consumir la cuota de suscripción ya autorizada para esta integración; nunca compres créditos ni actives consumo adicional.
-- En K-003 solo se envían prompts de texto: sin herramientas, comandos ni cambios en proyectos. Usa procesos sin shell, permisos mínimos, tiempo y salida acotados y limpieza al cancelar. La ejecución supervisada de tareas sigue en K-011.
+- El conector de conversación de K-003 sigue limitado a texto: sin herramientas, comandos ni cambios en proyectos. La ejecución de tareas se implementa separadamente en K-019–K-021, con procesos sin shell en el supervisor, permisos limitados a la carpeta aprobada, límites, eventos y limpieza al cancelar.
 - La memoria compartida es **externa a los modelos** y pertenece a Konsora; no afirmes sincronizar automáticamente memorias nativas de proveedores.
-- Los debates entre modelos deben tener número máximo de rondas, presupuestos configurables y registro de propuestas, objeciones y decisiones. No fuerces consenso artificial.
+- No implementar debates ni conectores simultáneos. Los datos históricos de debates se conservan sin reutilizarlos automáticamente como tareas ni borrar migraciones aplicadas; la retirada funcional se realiza en K-014.
 - Los agentes deben tener permisos mínimos; la ejecución de código o cambios significativos necesita un flujo de aprobación explícito.
+- La aprobación de un lote autoriza únicamente las tareas seleccionadas, sus versiones y su alcance. No añadir dependencias ni tareas automáticamente. El resultado del agente queda en revisión hasta aceptación humana; un proceso exitoso no equivale a una tarea hecha.
 
 ## Calidad mínima
 
 - Código legible, tipado cuando proceda, con errores gestionados y estados de carga/errores en UI.
 - Pruebas de lógica y API; verificaciones manuales descritas para funcionalidad de escritorio.
-- Comandos de desarrollo y puesta en marcha documentados en `README.md`.
+- Comandos de desarrollo y puesta en marcha documentados en `docs/desarrollo.md`. El `README.md` contiene únicamente 5–10 líneas descriptivas del sistema, sin backlog, instrucciones técnicas ni referencias a tareas de implementación.
 - Toda funcionalidad tiene criterios verificables y no se marca como terminada solo porque «parezca funcionar».
 
 ## Alcance
 
-Construir primero un flujo vertical completo: **crear proyecto → consultar Codex CLI con la suscripción → conversar → integrar un segundo CLI oficialmente compatible → debatir → guardar un plan y tareas**. Ampliar memoria y ejecución supervisada después.
+Construir primero el flujo vertical: **abrir proyecto y carpeta → tablero → crear o proponer tareas → seleccionar varias → aprobar lote → ejecutar con el proveedor activo → revisar y aceptar resultados**. Los chats y proyectos existentes se reutilizan; no exigir una segunda cuenta para completar el MVP. El orden operativo y los criterios vigentes están en `TASKS.md`; el plan anterior y sus informes son históricos.
 
-Antigravity es un objetivo condicionado: su FAQ oficial actualmente excluye envolver `agy` en aplicaciones de terceros con planes de consumo. No implementarlo hasta que exista un mecanismo permitido para Konsora; documentar la fuente y revisar en su tarea específica.
+Los proveedores alternativos se revisan después del MVP en K-026, cuando se quiera cambiar de suscripción. Antigravity conserva el bloqueo documentado en el plan anterior; no implementarlo hasta verificar un mecanismo oficialmente permitido para Konsora. No asumir que este rediseño resuelve sus restricciones.
