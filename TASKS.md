@@ -35,14 +35,35 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 - **Verificación 2026-10-29:** 100 pruebas correctas, tipos y builds web/nativo correctos. Historial y modelo por chat persistentes y aislados; continuidad probada con Codex real tras reiniciar API e interfaz, y recuperación del historial al reiniciar escritorio Ubuntu. Detalle en [verificación K-004](docs/verification/K-004.md).
 - **Ajuste de interfaz 2026-10-29:** desplegable con catálogo real del CLI y conservación de modelos guardados; panel de prueba sustituido por estado compacto y comprobación sin inferencia. 111 pruebas correctas, builds web/nativo y UI verificados. Cuotas planificadas en K-008 y previsión de tareas en K-011.
 
-### [ ] K-005 — Claude Code y deliberación independiente
-- Verificar el mecanismo oficial permitido para integrar Claude Code con suscripción, sus condiciones y autenticación. No asumir que el Agent SDK admite credenciales de suscripción. Si el proveedor no permite el uso desde Konsora, documentar el bloqueo sin APIs de pago.
-- Implementar el segundo conector compatible y una pantalla «Debate» por proyecto.
-- Ejecutar dos propuestas **independientes** a partir del mismo problema y contexto, antes de compartirlas.
-- **Aceptación:** se conservan por separado ambas propuestas con identidad del modelo, fecha y estado; se informa de errores individuales.
-- **Pruebas:** tests con dos conectores simulados que comprueben independencia y persistencia, y validación real con suscripción cuando el mecanismo esté permitido.
+### [ ] K-005 — Deliberación independiente y Claude Code, por fases
+
+- **Plan de trabajo (2026-10-30):** el usuario aún no tiene suscripción de Claude. Empezar por K-005A, verificable sin cuenta ni consumo de cuota; dejar pendiente la integración y validación real de K-005B. No es necesario contratar Claude para trabajar en K-005A.
+- K-005 se marca como completada **solo cuando ambas fases cumplan sus criterios**. Completar la simulación no acredita que Claude funcione ni que sus condiciones permitan la integración.
+
+#### [ ] K-005A — Debate persistente con simuladores, sin suscripción
+
+1. Inspeccionar y reutilizar los contratos de conectores, la persistencia y el aislamiento por proyecto de K-003/K-004; no modificar el flujo de chats existente ni implementar todavía rondas, síntesis o tareas.
+2. Crear el debate asociado al proyecto y fijar su problema y contexto autorizado al iniciarlo. Guardar por separado cada participante, con identidad de conector/modelo, indicación de simulación, fechas, estado, propuesta y error cuando corresponda.
+3. Obtener una propuesta inicial por participante a partir del **mismo problema y contexto**, sin incluir la propuesta del otro ni compartir resultados durante esta fase. Usar dos conectores simulados distintos para comprobarlo, sin lanzar Codex ni Claude reales en el modo simulado.
+4. Añadir la pantalla «Debate» con un modo simulado explícito, estados de carga, resultados individuales, errores y cancelación. Mantener la propuesta terminada si el otro participante falla o se cancela; no reenviar automáticamente.
+5. Mostrar Claude Code como **no disponible / pendiente de configurar y validar**. Identificar las respuestas de prueba como «Simulado A» y «Simulado B»; nunca presentarlas como respuestas reales de Claude. El modo real queda deshabilitado mientras falte el segundo conector validado.
+
+- **Aceptación:** se crea y consulta un debate simulado por proyecto; ambas propuestas, su procedencia y sus estados permanecen tras reiniciar. Ningún resultado simulado se confunde con uno real, no se mezclan proyectos ni se consume cuota de suscripción. Los chats de K-004 siguen funcionando.
+- **Pruebas:** comprobar las entradas recibidas por cada simulador para demostrar igualdad de contexto y ausencia de propuestas ajenas; persistencia y orden, aislamiento por proyecto, fallo parcial, cancelación y conservación del resultado válido. Ejecutar regresión de chats, tipos, builds web/nativo y verificación manual de la UI y del historial tras reiniciar.
+
+#### [ ] K-005B — Claude Code oficial y validación real, pendiente de suscripción
+
+- **Requisitos antes de activar:** suscripción con acceso a Claude Code y un mecanismo oficialmente permitido para el uso desde Konsora. Si falta alguno, documentar el bloqueo y mantener esta fase pendiente, sin contratar servicios ni activar APIs de pago.
+- Revisar las [condiciones de integración y autenticación](https://code.claude.com/docs/en/legal-and-compliance) y el [modo programático oficial](https://code.claude.com/docs/en/headless) antes de implementar el adaptador. No asumir que el Agent SDK o cualquier modo headless admiten login de suscripción; registrar la versión, el mecanismo elegido y sus limitaciones.
+- Implementar el conector sobre el CLI oficial sin modificarlo, con login gestionado por la herramienta. Konsora no recibe, lee ni copia credenciales; no usa endpoints privados ni fallback a APIs de pago. Si las condiciones no permiten el caso de uso, detener esta fase y documentarlo.
+- Detectar instalación, compatibilidad y sesión; aplicar permisos mínimos para consultas de texto, sin herramientas ni cambios en proyectos, con procesos sin shell, tiempo/salida acotados, errores controlados y limpieza al cancelar. Añadir pruebas con un CLI falso sin consumir cuota.
+- Cuando se cumplan los requisitos, comprobar un prompt breve y después un debate real Codex + Claude con contexto idéntico y propuestas independientes. El usuario debe confirmar los envíos que consuman cuota; nunca comprar créditos ni activar consumo adicional.
+- **Aceptación:** ambas propuestas reales se reciben y persisten con identidades correctas; errores y cancelación se gestionan por participante, sin exponer credenciales. La UI distingue debates reales y simulados, y la integración oficial queda documentada y comprobada con la sesión del usuario.
+- **Pruebas:** contrato del CLI falso, instalación/login ausentes, autenticación no compatible, fallos de red/cuota, límites y cancelación; prueba real de prompt/respuesta y de debate por proyecto, incluyendo recuperación del historial tras reiniciar.
+- **Cierre:** actualizar el informe de verificación y marcar K-005B y K-005 únicamente tras superar la prueba real. No declarar terminado el MVP con la validación de Claude pendiente.
 
 ### [ ] K-006 — Rondas de debate y síntesis
+- **Dependencia:** K-005A y K-005B completadas; la simulación por sí sola no desbloquea K-006.
 - Añadir revisión cruzada y hasta 2 rondas por defecto (configurable), límites de uso y parada por error o presupuesto.
 - Generar síntesis estructurada: solución propuesta, argumentos, desacuerdos, riesgos, decisiones pendientes y plan sugerido.
 - El plan queda en estado `draft` hasta aprobación humana; no se ejecuta código automáticamente.
@@ -108,3 +129,4 @@ Este archivo es el backlog operativo. Marcar `[x]` únicamente cuando se cumplan
 | 2026-10-29 | K-003 (CLI) | Completada con Codex CLI y sesión de ChatGPT: prueba real satisfactoria desde la UI, simulador y 72 pruebas correctas, builds web/nativo y apertura/cierre de escritorio correctos. Credenciales gestionadas por el CLI, sin login por API ni ejecución de herramientas. Siguiente: K-004. |
 | 2026-10-29 | K-004 | Completada: chats por proyecto, mensajes ordenados y contexto persistente, modelo por conversación, errores y cancelación. 100 pruebas y builds correctos; continuidad real con ChatGPT después de reiniciar, aislamiento en UI e historial recuperado en escritorio Ubuntu. Sin dependencias nuevas ni APIs de pago. Siguiente: K-005. |
 | 2026-10-29 | Ajuste K-004 | Desplegable de modelos desde catálogo oficial y estado compacto sin panel de prueba. 111 pruebas, builds web/nativo y UI correctos; catálogo real verificado sin inferencias. Cuotas restantes y reinicios previstos para K-008; previsión de consumo y reserva antes de tareas para K-011. Siguiente: K-005. |
+| 2026-10-30 | Plan K-005 | Dividida en K-005A (debate persistente y pruebas con dos simuladores explícitos, sin suscripción) y K-005B (Claude Code oficial y validación real, pendiente de suscripción y compatibilidad). Solo planificación; ambas fases siguen sin implementar. Siguiente: K-005A. K-006 conserva la dependencia de K-005 completa. |
