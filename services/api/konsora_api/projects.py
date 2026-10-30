@@ -47,6 +47,11 @@ def get_database(request: Request) -> Database:
 LocalDatabase = Annotated[Database, Depends(get_database)]
 
 
+def require_project(connection: sqlite3.Connection, project_id: UUID) -> None:
+    if connection.execute("SELECT id FROM projects WHERE id=?", (str(project_id),)).fetchone() is None:
+        raise HTTPException(404, "El proyecto ya no existe.")
+
+
 @router.get("", response_model=list[Project])
 def list_projects(database: LocalDatabase) -> list[Project]:
     with database.connect() as connection:

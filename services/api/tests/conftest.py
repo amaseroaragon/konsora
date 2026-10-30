@@ -16,3 +16,14 @@ def database_path(tmp_path: Path) -> Path:
 def client(database_path: Path) -> Iterator[TestClient]:
     with TestClient(create_app(database_path)) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def forbid_processes(monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("El MVP de copiar prompts no debe iniciar procesos externos.")
+    async def forbidden_async(*args, **kwargs):
+        forbidden()
+    monkeypatch.setattr("subprocess.Popen", forbidden)
+    monkeypatch.setattr("asyncio.create_subprocess_exec", forbidden_async)
+    monkeypatch.setattr("asyncio.create_subprocess_shell", forbidden_async)

@@ -59,7 +59,7 @@ export default function TaskPrompt({ projectId, tasks, revision, disabled, onBus
       try {
         if (!navigator.clipboard?.writeText) throw new Error("Portapapeles no disponible");
         await navigator.clipboard.writeText(data.text);
-        setMessage("Prompt revalidado y copiado. Su ejecución requerirá tu autorización en la herramienta que uses.");
+        setMessage("Prompt copiado. Pégalo en la herramienta de IA que prefieras.");
       } catch {
         textRef.current?.focus(); textRef.current?.select();
         setMessage("Prompt revalidado y seleccionado. Pulsa Ctrl+C para copiarlo.");
@@ -82,7 +82,7 @@ export default function TaskPrompt({ projectId, tasks, revision, disabled, onBus
 
   return <section className="task-prompt" aria-labelledby="prompt-title" aria-busy={busy}>
     <h3 id="prompt-title">Prompt de las tareas seleccionadas</h3>
-    <p>Prepara una instantánea para una IA externa. No requiere login ni inicia agentes.</p>
+    <p>Genera un prompt con las tareas seleccionadas para copiarlo y pegarlo en tu herramienta de IA.</p>
     <label className="name-field">Contexto adicional que autorizas incluir
       <textarea value={context} maxLength={16000} disabled={busy} placeholder="Solo se añade el texto que escribas aquí."
         onChange={(event) => setContext(event.target.value)} /></label>
@@ -100,7 +100,7 @@ export default function TaskPrompt({ projectId, tasks, revision, disabled, onBus
       {preview.data.other_states.length ? <p>Estas tareas están en otros estados y requieren revisión: {preview.data.other_states.join(", ")}.</p> : null}
       <label className="name-field">Vista previa del prompt
         <textarea ref={textRef} readOnly disabled={stale || disabled} value={preview.data.text} rows={16} /></label>
-      <button disabled={busy || stale || disabled} onClick={copy}>Revalidar y copiar prompt</button>
+      <button disabled={busy || stale || disabled} onClick={copy}>Copiar prompt</button>
       <form className="prompt-export" onSubmit={save}>
         <label className="name-field">Nombre del archivo .md
           <input value={filename} disabled={busy || stale || disabled} maxLength={103} required placeholder="mi-seleccion.md" onChange={(event) => setFilename(event.target.value)} />

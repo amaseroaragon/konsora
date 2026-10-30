@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
 
 from konsora_api import legacy_tasks as legacy
-from konsora_api.connectors import safe_text
+from konsora_api.text import safe_text
 from konsora_api.database import Database
 from konsora_api.projects import LocalDatabase
 from konsora_api.task_document import (

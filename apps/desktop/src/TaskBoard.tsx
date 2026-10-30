@@ -159,8 +159,6 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
         </ul> : null}
         <TaskPrompt projectId={projectId} tasks={summary.chosen} revision={source?.revision ?? null}
           disabled={!source?.can_write || error !== null || loading} onBusy={setPromptBusy} />
-        <button className="primary-button" disabled aria-describedby="execution-unavailable">Ejecutar seleccionadas</button>
-        <p id="execution-unavailable">La ejecución aún no está disponible. Seleccionar no autoriza ni inicia trabajo.</p>
       </section>
       {dialog ? <TaskDialog key={dialog.id ?? "new"} projectId={projectId} taskId={dialog.id} tasks={tasks}
         readOnly={!source?.can_write || error !== null} sourceRevision={source?.revision ?? null}

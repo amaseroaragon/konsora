@@ -5,13 +5,7 @@ import pytest
 from test_file_tasks import external, register
 
 
-@pytest.fixture(autouse=True)
-def no_provider_or_process(monkeypatch, client):
-    client.app.state.connectors = {}
-    async def forbidden(*args, **kwargs):
-        pytest.fail("Preparar prompts no puede llamar a proveedores ni procesos.")
-    monkeypatch.setattr("konsora_api.connectors.run_cli", forbidden)
-    monkeypatch.setattr("konsora_api.connectors.CodexCLIConnector.send", forbidden)
+pytestmark = pytest.mark.usefixtures("forbid_processes")
 
 
 @pytest.fixture

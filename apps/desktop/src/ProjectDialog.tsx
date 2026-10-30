@@ -35,7 +35,7 @@ export default function ProjectDialog({ dialog, pending, error, onCancel, onConf
         {deleting ? (
           <p id="delete-description">
             ¿Quieres eliminar <strong>{dialog.project.name}</strong>?
-            {" "}El proyecto y todo su historial local, incluidos chats y registros históricos, se borrarán de este equipo. Esta acción no se puede deshacer.
+            {" "}El registro del proyecto y su historial local se borrarán de este equipo. Esta acción no se puede deshacer.
             {" "}La carpeta de trabajo y sus archivos se conservarán.
           </p>
         ) : (

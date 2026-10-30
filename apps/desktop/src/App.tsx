@@ -1,6 +1,5 @@
 import ConnectionStatus from "./ConnectionStatus";
 import Projects from "./Projects";
-import CLIConnections from "./CLIConnections";
 
 export default function App() {
   return (
@@ -13,7 +12,7 @@ export default function App() {
         <span className="local-label">Tu espacio de trabajo local</span>
       </header>
       <main id="inicio"><Projects /></main>
-      <div className="connection-statuses"><ConnectionStatus /><CLIConnections /></div>
+      <ConnectionStatus />
       <footer>
         <span>Konsora · 0.1.0</span>
         <span>Hecho para trabajar desde tu escritorio.</span>

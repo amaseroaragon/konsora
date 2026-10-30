@@ -117,7 +117,7 @@ export default function TaskDialog({ projectId, taskId, tasks, readOnly, sourceR
         </form>
         {task ? <section className="task-status-actions" aria-label="Cambiar estado de la tarea">
           <h3>Estado y revisión</h3>
-          <p>Mover una tarea no inicia agentes. Acepta el resultado solo después de revisarlo.</p>
+          <p>Los estados se actualizan manualmente. Marca una tarea como hecha después de revisar su resultado.</p>
           {task.blocked ? <p className="blocked-badge">Sin aceptar: {task.blocked_by.map((id) => tasks.find((item) => item.id === id)?.title ?? id).join(", ")}</p> : null}
           {dirty ? <p>Guarda los cambios antes de cambiar el estado.</p> : null}
           <label className="name-field">Comentario de revisión<textarea value={comment} maxLength={4000} disabled={busy || activeAttempt} onChange={(event) => setComment(event.target.value)} /></label>

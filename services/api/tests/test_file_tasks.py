@@ -93,7 +93,7 @@ def test_migration_preserves_sql_ids_attempts_and_rebuilds_without_old_database(
             assert connection.execute(f"SELECT * FROM {table}").fetchall() == rows
     copied = tmp_path / "copied"
     shutil.copytree(folder, copied)
-    with TestClient(create_app(tmp_path / "clean" / "db.sqlite3", connectors={})) as clean:
+    with TestClient(create_app(tmp_path / "clean" / "db.sqlite3")) as clean:
         _, other = register(clean, copied)
         detail = clean.get(f"{other}/{task.id}").json()
         assert detail["task"]["id"] == task.id and detail["attempts"][0]["result"] == "Resultado parcial"

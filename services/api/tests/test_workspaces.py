@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from konsora_api.connectors import MockConnector
 from konsora_api.main import create_app
 
 
@@ -20,7 +19,7 @@ def test_associate_change_detach_restart_and_delete_preserve_files(client, datab
     assert project["workspace_path"] is None and project["workspace_status"] == "unassigned"
     saved = client.patch(base + "/workspace", json={"workspace_path": str(folder)}).json()
     assert saved["workspace_path"] == str(folder.resolve()) and saved["workspace_status"] == "ready"
-    with TestClient(create_app(database_path, connectors={"mock": MockConnector()})) as restarted:
+    with TestClient(create_app(database_path)) as restarted:
         assert restarted.get(base).json() == saved
     assert client.patch(base, json={"name": "Renombrado"}).json()["workspace_path"] == str(folder)
     assert client.patch(base + "/workspace", json={"workspace_path": str(other)}).json()["workspace_path"] == str(other)

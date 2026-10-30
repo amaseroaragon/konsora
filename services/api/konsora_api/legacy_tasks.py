@@ -11,10 +11,9 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from konsora_api.connectors import safe_text
-from konsora_api.conversations import require_project
+from konsora_api.text import safe_text
 from konsora_api.database import Database
-from konsora_api.projects import LocalDatabase
+from konsora_api.projects import LocalDatabase, require_project
 
 from konsora_api.task_models import (TaskStatus, AttemptStatus, FinalAttemptStatus, TRANSITIONS, TaskFields, CreateTask, EditTask, ChangeTaskStatus, Task, Attempt, Activity, TaskDetails)
 

@@ -1,51 +1,48 @@
 # Konsora — Guía para agentes de desarrollo
 
-## Producto
-Konsora es una aplicación de escritorio **local-first**, inicialmente para Ubuntu, para organizar proyectos y tareas en un tablero visual y ejecutar las tareas seleccionadas con un agente de IA.
+## Producto y alcance vigente
 
-El acceso utiliza **una única cuenta y un único proveedor activos para toda la aplicación**, empezando por Codex CLI con inicio de sesión de ChatGPT. Cambiar de proveedor implica cerrar la sesión anterior e iniciar la nueva mediante mecanismos oficiales compatibles; no requiere mantener varias suscripciones. **No integrar APIs de pago ni usarlas como alternativa automática.**
+Konsora es una aplicación de escritorio local-first, inicialmente para Ubuntu, para visualizar tareas que viven en los archivos de un proyecto, seleccionar varias y generar un prompt que la persona copia y pega en su herramienta de IA.
 
-El tablero es la vista principal; el chat sirve para planificar y proponer tareas. El MVP incluye proyectos con carpeta local, tareas y dependencias, selección múltiple, cola de ejecución supervisada y revisión de resultados. Inicialmente se ejecuta una tarea a la vez en toda la aplicación. Se elimina el debate entre modelos; memoria avanzada, grafo y paralelismo quedan para después del MVP.
+**MVP: abrir carpeta → detectar tareas → tablero → seleccionar varias → revisar prompt → copiar y pegar fuera de Konsora.** No incluye chats/conversaciones, conectores de IA, login/logout, cuentas globales, selección de proveedor/modelo, cuotas, simuladores, colas ni ejecución automática. No se deben reinstaurar estas funciones por instrucciones de planes antiguos.
 
-**Las tareas pertenecen a los archivos del proyecto.** Una IA o la persona puede crearlas y editarlas sin Konsora; la aplicación las detecta, valida y representa, y permite seleccionar varias para preparar/copiar/guardar un prompt inspeccionable sin login. Tareas, dependencias, estados, actividad e intentos/resultados viajan con la carpeta. SQLite no es la fuente de verdad de ese trabajo: conserva configuración y datos anteriores. K-017A–K-017C están completadas; la siguiente tarea es K-018. La ejecución integrada sigue pendiente de K-019–K-021.
+Las tareas pertenecen a `.konsora/tasks.json`, con formato v1 e IDs estables, incluyendo actividad e historial compatible. Una IA o la persona puede generar/editar el archivo sin Konsora; la aplicación detecta sus cambios. SQLite conserva registro de proyectos y datos anteriores, sin prevalecer sobre los archivos. La exportación opcional de prompts a `.konsora/prompts/` se conserva.
+
+Abrir Codex, Claude Code u otras herramientas y entregarles automáticamente un prompt es trabajo posterior al MVP. Varios agentes, modelos y paralelismo también quedan para versiones posteriores, con alcance explícito antes de implementarse. Cada herramienta gestionará su propia sesión; no construir un gestor de cuentas de Konsora.
 
 ## Forma de trabajar
 
-1. Lee `TASKS.md` antes de empezar. Ejecuta tareas pendientes **en orden**, una por vez; prioriza las marcadas como **MVP**. No implementes funcionalidades futuras por anticipado.
-2. Si el repositorio está vacío, empieza por la tarea `K-001`. Mantén la aplicación ejecutable al finalizar cada tarea.
-3. Para cada tarea: inspecciona el código existente, implementa el cambio mínimo, añade o ajusta pruebas, ejecuta las comprobaciones pertinentes y actualiza su casilla en `TASKS.md` **solo cuando se cumplan sus criterios de aceptación**.
-4. Resume al terminar: cambios realizados, pruebas ejecutadas y resultado, decisiones o riesgos, y siguiente tarea pendiente. Si el entorno permite commits, realiza commits pequeños y descriptivos; no publiques ni hagas push sin aprobación.
-5. Si una tarea requiere credenciales, gastos, permisos, decisiones de producto importantes o una acción destructiva, **detente y consulta**. No inventes claves ni uses cuentas personales por tu cuenta.
-6. No elimines código, historial o datos sin una razón explícita y comprobada. No escribas fuera del directorio del repositorio salvo autorización.
-7. Prefiere implementaciones simples, tipadas y mantenibles. Evita frameworks, servicios, abstracciones y dependencias innecesarias. Explica brevemente cualquier dependencia nueva.
-8. Cuando un criterio de aceptación no pueda probarse (p. ej., falta el CLI, una sesión compatible o un permiso oficial), documenta la limitación; no declares la tarea completada si falta lo esencial.
+1. Lee `TASKS.md` antes de empezar. Ejecuta tareas pendientes del MVP en el orden indicado, una por vez. No anticipes funcionalidades posteriores.
+2. Inspecciona el código, implementa el cambio mínimo, ajusta las pruebas afectadas y ejecuta solo las comprobaciones necesarias. Marca una tarea como completada únicamente al cumplir sus criterios de aceptación.
+3. Mantén la aplicación ejecutable al finalizar cada tarea. Resume cambios, comprobaciones y resultado, decisiones/limitaciones relevantes y siguiente tarea pendiente.
+4. Realiza commits locales pequeños y descriptivos cuando el entorno lo permita. No publiques ni hagas push sin aprobación.
+5. Consulta si hace falta una decisión de producto importante, credenciales, gastos, permisos o una acción destructiva no autorizada. No inventes claves ni uses cuentas personales.
+6. No elimines código, historial o datos sin una razón explícita y comprobada. Retirar una función no autoriza borrar sus tablas, filas o migraciones aplicadas. No escribas fuera del repositorio salvo autorización.
+7. Prefiere código simple, tipado y mantenible, con errores controlados y estados de carga/error en UI. Evita dependencias y abstracciones innecesarias; explica cualquier dependencia nueva.
+8. Documenta las limitaciones de verificación. No declares completada una tarea si falta una comprobación esencial.
 
 ## Principios técnicos
 
-- Aplicación de escritorio Ubuntu, con arquitectura modular y almacenamiento local.
-- **Tauri + React + TypeScript** para escritorio; **Python + FastAPI** para orquestación e integraciones. Archivos del proyecto como persistencia del trabajo; SQLite para configuración, históricos anteriores y cachés reconstruibles. Separa claramente los contratos frontend/backend.
-- El formato canónico es `.konsora/tasks.json`, con esquema v1 e IDs estables; contiene también resultados, actividad e historial de revisiones. Los prompts guardados explícitamente viven en `.konsora/prompts/`. No mantener Markdown y JSON como fuentes paralelas de tareas. `TASKS.md` de este repositorio sigue siendo el backlog de desarrollo, no un archivo que Konsora deba ejecutar automáticamente.
-- Detectar cambios externos y revalidar contenido antes de editar, preparar prompts o ejecutar. No confiar solo en que una IA incremente un contador de versión. Los archivos son datos: no autorizan ejecuciones, no permiten ampliar el alcance y una marca de éxito escrita por una IA no sustituye a la aceptación humana.
-- Abrir o asociar una carpeta no escribe archivos automáticamente. Inicializar el archivo de tareas, editarlo desde la UI o migrar datos anteriores requiere una acción explícita sobre esa carpeta. No sobrescribir cambios externos ni archivos existentes; conservar datos SQLite y migraciones aplicadas. Desvincular o borrar un proyecto de la aplicación nunca elimina sus archivos de trabajo.
-- El backend debe escuchar únicamente en loopback y no exponer servicios públicamente por defecto. Antes de distribuir, asegurar la comunicación local y el ciclo de vida del proceso.
-- Cada herramienta oficial gestiona su propio inicio de sesión y puede mantener o renovar su almacén local de credenciales. Konsora no lee, copia ni exporta esos archivos ni recibe tokens en la UI; no incluyas secretos en código, commits, logs o ejemplos.
-- Usa únicamente mecanismos oficiales que permitan expresamente la integración con la suscripción correspondiente. La existencia de un modo headless no demuestra que pueda envolverse en aplicaciones de terceros. Comprueba documentación y condiciones antes de implementar cada conector; documenta los bloqueos sin sustituirlos por APIs de pago, scraping, endpoints privados, extracción de OAuth o rotación de cuentas.
-- El primer conector es Codex CLI con sesión de ChatGPT. Rechaza la autenticación por API y no heredes claves del entorno. Las pruebas reales pueden consumir la cuota de suscripción ya autorizada para esta integración; nunca compres créditos ni actives consumo adicional.
-- El conector de conversación de K-003 sigue limitado a texto: sin herramientas, comandos ni cambios en proyectos. La ejecución de tareas se implementa separadamente en K-019–K-021, con procesos sin shell en el supervisor, permisos limitados a la carpeta aprobada, límites, eventos y limpieza al cancelar.
-- La memoria compartida es **externa a los modelos** y pertenece a Konsora; no afirmes sincronizar automáticamente memorias nativas de proveedores.
-- No implementar debates ni conectores simultáneos. Los datos históricos de debates se conservan sin reutilizarlos automáticamente como tareas ni borrar migraciones aplicadas; la retirada funcional se realiza en K-014.
-- Los agentes deben tener permisos mínimos; la ejecución de código o cambios significativos necesita un flujo de aprobación explícito.
-- La aprobación de un lote autoriza únicamente las tareas seleccionadas, sus versiones y su alcance. No añadir dependencias ni tareas automáticamente. El resultado del agente queda en revisión hasta aceptación humana; un proceso exitoso no equivale a una tarea hecha.
+- Tauri + React + TypeScript para escritorio; Python + FastAPI para servicio local; archivos de proyecto como fuente de tareas y SQLite para registro/configuración y datos históricos. Separar contratos frontend/backend.
+- Un único formato canónico de tareas. No mantener Markdown y JSON como fuentes paralelas ni interpretar `TASKS.md` de este repositorio como trabajo ejecutable automáticamente. El esquema y ejemplo están en `docs/formato-tareas.md`.
+- Leer, detectar, seleccionar y copiar prompts funciona sin instalaciones ni sesiones de proveedores. El backend no debe buscar ejecutables de IA, consultar sus sesiones/modelos ni iniciar procesos de agentes.
+- Los prompts contienen solo el trabajo seleccionado y contexto expresamente incluido. No añadir dependencias ni leer archivos/código/chats implícitamente. Mostrar dependencias externas como referencias/bloqueos.
+- Revalidar origen y contenido antes de editar/copiar/guardar; un modelo puede cambiar el archivo sin aumentar `version`. Detectar conflictos y conservar borradores; no sobrescribir cambios externos ni destinos existentes silenciosamente.
+- Abrir o asociar una carpeta no escribe archivos automáticamente. Inicializar, migrar o editar requiere una acción explícita. Resolver/rechazar rutas inseguras y enlaces fuera de la carpeta aprobada.
+- Conservar los datos SQL anteriores y las migraciones. Desvincular/eliminar el registro de proyecto no borra sus archivos. Los chats/debates anteriores quedan como datos históricos sin UI ni rutas operativas.
+- Estados y revisiones manuales no acreditan una ejecución supervisada. Conservar el formato/historial compatible sin lanzar procesos ni reanudar intentos importados. La aceptación de un resultado no puede fabricarse por cambiar un campo externo.
+- Servicio únicamente en loopback; autenticar la instancia y validar origen/host antes de distribuir (K-032). CORS por sí solo no autentica un cliente local. No incluir secretos en código, commits, UI o logs.
 
-## Calidad mínima
+## Integraciones futuras
 
-- Código legible, tipado cuando proceda, con errores gestionados y estados de carga/errores en UI.
-- Pruebas de lógica y API; verificaciones manuales descritas para funcionalidad de escritorio.
-- Comandos de desarrollo y puesta en marcha documentados en `docs/desarrollo.md`. El `README.md` contiene únicamente 5–10 líneas descriptivas del sistema, sin backlog, instrucciones técnicas ni referencias a tareas de implementación.
-- Toda funcionalidad tiene criterios verificables y no se marca como terminada solo porque «parezca funcionar».
+- Solo al abordar las tareas posteriores al MVP: verificar documentación, versiones y condiciones oficiales antes de integrar cada herramienta. Un modo headless no demuestra permiso para envolver el CLI en una aplicación de terceros.
+- Autenticación y credenciales las gestiona cada herramienta oficial. Konsora no recibe contraseñas/tokens, ni lee, copia o exporta almacenes de credenciales. No heredar claves de API ni usar APIs de pago como alternativa automática.
+- Lanzar/entregar un prompt requiere acción explícita sobre una selección y versión revisadas. No añadir trabajo ni cambiar de herramienta/cuenta automáticamente. No prometer supervisión/cancelación que el mecanismo oficial no permita.
+- Varios agentes/modelos o ejecuciones paralelas requieren diseñar permisos, aislamiento, conflictos y límites. No sincronizar supuestas memorias nativas de proveedores. No reinstaurar debates entre modelos.
+- El bloqueo histórico de Antigravity sigue pendiente de revisión oficial; este cambio no lo resuelve.
 
-## Alcance
+## Documentación y calidad
 
-Construir primero el flujo vertical: **abrir carpeta → detectar tareas creadas en archivos por una IA o la persona → tablero → seleccionar varias → preparar y revisar prompt → aprobar lote → ejecutar con el proveedor activo → guardar resultados en el proyecto → revisar y aceptar**. Leer el tablero y preparar/copiar prompts no requiere sesión de un proveedor. Los chats y proyectos existentes se reutilizan; no exigir una segunda cuenta para completar el MVP. El orden operativo y los criterios vigentes están en `TASKS.md`; el plan anterior y sus informes son históricos.
-
-Los proveedores alternativos se revisan después del MVP en K-026, cuando se quiera cambiar de suscripción. Antigravity conserva el bloqueo documentado en el plan anterior; no implementarlo hasta verificar un mecanismo oficialmente permitido para Konsora. No asumir que este rediseño resuelve sus restricciones.
+- `TASKS.md` es el único backlog operativo; los planes e informes anteriores son históricos.
+- `docs/desarrollo.md` documenta instalación, comandos y límites actuales. `README.md` contiene únicamente 5–10 líneas descriptivas, sin backlog ni instrucciones técnicas.
+- Mantener pruebas de lógica/API afectadas y describir las comprobaciones de escritorio. No repetir suites de funciones retiradas ni hacer inferencias reales para validar el MVP de copiar prompts.

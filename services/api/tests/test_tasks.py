@@ -11,13 +11,7 @@ from konsora_api.main import create_app
 from konsora_api.tasks import finish_attempt, start_attempt
 
 
-@pytest.fixture(autouse=True)
-def forbid_agent_calls(monkeypatch):
-    async def forbidden(*args, **kwargs):
-        pytest.fail("Las operaciones de tareas no deben invocar agentes.")
-    monkeypatch.setattr("konsora_api.connectors.CodexCLIConnector.send", forbidden)
-    monkeypatch.setattr("konsora_api.connectors.MockConnector.send", forbidden)
-    monkeypatch.setattr("konsora_api.connectors.run_cli", forbidden)
+pytestmark = pytest.mark.usefixtures("forbid_processes")
 
 
 def project_tasks(client, name="Proyecto"):
