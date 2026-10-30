@@ -4,7 +4,7 @@ Rediseño solicitado por el usuario el **2026-10-30**: un espacio visual de proy
 
 Este es el único backlog operativo. Ejecutar las tareas pendientes en el orden indicado, una por vez. Marcar `[x]` solo con aceptación y pruebas completas; documentar cualquier bloqueo esencial sin darlo por resuelto con simuladores. El avance de implementación se refleja en las casillas y los informes de verificación.
 
-**Corrección de producto, 2026-10-30:** las tareas son archivos del proyecto que una IA puede crear/editar por su cuenta. Konsora es su interfaz de lectura, selección, preparación de prompts y ejecución supervisada. La implementación actual de K-016/K-017 usa SQLite y debe adaptarse antes de seguir con K-018. Esta corrección actualiza el plan; no afirma haber implementado todavía esa adaptación.
+**Corrección de producto, 2026-10-30:** las tareas son archivos del proyecto que una IA puede crear/editar por su cuenta. Konsora es su interfaz de lectura, selección, preparación de prompts y ejecución supervisada. La base SQLite de K-016/K-017 se ha adaptado mediante K-017A–K-017C: archivos como fuente, detección de cambios y preparación de prompts disponibles; ejecución integrada todavía pendiente.
 
 ## Producto y recorrido principal
 
@@ -40,7 +40,7 @@ La [auditoría del repositorio](docs/auditoria-2026-10-30.md) detalla evidencias
 
 Los identificadores K-001–K-013 no se reutilizan con otro significado. Los siguientes empiezan en K-014 para mantener trazabilidad.
 
-K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en SQLite. Sus contratos, validaciones y componentes se reutilizan; no acreditan todavía tareas en archivos. **Orden pendiente vigente: K-017A → K-017B → K-017C → K-018 → resto del MVP.**
+K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en SQLite. K-017A–K-017C acreditan su adaptación a archivos, reutilizando contratos y componentes sin borrar datos anteriores. **Siguiente tarea pendiente: K-018; después, el resto del MVP en su orden.**
 
 ## MVP — Orden de implementación
 
@@ -95,13 +95,14 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - **Pruebas:** migración con datos existentes, reinicio/reconstrucción sin caché, cambios externos, archivo inválido/desaparecido, conflictos y fallos de escritura, enlaces fuera del alcance y selección tras cambios. Un recorrido UI con dos carpetas y un archivo generado externamente; tipos y builds afectados.
 - **Verificación:** [K-017B](docs/verification/K-017B.md): 19 pruebas de tareas, 10 nuevas de archivos y 43 de regresión correctas; tres pruebas de selección y tipos/build web/nativo. UI con dos carpetas, migración, cambios externos, borrador en conflicto y recuperación comprobados.
 
-### [ ] K-017C — Preparar prompts desde tareas seleccionadas en archivos
+### [x] K-017C — Preparar prompts desde tareas seleccionadas en archivos
 - Añadir vista previa y acción de copiar/guardar un prompt portable a partir exclusivamente de las tareas seleccionadas, con sus IDs/huellas, descripción, criterios, orden y contexto aprobado. Funciona sin login y puede usarse con una IA externa; guardarlo requiere elegir explícitamente un destino dentro del proyecto.
 - Mostrar dependencias externas a la selección como bloqueos, sin añadirlas ni incluir su trabajo automáticamente. Mostrar claramente qué archivo y revisión se están usando, incluidas las seleccionadas ocultas por filtros.
 - Releer/revalidar antes de preparar o copiar/guardar; si cambia o desaparece alguna tarea, invalidar la vista previa y pedir revisión. Abrir o sincronizar archivos no selecciona tareas ni genera prompts por cuenta propia.
 - Copiar un prompt no autoriza ni acredita ejecución. Si se usa con una herramienta externa, Konsora solo detecta sus archivos/resultados y los ofrece a revisión; no promete supervisar procesos que no lanzó. La ejecución integrada permanece deshabilitada hasta K-019–K-021.
 - **Aceptación:** al seleccionar A y C en un archivo con A/B/C, la vista previa contiene trabajo de A y C y puede copiarse sin proveedor; B no se incorpora. Cambiar A externamente invalida esa vista previa. No se invocan agentes.
 - **Pruebas:** selección parcial, dependencias fuera de selección, texto/contexto incluido, cambios de archivo sin incremento de versión, ausencia de sesión y un recorrido UI de archivo → selección → prompt inspeccionable.
+- **Verificación:** [K-017C](docs/verification/K-017C.md): ocho pruebas API y recorrido UI A/C con B excluida, copia revalidada, exportación explícita y cambios externos/contexto invalidando la vista previa. Tipos y builds web/nativo correctos; sin inferencia.
 
 ### [ ] K-018 — Una cuenta y un proveedor activos para toda la aplicación
 - **Precondición:** K-017A–K-017C completadas. La cuenta se exige para envíos/ejecución integrada, no para leer archivos, usar el tablero o preparar/copiar prompts.
@@ -193,3 +194,4 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - **2026-10-30 (K-016):** modelo y API de tareas, dependencias, actividad e intentos persistentes verificados, con aceptación humana y control de versiones. **Siguiente tarea: K-017.**
 - **2026-10-30 (K-017):** tablero principal, navegación lateral, detalle y selección múltiple por proyecto verificados. **Siguiente tarea: K-018.**
 - **2026-10-30 (corrección de fuente de verdad):** aclarado que las tareas son archivos creados/editados por IA o por la persona dentro del proyecto; Konsora los detecta y prepara prompts desde la selección. Añadidas K-017A–K-017C antes de K-018 y adaptado el flujo posterior. K-016/K-017 siguen como evidencia histórica de la base SQLite; esta revisión no migra datos ni completa las tareas nuevas. **Siguiente tarea: K-017A.**
+- **2026-10-30 (K-017A–K-017C):** implementados contrato v1, origen en archivos, migración explícita sin pérdidas, detección de cambios y prompts desde selección con copia/exportación revalidadas. Datos existentes conservados y ejecución integrada deshabilitada. **Siguiente tarea: K-018.**

@@ -65,6 +65,10 @@ def create_app(
             return JSONResponse(status_code=422, content={
                 "detail": "Revisa el título (1–120), mensaje (1–16000), identificador de modelo y confirmación. No se admiten otros campos.",
             })
+        if "/tasks/prompt/" in request.url.path:
+            return JSONResponse(status_code=422, content={
+                "detail": "Revisa selección sin duplicados, revisión del archivo, contexto (hasta 16000), huella del prompt y nombre de salida .md. No se admiten otros campos.",
+            })
         if "/tasks" in request.url.path:
             return JSONResponse(status_code=422, content={
                 "detail": "Revisa título (1–120), descripción y criterios (hasta 16000), orden, dependencias y versión vigente. No se admiten otros campos.",

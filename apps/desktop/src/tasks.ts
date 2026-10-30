@@ -27,6 +27,11 @@ export interface TaskBoardData { source: TaskSource; tasks: Task[] }
 export interface MigrationPreview {
   target: string; legacy_revision: string; task_count: number; attempt_count: number; activity_count: number; file_exists: boolean;
 }
+export interface PromptRequest { task_ids: string[]; expected_revision: string; context: string }
+export interface PreparedPrompt {
+  source: string; revision: string; fingerprint: string; task_ids: string[]; text: string;
+  blocked: { task_id: string; dependency_id: string; selected: boolean }[]; other_states: string[];
+}
 export interface TaskFields {
   title: string; description?: string; acceptance_criteria?: string; sort_order?: number; dependencies?: string[];
 }
@@ -136,4 +141,24 @@ export async function initializeTaskFile(project: string, preview: MigrationPrev
   await request(project, "/initialize", signal, "POST", {
     mode: preview.task_count ? "migrate" : "empty", legacy_revision: preview.legacy_revision, target: preview.target, confirm: true,
   });
+}
+
+function parsePrompt(data: unknown): PreparedPrompt {
+  if (!record(data) || typeof data.source !== "string" || typeof data.revision !== "string" ||
+    typeof data.fingerprint !== "string" || typeof data.text !== "string" || !strings(data.task_ids) ||
+    !strings(data.other_states) || !Array.isArray(data.blocked) || !data.blocked.every((item: unknown) =>
+      record(item) && typeof item.task_id === "string" && typeof item.dependency_id === "string" && typeof item.selected === "boolean")) return invalid();
+  return data as unknown as PreparedPrompt;
+}
+
+export async function prepareTaskPrompt(project: string, input: PromptRequest, signal: AbortSignal): Promise<PreparedPrompt> {
+  return parsePrompt(await request(project, "/prompt/preview", signal, "POST", input));
+}
+export async function validateTaskPrompt(project: string, input: PromptRequest, fingerprint: string, signal: AbortSignal): Promise<PreparedPrompt> {
+  return parsePrompt(await request(project, "/prompt/validate", signal, "POST", { ...input, prompt_fingerprint: fingerprint }));
+}
+export async function saveTaskPrompt(project: string, input: PromptRequest, fingerprint: string, filename: string, signal: AbortSignal): Promise<string> {
+  const data = await request(project, "/prompt/save", signal, "POST", { ...input, prompt_fingerprint: fingerprint, filename });
+  if (!record(data) || typeof data.path !== "string" || typeof data.fingerprint !== "string") return invalid();
+  return data.path;
 }

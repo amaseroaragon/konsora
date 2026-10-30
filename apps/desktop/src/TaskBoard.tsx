@@ -3,6 +3,7 @@ import type { MigrationPreview, Task, TaskSource, TaskStatus } from "./tasks";
 import { initializeTaskFile, loadTaskBoard, previewTaskMigration } from "./tasks";
 import { attemptLabels, filterTasks, selectTasks, selectionSummary, taskLabels, taskStates } from "./board";
 import TaskDialog from "./TaskDialog";
+import TaskPrompt from "./TaskPrompt";
 
 export default function TaskBoard({ projectId }: { projectId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -19,6 +20,7 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
   const [notice, setNotice] = useState(false);
   const [preview, setPreview] = useState<MigrationPreview | null>(null);
   const [settingUp, setSettingUp] = useState(false);
+  const [promptBusy, setPromptBusy] = useState(false);
   const setupRequest = useRef<AbortController | null>(null);
 
   useEffect(() => () => setupRequest.current?.abort(), []);
@@ -112,9 +114,9 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
       </div>
       <div className="board-selection-tools">
         <span>{visible.length} de {tasks.length} tareas visibles</span>
-        <button disabled={loading || !visible.length || allVisibleSelected}
+        <button disabled={promptBusy || loading || !visible.length || allVisibleSelected}
           onClick={() => setSelected((previous) => selectTasks(previous, visibleIds, true))}>Seleccionar visibles</button>
-        <button disabled={loading || !visible.some((task) => selected.has(task.id))}
+        <button disabled={promptBusy || loading || !visible.some((task) => selected.has(task.id))}
           onClick={() => setSelected((previous) => selectTasks(previous, visibleIds, false))}>Deseleccionar visibles</button>
       </div>
       {loading ? <p role="status">Cargando tareas…</p> : null}
@@ -130,7 +132,7 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
               <ul className="task-cards">
                 {column.map((task) => <li key={task.id} className={`task-card ${selected.has(task.id) ? "is-selected" : ""}`}>
                   <div className="card-meta"><label className="check-label">
-                    <input type="checkbox" aria-label={`Seleccionar ${task.title}`} checked={selected.has(task.id)} disabled={loading}
+                    <input type="checkbox" aria-label={`Seleccionar ${task.title}`} checked={selected.has(task.id)} disabled={loading || promptBusy}
                       onChange={(event) => setSelected((previous) => selectTasks(previous, [task.id], event.target.checked))} />
                     <span>v{task.version}</span></label><span>Orden {task.sort_order}</span></div>
                   <h4><button className="task-open" aria-label={`Abrir tarea ${task.title}`} onClick={() => setDialog({ id: task.id })}>{task.title}</button></h4>
@@ -148,13 +150,15 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
       </div>
       <section className="selection-summary" aria-labelledby="selection-title">
         <div className="board-heading"><h3 id="selection-title" aria-live="polite">{summary.chosen.length} seleccionadas · {summary.hidden} ocultas por filtros</h3>
-          <button disabled={!summary.chosen.length} onClick={() => setSelected(new Set())}>Limpiar selección</button></div>
+          <button disabled={promptBusy || !summary.chosen.length} onClick={() => setSelected(new Set())}>Limpiar selección</button></div>
         <p>{summary.eligible} pendientes sin bloqueos · {summary.blocked} bloqueadas · {summary.other} en otros estados</p>
         {summary.chosen.length ? <ul className="selected-tasks" aria-label="Todas las tareas seleccionadas">
           {summary.chosen.map((task) => <li key={task.id}>{task.title} <span>· {taskLabels[task.status]}{task.blocked ? " · Bloqueada" : ""}</span>
-            <button className="quiet-button" aria-label={`Quitar ${task.title} de la selección`}
+            <button className="quiet-button" disabled={promptBusy} aria-label={`Quitar ${task.title} de la selección`}
               onClick={() => setSelected((previous) => selectTasks(previous, [task.id], false))}>Quitar</button></li>)}
         </ul> : null}
+        <TaskPrompt projectId={projectId} tasks={summary.chosen} revision={source?.revision ?? null}
+          disabled={!source?.can_write || error !== null || loading} onBusy={setPromptBusy} />
         <button className="primary-button" disabled aria-describedby="execution-unavailable">Ejecutar seleccionadas</button>
         <p id="execution-unavailable">La ejecución aún no está disponible. Seleccionar no autoriza ni inicia trabajo.</p>
       </section>

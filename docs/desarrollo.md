@@ -12,7 +12,7 @@ El tablero relee los archivos mientras está abierto. Ante JSON inválido o desa
 
 Una tarea declarada hecha externamente requiere aceptación humana en la carpeta/instalación actual. Las firmas y sus límites están documentadas en el formato; la clave propia de Konsora permanece fuera de la carpeta y nunca se exporta. Una carpeta copiada conserva el trabajo, no autorizaciones de ejecución. Si la base de Konsora está dentro de la carpeta, configura `KONSORA_DATABASE_PATH` fuera de ella antes de aceptar resultados para proteger esa clave.
 
-La preparación de prompts desde la selección se incorpora en K-017C. La ejecución integrada continúa deshabilitada hasta K-019–K-021.
+La preparación de prompts desde la selección está disponible sin login. La ejecución integrada continúa deshabilitada hasta K-019–K-021.
 
 Aplicación de escritorio local-first para organizar el trabajo con modelos y agentes de IA desde Ubuntu.
 
@@ -76,6 +76,16 @@ Usa las casillas por tarjeta o **Seleccionar visibles**/**Deseleccionar visibles
 Controles accesibles mediante Tab, Espacio y Enter; Escape cierra el detalle y el diálogo conserva el foco dentro mientras está abierto. El área de columnas admite desplazamiento horizontal con teclado; el resto de la página se adapta al tamaño de ventana. Estados vacíos, carga y errores de lectura incluyen acciones de recuperación.
 
 `npm run test:board` ejecuta tres pruebas focalizadas de selección, resumen y filtros sin dependencias nuevas. Evidencia del recorrido visual: [K-017](verification/K-017.md).
+
+## Prompts desde la selección
+
+Selecciona las tareas del archivo y pulsa **Preparar prompt**. La vista previa incluye solamente sus títulos, descripciones, criterios, IDs/huellas y orden, junto al texto de **Contexto adicional que autorizas incluir**. No se leen archivos de código, otros chats ni notas por defecto. Las dependencias sin aceptar aparecen solo como referencias/bloqueos: su trabajo no se incorpora si no están seleccionadas. Las seleccionadas ocultas por filtros siguen incluidas y enumeradas en el resumen.
+
+**Revalidar y copiar prompt** relee el origen y comprueba selección, contexto y huella antes de copiar. Si el portapapeles del entorno no permite escritura directa, selecciona el texto validado e indica **Ctrl+C**. Para exportarlo, escribe un nombre simple acabado en `.md` y pulsa **Guardar prompt nuevo**; el destino explícito es `.konsora/prompts/` dentro del proyecto. No se sobrescriben archivos existentes ni se cambia `tasks.json` al copiar/guardar.
+
+Cambiar la selección, el contexto o el archivo invalida la vista previa y obliga a regenerarla, incluso sin incrementar `version`. La copia/exportación no inicia agentes ni crea una autorización de ejecución. Una herramienta externa ejecuta bajo sus propios controles: Konsora solo detectará los resultados que deje en los archivos y los ofrecerá a revisión. La ejecución integrada aún está deshabilitada.
+
+Rutas POST bajo `/projects/{project_id}/tasks/prompt`: `/preview` recibe `task_ids`, `expected_revision` y `context`; `/validate` añade `prompt_fingerprint`; `/save` añade también `filename`. Máximo 16000 caracteres de contexto y 256000 de prompt; se rechazan excesos sin recortar. La salida se limita a nombres simples `.md`, sin rutas ni sobrescrituras. No se consulta ni se exige una sesión de proveedor.
 
 ## Carpetas de trabajo
 
