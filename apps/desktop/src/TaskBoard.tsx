@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import type { Task, TaskStatus } from "./tasks";
-import { listTasks } from "./tasks";
+import { useEffect, useRef, useState } from "react";
+import type { MigrationPreview, Task, TaskSource, TaskStatus } from "./tasks";
+import { initializeTaskFile, loadTaskBoard, previewTaskMigration } from "./tasks";
 import { attemptLabels, filterTasks, selectTasks, selectionSummary, taskLabels, taskStates } from "./board";
 import TaskDialog from "./TaskDialog";
 
@@ -14,20 +14,60 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [dialog, setDialog] = useState<{ id: string | null } | null>(null);
+  const [source, setSource] = useState<TaskSource | null>(null);
+  const sourceRef = useRef<TaskSource | null>(null);
+  const [notice, setNotice] = useState(false);
+  const [preview, setPreview] = useState<MigrationPreview | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
+  const setupRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => setupRequest.current?.abort(), []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 8000);
     let current = true;
-    void listTasks(projectId, controller.signal).then((items) => {
-      if (!current) return;
-      setTasks(items); setError(null);
-      setSelected((previous) => new Set(items.filter((task) => previous.has(task.id)).map((task) => task.id)));
-    }).catch((cause: unknown) => {
-      if (current) setError(cause instanceof Error ? cause.message : "No se pudieron cargar las tareas.");
-    }).finally(() => { window.clearTimeout(timeout); if (current) setLoading(false); });
-    return () => { current = false; window.clearTimeout(timeout); controller.abort(); };
+    let controller: AbortController | null = null;
+    let inFlight = false;
+    async function load() {
+      if (inFlight) return;
+      inFlight = true;
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller?.abort(), 8000);
+      try {
+        const data = await loadTaskBoard(projectId, controller.signal);
+        if (!current) return;
+        const previous = sourceRef.current;
+        if (previous?.mode === "files" && data.source.mode !== "files" && previous.file_path === data.source.file_path) {
+          setSource(data.source); setError("El archivo de tareas ha desaparecido. Se muestra la última lectura, sin permitir cambios. Restáuralo o revisa la inicialización.");
+          return;
+        }
+        if (previous && previous.file_path !== data.source.file_path) setSelected(new Set());
+        else setSelected((chosen) => new Set(data.tasks.filter((task) => chosen.has(task.id)).map((task) => task.id)));
+        if (previous?.revision && previous.revision !== data.source.revision) setNotice(true);
+        sourceRef.current = data.source;
+        setSource(data.source); setTasks(data.tasks); setError(null);
+      } catch (cause: unknown) {
+        if (current) {
+          setError(cause instanceof Error ? cause.message : "No se pudieron cargar las tareas.");
+          setSource((previous) => previous ? { ...previous, can_write: false } : null);
+        }
+      } finally { window.clearTimeout(timeout); inFlight = false; if (current) setLoading(false); }
+    }
+    void load();
+    const interval = window.setInterval(() => { void load(); }, 2500);
+    return () => { current = false; window.clearInterval(interval); controller?.abort(); };
   }, [projectId, revision]);
+
+  async function setup(confirm: boolean) {
+    if (setupRequest.current) return;
+    const controller = new AbortController(); setupRequest.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    setSettingUp(true); setError(null);
+    try {
+      if (confirm && preview) { await initializeTaskFile(projectId, preview, controller.signal); setPreview(null); refresh(); }
+      else setPreview(await previewTaskMigration(projectId, controller.signal));
+    } catch (cause: unknown) { setError(cause instanceof Error ? cause.message : "No se pudo preparar el archivo."); }
+    finally { window.clearTimeout(timeout); setupRequest.current = null; setSettingUp(false); }
+  }
 
   function refresh() { setLoading(true); setRevision((value) => value + 1); }
   const visible = filterTasks(tasks, query, status, blockedOnly);
@@ -41,8 +81,22 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
         <div><h2 id="board-title">Tablero de tareas</h2><p>Organiza el trabajo y revisa sus resultados.</p></div>
         <div className="workspace-actions">
           <button disabled={loading} onClick={refresh}>Actualizar tareas</button>
-          <button className="primary-button" disabled={loading || error !== null} onClick={() => setDialog({ id: null })}>+ Nueva tarea</button>
+          <button className="primary-button" disabled={loading || error !== null || !source?.can_write} onClick={() => setDialog({ id: null })}>+ Nueva tarea</button>
         </div>
+      </div>
+      <div className="task-file-source">
+        {source?.mode === "files" ? <p>Fuente: <span className="workspace-path">{source.file_path}</span></p>
+          : <p>{source?.mode === "legacy" ? "Tareas anteriores de solo lectura. Migra su historial a la carpeta para editarlas." : "El tablero necesita un archivo de tareas en la carpeta del proyecto."}</p>}
+        {source?.mode !== "files" && source?.file_path ? <button disabled={settingUp || loading} onClick={() => { void setup(false); }}>
+          {source.legacy_count ? "Revisar migración a archivos" : "Preparar archivo de tareas"}</button> : null}
+        {source && !source.file_path ? <p>Asocia una carpeta desde «Carpeta y proyecto».</p> : null}
+        {source?.mode === "files" && source.legacy_count > 0 ? <p>Se conservan {source.legacy_count} tareas anteriores en el almacenamiento local; este tablero usa el archivo.</p> : null}
+        {notice ? <p role="status">El archivo se ha actualizado. Revisa las tareas seleccionadas antes de preparar su prompt.</p> : null}
+        {preview ? <div className="file-setup-preview"><h3>Revisar archivo de destino</h3><p className="workspace-path">{preview.target}</p>
+          <p>{preview.task_count} tareas · {preview.attempt_count} intentos · {preview.activity_count} eventos. Los datos anteriores se conservan.</p>
+          {preview.file_exists ? <p>El archivo ya existe y no se sobrescribirá. Cierra esta vista y revisa sus tareas.</p>
+            : <button disabled={settingUp} onClick={() => { void setup(true); }}>{preview.task_count ? "Confirmar migración a la carpeta" : "Crear archivo vacío en la carpeta"}</button>}
+          <button disabled={settingUp} onClick={() => setPreview(null)}>Cerrar vista previa</button></div> : null}
       </div>
       <div className="board-filters">
         <label className="name-field">Buscar tareas
@@ -84,7 +138,7 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
                   {task.blocked ? <p className="task-badge blocked-badge">Bloqueada · {task.blocked_by.length} sin aceptar</p> : null}
                   {task.last_attempt_status ? <p className="task-badge">Intento: {attemptLabels[task.last_attempt_status]}</p> : null}
                   {task.last_attempt_error ? <p className="card-description form-error">{task.last_attempt_error}</p> : null}
-                  <time dateTime={task.updated_at}>Actualizada {new Date(task.updated_at).toLocaleDateString("es")}</time>
+                  <time dateTime={task.updated_at}>{Date.parse(task.updated_at) === 0 ? "Sin fecha registrada" : `Actualizada ${new Date(task.updated_at).toLocaleDateString("es")}`}</time>
                 </li>)}
               </ul>
               {!column.length ? <p className="column-empty">Sin tareas</p> : null}
@@ -105,6 +159,7 @@ export default function TaskBoard({ projectId }: { projectId: string }) {
         <p id="execution-unavailable">La ejecución aún no está disponible. Seleccionar no autoriza ni inicia trabajo.</p>
       </section>
       {dialog ? <TaskDialog key={dialog.id ?? "new"} projectId={projectId} taskId={dialog.id} tasks={tasks}
+        readOnly={!source?.can_write || error !== null} sourceRevision={source?.revision ?? null}
         onClose={() => setDialog(null)} onChanged={refresh} /> : null}
     </section>
   );

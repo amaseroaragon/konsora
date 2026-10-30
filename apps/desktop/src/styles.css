@@ -189,6 +189,10 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid #367b67; outli
 .task-evidence h4 { font-size: 13px; margin: 6px 0; }
 .task-evidence ol { padding-left: 20px; }
 .evidence-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.task-file-source { margin: 18px 0; border-left: 3px solid #678761; padding: 0 14px; font-size: 12px; }
+.task-file-source .workspace-path { overflow-wrap: anywhere; }
+.file-setup-preview { padding: 14px; border: 1px solid #cad7cb; border-radius: 8px; background: #fff; margin: 14px 0; }
+.file-setup-preview button { margin: 4px 8px 4px 0; }
 
 @media (max-width: 1000px) {
   .projects-layout { grid-template-columns: 160px minmax(0, 1fr); gap: 18px; }

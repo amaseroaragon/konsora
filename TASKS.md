@@ -85,7 +85,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - **Pruebas:** ejemplos válidos, formato/esquema inválidos, duplicados, dependencias/ciclos y cambio de contenido sin incrementar versión. Documentar el contrato antes de sustituir la persistencia.
 - **Verificación:** [formato v1](docs/formato-tareas.md), JSON Schema y ejemplo sin SQLite; 12 pruebas focalizadas correctas. El adaptador de almacenamiento y la comprobación de firmas se conectan en K-017B.
 
-### [ ] K-017B — Usar los archivos como fuente del tablero y migrar sin pérdidas
+### [x] K-017B — Usar los archivos como fuente del tablero y migrar sin pérdidas
 - Sustituir el almacenamiento autoritativo de tareas de K-016 por lectura/escritura del contrato K-017A dentro de la carpeta aprobada. El tablero y el detalle reutilizan los componentes actuales; SQLite solo podrá indexar/cachar datos reconstruibles.
 - Detectar creación, cambios, sustitución atómica y desaparición del archivo al abrir/actualizar el proyecto y mientras esté abierto. Mostrar estados de carga, cambios externos, error de formato y conflicto; no convertir un archivo temporalmente inválido en un tablero vacío válido ni reescribirlo automáticamente.
 - Escrituras desde UI acotadas al archivo autorizado, con huella del contenido leído, comprobación de cambios y escritura atómica. Documentar los límites ante editores no cooperativos; conservar borradores y evitar sobrescrituras silenciosas. Resolver enlaces y rechazar rutas/artefactos que salgan de la carpeta aprobada.
@@ -93,6 +93,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Conservar IDs, dependencias, actividad y resultados al migrar. Abrir la misma carpeta en una instalación limpia debe reconstruir sus tarjetas e historial sin la base anterior. Desvincular/eliminar el registro de proyecto no borra `.konsora/` ni otros archivos.
 - **Aceptación:** una IA crea o modifica el archivo con Konsora cerrado o abierto y el tablero lo detecta; editar en UI cambia ese mismo archivo. Copiar la carpeta permite recuperar tareas/resultados. No hay dos fuentes de verdad.
 - **Pruebas:** migración con datos existentes, reinicio/reconstrucción sin caché, cambios externos, archivo inválido/desaparecido, conflictos y fallos de escritura, enlaces fuera del alcance y selección tras cambios. Un recorrido UI con dos carpetas y un archivo generado externamente; tipos y builds afectados.
+- **Verificación:** [K-017B](docs/verification/K-017B.md): 19 pruebas de tareas, 10 nuevas de archivos y 43 de regresión correctas; tres pruebas de selección y tipos/build web/nativo. UI con dos carpetas, migración, cambios externos, borrador en conflicto y recuperación comprobados.
 
 ### [ ] K-017C — Preparar prompts desde tareas seleccionadas en archivos
 - Añadir vista previa y acción de copiar/guardar un prompt portable a partir exclusivamente de las tareas seleccionadas, con sus IDs/huellas, descripción, criterios, orden y contexto aprobado. Funciona sin login y puede usarse con una IA externa; guardarlo requiere elegir explícitamente un destino dentro del proyecto.

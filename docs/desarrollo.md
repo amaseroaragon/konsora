@@ -2,15 +2,17 @@
 
 El backlog operativo vigente es [TASKS.md](../TASKS.md). El tablero es la vista principal y reutiliza proyectos y chats existentes; la ejecución supervisada aún no está disponible.
 
-## Corrección de arquitectura pendiente: tareas en archivos
+## Tareas en archivos
 
-El producto debe leer tareas que una IA o la persona crea directamente en la carpeta del proyecto. El formato inicial previsto es `.konsora/tasks.json`, con esquema versionado e IDs estables; actividad, revisiones e intentos/resultados también serán archivos del proyecto. Se podrá abrir/copiar la carpeta y recuperar el trabajo sin la base privada de otra instalación. SQLite solo podrá actuar como caché reconstruible de ese trabajo, además de conservar configuración e históricos anteriores.
+El tablero utiliza `.konsora/tasks.json` como fuente de tareas e historial. Una IA o la persona puede generarlo sin Konsora; el [formato v1](formato-tareas.md), su esquema y un ejemplo están publicados. SQLite conserva el registro de proyectos/chats y los datos anteriores; no prevalece sobre un archivo existente.
 
-**La implementación actual aún usa SQLite para tareas, actividad e intentos.** Este cambio documental no ha migrado datos ni modificado el comportamiento del tablero. K-016 y K-017 acreditan esa implementación anterior y sus componentes se reutilizarán. El siguiente orden es **K-017A (contrato) → K-017B (archivos, detección y migración) → K-017C (selección a prompt) → K-018**. Las secciones técnicas siguientes describen el código actual hasta completar esa adaptación.
+Asocia una carpeta y abre el tablero. Si contiene el archivo, se detecta automáticamente. Si falta, usa **Preparar archivo de tareas**, revisa el destino y confirma su creación; con tareas anteriores se ofrece **Revisar migración a archivos** con conteos de tareas, intentos y eventos. La migración conserva las filas SQL y rechaza sobrescribir archivos. Abrir/asociar una carpeta no crea nada por sí solo.
 
-El contrato tendrá una única fuente canónica: la UI escribirá el mismo archivo que puede editar una IA externa. Abrir/asociar la carpeta no inicializará archivos automáticamente; migrar tareas SQL requerirá acción explícita y revisión de conflictos, conservando los originales. Desvincular o eliminar el registro de proyecto no borrará archivos de trabajo.
+El tablero relee los archivos mientras está abierto. Ante JSON inválido o desaparición mantiene la última lectura como no editable; al corregir el archivo recupera la vista. Las modificaciones externas se detectan aunque el modelo no aumente `version`. Un guardado en conflicto conserva el borrador; **Recargar detalle** descarta deliberadamente ese borrador y relee el documento.
 
-La detección de cambios externos, las huellas del contenido y la comprobación de conflictos evitarán trabajar sobre una vista previa desactualizada. Un archivo modificado por una IA no concede permisos ni acredita aceptación humana. Leer, seleccionar y preparar/copiar un prompt no requerirá login; ejecutar desde Konsora mantendrá su aprobación y supervisión. Copiar un prompt para otra herramienta no implica que Konsora supervise esa ejecución externa.
+Una tarea declarada hecha externamente requiere aceptación humana en la carpeta/instalación actual. Las firmas y sus límites están documentadas en el formato; la clave propia de Konsora permanece fuera de la carpeta y nunca se exporta. Una carpeta copiada conserva el trabajo, no autorizaciones de ejecución. Si la base de Konsora está dentro de la carpeta, configura `KONSORA_DATABASE_PATH` fuera de ella antes de aceptar resultados para proteger esa clave.
+
+La preparación de prompts desde la selección se incorpora en K-017C. La ejecución integrada continúa deshabilitada hasta K-019–K-021.
 
 Aplicación de escritorio local-first para organizar el trabajo con modelos y agentes de IA desde Ubuntu.
 
@@ -67,7 +69,7 @@ La barra lateral de proyectos permanece accesible. Al abrir un proyecto se muest
 
 Pulsa **+ Nueva tarea** para guardar título, descripción, criterios y dependencias del mismo proyecto. Abre una tarjeta para editarla, cambiar su orden o gestionar su estado; el panel muestra bloqueos, intentos, resultados, errores y actividad. Los cambios de estado son manuales y no lanzan agentes. Las propuestas se aceptan explícitamente y solo **Aceptar resultado y marcar hecha** desbloquea dependencias. Los errores del backend se muestran sin perder el borrador. Borrar una tarea exige confirmación y conserva las restricciones de K-016.
 
-Usa las casillas por tarjeta o **Seleccionar visibles**/**Deseleccionar visibles**. Buscar, filtrar por estado o mostrar solo bloqueadas no elimina selecciones: el resumen enumera todas, indica cuántas están ocultas y distingue pendientes sin bloqueos, bloqueadas y otros estados. **Limpiar selección** la vacía. Inspeccionar una tarjeta o ir al chat conserva la selección; cambiar de proyecto o recargar la aplicación la reinicia. Las tareas guardadas permanecen en SQLite.
+Usa las casillas por tarjeta o **Seleccionar visibles**/**Deseleccionar visibles**. Buscar, filtrar por estado o mostrar solo bloqueadas no elimina selecciones: el resumen enumera todas, indica cuántas están ocultas y distingue pendientes sin bloqueos, bloqueadas y otros estados. **Limpiar selección** la vacía. Inspeccionar una tarjeta o ir al chat conserva la selección; cambiar de proyecto o recargar la aplicación la reinicia. Las tareas guardadas permanecen en el archivo del proyecto; los datos SQL anteriores se conservan como legado de solo lectura.
 
 **Ejecutar seleccionadas** está deshabilitado con una explicación visible; seleccionar no autoriza ni inicia trabajo. No se simulan resultados ni se invoca el conector de chat para ejecutar tarjetas.
 
@@ -89,24 +91,27 @@ Se añade únicamente el [plugin oficial de diálogos de Tauri](https://v2.tauri
 
 ## Tareas y dependencias (API)
 
-La migración SQLite v5 añade tareas, dependencias, intentos y actividad sin cambiar las migraciones anteriores ni reutilizar debates históricos. El contrato TypeScript está en `apps/desktop/src/tasks.ts`; la UI utiliza ese contrato sin iniciar agentes.
+La migración SQLite v5 se conserva para los datos anteriores. Las rutas actuales usan archivos cuando existen y permiten consultar/migrar el legado; no hay nuevas escrituras SQL de tareas por HTTP. El contrato TypeScript está en `apps/desktop/src/tasks.ts`.
 
 Todas las rutas siguientes dependen de `/projects/{project_id}/tasks`:
 
 | Método | Ruta | Operación |
 | --- | --- | --- |
+| GET | `/board` | Tareas y origen/revisión del archivo en una misma lectura. |
+| GET | `/migration` | Vista previa de destino y conteos de datos anteriores. |
+| POST | `/initialize` | Inicializar/migrar con destino, huella de legado y confirmación explícita. |
 | GET | raíz | Listar por orden, fecha e ID; incluir dependencias, bloqueos y último error de intento. |
 | POST | raíz | Crear con `title`, `description`, `acceptance_criteria`, `sort_order` y `dependencies`; solo estado inicial `pending` o `proposal`. |
 | GET | `/{task_id}` | Detalle con tarea, intentos y actividad ordenados. |
-| PATCH | `/{task_id}` | Editar campos concretos con `expected_version`; los omitidos se conservan y no se admite `null`. |
-| POST | `/{task_id}/status` | Cambiar estado con `status`, `expected_version` y comentario opcional. |
-| DELETE | `/{task_id}?expected_version=N&confirm=true` | Borrar con confirmación; rechaza tareas activas o con otras tareas dependientes. |
+| PATCH | `/{task_id}` | Editar campos concretos con `expected_version` y `expected_revision`; los omitidos se conservan y no se admite `null`. |
+| POST | `/{task_id}/status` | Cambiar estado con `status`, `expected_version`, `expected_revision` y comentario opcional. |
+| DELETE | `/{task_id}?expected_version=N&expected_revision=SHA&confirm=true` | Borrar con confirmación; rechaza tareas activas o con otras tareas dependientes. |
 
 Título: 1–120 caracteres. Descripción y criterios: texto de hasta 16000 cada uno. Orden: entero no negativo; por defecto se añade al final. Dependencias: hasta 200 UUID únicos del mismo proyecto, sin autodependencias ni ciclos. Los cambios y su actividad se confirman juntos; una versión obsoleta devuelve 409. Los errores de validación no reflejan el cuerpo enviado.
 
-Transiciones manuales: `proposal → pending → in_progress → in_review → done`; desde en curso, en revisión o hecha se puede volver a pendiente. Una tarea bloqueada no puede avanzar a en curso, revisión o hecha. Solo aceptar como hecha la dependencia desbloquea las sucesoras; un proceso exitoso o una tarjeta en revisión no bastan. Cambiar título, descripción, criterios o dependencias de una tarea hecha/en revisión la devuelve a pendiente. Para editar el alcance de una tarea en curso, devolverla primero a pendiente. Mover una tarjeta no crea intentos ni inicia agentes.
+Transiciones manuales: `proposal → pending → in_progress → in_review → done`; desde en curso, en revisión o hecha se puede volver a pendiente. Una tarea bloqueada no puede avanzar a en curso, revisión o hecha. Solo aceptar como hecha la dependencia desbloquea las sucesoras; un proceso exitoso o una tarjeta en revisión no bastan. Editar una tarea hecha/en revisión la devuelve a pendiente y requiere una nueva revisión de su huella. Para editar el alcance de una tarea en curso, devolverla primero a pendiente. Mover una tarjeta no crea intentos ni inicia agentes.
 
-Los intentos tienen estado independiente (`running`, `succeeded`, `failed`, `cancelled`, `interrupted`), versión e instantánea de la tarea, conector/modelo, fechas, resultado y error. Su registro es interno y no tiene rutas HTTP de inicio/finalización: las funciones actuales solo persisten datos para el supervisor futuro. Un intento exitoso deja la tarea en revisión, los demás la devuelven a pendiente con sus evidencias parciales. Reintentar crea otro registro; un intento terminado no se puede sobrescribir. Mientras haya un intento activo se bloquean ediciones, movimientos y borrado, incluido el del proyecto. El borrado explícito y confirmado de una tarea/proyecto elimina también su historial local; nunca borra archivos de la carpeta.
+Los intentos tienen estado independiente (`running`, `succeeded`, `failed`, `cancelled`, `interrupted`), versión e instantánea de la tarea, conector/modelo, fechas, resultado y error. Su registro es interno y no tiene rutas HTTP de inicio/finalización: las funciones actuales solo persisten datos para el supervisor futuro. Un intento exitoso deja la tarea en revisión, los demás la devuelven a pendiente con sus evidencias parciales. Reintentar crea otro registro; un intento terminado no se puede sobrescribir. Mientras haya un intento activo se bloquean ediciones, movimientos y borrado, incluido el del proyecto. Borrar una tarea modifica explícitamente el documento y elimina su historial de esa tarea. Eliminar el registro de proyecto conserva intactos los archivos de trabajo; únicamente elimina sus datos SQL locales.
 
 Evidencia y comandos focalizados: [K-016](verification/K-016.md). En esta tarea no se ejecutan procesos, no se consumen cuotas y no se implementa la cola ni la recuperación del supervisor de K-020.
 

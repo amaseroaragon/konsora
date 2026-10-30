@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from konsora_api.database import Database
 from konsora_api.workspaces import WorkspaceError, WorkspaceStatus, canonical_workspace, workspace_status
+from konsora_api.task_storage import FileStore
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -118,6 +119,16 @@ def delete_project(
 ) -> Response:
     with database.connect() as connection:
         connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute("SELECT workspace_path FROM projects WHERE id=?", (str(project_id),)).fetchone()
+        if row is not None and row[0]:
+            try:
+                document, _ = FileStore(row[0], database.path.parent / "instance-review.key").read()
+            except HTTPException:
+                # Desvincular datos locales no elimina ni repara archivos inválidos.
+                document = None
+            if document is not None and (any(task.status == "in_progress" for task in document.tasks) or
+                    any(attempt.status == "running" for attempt in document.attempts)):
+                raise HTTPException(409, "El proyecto contiene tareas activas. Detén el trabajo antes de eliminarlo.")
         if connection.execute(
             """SELECT 1 FROM tasks t WHERE project_id=? AND (status='in_progress' OR EXISTS
                (SELECT 1 FROM task_attempts a WHERE a.task_id=t.id AND a.status='running')) LIMIT 1""",

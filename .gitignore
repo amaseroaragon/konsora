@@ -9,6 +9,7 @@ apps/desktop/src-tauri/gen/
 *.sqlite3-journal
 *.sqlite3-wal
 *.sqlite3-shm
+instance-review.key
 __pycache__/
 *.py[cod]
 .pytest_cache/

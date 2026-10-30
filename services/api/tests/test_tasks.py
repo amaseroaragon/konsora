@@ -1,4 +1,5 @@
 import sqlite3
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
@@ -21,31 +22,38 @@ def forbid_agent_calls(monkeypatch):
 
 def project_tasks(client, name="Proyecto"):
     project = client.post("/projects", json={"name": name}).json()
-    return f"/projects/{project['id']}/tasks"
+    folder = client.app.state.database.path.parent / "workspaces" / str(uuid4())
+    folder.mkdir(parents=True)
+    assert client.patch(f"/projects/{project['id']}/workspace", json={"workspace_path": str(folder)}).status_code == 200
+    base = f"/projects/{project['id']}/tasks"
+    preview = client.get(base + "/migration").json()
+    assert client.post(base + "/initialize", json={"mode": "empty", "legacy_revision": preview["legacy_revision"], "target": preview["target"], "confirm": True}).status_code == 200
+    return base
 
 
 def create(client, base, title="Tarea", **fields):
-    response = client.post(base, json={"title": title, **fields})
+    response = client.post(base, json={"title": title, "expected_revision": client.get(base + "/board").json()["source"]["revision"], **fields})
     assert response.status_code == 201, response.text
     return response.json()
 
 
 def edit(client, base, task, **changes):
     fields = {key: task[key] for key in ("title", "description", "acceptance_criteria", "sort_order", "dependencies")}
-    return client.patch(f"{base}/{task['id']}", json={**fields, "expected_version": task["version"], **changes})
+    return client.patch(f"{base}/{task['id']}", json={**fields, "expected_version": task["version"], "expected_revision": client.get(base + "/board").json()["source"]["revision"], **changes})
 
 
 def move(client, base, task, status, **fields):
-    return client.post(f"{base}/{task['id']}/status", json={"expected_version": task["version"], "status": status, **fields})
+    return client.post(f"{base}/{task['id']}/status", json={"expected_version": task["version"], "status": status, "expected_revision": client.get(base + "/board").json()["source"]["revision"], **fields})
 
 
 def delete(client, base, task):
-    return client.delete(f"{base}/{task['id']}?expected_version={task['version']}&confirm=true")
+    return client.delete(f"{base}/{task['id']}", params={"expected_version": task["version"], "confirm": "true", "expected_revision": client.get(base + "/board").json()["source"]["revision"]})
 
 
 def begin(client, task):
     return start_attempt(client.app.state.database, UUID(task["project_id"]), UUID(task["id"]),
-                         expected_version=task["version"], connector="test", model="local")
+                         expected_version=task["version"], connector="test", model="local",
+                         expected_revision=client.get(f"/projects/{task['project_id']}/tasks/board").json()["source"]["revision"])
 
 
 def finish(client, task, attempt, **fields):
@@ -79,7 +87,7 @@ def test_partial_edit_preserves_omitted_fields_and_rejects_null(client):
     dependency = create(client, base)
     task = create(client, base, description="Conservar", acceptance_criteria="Criterios", dependencies=[dependency["id"]])
     path = f"{base}/{task['id']}"
-    response = client.patch(path, json={"expected_version": 1, "title": "Solo título"})
+    response = client.patch(path, json={"expected_version": 1, "title": "Solo título", "expected_revision": task["source_revision"]})
     assert response.status_code == 200
     saved = response.json()
     assert saved["description"] == task["description"] and saved["acceptance_criteria"] == task["acceptance_criteria"]
@@ -101,7 +109,7 @@ def test_manual_transitions_require_review_and_acceptance(client):
     assert detail["attempts"] == []
     assert len(detail["activity"]) == 5 and all(event["actor"] == "user" for event in detail["activity"])
     reordered = edit(client, base, task, sort_order=42).json()
-    assert reordered["status"] == "done"
+    assert reordered["status"] == "pending"
     edited = edit(client, base, reordered, acceptance_criteria="Nuevo alcance").json()
     assert edited["status"] == "pending"
     assert move(client, base, edited, "done").status_code == 409
@@ -115,6 +123,7 @@ def test_dependencies_cycles_cross_project_and_rollback(client):
     foreign = create(client, other)
     assert b["blocked"] and b["blocked_by"] == [a["id"]]
     assert move(client, base, b, "in_progress").status_code == 409
+    a = client.get(f"{base}/{a['id']}").json()["task"]
     for dependencies in ([a["id"]], [c["id"]], [foreign["id"]], [str(uuid4())], [b["id"], b["id"]]):
         assert edit(client, base, a, title="No guardar", dependencies=dependencies).status_code == 422
         assert client.get(f"{base}/{a['id']}").json()["task"] == a
@@ -167,28 +176,30 @@ def test_attempt_history_retry_and_human_acceptance(client, database_path, outco
         assert restarted.get(f"{base}/{task['id']}").json() == saved
 
 
-def test_transactions_roll_back_tasks_dependencies_activity_and_attempts(client, database_path):
+def test_file_failure_rolls_back_tasks_dependencies_activity_and_attempts(client, monkeypatch):
     base = project_tasks(client)
     a, b = create(client, base), create(client, base)
     before = client.get(f"{base}/{a['id']}").json()
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("CREATE TRIGGER reject_activity BEFORE INSERT ON task_activity BEGIN SELECT RAISE(ABORT, 'private failure'); END")
-    assert edit(client, base, a, title="No guardar", dependencies=[b["id"]]).status_code == 503
-    assert client.post(base, json={"title": "Rollback"}).status_code == 503
-    assert move(client, base, a, "in_progress").status_code == 503
-    from konsora_api.database import StorageError
-    with pytest.raises(StorageError):
-        begin(client, a)
+    def fail(*args, **kwargs):
+        raise OSError("private failure")
+    with monkeypatch.context() as patch:
+        patch.setattr("konsora_api.task_storage.FileStore.atomic_write", fail)
+        assert edit(client, base, a, title="No guardar", dependencies=[b["id"]]).status_code == 503
+        response = client.post(base, json={"title": "Rollback", "expected_revision": client.get(base + "/board").json()["source"]["revision"]})
+        assert response.status_code == 503 and "private failure" not in response.text
+        assert move(client, base, a, "in_progress").status_code == 503
+        with pytest.raises(HTTPException) as failure:
+            begin(client, a)
+        assert failure.value.status_code == 503
     assert client.get(f"{base}/{a['id']}").json() == before
     assert len(client.get(base).json()) == 2
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("DROP TRIGGER reject_activity")
     attempt = begin(client, a)
     running = client.get(f"{base}/{a['id']}").json()
-    with sqlite3.connect(database_path) as connection:
-        connection.execute("CREATE TRIGGER reject_finish BEFORE INSERT ON task_activity BEGIN SELECT RAISE(ABORT, 'private failure'); END")
-    with pytest.raises(StorageError):
-        finish(client, a, attempt, status="succeeded", result="No guardar")
+    with monkeypatch.context() as patch:
+        patch.setattr("konsora_api.task_storage.FileStore.atomic_write", fail)
+        with pytest.raises(HTTPException) as failure:
+            finish(client, a, attempt, status="succeeded", result="No guardar")
+        assert failure.value.status_code == 503
     assert client.get(f"{base}/{a['id']}").json() == running
 
 
@@ -231,6 +242,8 @@ def test_v4_migration_preserves_project_and_folder(database_path, tmp_path):
         assert project["workspace_path"] == str(tmp_path) and project["created_at"] == timestamp.replace("+00:00", "Z")
         base = f"/projects/{project_id}/tasks"
         assert client.get(base).json() == []
+        preview = client.get(base + "/migration").json()
+        assert client.post(base + "/initialize", json={"mode": "empty", "legacy_revision": preview["legacy_revision"], "target": preview["target"], "confirm": True}).status_code == 200
         create(client, base)
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)

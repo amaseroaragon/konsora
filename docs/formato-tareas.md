@@ -8,7 +8,15 @@ Cada tarea tiene ID estable (1–80 letras ASCII, dígitos, punto, guion o guion
 
 Estados declarados: `proposal`, `pending`, `in_progress`, `in_review`, `done`. Los intentos tienen estado independiente: `running`, `succeeded`, `failed`, `cancelled`, `interrupted`; conservan instantánea de tarea, modelo/conector, fechas, resultado y error. Actividad ordenada por ID; el actor declarado en un archivo externo es informativo, no una prueba de identidad. Ninguno de estos registros inicia procesos.
 
-Una huella SHA-256 del documento original detecta cambios incluso sin aumentar `version`; la huella canónica de cada tarea vincula sus revisiones a su contenido. Cambios de formato invalidan vistas previas del documento pero no fabrican una nueva revisión humana de una tarea idéntica.
+Una revisión SHA-256 vinculada a la carpeta canónica y los bytes del documento original detecta cambios incluso sin aumentar `version`, y rechaza reutilizar una vista previa al cambiar de carpeta. La huella canónica de cada tarea vincula sus revisiones humanas a su contenido. Cambios de formato invalidan vistas previas del documento pero no fabrican una nueva revisión humana de una tarea idéntica.
+
+## Lectura y edición
+
+Abrir o asociar una carpeta solo lee. Si falta el archivo, la UI ofrece una vista previa de inicialización o migración explícita. Las tareas SQL anteriores permanecen consultables y nunca se eliminan ni se sobrescribe un `tasks.json` existente al migrar. Cada edición HTTP de archivos exige `expected_revision` además de `expected_version`; una diferencia devuelve 409 y mantiene el borrador. El endpoint `/tasks/board` entrega tareas y origen/revisión de una misma lectura.
+
+Se rechazan enlaces simbólicos en `.konsora`/`tasks.json`, enlaces duros y archivos no regulares. El acceso utiliza descriptores de directorios y `O_NOFOLLOW`. Las escrituras coordinadas por Konsora bloquean el directorio con `flock`, revalidan la revisión y sustituyen un temporal sincronizado. La inicialización usa creación exclusiva mediante enlace, sin reemplazar el destino. Los editores externos que no respetan el bloqueo pueden competir en el intervalo final de comprobación/sustitución: no se promete una transacción distribuida con ellos. Ante un conflicto detectado se conserva el original; se recomienda que las herramientas externas también escriban mediante sustitución atómica y respeten el bloqueo.
+
+El tablero relee mientras está abierto y al actualizar. Ante JSON inválido o desaparición mantiene la última lectura como no editable; no repara el archivo automáticamente. Los cambios externos se revalidan aunque el contador de versión permanezca igual. Eliminar el registro de proyecto no toca sus archivos.
 
 ## Aceptación humana
 

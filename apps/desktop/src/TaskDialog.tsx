@@ -10,8 +10,9 @@ const activityLabels: Record<string, string> = {
   attempt_started: "Intento iniciado", attempt_finished: "Intento terminado",
 };
 
-export default function TaskDialog({ projectId, taskId, tasks, onClose, onChanged }: {
+export default function TaskDialog({ projectId, taskId, tasks, readOnly, sourceRevision, onClose, onChanged }: {
   projectId: string; taskId: string | null; tasks: Task[]; onClose: () => void; onChanged: () => void;
+  readOnly: boolean; sourceRevision: string | null;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const active = useRef<AbortController | null>(null);
@@ -52,7 +53,7 @@ export default function TaskDialog({ projectId, taskId, tasks, onClose, onChange
   const dirty = !!task && (title.trim() !== task.title || description !== task.description || criteria !== task.acceptance_criteria ||
     order !== task.sort_order || [...dependencies].sort().join() !== [...task.dependencies].sort().join());
   const activeAttempt = details?.attempts.some((attempt) => attempt.status === "running") ?? false;
-  const editable = !task || (task.status !== "in_progress" && !activeAttempt);
+  const editable = !readOnly && !details?.read_only && (!task || (task.status !== "in_progress" && !activeAttempt));
 
   async function mutate(action: (signal: AbortSignal) => Promise<unknown>, close: boolean) {
     if (active.current) return;
@@ -72,13 +73,13 @@ export default function TaskDialog({ projectId, taskId, tasks, onClose, onChange
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!fields.title || !editable) return;
-    void mutate((signal) => task ? editTask(projectId, task.id, task.version, fields, signal)
-      : createTask(projectId, { ...fields, sort_order: tasks.length ? Math.max(...tasks.map((item) => item.sort_order)) + 1 : 0 }, signal), true);
+    void mutate((signal) => task ? editTask(projectId, task.id, task.version, fields, signal, task.source_revision)
+      : createTask(projectId, { title: fields.title, description, acceptance_criteria: criteria, dependencies }, signal, sourceRevision), true);
   }
 
   function move(status: TaskStatus) {
     if (!task || dirty) return;
-    void mutate((signal) => changeTaskStatus(projectId, task.id, task.version, status, comment, signal), false);
+    void mutate((signal) => changeTaskStatus(projectId, task.id, task.version, status, comment, signal, task.source_revision), false);
   }
 
   return (
@@ -88,6 +89,10 @@ export default function TaskDialog({ projectId, taskId, tasks, onClose, onChange
         <button type="button" disabled={busy} onClick={onClose}>Cerrar detalle</button></div>
       {loading ? <p role="status">Cargando detalle…</p> : null}
       {error ? <p className="error-panel" role="alert">{error}</p> : null}
+      {taskId ? <button disabled={busy || loading} title="Descarta los cambios sin guardar y relee el archivo"
+        onClick={() => { setLoading(true); setRevision((value) => value + 1); }}>Recargar detalle</button> : null}
+      {readOnly || details?.read_only ? <p>Datos de solo lectura. Asocia una carpeta y migra sus tareas o corrige el archivo de origen.</p> : null}
+      {task?.review_required ? <p className="blocked-badge">El archivo declara la tarea hecha. Revisa el resultado y acéptalo en esta carpeta.</p> : null}
       {taskId && !loading && !details ? <button onClick={() => { setLoading(true); setRevision((value) => value + 1); }}>Reintentar detalle</button> : null}
       {(!taskId || details) ? <>
         {task ? <p className="task-detail-state">{taskLabels[task.status]} · versión {task.version}{task.blocked ? " · Bloqueada" : ""}</p> : null}
@@ -117,7 +122,7 @@ export default function TaskDialog({ projectId, taskId, tasks, onClose, onChange
           {dirty ? <p>Guarda los cambios antes de cambiar el estado.</p> : null}
           <label className="name-field">Comentario de revisión<textarea value={comment} maxLength={4000} disabled={busy || activeAttempt} onChange={(event) => setComment(event.target.value)} /></label>
           <div className="workspace-actions">{transitions[task.status].map((transition) => <button key={transition.status}
-            disabled={busy || loading || dirty || activeAttempt || (task.blocked && transition.status !== "pending")}
+            disabled={readOnly || details?.read_only || busy || loading || dirty || activeAttempt || (task.blocked && transition.status !== "pending")}
             onClick={() => move(transition.status)}>{transition.label}</button>)}</div>
           {activeAttempt ? <p>El intento activo impide editar, mover o borrar la tarea.</p> : null}
           <details className="task-evidence"><summary>Intentos y resultados ({details?.attempts.length ?? 0})</summary>
@@ -130,13 +135,13 @@ export default function TaskDialog({ projectId, taskId, tasks, onClose, onChange
           </details>
           <details className="task-evidence"><summary>Actividad ({details?.activity.length ?? 0})</summary>
             <ol>{details?.activity.map((event) => <li key={event.id}><strong>{activityLabels[event.event] ?? "Actividad de tarea"}</strong>
-              <span> · {event.actor === "user" ? "Usuario" : "Supervisor"} · {new Date(event.created_at).toLocaleString("es")}</span>
+              <span> · Actor declarado: {event.actor === "user" ? "Usuario" : event.actor === "supervisor" ? "Supervisor" : "Externo"} · {new Date(event.created_at).toLocaleString("es")}</span>
               {event.detail ? <p className="evidence-text">{event.detail}</p> : null}</li>)}</ol>
           </details>
-          <button className="danger-text" disabled={busy || loading || activeAttempt || task.status === "in_progress"}
+          <button className="danger-text" disabled={readOnly || details?.read_only || busy || loading || activeAttempt || task.status === "in_progress"}
             onClick={() => setConfirmDelete((value) => !value)}>Eliminar tarea</button>
           {confirmDelete ? <div className="error-panel"><p>Se eliminarán esta tarea y su historial local. Sus archivos se conservan.</p>
-            <button className="danger-button" disabled={busy} onClick={() => { void mutate((signal) => deleteTask(projectId, task.id, task.version, signal), true); }}>Confirmar eliminación</button></div> : null}
+            <button className="danger-button" disabled={busy || readOnly} onClick={() => { void mutate((signal) => deleteTask(projectId, task.id, task.version, signal, task.source_revision), true); }}>Confirmar eliminación</button></div> : null}
         </section> : null}
       </> : null}
     </dialog>
