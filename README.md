@@ -1,10 +1,10 @@
 # Konsora
 
 Konsora es una aplicación de escritorio local-first para Ubuntu.
-Su objetivo es organizar proyectos y tareas en un tablero visual.
-Permite planificar el trabajo, seleccionar tareas y supervisar su ejecución con IA.
+Su objetivo es organizar tareas y resultados que pertenecen a los archivos de cada proyecto.
+Ofrece un tablero para seleccionar tareas y preparar su ejecución con IA.
+El flujo previsto permite que una IA externa cree las tareas sin depender de Konsora.
 Funciona con una única cuenta y un único proveedor activos, empezando por Codex CLI con ChatGPT.
-El cambio de proveedor pasa por cerrar la sesión anterior e iniciar la nueva mediante sus herramientas oficiales.
-Los proyectos, las conversaciones y el historial se almacenan localmente.
+Las tareas y resultados están concebidos para viajar con la carpeta y versionarse con Git.
 Utiliza la suscripción del usuario, sin integrar APIs de pago.
-Actualmente dispone de proyectos y chats; el tablero y la ejecución están en desarrollo.
+El tablero está disponible; su persistencia en archivos y la ejecución están en desarrollo.

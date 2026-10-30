@@ -2,6 +2,16 @@
 
 El backlog operativo vigente es [TASKS.md](../TASKS.md). El tablero es la vista principal y reutiliza proyectos y chats existentes; la ejecución supervisada aún no está disponible.
 
+## Corrección de arquitectura pendiente: tareas en archivos
+
+El producto debe leer tareas que una IA o la persona crea directamente en la carpeta del proyecto. El formato inicial previsto es `.konsora/tasks.json`, con esquema versionado e IDs estables; actividad, revisiones e intentos/resultados también serán archivos del proyecto. Se podrá abrir/copiar la carpeta y recuperar el trabajo sin la base privada de otra instalación. SQLite solo podrá actuar como caché reconstruible de ese trabajo, además de conservar configuración e históricos anteriores.
+
+**La implementación actual aún usa SQLite para tareas, actividad e intentos.** Este cambio documental no ha migrado datos ni modificado el comportamiento del tablero. K-016 y K-017 acreditan esa implementación anterior y sus componentes se reutilizarán. El siguiente orden es **K-017A (contrato) → K-017B (archivos, detección y migración) → K-017C (selección a prompt) → K-018**. Las secciones técnicas siguientes describen el código actual hasta completar esa adaptación.
+
+El contrato tendrá una única fuente canónica: la UI escribirá el mismo archivo que puede editar una IA externa. Abrir/asociar la carpeta no inicializará archivos automáticamente; migrar tareas SQL requerirá acción explícita y revisión de conflictos, conservando los originales. Desvincular o eliminar el registro de proyecto no borrará archivos de trabajo.
+
+La detección de cambios externos, las huellas del contenido y la comprobación de conflictos evitarán trabajar sobre una vista previa desactualizada. Un archivo modificado por una IA no concede permisos ni acredita aceptación humana. Leer, seleccionar y preparar/copiar un prompt no requerirá login; ejecutar desde Konsora mantendrá su aprobación y supervisión. Copiar un prompt para otra herramienta no implica que Konsora supervise esa ejecución externa.
+
 Aplicación de escritorio local-first para organizar el trabajo con modelos y agentes de IA desde Ubuntu.
 
 ## Funcionalidades actuales

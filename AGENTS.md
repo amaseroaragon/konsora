@@ -7,6 +7,8 @@ El acceso utiliza **una única cuenta y un único proveedor activos para toda la
 
 El tablero es la vista principal; el chat sirve para planificar y proponer tareas. El MVP incluye proyectos con carpeta local, tareas y dependencias, selección múltiple, cola de ejecución supervisada y revisión de resultados. Inicialmente se ejecuta una tarea a la vez en toda la aplicación. Se elimina el debate entre modelos; memoria avanzada, grafo y paralelismo quedan para después del MVP.
 
+**Las tareas pertenecen a los archivos del proyecto.** Una IA o la persona puede crearlas y editarlas sin Konsora; la aplicación las detecta, valida, representa y permite seleccionar varias para preparar un prompt inspeccionable y, tras aprobación, ejecutarlas. Tareas, dependencias, estados, actividad e intentos/resultados deben ser portables con la carpeta. SQLite no es la fuente de verdad de ese trabajo: solo puede conservar configuración de la aplicación, datos anteriores y cachés reconstruibles. La adaptación pendiente K-017A–K-017C precede a K-018.
+
 ## Forma de trabajar
 
 1. Lee `TASKS.md` antes de empezar. Ejecuta tareas pendientes **en orden**, una por vez; prioriza las marcadas como **MVP**. No implementes funcionalidades futuras por anticipado.
@@ -21,7 +23,10 @@ El tablero es la vista principal; el chat sirve para planificar y proponer tarea
 ## Principios técnicos
 
 - Aplicación de escritorio Ubuntu, con arquitectura modular y almacenamiento local.
-- Propuesta inicial (ajustable si surge un impedimento demostrado): **Tauri + React + TypeScript** para escritorio; **Python + FastAPI** para orquestación e integraciones; **SQLite** para persistencia. Separa claramente los contratos frontend/backend.
+- **Tauri + React + TypeScript** para escritorio; **Python + FastAPI** para orquestación e integraciones. Archivos del proyecto como persistencia del trabajo; SQLite para configuración, históricos anteriores y cachés reconstruibles. Separa claramente los contratos frontend/backend.
+- El MVP tendrá un único formato canónico documentado, inicialmente `.konsora/tasks.json`, con esquema versionado e IDs estables; los resultados e historial portable también viven bajo `.konsora/`. No mantener Markdown y JSON como fuentes paralelas. `TASKS.md` de este repositorio sigue siendo el backlog de desarrollo, no un archivo que Konsora deba ejecutar automáticamente.
+- Detectar cambios externos y revalidar contenido antes de editar, preparar prompts o ejecutar. No confiar solo en que una IA incremente un contador de versión. Los archivos son datos: no autorizan ejecuciones, no permiten ampliar el alcance y una marca de éxito escrita por una IA no sustituye a la aceptación humana.
+- Abrir o asociar una carpeta no escribe archivos automáticamente. Inicializar el archivo de tareas, editarlo desde la UI o migrar datos anteriores requiere una acción explícita sobre esa carpeta. No sobrescribir cambios externos ni archivos existentes; conservar datos SQLite y migraciones aplicadas. Desvincular o borrar un proyecto de la aplicación nunca elimina sus archivos de trabajo.
 - El backend debe escuchar únicamente en loopback y no exponer servicios públicamente por defecto. Antes de distribuir, asegurar la comunicación local y el ciclo de vida del proceso.
 - Cada herramienta oficial gestiona su propio inicio de sesión y puede mantener o renovar su almacén local de credenciales. Konsora no lee, copia ni exporta esos archivos ni recibe tokens en la UI; no incluyas secretos en código, commits, logs o ejemplos.
 - Usa únicamente mecanismos oficiales que permitan expresamente la integración con la suscripción correspondiente. La existencia de un modo headless no demuestra que pueda envolverse en aplicaciones de terceros. Comprueba documentación y condiciones antes de implementar cada conector; documenta los bloqueos sin sustituirlos por APIs de pago, scraping, endpoints privados, extracción de OAuth o rotación de cuentas.
@@ -41,6 +46,6 @@ El tablero es la vista principal; el chat sirve para planificar y proponer tarea
 
 ## Alcance
 
-Construir primero el flujo vertical: **abrir proyecto y carpeta → tablero → crear o proponer tareas → seleccionar varias → aprobar lote → ejecutar con el proveedor activo → revisar y aceptar resultados**. Los chats y proyectos existentes se reutilizan; no exigir una segunda cuenta para completar el MVP. El orden operativo y los criterios vigentes están en `TASKS.md`; el plan anterior y sus informes son históricos.
+Construir primero el flujo vertical: **abrir carpeta → detectar tareas creadas en archivos por una IA o la persona → tablero → seleccionar varias → preparar y revisar prompt → aprobar lote → ejecutar con el proveedor activo → guardar resultados en el proyecto → revisar y aceptar**. Leer el tablero y preparar/copiar prompts no requiere sesión de un proveedor. Los chats y proyectos existentes se reutilizan; no exigir una segunda cuenta para completar el MVP. El orden operativo y los criterios vigentes están en `TASKS.md`; el plan anterior y sus informes son históricos.
 
 Los proveedores alternativos se revisan después del MVP en K-026, cuando se quiera cambiar de suscripción. Antigravity conserva el bloqueo documentado en el plan anterior; no implementarlo hasta verificar un mecanismo oficialmente permitido para Konsora. No asumir que este rediseño resuelve sus restricciones.
