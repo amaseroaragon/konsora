@@ -1,6 +1,6 @@
 # Konsora
 
-El backlog operativo vigente es [TASKS.md](../TASKS.md). El tablero y la ejecución supervisada se implementarán en su orden; por ahora se reutilizan los proyectos y chats existentes.
+El backlog operativo vigente es [TASKS.md](../TASKS.md). El tablero es la vista principal y reutiliza proyectos y chats existentes; la ejecución supervisada aún no está disponible.
 
 Aplicación de escritorio local-first para organizar el trabajo con modelos y agentes de IA desde Ubuntu.
 
@@ -10,7 +10,8 @@ Aplicación de escritorio local-first para organizar el trabajo con modelos y ag
 - Eliminar proyectos con confirmación explícita.
 - Guardar los proyectos en SQLite y recuperarlos tras reiniciar.
 - Asociar, comprobar, cambiar o desvincular una carpeta local por proyecto, con selector nativo Ubuntu.
-- Gestionar tareas, dependencias, actividad e historial de intentos mediante API; el tablero llega en K-017.
+- Crear, editar y organizar tareas en el tablero por estados, con filtros, dependencias, actividad y resultados consultables.
+- Seleccionar varias tarjetas del proyecto; ejecución todavía deshabilitada.
 - Crear y abrir chats por proyecto, conservar mensajes ordenados y continuar con su historial tras reiniciar.
 - Elegir conector y modelo en cada conversación, con estados de carga, error y cancelación.
 - Comprobar la conexión con el servicio local y reintentar ante errores.
@@ -50,9 +51,23 @@ La API escucha en `127.0.0.1:8000`. Detén cada proceso con `Ctrl+C`; cerrar la 
 
 Los proyectos, chats y mensajes, junto con los registros históricos de debates y propuestas, se guardan en `.local/konsora.sqlite3`. Las migraciones conservan los datos existentes. Para elegir otro archivo, exporta `KONSORA_DATABASE_PATH` antes de iniciar la API. Los proyectos y el simulador de chat no requieren una cuenta. Las consultas reales de los chats utilizan los límites de tu suscripción de ChatGPT mediante Codex CLI; Konsora no integra APIs de pago.
 
+## Tablero y selección
+
+La barra lateral de proyectos permanece accesible. Al abrir un proyecto se muestra **Tablero**; **Chat de planificación** conserva los chats existentes y **Carpeta y proyecto** reúne la configuración local. Al borrar el proyecto abierto se abre el siguiente disponible.
+
+Pulsa **+ Nueva tarea** para guardar título, descripción, criterios y dependencias del mismo proyecto. Abre una tarjeta para editarla, cambiar su orden o gestionar su estado; el panel muestra bloqueos, intentos, resultados, errores y actividad. Los cambios de estado son manuales y no lanzan agentes. Las propuestas se aceptan explícitamente y solo **Aceptar resultado y marcar hecha** desbloquea dependencias. Los errores del backend se muestran sin perder el borrador. Borrar una tarea exige confirmación y conserva las restricciones de K-016.
+
+Usa las casillas por tarjeta o **Seleccionar visibles**/**Deseleccionar visibles**. Buscar, filtrar por estado o mostrar solo bloqueadas no elimina selecciones: el resumen enumera todas, indica cuántas están ocultas y distingue pendientes sin bloqueos, bloqueadas y otros estados. **Limpiar selección** la vacía. Inspeccionar una tarjeta o ir al chat conserva la selección; cambiar de proyecto o recargar la aplicación la reinicia. Las tareas guardadas permanecen en SQLite.
+
+**Ejecutar seleccionadas** está deshabilitado con una explicación visible; seleccionar no autoriza ni inicia trabajo. No se simulan resultados ni se invoca el conector de chat para ejecutar tarjetas.
+
+Controles accesibles mediante Tab, Espacio y Enter; Escape cierra el detalle y el diálogo conserva el foco dentro mientras está abierto. El área de columnas admite desplazamiento horizontal con teclado; el resto de la página se adapta al tamaño de ventana. Estados vacíos, carga y errores de lectura incluyen acciones de recuperación.
+
+`npm run test:board` ejecuta tres pruebas focalizadas de selección, resumen y filtros sin dependencias nuevas. Evidencia del recorrido visual: [K-017](verification/K-017.md).
+
 ## Carpetas de trabajo
 
-Abre un proyecto, pulsa **Seleccionar carpeta…**, elige una carpeta existente y pulsa **Guardar carpeta**. La ruta canónica guardada se muestra en el proyecto. Cancelar el selector no cambia la asociación. En el navegador de desarrollo se introduce la ruta absoluta en el campo correspondiente.
+Abre un proyecto, entra en **Carpeta y proyecto** y pulsa **Seleccionar carpeta…**, elige una carpeta existente y pulsa **Guardar carpeta**. La ruta canónica guardada se muestra en el proyecto. Cancelar el selector no cambia la asociación. En el navegador de desarrollo se introduce la ruta absoluta en el campo correspondiente.
 
 **Comprobar carpeta** actualiza su disponibilidad; **Desvincular carpeta** elimina solo la asociación. Los estados distinguen ausencia de asociación, carpeta disponible, perdida, sin acceso y ruta insegura. Ante una carpeta perdida o permisos insuficientes se conserva la ruta para poder recuperarla o cambiarla. El borrado confirmado de un proyecto elimina sus registros locales, nunca la carpeta ni sus archivos.
 
@@ -64,7 +79,7 @@ Se añade únicamente el [plugin oficial de diálogos de Tauri](https://v2.tauri
 
 ## Tareas y dependencias (API)
 
-La migración SQLite v5 añade tareas, dependencias, intentos y actividad sin cambiar las migraciones anteriores ni reutilizar debates históricos. El contrato TypeScript está en `apps/desktop/src/tasks.ts`; la UI de tareas se implementa en K-017.
+La migración SQLite v5 añade tareas, dependencias, intentos y actividad sin cambiar las migraciones anteriores ni reutilizar debates históricos. El contrato TypeScript está en `apps/desktop/src/tasks.ts`; la UI utiliza ese contrato sin iniciar agentes.
 
 Todas las rutas siguientes dependen de `/projects/{project_id}/tasks`:
 
@@ -87,7 +102,7 @@ Evidencia y comandos focalizados: [K-016](verification/K-016.md). En esta tarea 
 
 ## Conversaciones por proyecto
 
-1. Crea o abre un proyecto. En «Conversaciones», escribe un nombre y pulsa **+ Nuevo chat**.
+1. Crea o abre un proyecto. En **Chat de planificación**, escribe un nombre y pulsa **+ Nuevo chat**.
 2. Envía un mensaje al **Simulado** para probar sin conexión ni cuota.
 3. Para conversar con ChatGPT, elige **Codex CLI** y selecciona un modelo en el desplegable. La primera opción usa `KONSORA_CODEX_MODEL` o el predeterminado del CLI. El catálogo procede de Codex y no garantiza acceso a todos sus modelos: un rechazo del CLI se muestra como error. Un modelo guardado anteriormente se conserva aunque ya no figure en el catálogo.
 4. Confirma el envío del mensaje y del historial, y pulsa **Enviar a Codex**. Cada envío real requiere una confirmación nueva; no hay reintentos automáticos.
@@ -133,7 +148,7 @@ Los proveedores alternativos se revisarán después del MVP en K-026; no se nece
 ## Comprobaciones
 
 ```bash
-npm run check          # Tipos, compilación web y pruebas de API
+npm run check          # Tipos, compilación web, selección del tablero y pruebas de API
 npm run build:desktop # Compilación nativa sin instalador
 ```
 

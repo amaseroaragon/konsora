@@ -12,6 +12,7 @@
     "build": "npm run build --workspace @konsora/desktop",
     "build:desktop": "bash scripts/desktop.sh build --no-bundle",
     "test:api": ".venv/bin/python -m pytest -c services/api/pyproject.toml services/api/tests",
-    "check": "npm run typecheck && npm run build && npm run test:api"
+    "test:board": "node --experimental-strip-types --test apps/desktop/tests/board.test.mjs",
+    "check": "npm run typecheck && npm run build && npm run test:board && npm run test:api"
   }
 }

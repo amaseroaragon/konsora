@@ -61,12 +61,13 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 - **Pruebas:** contratos API, CRUD, transiciones, ciclos/autodependencias, dependencias entre proyectos rechazadas, rollback, reinicio e historial de intentos. Proteger el borrado de tareas de las que dependen otras y de tareas activas.
 - **Verificación:** [K-016](docs/verification/K-016.md), 2026-10-30: 19 pruebas de tareas y 43 de regresión afectada correctas; contrato TypeScript comprobado. Sin ejecución de agentes.
 
-### [ ] K-017 — Tablero como interfaz principal y selección múltiple
+### [x] K-017 — Tablero como interfaz principal y selección múltiple
 - Mantener una navegación lateral de proyectos y abrir su tablero por defecto. Añadir columnas por estado, tarjetas, filtros básicos y panel de detalle; chat como vista secundaria. Mostrar bloqueos, errores y actividad.
 - Selección por tarjeta, seleccionar/deseleccionar las visibles y contador claro. Mantener la selección al inspeccionar una tarjeta y reiniciarla al cambiar de proyecto; los filtros no deben ocultar qué se va a ejecutar.
 - Preparar la barra «Ejecutar seleccionadas» con resumen de tareas elegibles y bloqueadas. Hasta K-021, mostrar ejecución no disponible; no simular éxito ni lanzar el conector de texto como si ejecutara trabajo.
 - **Aceptación:** se crean, editan y organizan tareas desde el tablero y se seleccionan varias sin mezclar proyectos. Acciones por teclado y estados vacíos/carga/error utilizables en Ubuntu.
 - **Pruebas:** selección, filtros, persistencia y accesibilidad; UI con al menos dos proyectos y tareas bloqueadas; tipos y build web/nativo. Cambiar de proyecto no pierde las tarjetas guardadas.
+- **Verificación:** [K-017](docs/verification/K-017.md), 2026-10-30: tres pruebas focalizadas, recorrido UI con dos proyectos, filtros/selección, revisión/persistencia/errores y tipos/build web/nativo correctos. Ejecución deshabilitada.
 
 ### [ ] K-018 — Una cuenta y un proveedor activos para toda la aplicación
 - Crear configuración global persistente, empezando por Codex CLI + sesión de ChatGPT. Sustituir el selector de proveedor de cada chat por el proveedor activo; conservar la selección de modelos de ese proveedor. El simulador es un modo de prueba explícito, no una segunda cuenta.
@@ -153,3 +154,4 @@ Los identificadores K-001–K-013 no se reutilizan con otro significado. Los sig
 - **2026-10-30 (K-014):** retirados Debate, sus rutas y simuladores, conservando migraciones y datos históricos. **Siguiente tarea: K-015.**
 - **2026-10-30 (K-015):** carpeta opcional persistente, validación canónica, estados recuperables y selector nativo verificados. **Siguiente tarea: K-016.**
 - **2026-10-30 (K-016):** modelo y API de tareas, dependencias, actividad e intentos persistentes verificados, con aceptación humana y control de versiones. **Siguiente tarea: K-017.**
+- **2026-10-30 (K-017):** tablero principal, navegación lateral, detalle y selección múltiple por proyecto verificados. **Siguiente tarea: K-018.**
