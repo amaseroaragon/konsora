@@ -436,7 +436,7 @@
     {
       "id": "CLI-01",
       "title": "CLI skeleton, init and read commands",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "deps": [
         "CORE-06"
@@ -465,7 +465,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:59:02Z",
       "notes": [
         {
           "id": "n1",
@@ -473,13 +473,34 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T19:55:17Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Started: konsora binary with commander: init and read commands (status, list, show, ready, blocked, check) with --json; e2e tests in temp git repos."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T19:59:02Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/cli: `konsora` binary (src/bin.ts, runs via Node type stripping; npx konsora or npm run konsora) built on commander 15 and @konsora/core. Commands: init (exclusive create via core initTasks, default group TASK, base branch from git symbolic-ref so it works before the first commit, .konsora/.gitignore with runs/), status, list (--state --group --ready --blocked --waiting), ready, blocked, show (case-insensitive ids, deps with states, dependents, criteria, notes), check (exit 1 with every issue and its JSON Pointer). --json on every read command; English errors with Hint lines; exit codes 0 ok / 1 failure / 2 usage. Root discovery: --root, KONSORA_ROOT, nearest ancestor with .konsora/. Tests: 19 e2e in temp git repos (text and --json per command, init refusing to overwrite, invalid plans, discovery, real binary via child process). Manual run found and fixed two bugs before the tests existed: a missing mkdir import in the store and base_branch detection in repos without commits. npm run check green (245 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T19:59:02Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
     {
       "id": "CLI-02",
       "title": "Agent write commands",
-      "state": "todo",
+      "state": "doing",
       "group": "CLI",
       "deps": [
         "CLI-01"
@@ -508,7 +529,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:59:02Z",
       "notes": [
         {
           "id": "n1",
@@ -516,6 +537,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T19:59:02Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Started: agent write commands (propose, batch, edit, withdraw, depend, undepend, start, pause, note, ask, finish) through core ops and the store, with --as / KONSORA_AGENT."
         }
       ]
     },

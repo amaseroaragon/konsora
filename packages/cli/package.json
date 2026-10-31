@@ -6,5 +6,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@konsora/core": "*",
+    "commander": "15.0.0"
+  },
+  "bin": {
+    "konsora": "./src/bin.ts"
   }
 }

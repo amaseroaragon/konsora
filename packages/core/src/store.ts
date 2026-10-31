@@ -12,7 +12,7 @@
  * - `.konsora` and `tasks.json` must not be symlinks (they could point outside the project).
  */
 import { constants, watch } from "node:fs";
-import { lstat, open, readdir, readFile, rename, unlink } from "node:fs/promises";
+import { lstat, mkdir, open, readdir, readFile, rename, unlink } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { sha256Hex } from "./hash.ts";
@@ -25,7 +25,13 @@ export const KONSORA_DIR = ".konsora";
 export const TASKS_FILE = "tasks.json";
 export const LOCK_FILE = "tasks.json.lock";
 
-export type StoreErrorCode = "missing" | "invalid" | "unsafe_path" | "lock_timeout" | "io";
+export type StoreErrorCode =
+  | "missing"
+  | "exists"
+  | "invalid"
+  | "unsafe_path"
+  | "lock_timeout"
+  | "io";
 export type StoreError = { code: StoreErrorCode; message: string; issues?: SchemaIssue[] };
 
 export type Snapshot = { document: TasksDocument; hash: string; text: string };
@@ -297,4 +303,60 @@ export function watchTasks(
 export async function strayTempFiles(root: string): Promise<string[]> {
   const names = await readdir(join(root, KONSORA_DIR)).catch(() => []);
   return names.filter((n) => n.startsWith(`.${TASKS_FILE}.`) && n.endsWith(".tmp"));
+}
+
+export type InitResult = ({ ok: true } & Snapshot) | { ok: false; error: StoreError };
+
+/**
+ * Creates `.konsora/tasks.json` (and `.konsora/.gitignore` with `runs/` if missing) for a new
+ * plan. Explicit action only: never called when merely opening a folder. Refuses to overwrite an
+ * existing tasks file (exclusive create) and refuses a symlinked `.konsora`.
+ */
+export async function initTasks(root: string, doc: TasksDocument): Promise<InitResult> {
+  try {
+    const parsed = parseTasksFile(serializeDocument(doc));
+    if (!parsed.ok) fail("invalid", "The initial plan is invalid", parsed.issues);
+    const dir = join(root, KONSORA_DIR);
+    const info = await lstat(dir).catch(() => null);
+    if (info?.isSymbolicLink())
+      fail("unsafe_path", `${KONSORA_DIR} is a symlink; Konsora refuses to follow it`);
+    if (info && !info.isDirectory())
+      fail("unsafe_path", `${KONSORA_DIR} exists and is not a directory`);
+    if (!info) await mkdir(dir);
+    const text = serializeDocument(doc);
+    let handle: Awaited<ReturnType<typeof open>>;
+    try {
+      handle = await open(
+        tasksPath(root),
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+        0o644,
+      );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        fail(
+          "exists",
+          `${KONSORA_DIR}/${TASKS_FILE} already exists; Konsora will not overwrite it`,
+        );
+      }
+      throw error;
+    }
+    try {
+      await handle.writeFile(text, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    const ignore = await open(
+      join(dir, ".gitignore"),
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+      0o644,
+    ).catch(() => null);
+    if (ignore) {
+      await ignore.writeFile("runs/\n", "utf8");
+      await ignore.close();
+    }
+    return { ok: true, document: doc, hash: fileHash(text), text };
+  } catch (error) {
+    return { ok: false, error: toStoreError(error) };
+  }
 }

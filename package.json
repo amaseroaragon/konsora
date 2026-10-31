@@ -15,7 +15,8 @@
     "format": "biome check --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json",
     "test": "vitest run",
-    "schema": "node packages/core/scripts/gen-schema.ts"
+    "schema": "node packages/core/scripts/gen-schema.ts",
+    "konsora": "node packages/cli/src/bin.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
