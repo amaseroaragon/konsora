@@ -136,6 +136,10 @@ describe("read commands", () => {
   it("status --json", async () => {
     expect((await run(["status", "--json"])).json()).toEqual({
       project: { name: "Weather", base_branch: "main" },
+      groups: [
+        { id: "BE", name: "Backend" },
+        { id: "FE", name: "Frontend" },
+      ],
       tasks: 5,
       byState: { proposed: 1, todo: 2, doing: 0, review: 1, done: 1 },
       ready: ["BE-04"],

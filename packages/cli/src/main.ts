@@ -18,6 +18,7 @@ import {
 } from "./format.ts";
 import { registerMigrate } from "./migrate.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
+import { describeInstall, installSkill, registerSkill } from "./skill.ts";
 import { registerWriteCommands } from "./write.ts";
 
 export { EXIT, type Io } from "./shared.ts";
@@ -61,6 +62,8 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
       "--base-branch <branch>",
       "branch accepted work is merged into (default: current git branch, else main)",
     )
+    .option("--no-skill", "do not install the agent protocol skill (.claude/skills/konsora)")
+    .option("--agents-md", "also append a Konsora section to AGENTS.md (for Codex)")
     .option("--json", "print the created plan as JSON")
     .action(
       async (opts: {
@@ -68,6 +71,8 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
         group: string;
         groupName: string;
         baseBranch?: string;
+        skill: boolean;
+        agentsMd?: boolean;
         json?: boolean;
       }) => {
         const target = resolve(io.cwd, root() ?? ".");
@@ -104,11 +109,15 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           }
           throw new CliError(result.error.message);
         }
+        const skill = opts.skill
+          ? await installSkill(target, { agentsMd: Boolean(opts.agentsMd) })
+          : undefined;
         if (opts.json) json(io, result.document);
         else {
           io.stdout(
             `Created ${relative(io.cwd, tasksPath(target)) || tasksPath(target)} (project "${doc.project.name}", base branch ${doc.project.base_branch}, group ${opts.group}).\n` +
-              "Next: ask an agent to propose tasks, or add them with `konsora propose` (coming in CLI-02).\n",
+              (skill ? describeInstall(skill) : "") +
+              "Next: ask an agent to plan with you; it will propose tasks with `konsora batch` for you to approve.\n",
           );
         }
       },
@@ -127,6 +136,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
         );
         json(io, {
           project: doc.project,
+          groups: doc.groups,
           tasks: list.length,
           byState,
           ready: list.filter((t) => t.ready).map((t) => t.id),
@@ -229,6 +239,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
 
   registerWriteCommands(program, io, root);
   registerMigrate(program, io, root);
+  registerSkill(program, io, root);
 
   try {
     await program.parseAsync([...argv], { from: "user" });

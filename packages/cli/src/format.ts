@@ -53,6 +53,7 @@ export function statusText(doc: TasksDocument, file: string): string {
       : "";
   return [
     `${doc.project.name} · ${file} · ${list.length} tasks in ${doc.groups.length} groups\n`,
+    `  groups: ${doc.groups.map((g) => `${g.id} (${g.name})`).join(", ")}\n`,
     `\n  ${STATES.map((s) => `${s} ${count(s)}`).join("   ")}\n`,
     `  ready ${list.filter((t) => t.ready).length} · blocked ${list.filter((t) => t.blocked).length} · waiting ${list.filter((t) => t.waiting).length}\n`,
     section(

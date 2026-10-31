@@ -10,11 +10,11 @@ Documentación de referencia (léela antes de cambiar algo en su ámbito):
 
 ## Estado actual
 
-**M0 y M1 cerrados.** `packages/core` está completo: esquema v2, validación, serializador canónico, grafo, máquina de estados con operaciones semánticas y almacén de archivos (`@konsora/core/store`, solo Node). `packages/web` tiene el sistema de diseño *Plano* y la maqueta navegable (`UI-04`). **Siguiente: M2, empezando por `CLI-01`** (consulta `.konsora/tasks.json`).
+**M0, M1 y M2 cerrados.** `packages/core` está completo: esquema v2, validación, serializador canónico, grafo, máquina de estados con operaciones semánticas y almacén de archivos (`@konsora/core/store`, solo Node). `packages/web` tiene el sistema de diseño *Plano* y la maqueta navegable (`UI-04`). La CLI `konsora` (init, lectura, comandos de agente, `migrate`, `skill`) está en `packages/cli`. **Siguiente: M3 (daemon + tablero), empezando por `DMN-01`** (consulta `npx konsora status`).
 
 El v0 que desarrolló Codex (Tauri + sidecar Python, MVP de "copiar prompt"), con su código y sus docs, solo existe en la etiqueta git `legacy-v0`. No lo restaures ni lo tomes como referencia, salvo para la migración v1→v2 (`CLI-03`).
 
-Hasta que exista la CLI (M2), cualquier cambio en `.konsora/tasks.json` debe pasar por `@konsora/core` (`parseTasksFile` → `applyOp` → `serializeDocument`, o `mutate` del store), nunca a mano.
+El backlog se gestiona con la CLI del propio repo (`npx konsora …`, con `--as claude` o `KONSORA_AGENT`), siguiendo la skill `.claude/skills/konsora/SKILL.md`. Nunca edites `.konsora/tasks.json` a mano.
 
 ## Estructura
 

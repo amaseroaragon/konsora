@@ -628,7 +628,7 @@
     {
       "id": "CLI-04",
       "title": "Agent protocol skill installed by init",
-      "state": "doing",
+      "state": "done",
       "group": "CLI",
       "deps": [
         "CLI-02"
@@ -653,7 +653,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:05:22Z",
+      "updated_at": "2026-10-31T20:08:53Z",
       "notes": [
         {
           "id": "n1",
@@ -668,6 +668,20 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Plan: a concise protocol skill installed by konsora init for Claude Code (.claude/skills/konsora/SKILL.md) plus an AGENTS.md snippet for Codex; then a manual Claude Code session in a temp project proposes a batch and reads it back."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T20:08:53Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Agent protocol skill (packages/cli/assets/SKILL.md, Claude Code skill frontmatter): roles table, session flow (status → ready → show → start → note/ask → finish/pause), planning with batch, failure handling, and one-command-per-call so permission rules match. konsora init installs it at .claude/skills/konsora/SKILL.md (never overwrites; --no-skill to skip); konsora skill installs it in existing projects and --agents-md appends a one-time Konsora section to AGENTS.md for Codex. status now lists groups. Manual check with the real claude 2.1.316 (sonnet, low effort, only Bash(konsora *) and Skill allowed) in a temp project: it loaded the skill, proposed 3 tasks with deps and criteria via konsora batch --as claude, and read them back with konsora status (9 turns, ~0.09 USD client-side estimate). It hit 3 permission denials from chaining commands, which led to the single-command tip in the skill. Installed the skill in this repo too. npm run check green (290 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:08:53Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },

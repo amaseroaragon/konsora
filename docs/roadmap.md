@@ -14,7 +14,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 Esquema zod y `schema/tasks.v2.schema.json` generado. Validación estructural y semántica con errores `{path, code, message}`. Serializador canónico. Grafo (blocked, ready, waiting, ciclos, orden topológico, cadena YOLO). Máquina de estados con roles. Operaciones semánticas con precondición por tarea. Store con lock por PID, escritura atómica con `fsync` y watcher.
 ✅ Tests de propiedades: `serialize(parse(x)) === x` para documentos canónicos generados; un documento con ciclo siempre se rechaza; ninguna operación de agente produce `→ todo` desde `proposed` ni `→ done`. Test de **dos procesos reales** escribiendo 200 operaciones intercaladas: no se pierde ninguna y el archivo final es válido. Un archivo inválido nunca se sobrescribe.
 
-## M2 — CLI (`konsora`)
+## M2 — CLI (`konsora`) ✔ (2026-10-31)
 
 🔧 `init`, `status`, `list`, `show`, `ready`, `blocked`, `check`, `propose`, `batch`, `edit`, `withdraw`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish` y `migrate` (v1 → v2), con `--json` y `--as`. Skill o snippet de protocolo para agentes, instalado por `init`.
 ✅ Tests e2e sobre un repo temporal. `konsora migrate --dry-run` sobre el `tasks.json` de `legacy-v0` muestra el mapeo esperado, y la migración real produce un archivo válido conservando el historial en `.konsora/legacy/`. Una sesión manual de Claude Code, siguiendo la skill, propone tareas con `batch` y las ve con `status`.
