@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "K-031",
+      "title": "K-031 — Retirar chats, proveedores y ejecución del MVP",
+      "description": "Eliminar vistas/componentes de conversaciones y selectores de proveedor/modelo, indicador/comprobación de Codex, simuladores y código que invoca CLIs.\n\nRetirar las rutas HTTP de conversaciones, catálogo y consultas de proveedores; no consultar instalaciones/sesiones al abrir Konsora. Conservar sus tablas, filas y migraciones como histórico, sin reconvertirlas en tareas.\n\nQuitar el botón «Ejecutar seleccionadas», incluso deshabilitado. El proyecto abre directamente el tablero; la carpeta/configuración queda en un desplegable, sin navegación de chats. Simplificar el texto de copia y mantener la exportación opcional ya existente.\n\nSeparar utilidades compartidas de los módulos retirados y ajustar las pruebas del contrato eliminado. Actualizar las instrucciones, README y guía de desarrollo al alcance actual.",
+      "acceptance_criteria": "Aceptación: abrir proyecto, seleccionar tareas y copiar prompt funciona sin CLI, login ni conexión a proveedor. No hay UI/rutas de chat, inferencia, modelos o ejecución. Proyectos, archivos de tareas y filas históricas permanecen intactos.\n\nPruebas: rutas retiradas 404/ausentes de OpenAPI y conservación de filas; copia de selección parcial con creación de procesos prohibida; tipos/build web/nativo y un recorrido UI sin solicitudes a proveedores. No repetir pruebas de los conectores retirados.",
+      "sort_order": 0,
+      "status": "done",
+      "version": 1,
+      "dependencies": []
+    },
+    {
+      "id": "K-032",
+      "title": "K-032 — Proteger el servicio local del MVP",
+      "description": "Extraer la seguridad local de la antigua K-019: autenticación de instancia y validación de origen/host para operaciones de proyectos, archivos y prompts. El servicio sigue escuchando solo en loopback; CORS no sustituye a la autenticación.\n\nIntegrar el secreto propio de Konsora con el arranque de escritorio, sin credenciales de proveedor ni exposición en logs. Mantener el desarrollo web local documentado y recuperar errores sin perder archivos/borradores.",
+      "acceptance_criteria": "Aceptación: un cliente/origen/host no autorizado no puede leer ni modificar datos del proyecto. El escritorio conserva su flujo carpeta → selección → copia.\n\nPruebas: secreto ausente/incorrecto, origen/host rechazados y un recorrido autorizado; comprobación de ausencia de secretos en respuestas y logs.",
+      "sort_order": 1,
+      "status": "done",
+      "version": 1,
+      "dependencies": [
+        "K-031"
+      ]
+    },
+    {
+      "id": "K-024",
+      "title": "K-024 — Verificar y cerrar el flujo del MVP simplificado",
+      "description": "Verificar carpeta → archivo generado externamente → detección/tablero → selección → vista previa → copiar/pegar, sin instalar herramientas de IA ni iniciar sesión. Incluir dos proyectos, dependencias fuera de selección, filtros y cambios externos.\n\nComprobar edición/migración sin pérdidas, archivo inválido/desaparecido, conflictos y recuperación al reiniciar. La copia debe contener solo el trabajo seleccionado y contexto explícito; guardar un prompt es opcional y no sobrescribe archivos.",
+      "acceptance_criteria": "Aceptación: flujo reproducible en Ubuntu con teclado y portapapeles/fallback Ctrl+C, tareas recuperables desde la carpeta sin la base antigua y ausencia de chats, cuentas, inferencias o ejecución. El cierre del MVP no requiere una prueba real con IA.\n\nPruebas: API/lógica afectadas, tipos/build web/nativo y un checklist de escritorio. Publicar evidencia en `docs/verification/`; no probar proveedores ausentes del producto.",
+      "sort_order": 2,
+      "status": "done",
+      "version": 1,
+      "dependencies": [
+        "K-032"
+      ]
+    },
+    {
+      "id": "K-025",
+      "title": "K-025 — Arranque integrado y distribución Ubuntu",
+      "description": "Integrar arranque/parada del backend Tauri con la autenticación local de K-032. Detectar puertos ocupados, evitar procesos huérfanos y usar una ubicación de datos apropiada con migración conservadora.\n\nPreparar instalación/diagnóstico y documentarlos en `docs/`; mantener el README en 5–10 líneas descriptivas. No mover tareas/resultados a una base privada ni exigir CLIs de IA.",
+      "acceptance_criteria": "Aceptación: instalar, abrir, visualizar y copiar un prompt sin arrancar el backend manualmente. Actualizar/desinstalar o eliminar la caché no borra los archivos del proyecto; cerrar no deja el servicio activo.\n\nPruebas: instalación limpia, actualización de datos anteriores, múltiples aperturas, puerto ocupado, cierre y permisos. Sin supervisores de agentes ni credenciales de terceros.",
+      "sort_order": 3,
+      "status": "done",
+      "version": 1,
+      "dependencies": [
+        "K-024"
+      ]
+    },
+    {
+      "id": "K-030",
+      "title": "K-030 — Abrir una herramienta de IA y entregarle el prompt",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nDiseñar la selección de ejecutor (Codex, Claude Code u otro validado), modelo/opciones y lanzamiento explícito a partir del prompt revisado. Cada herramienta gestiona su propia sesión; no crear un gestor de cuentas de Konsora ni exigir cerrar sesiones de otras herramientas.\n\nVerificar primero mecanismos, documentación y condiciones oficiales. No asumir que un CLI headless permite una integración de terceros. Si no hay entrega automática permitida, conservar copiar/pegar; sin APIs de pago, endpoints privados ni extracción de tokens.",
+      "acceptance_criteria": "Aceptación/pruebas: con aprobación explícita se abre el ejecutor elegido en la carpeta y recibe exactamente el prompt revisado mediante argumentos/stdin oficiales, sin shell ni ampliación de selección. Rechazar cambios de origen y ejecutables ausentes; documentar qué puede observar/cancelar Konsora y qué gestiona la herramienta externa. Requiere concretar el alcance antes de implementarse.",
+      "sort_order": 4,
+      "status": "pending",
+      "version": 1,
+      "dependencies": []
+    },
+    {
+      "id": "K-019",
+      "title": "K-019 — Contrato oficial y permisos de ejecución integrada",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nSolo si se pide supervisión integrada además del lanzador, definir contrato separado de generación de prompts: tarea/huella, carpeta, contexto, modelo, permisos, límites, eventos y cancelación. La seguridad local del MVP ya se resuelve en K-032.\n\nValidar aislamiento, aprobaciones y sesión oficial del ejecutor escogido; proteger la aceptación humana frente a cambios del agente. Sin mecanismo compatible, mantener la ejecución integrada bloqueada y la copia manual disponible.",
+      "acceptance_criteria": "Aceptación/pruebas: documentación oficial fechada, versión validada, operaciones fuera de alcance rechazadas y contrato comprobado con CLI falso antes de trabajo real autorizado.",
+      "sort_order": 5,
+      "status": "pending",
+      "version": 1,
+      "dependencies": []
+    },
+    {
+      "id": "K-020",
+      "title": "K-020 — Supervisar una ejecución y revisar su resultado",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nBasarse en K-019, registrar intentos/resultados en el proyecto, ejecutar sin shell, gestionar límites/cancelación/reconexión y conservar cambios previos. El éxito queda en revisión humana.",
+      "acceptance_criteria": "Aceptación/pruebas: una ejecución explícitamente aprobada en carpeta de prueba, historial persistente, errores/descendientes/cierre sin procesos huérfanos. No se implementa como parte del MVP de copiar prompts.",
+      "sort_order": 6,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [
+        "K-019"
+      ]
+    },
+    {
+      "id": "K-021",
+      "title": "K-021 — Cola persistente de ejecuciones seleccionadas",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nBasarse en K-020; aprobación vinculada a versiones/alcance, orden/dependencias y revalidación antes de arrancar. Una ejecución global inicialmente, sin incorporar dependencias ni reintentos automáticos.",
+      "acceptance_criteria": "Aceptación/pruebas: selección parcial, idempotencia, cambios externos, pausa/cancelación, fallos y reinicio con revisión/nueva autorización. No afecta al flujo de copia manual.",
+      "sort_order": 7,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [
+        "K-020"
+      ]
+    },
+    {
+      "id": "K-026",
+      "title": "K-026 — Añadir otros ejecutores oficialmente compatibles",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nAmpliar K-030 cuando se quiera usar otra herramienta; validar entonces login, entrega de prompts y ejecución permitida. No implica suscripciones simultáneas ni rotación automática de cuentas.",
+      "acceptance_criteria": "Aceptación/pruebas: elegir el ejecutor compatible y entregarle únicamente el prompt revisado. Sin permiso oficial, conservar la copia manual. El bloqueo histórico de Antigravity sigue pendiente de revisión oficial; este cambio de alcance no lo resuelve.",
+      "sort_order": 8,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [
+        "K-030"
+      ]
+    },
+    {
+      "id": "K-023",
+      "title": "K-023 — Información de cuota, si la integración futura la necesita",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nConsultar solo mecanismos oficiales sin inferencia cuando existan; mostrar datos ausentes/desactualizados sin porcentajes inventados. Sin compra de créditos, cambio automático de proveedor ni fallback de pago.",
+      "acceptance_criteria": "Aceptación/pruebas: consulta oficial validada para el ejecutor correspondiente y errores controlados. No es un requisito para visualizar/copiar tareas.",
+      "sort_order": 9,
+      "status": "pending",
+      "version": 1,
+      "dependencies": []
+    },
+    {
+      "id": "K-029",
+      "title": "K-029 — Varios agentes y ejecuciones paralelas",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nDefinir selección de agentes/modelos, aislamiento por carpetas/worktrees, conflictos, límites y permisos después de validar el flujo de ejecución que se quiera ofrecer.",
+      "acceptance_criteria": "Aceptación/pruebas: tareas seleccionadas sin colisiones ni cambios no autorizados, cancelación y trazabilidad. Requiere diseño y aprobación de alcance antes de implementarse.",
+      "sort_order": 10,
+      "status": "pending",
+      "version": 1,
+      "dependencies": []
+    },
+    {
+      "id": "K-027",
+      "title": "K-027 — Grafo de dependencias",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nVista adicional de los mismos archivos/selección, sin duplicar fuentes ni saltarse validación de ciclos. Evaluar cuando aporte valor al uso real del tablero.",
+      "acceptance_criteria": "",
+      "sort_order": 11,
+      "status": "pending",
+      "version": 1,
+      "dependencies": []
+    },
+    {
+      "id": "K-028",
+      "title": "K-028 — Contexto persistente y búsqueda por proyecto",
+      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nNotas y búsqueda con procedencia y selección explícita del contexto. No sincronizar memorias nativas ni recuperar el chat retirado como interfaz principal.",
+      "acceptance_criteria": "",
+      "sort_order": 12,
+      "status": "pending",
+      "version": 1,
+      "dependencies": []
+    }
+  ],
+  "attempts": [],
+  "activity": [],
+  "reviews": []
+}
