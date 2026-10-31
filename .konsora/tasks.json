@@ -44,28 +44,28 @@
   "tasks": [
     {
       "id": "CORE-01",
-      "title": "Define schema v2 with zod and generate JSON Schema",
+      "title": "Definir el esquema v2 con zod y generar el JSON Schema",
       "state": "done",
       "group": "CORE",
       "rank": "a0",
-      "desc": "Implement the structural schema of `konsora/2` exactly as in docs/esquema-tareas.md §1 (root, project, groups, seq, tasks, acceptance, agent, notes). Generate `schema/tasks.v2.schema.json` from zod with a script and a test that fails if the committed file is stale.",
+      "desc": "Implementa el esquema estructural de `konsora/2` tal como está en docs/esquema-tareas.md §1 (raíz, project, groups, seq, tasks, acceptance, agent, notes). Genera `schema/tasks.v2.schema.json` desde zod con un script, y un test que falla si el archivo del repo está desactualizado.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "All field constraints of §1 are enforced (patterns, lengths, enums); unknown keys rejected except `x-*`"
+          "text": "Se aplican todas las restricciones de campos de §1 (patrones, longitudes, enumerados); las claves desconocidas se rechazan salvo `x-*`"
         },
         {
           "id": "ac2",
-          "text": "Committed JSON Schema matches the generated one",
+          "text": "El JSON Schema del repo coincide con el generado",
           "check": "npx vitest run packages/core"
         },
         {
           "id": "ac3",
-          "text": "This repo's .konsora/tasks.json validates"
+          "text": "El .konsora/tasks.json de este repo valida"
         },
         {
           "id": "ac4",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -76,7 +76,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T22:30:00Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -110,26 +110,26 @@
     },
     {
       "id": "CORE-02",
-      "title": "Semantic validation with JSON Pointer errors",
+      "title": "Validación semántica con errores en JSON Pointer",
       "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-01"
       ],
       "rank": "a1",
-      "desc": "Validate the rules of §3: unique ids with prefix = group, `seq` ≥ max used number, existing groups and deps, no self-deps, no cycles (iterative Kahn), unique note/acceptance ids, `yolo` not on done tasks, duplicate JSON keys rejected, 8 MiB limit. Errors are `{path, code, message}`.",
+      "desc": "Valida las reglas de §3: ids únicos con prefijo igual al grupo, `seq` ≥ el mayor número usado, grupos y dependencias existentes, sin autodependencias, sin ciclos (Kahn iterativo), ids de notas y criterios únicos, `yolo` no permitido en tareas hechas, claves JSON duplicadas rechazadas y límite de 8 MiB. Los errores son `{path, code, message}`.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Each rule has a failing-fixture test that asserts path and code"
+          "text": "Cada regla tiene un test con un fixture que falla y comprueba path y code"
         },
         {
           "id": "ac2",
-          "text": "A 2000-task generated document validates in < 200 ms"
+          "text": "Un documento generado de 2000 tareas valida en menos de 200 ms"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -140,7 +140,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:00:00Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -174,26 +174,26 @@
     },
     {
       "id": "CORE-03",
-      "title": "Canonical serializer",
+      "title": "Serializador canónico",
       "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-01"
       ],
       "rank": "a2",
-      "desc": "Serialize per §4: fixed key order, empty optionals omitted, 2-space indent, LF, trailing newline, tasks ordered by group order then numeric id, deps/labels sorted.",
+      "desc": "Serializa según §4: orden fijo de claves, opcionales vacíos omitidos, sangría de 2 espacios, LF, salto de línea final, tareas ordenadas por el orden de los grupos y luego por id numérico, deps y labels ordenados.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Property test (fast-check): serialize(parse(x)) === x for generated canonical documents"
+          "text": "Test de propiedades (fast-check): serialize(parse(x)) === x para documentos canónicos generados"
         },
         {
           "id": "ac2",
-          "text": "Adding one task to a document changes a single contiguous hunk"
+          "text": "Añadir una tarea a un documento cambia un único bloque contiguo"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -204,7 +204,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:00:13Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -238,22 +238,22 @@
     },
     {
       "id": "CORE-04",
-      "title": "Graph derivations: blocked, ready, waiting, topo order, YOLO chain",
+      "title": "Derivaciones del grafo: bloqueada, lista, esperando, orden topológico y cadena YOLO",
       "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-02"
       ],
       "rank": "a3",
-      "desc": "Pure functions over a validated document: blocked (todo with a dep not done), ready, waiting (last question without later answer), topological order, transitive deps and YOLO chain of a task.",
+      "desc": "Funciones puras sobre un documento validado: bloqueada (todo con una dependencia sin terminar), lista, esperando (última pregunta sin respuesta posterior), orden topológico, dependencias transitivas y cadena YOLO de una tarea.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Unit and property tests for each derivation, including review deps not unblocking"
+          "text": "Tests unitarios y de propiedades para cada derivación, incluido que una dependencia en review no desbloquea"
         },
         {
           "id": "ac2",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -264,7 +264,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:01:29Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -298,7 +298,7 @@
     },
     {
       "id": "CORE-05",
-      "title": "State machine and semantic operations with per-task preconditions",
+      "title": "Máquina de estados y operaciones semánticas con precondiciones por tarea",
       "state": "done",
       "group": "CORE",
       "deps": [
@@ -306,23 +306,23 @@
         "CORE-04"
       ],
       "rank": "a4",
-      "desc": "Implement the transitions and role table of §2 as semantic ops (propose, batch, approve, edit, withdraw, depend, undepend, start, pause, note, ask, answer, finish, accept, send-back, reopen, set-yolo). Each op carries the hash of the tasks it reads; if any changed → conflict, otherwise apply on the latest document (§5). New ids use and bump `seq`.",
+      "desc": "Implementa las transiciones y la tabla de roles de §2 como operaciones semánticas (propose, batch, approve, edit, withdraw, depend, undepend, start, pause, note, ask, answer, finish, accept, send-back, reopen, set-yolo). Cada operación lleva el hash de las tareas que lee; si alguna cambió → conflicto, y si no, se aplica sobre el documento más reciente (§5). Los ids nuevos usan e incrementan `seq`.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Property test: no agent-role op sequence ever yields proposed→todo or →done"
+          "text": "Test de propiedades: ninguna secuencia de operaciones con rol de agente produce proposed→todo ni →done"
         },
         {
           "id": "ac2",
-          "text": "finish requires a summary note; send-back requires a feedback note; start on a blocked task is rejected"
+          "text": "finish exige una nota de resumen; send-back exige una nota de feedback; start sobre una tarea bloqueada se rechaza"
         },
         {
           "id": "ac3",
-          "text": "An op whose task changed returns a conflict with the current task; ops on other tasks still apply"
+          "text": "Una operación cuya tarea cambió devuelve un conflicto con la tarea actual; las operaciones sobre otras tareas se siguen aplicando"
         },
         {
           "id": "ac4",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -333,7 +333,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:07:13Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -367,30 +367,30 @@
     },
     {
       "id": "CORE-06",
-      "title": "File store: PID lock, atomic write, fsync and watcher",
+      "title": "Almacén de archivos: lock por PID, escritura atómica, fsync y watcher",
       "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-05"
       ],
       "rank": "a5",
-      "desc": "Store for `.konsora/tasks.json` per §5: O_EXCL lock with {pid, host, at}, stale only if the PID is dead on the same host, 5 s wait; read → validate → apply op → validate → canonical write to temp + fsync + rename + dir fsync. Invalid files are never overwritten. Watcher with hash comparison and 100 ms debounce. Opening never writes; `.konsora` symlinks are rejected.",
+      "desc": "Almacén para `.konsora/tasks.json` según §5: lock O_EXCL con {pid, host, at}, que solo se considera caducado si el PID está muerto en el mismo host, con 5 s de espera; leer → validar → aplicar la operación → validar → escritura canónica en temporal + fsync + rename + fsync del directorio. Los archivos inválidos nunca se sobrescriben. Watcher con comparación de hash y debounce de 100 ms. Abrir nunca escribe; se rechazan los `.konsora` que sean symlinks.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Test with two real child processes interleaving 200 ops: none lost, final file valid"
+          "text": "Test con dos procesos hijo reales intercalando 200 operaciones: no se pierde ninguna y el archivo final es válido"
         },
         {
           "id": "ac2",
-          "text": "Invalid file on disk → write rejected and file bytes unchanged"
+          "text": "Con un archivo inválido en disco, la escritura se rechaza y sus bytes no cambian"
         },
         {
           "id": "ac3",
-          "text": "External edit is reported by the watcher within 300 ms"
+          "text": "El watcher avisa de una edición externa en menos de 300 ms"
         },
         {
           "id": "ac4",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -401,7 +401,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:09:48Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -435,26 +435,26 @@
     },
     {
       "id": "CLI-01",
-      "title": "CLI skeleton, init and read commands",
+      "title": "Esqueleto de la CLI, init y comandos de lectura",
       "state": "done",
       "group": "CLI",
       "deps": [
         "CORE-06"
       ],
       "rank": "a6",
-      "desc": "`konsora` binary (commander) runnable with Node type stripping. Commands: init (creates tasks.json, default group, .konsora/.gitignore with runs/), status, list (--state --group --ready --blocked), show, ready, blocked, check. `--json` output on all read commands; English, actionable errors with non-zero exit codes.",
+      "desc": "Binario `konsora` (commander) ejecutable con el type stripping de Node. Comandos: init (crea tasks.json, un grupo por defecto y .konsora/.gitignore con runs/), status, list (--state --group --ready --blocked), show, ready, blocked y check. Salida `--json` en todos los comandos de lectura; errores accionables en inglés con códigos de salida distintos de cero.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "e2e tests in a temp git repo for every command, text and --json"
+          "text": "Tests e2e en un repo git temporal para cada comando, en texto y con --json"
         },
         {
           "id": "ac2",
-          "text": "init refuses to overwrite an existing tasks.json"
+          "text": "init se niega a sobrescribir un tasks.json existente"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -465,7 +465,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:59:02Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -499,26 +499,26 @@
     },
     {
       "id": "CLI-02",
-      "title": "Agent write commands",
+      "title": "Comandos de escritura para agentes",
       "state": "done",
       "group": "CLI",
       "deps": [
         "CLI-01"
       ],
       "rank": "a7",
-      "desc": "propose, batch (JSON on stdin or --file, all-or-nothing, deps by id or by title of an earlier task in the batch), edit/withdraw/undepend (proposals only), depend, start, pause, note, ask, finish --summary. Actor from --as or KONSORA_AGENT. No human transitions exposed.",
+      "desc": "propose, batch (JSON por stdin o --file, todo o nada, dependencias por id o por título de una tarea anterior del lote), edit/withdraw/undepend (solo propuestas), depend, start, pause, note, ask y finish --summary. El actor sale de --as o de KONSORA_AGENT. No se expone ninguna transición humana.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "e2e: batch with a cycle or unknown dep writes nothing"
+          "text": "e2e: un batch con un ciclo o una dependencia desconocida no escribe nada"
         },
         {
           "id": "ac2",
-          "text": "e2e: an agent cannot approve, accept or mark done through any command"
+          "text": "e2e: un agente no puede aprobar, aceptar ni marcar como hecha una tarea con ningún comando"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -529,7 +529,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:02:07Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -563,26 +563,26 @@
     },
     {
       "id": "CLI-03",
-      "title": "Migrate v1 → v2",
+      "title": "Migración de v1 a v2",
       "state": "done",
       "group": "CLI",
       "deps": [
         "CLI-01"
       ],
       "rank": "a8",
-      "desc": "`konsora migrate` per docs/esquema-tareas.md §7: dry-run by default with a summary, explicit --write, backup tasks.v1.json.bak, v1 attempts/activity/reviews moved to .konsora/legacy/v1-history.json.",
+      "desc": "`konsora migrate` según docs/esquema-tareas.md §7: simulación por defecto con un resumen, --write explícito, copia de seguridad tasks.v1.json.bak, y los intentos, la actividad y las revisiones de v1 movidos a .konsora/legacy/v1-history.json.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Migrating the v1 tasks.json from tag legacy-v0 yields a valid v2 file with the expected state mapping"
+          "text": "Migrar el tasks.json v1 de la etiqueta legacy-v0 produce un archivo v2 válido con el mapeo de estados esperado"
         },
         {
           "id": "ac2",
-          "text": "Dry-run never writes"
+          "text": "La simulación nunca escribe"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -593,7 +593,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:05:22Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -627,22 +627,22 @@
     },
     {
       "id": "CLI-04",
-      "title": "Agent protocol skill installed by init",
+      "title": "Skill del protocolo para agentes instalada por init",
       "state": "done",
       "group": "CLI",
       "deps": [
         "CLI-02"
       ],
       "rank": "a9",
-      "desc": "A concise skill/snippet explaining the protocol (status → ready → start → note/ask → finish; never edit the JSON by hand; humans approve and accept), installed by `konsora init` for Claude Code and referenced from AGENTS.md for Codex.",
+      "desc": "Una skill o snippet breve que explica el protocolo (status → ready → start → note/ask → finish; nunca editar el JSON a mano; los humanos aprueban y aceptan), instalada por `konsora init` para Claude Code y referenciada desde AGENTS.md para Codex.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "A manual Claude Code session following the skill proposes a batch and reads it back with status (documented in the commit)"
+          "text": "Una sesión manual de Claude Code siguiendo la skill propone un lote y lo lee con status (documentado en el commit)"
         },
         {
           "id": "ac2",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -653,7 +653,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:08:53Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -687,26 +687,26 @@
     },
     {
       "id": "DMN-01",
-      "title": "Daemon: loopback, token, Host/Origin checks and project registry",
+      "title": "Daemon: loopback, token, comprobación de Host y Origin, y registro de proyectos",
       "state": "done",
       "group": "DMN",
       "deps": [
         "CORE-06"
       ],
       "rank": "b0",
-      "desc": "Hono server on 127.0.0.1 random port; 256-bit token in ~/.local/share/konsora/daemon.json (0600); Host/Origin validation and Bearer auth on every request; project registry (projects.json) with realpath canonicalisation; read endpoints for board and task.",
+      "desc": "Servidor Hono en 127.0.0.1 con puerto aleatorio; token de 256 bits en ~/.local/share/konsora/daemon.json (0600); validación de Host y Origin y autenticación Bearer en cada petición; registro de proyectos (projects.json) con rutas canonicalizadas con realpath; endpoints de lectura del tablero y de una tarea.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Tests: missing/wrong token, foreign Origin and wrong Host get 403"
+          "text": "Tests: sin token o con un token incorrecto, un Origin ajeno o un Host incorrecto se recibe 403"
         },
         {
           "id": "ac2",
-          "text": "Linking a folder writes nothing inside it"
+          "text": "Vincular una carpeta no escribe nada dentro de ella"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -717,7 +717,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:21:49Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -751,7 +751,7 @@
     },
     {
       "id": "DMN-02",
-      "title": "Ops endpoint, approvals ledger and external-change detection",
+      "title": "Endpoint de operaciones, registro de aprobaciones y detección de cambios externos",
       "state": "done",
       "group": "DMN",
       "deps": [
@@ -759,19 +759,19 @@
         "DMN-01"
       ],
       "rank": "b1",
-      "desc": "POST /projects/:id/ops for all ops including human ones; approvals.jsonl written only by the daemon; external changes diffed against the last snapshot and human-only transitions without a ledger entry flagged as unapproved.",
+      "desc": "POST /projects/:id/ops para todas las operaciones, incluidas las humanas; approvals.jsonl, que solo escribe el daemon; los cambios externos se comparan con la última instantánea, y las transiciones solo humanas sin entrada en el registro se marcan como no aprobadas.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Setting a task to done by hand in the file is reported as an unapproved external change"
+          "text": "Poner a mano una tarea en done en el archivo se notifica como cambio externo sin aprobar"
         },
         {
           "id": "ac2",
-          "text": "Conflict responses include the current task"
+          "text": "Las respuestas de conflicto incluyen la tarea actual"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -782,7 +782,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:27:28Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -816,22 +816,22 @@
     },
     {
       "id": "DMN-03",
-      "title": "WebSocket board events",
+      "title": "Eventos del tablero por WebSocket",
       "state": "done",
       "group": "DMN",
       "deps": [
         "DMN-02"
       ],
       "rank": "b2",
-      "desc": "WS with token handshake; events board.changed (new hash + per-task diff) and board.invalid (errors), driven by the core watcher.",
+      "desc": "WebSocket con autenticación por token en el primer mensaje; eventos board.changed (hash nuevo y diff por tarea) y board.invalid (errores), generados a partir del watcher de core.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Editing tasks.json externally emits board.changed within 500 ms (test)"
+          "text": "Editar tasks.json desde fuera emite board.changed en menos de 500 ms (test)"
         },
         {
           "id": "ac2",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -842,7 +842,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:31:12Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -876,7 +876,7 @@
     },
     {
       "id": "UI-01",
-      "title": "Web app scaffold, i18n and `konsora ui`",
+      "title": "Base de la app web, i18n y `konsora ui`",
       "state": "done",
       "group": "UI",
       "deps": [
@@ -884,19 +884,19 @@
         "UI-04"
       ],
       "rank": "b3",
-      "desc": "packages/web with React + Vite + TanStack Query; token bootstrap from the URL fragment into sessionStorage; Spanish strings through an i18n layer; project list and link-folder flow. `konsora ui` starts or reuses the daemon and opens the browser.",
+      "desc": "packages/web con React + Vite + TanStack Query; el token pasa del fragmento de la URL a sessionStorage; textos en español a través de una capa de i18n; lista de proyectos y flujo para vincular una carpeta. `konsora ui` arranca el daemon, o reutiliza el que ya está en marcha, y abre el navegador.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "`konsora ui` opens a working page listing projects"
+          "text": "`konsora ui` abre una página que funciona y lista los proyectos"
         },
         {
           "id": "ac2",
-          "text": "No user-facing string literals in components (lint or test)"
+          "text": "Ningún componente tiene textos para el usuario escritos a mano (lint o test)"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -907,7 +907,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T22:47:43Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -934,7 +934,7 @@
     },
     {
       "id": "UI-02",
-      "title": "Board view with validated drag and drop",
+      "title": "Tablero con arrastrar y soltar validado",
       "state": "done",
       "group": "UI",
       "deps": [
@@ -943,19 +943,19 @@
         "UI-04"
       ],
       "rank": "b4",
-      "desc": "Columns proposed/todo/doing/review/done, optional group swimlanes, blocked/waiting badges, live updates from WS, drag and drop that only allows transitions the core permits and explains why otherwise.",
+      "desc": "Columnas proposed/todo/doing/review/done, carriles opcionales por grupo, etiquetas de bloqueada y esperando respuesta, actualizaciones en vivo por WebSocket, y arrastrar y soltar que solo permite las transiciones que admite core y, si no, explica por qué.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Editing tasks.json in an editor updates the board in < 1 s without reload"
+          "text": "Editar tasks.json con un editor actualiza el tablero en menos de 1 s sin recargar"
         },
         {
           "id": "ac2",
-          "text": "Forbidden drops are rejected with an explanation"
+          "text": "Los movimientos no permitidos se rechazan con una explicación"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -966,7 +966,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T22:59:30Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -1000,7 +1000,7 @@
     },
     {
       "id": "UI-03",
-      "title": "Human actions, invalid-file and external-change states",
+      "title": "Acciones humanas, archivo inválido y cambios externos",
       "state": "done",
       "group": "UI",
       "deps": [
@@ -1008,19 +1008,19 @@
         "UI-02"
       ],
       "rank": "b5",
-      "desc": "Approve, accept, send back with feedback, reopen, answer a question; read-only mode with the error list when the file is invalid; badge and confirm/revert for unapproved external changes.",
+      "desc": "Aprobar, aceptar, devolver con feedback, reabrir y responder a una pregunta; modo solo lectura con la lista de errores cuando el archivo es inválido; etiqueta y confirmar o revertir para los cambios externos sin aprobar.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Each human action round-trips to the file and the ledger"
+          "text": "Cada acción humana llega hasta el archivo y el registro de aprobaciones"
         },
         {
           "id": "ac2",
-          "text": "An invalid file blocks all writes in the UI and lists its errors"
+          "text": "Un archivo inválido bloquea toda escritura en la UI y lista sus errores"
         },
         {
           "id": "ac3",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -1031,7 +1031,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:08:09Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
@@ -1058,31 +1058,31 @@
     },
     {
       "id": "UI-04",
-      "title": "Visual direction and design system",
+      "title": "Dirección visual y sistema de diseño",
       "state": "done",
       "group": "UI",
       "rank": "9",
-      "desc": "Konsora's look is designed up front instead of screen by screen. 1) Present 2–3 clearly distinct visual directions as viewable mockups (board, task card, detail panel, run log, review with diff) using fake data shaped like schema v2; the human picks or blends one. 2) Turn it into a design system in packages/web: tokens (color, type, spacing, radii, shadows, motion) with light and dark themes, and base components (button, state badge, card, panel, column, field, menu, toast) with focus/disabled/error states. 3) A navigable mock app with fake data (board, graph, detail, runs, review) approved before UI-01/UI-02 wire real data. Runs in parallel with M1; it does not depend on core.",
+      "desc": "El aspecto de Konsora se diseña desde el principio en lugar de pantalla a pantalla. 1) Presentar 2–3 direcciones visuales claramente distintas como maquetas navegables (tablero, tarjeta de tarea, panel de detalle, log de un run, revisión con diff) con datos falsos con la forma del esquema v2; el humano elige una o las combina. 2) Convertirla en un sistema de diseño en packages/web: tokens (color, tipografía, espaciado, radios, sombras, movimiento) con temas claro y oscuro, y componentes base (botón, etiqueta de estado, tarjeta, panel, columna, campo, menú, aviso) con estados de foco, desactivado y error. 3) Una app de maqueta navegable con datos falsos (tablero, grafo, detalle, runs, revisión) aprobada antes de que UI-01 y UI-02 conecten los datos reales. Se hace en paralelo con M1; no depende de core.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "The human has chosen a visual direction (recorded as a note on this task)"
+          "text": "El humano ha elegido una dirección visual (anotada como nota en esta tarea)"
         },
         {
           "id": "ac2",
-          "text": "Tokens and base components live in packages/web with light and dark themes"
+          "text": "Los tokens y los componentes base viven en packages/web con temas claro y oscuro"
         },
         {
           "id": "ac3",
-          "text": "Navigable mock app with fake data approved by the human"
+          "text": "App de maqueta navegable con datos falsos aprobada por el humano"
         },
         {
           "id": "ac4",
-          "text": "WCAG AA contrast for text and visible focus on every interactive component"
+          "text": "Contraste WCAG AA para el texto y foco visible en cada componente interactivo"
         },
         {
           "id": "ac5",
-          "text": "Workspace checks pass",
+          "text": "Las comprobaciones del espacio de trabajo pasan",
           "check": "npm run check"
         }
       ],
@@ -1094,7 +1094,7 @@
         "at": "2026-10-31T19:30:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T22:30:00Z",
+      "updated_at": "2026-10-31T23:14:14Z",
       "notes": [
         {
           "id": "n1",
