@@ -368,7 +368,7 @@
     {
       "id": "CORE-06",
       "title": "File store: PID lock, atomic write, fsync and watcher",
-      "state": "doing",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-05"
@@ -401,7 +401,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:07:13Z",
+      "updated_at": "2026-10-31T19:09:48Z",
       "notes": [
         {
           "id": "n1",
@@ -416,6 +416,20 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Started: file store per §5: O_EXCL PID lock, atomic write with fsync, invalid files never overwritten, watcher with hash comparison."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T19:09:48Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/core/src/store.ts (exported as @konsora/core/store, Node-only): readTasks (never writes; rejects symlinked .konsora or tasks.json), mutate (O_EXCL lock with {pid, host, at}; stale only if its PID is dead on this host, compare-and-delete takeover, no time-based expiry; re-reads and validates under the lock; invalid files never overwritten; canonical write to temp + fsync + rename + dir fsync; op errors returned without touching the file), watchTasks (fs.watch + debounce + content hash; ignores lock/temp files and same-bytes writes; reports changed/invalid/missing). Tests: two real child processes interleaving 200 proposes lose nothing and leave a valid file (mutation-checked: without the lock the test fails), invalid file bytes unchanged, external edit reported in < 300 ms, live/foreign/dead locks, symlinks. npm run check green (226 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T19:09:48Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },

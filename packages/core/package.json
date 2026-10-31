@@ -2,10 +2,11 @@
   "name": "@konsora/core",
   "version": "0.0.0",
   "private": true,
-  "description": "Task schema v2, state machine, dependency graph, canonical serializer and store.",
+  "description": "Task schema v2, validation, canonical serializer, graph, state machine and (Node-only) file store.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts"
   },
   "dependencies": {
     "zod": "4.6.7"

@@ -10,11 +10,11 @@ Documentación de referencia (léela antes de cambiar algo en su ámbito):
 
 ## Estado actual
 
-**M0 (reinicio) cerrado.** El monorepo está montado y los paquetes son esqueletos vacíos. **Siguiente: M1, empezando por `CORE-01`** (consulta `.konsora/tasks.json`).
+**M0 y M1 cerrados.** `packages/core` está completo: esquema v2, validación, serializador canónico, grafo, máquina de estados con operaciones semánticas y almacén de archivos (`@konsora/core/store`, solo Node). `packages/web` tiene el sistema de diseño *Plano* y la maqueta navegable (`UI-04`). **Siguiente: M2, empezando por `CLI-01`** (consulta `.konsora/tasks.json`).
 
 El v0 que desarrolló Codex (Tauri + sidecar Python, MVP de "copiar prompt"), con su código y sus docs, solo existe en la etiqueta git `legacy-v0`. No lo restaures ni lo tomes como referencia, salvo para la migración v1→v2 (`CLI-03`).
 
-Hasta que exista `CORE-02`, el `.konsora/tasks.json` se mantiene a mano y debe cumplir `docs/esquema-tareas.md`.
+Hasta que exista la CLI (M2), cualquier cambio en `.konsora/tasks.json` debe pasar por `@konsora/core` (`parseTasksFile` → `applyOp` → `serializeDocument`, o `mutate` del store), nunca a mano.
 
 ## Estructura
 
