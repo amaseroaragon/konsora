@@ -1001,7 +1001,7 @@
     {
       "id": "UI-03",
       "title": "Human actions, invalid-file and external-change states",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-02",
@@ -1031,7 +1031,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:06:27Z",
+      "updated_at": "2026-10-31T23:08:09Z",
       "notes": [
         {
           "id": "n1",
