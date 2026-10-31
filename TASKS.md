@@ -56,11 +56,13 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 
 - **Verificación:** [K-032](docs/verification/K-032.md): servicio autenticado, transporte IPC privado, 106 pruebas API y recorrido nativo de carpeta/copia/cierre correctos. **Siguiente tarea: K-024.**
 
-### [ ] K-024 — Verificar y cerrar el flujo del MVP simplificado
+### [x] K-024 — Verificar y cerrar el flujo del MVP simplificado
 - Verificar carpeta → archivo generado externamente → detección/tablero → selección → vista previa → copiar/pegar, sin instalar herramientas de IA ni iniciar sesión. Incluir dos proyectos, dependencias fuera de selección, filtros y cambios externos.
 - Comprobar edición/migración sin pérdidas, archivo inválido/desaparecido, conflictos y recuperación al reiniciar. La copia debe contener solo el trabajo seleccionado y contexto explícito; guardar un prompt es opcional y no sobrescribe archivos.
 - **Aceptación:** flujo reproducible en Ubuntu con teclado y portapapeles/fallback Ctrl+C, tareas recuperables desde la carpeta sin la base antigua y ausencia de chats, cuentas, inferencias o ejecución. El cierre del MVP no requiere una prueba real con IA.
 - **Pruebas:** API/lógica afectadas, tipos/build web/nativo y un checklist de escritorio. Publicar evidencia en `docs/verification/`; no probar proveedores ausentes del producto.
+
+- **Verificación:** [K-024](docs/verification/K-024.md): recorrido completo de selección/copia, errores y recuperación correcto; migración e historial cubiertos por API. **Siguiente tarea: K-025.**
 
 ### [ ] K-025 — Arranque integrado y distribución Ubuntu
 - Integrar arranque/parada del backend Tauri con la autenticación local de K-032. Detectar puertos ocupados, evitar procesos huérfanos y usar una ubicación de datos apropiada con migración conservadora.
