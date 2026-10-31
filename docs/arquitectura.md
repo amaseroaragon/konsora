@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **diseño aprobado en Fase 0**. Las piezas se construyen por hitos (ver [roadmap](roadmap.md)). El código actual en `apps/` y `services/` corresponde a `legacy-v0` y se retira en M0.
+Estado: **diseño aprobado en Fase 0**. Las piezas se construyen por hitos (ver [roadmap](roadmap.md)). El v0 anterior solo existe en la etiqueta `legacy-v0`.
 
 ## 1. Vista general
 

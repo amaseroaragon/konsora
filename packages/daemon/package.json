@@ -1,0 +1,10 @@
+{
+  "name": "@konsora/daemon",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local loopback daemon (HTTP + WebSocket) for the web UI.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

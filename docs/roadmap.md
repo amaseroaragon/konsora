@@ -4,9 +4,9 @@ Hitos pequeños, cada uno con un criterio de **hecho** verificable. Un hito no s
 
 Leyenda: 🔧 entregables · ✅ hecho cuando…
 
-## M0 — Reinicio
+## M0 — Reinicio ✔ (2026-10-31)
 
-🔧 Etiqueta `legacy-v0` sobre el último commit del v0. Retirada de `apps/desktop`, `services/api` y `scripts/` (siguen accesibles en la etiqueta). Paso de los docs antiguos a `docs/archive/legacy-v0/`. Monorepo npm workspaces con `packages/{core,runner,cli,daemon,web}` vacíos pero compilables, Biome, `tsconfig` estricto compartido y vitest. Nuevo `.konsora/tasks.json` v2, escrito a mano, con las tareas de M1–M3.
+🔧 Etiqueta `legacy-v0` sobre el último commit del v0. Retirada de `apps/desktop`, `services/api`, `scripts/` y los docs antiguos (siguen accesibles en la etiqueta; por decisión del autor no se archivan en el árbol). Monorepo npm workspaces con `packages/{core,runner,cli,daemon,web}` vacíos pero compilables, Biome, `tsconfig` estricto compartido y vitest. Nuevo `.konsora/tasks.json` v2, escrito a mano, con las tareas de M1–M3.
 ✅ `npm ci && npm run check` en verde desde un clon limpio. `git ls-files` no contiene código del v0. El `tasks.json` nuevo valida contra el esquema de `docs/esquema-tareas.md` (comprobación manual hasta M1).
 
 ## M1 — Núcleo v2 (`packages/core`)

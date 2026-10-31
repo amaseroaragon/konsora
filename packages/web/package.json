@@ -1,0 +1,10 @@
+{
+  "name": "@konsora/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Konsora web UI.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

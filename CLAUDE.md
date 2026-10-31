@@ -10,11 +10,13 @@ Documentación de referencia (léela antes de cambiar algo en su ámbito):
 
 ## Estado actual
 
-**Fase 0 cerrada** (auditoría y diseño). **Siguiente: M0 (reinicio).**
+**M0 (reinicio) cerrado.** El monorepo está montado y los paquetes son esqueletos vacíos. **Siguiente: M1, empezando por `CORE-01`** (consulta `.konsora/tasks.json`).
 
-Hasta M0, `apps/`, `services/`, `scripts/` y el `.konsora/tasks.json` v1 son el **v0 heredado**. No los extiendas ni los arregles: se retiran en M0 y quedan en la etiqueta `legacy-v0`. Lo mismo aplica a los docs antiguos (`docs/desarrollo.md`, `formato-tareas.md`, `auditoria-*`, `plans/`, `verification/`, `schemas/`), que pasarán a `docs/archive/legacy-v0/`.
+El v0 que desarrolló Codex (Tauri + sidecar Python, MVP de "copiar prompt"), con su código y sus docs, solo existe en la etiqueta git `legacy-v0`. No lo restaures ni lo tomes como referencia, salvo para la migración v1→v2 (`CLI-03`).
 
-## Estructura (a partir de M0)
+Hasta que exista `CORE-02`, el `.konsora/tasks.json` se mantiene a mano y debe cumplir `docs/esquema-tareas.md`.
+
+## Estructura
 
 ```
 packages/core     esquema v2, máquina de estados, grafo, serializador canónico, store
@@ -28,15 +30,18 @@ schema/           tasks.v2.schema.json generado desde core
 
 Regla de capas: `web → daemon → runner → core` y `cli → runner, core`. **Ninguna regla de negocio fuera de `core`.**
 
-## Comandos (a partir de M0)
+## Comandos
 
 ```bash
 npm ci
-npm run check        # biome + tsc --noEmit + vitest, en todos los paquetes
-npm test -w packages/core
+npm run check                  # biome + tsc --noEmit + vitest, en todos los paquetes
+npm run format                 # aplica el formato y las correcciones seguras de Biome
+npx vitest run packages/core   # tests de un paquete
 ```
 
-Requisitos: Node 22 LTS, git ≥ 2.38, y `claude` y/o `codex` instalados y autenticados (solo para los runs reales).
+Requisitos: Node ≥ 22.18 (ejecuta `.ts` directamente con *type stripping*, sin paso de build), git ≥ 2.38, y `claude` y/o `codex` instalados y autenticados (solo para los runs reales).
+
+Los imports relativos llevan la extensión `.ts`, y solo se admite sintaxis TS borrable (`erasableSyntaxOnly`: sin `enum`, `namespace` ni parameter properties). Biome no formatea `.konsora/`, porque ese archivo lo escribe el serializador canónico de `core`.
 
 ## Forma de trabajar
 

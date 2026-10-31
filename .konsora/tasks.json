@@ -1,351 +1,736 @@
 {
-  "schema_version": 1,
-  "tasks": [
+  "$schema": "../schema/tasks.v2.schema.json",
+  "schema": "konsora/2",
+  "project": {
+    "name": "Konsora",
+    "base_branch": "main",
+    "defaults": {
+      "provider": "claude",
+      "model": "opus",
+      "effort": "high"
+    },
+    "checks": [
+      {
+        "id": "check",
+        "run": "npm run check",
+        "timeout_s": 600
+      }
+    ]
+  },
+  "groups": [
     {
-      "id": "K-031",
-      "title": "K-031 — Retirar chats, proveedores y ejecución del MVP",
-      "description": "Eliminar vistas/componentes de conversaciones y selectores de proveedor/modelo, indicador/comprobación de Codex, simuladores y código que invoca CLIs.\n\nRetirar las rutas HTTP de conversaciones, catálogo y consultas de proveedores; no consultar instalaciones/sesiones al abrir Konsora. Conservar sus tablas, filas y migraciones como histórico, sin reconvertirlas en tareas.\n\nQuitar el botón «Ejecutar seleccionadas», incluso deshabilitado. El proyecto abre directamente el tablero; la carpeta/configuración queda en un desplegable, sin navegación de chats. Simplificar el texto de copia y mantener la exportación opcional ya existente.\n\nSeparar utilidades compartidas de los módulos retirados y ajustar las pruebas del contrato eliminado. Actualizar las instrucciones, README y guía de desarrollo al alcance actual.",
-      "acceptance_criteria": "Aceptación: abrir proyecto, seleccionar tareas y copiar prompt funciona sin CLI, login ni conexión a proveedor. No hay UI/rutas de chat, inferencia, modelos o ejecución. Proyectos, archivos de tareas y filas históricas permanecen intactos.\n\nPruebas: rutas retiradas 404/ausentes de OpenAPI y conservación de filas; copia de selección parcial con creación de procesos prohibida; tipos/build web/nativo y un recorrido UI sin solicitudes a proveedores. No repetir pruebas de los conectores retirados.",
-      "sort_order": 0,
-      "status": "done",
-      "version": 1,
-      "dependencies": []
+      "id": "CORE",
+      "name": "Núcleo"
     },
     {
-      "id": "K-032",
-      "title": "K-032 — Proteger el servicio local del MVP",
-      "description": "Extraer la seguridad local de la antigua K-019: autenticación de instancia y validación de origen/host para operaciones de proyectos, archivos y prompts. El servicio sigue escuchando solo en loopback; CORS no sustituye a la autenticación.\n\nIntegrar el secreto propio de Konsora con el arranque de escritorio, sin credenciales de proveedor ni exposición en logs. Mantener el desarrollo web local documentado y recuperar errores sin perder archivos/borradores.",
-      "acceptance_criteria": "Aceptación: un cliente/origen/host no autorizado no puede leer ni modificar datos del proyecto. El escritorio conserva su flujo carpeta → selección → copia.\n\nPruebas: secreto ausente/incorrecto, origen/host rechazados y un recorrido autorizado; comprobación de ausencia de secretos en respuestas y logs.",
-      "sort_order": 1,
-      "status": "done",
-      "version": 1,
-      "dependencies": [
-        "K-031"
-      ]
+      "id": "CLI",
+      "name": "CLI"
     },
     {
-      "id": "K-024",
-      "title": "K-024 — Verificar y cerrar el flujo del MVP simplificado",
-      "description": "Verificar carpeta → archivo generado externamente → detección/tablero → selección → vista previa → copiar/pegar, sin instalar herramientas de IA ni iniciar sesión. Incluir dos proyectos, dependencias fuera de selección, filtros y cambios externos.\n\nComprobar edición/migración sin pérdidas, archivo inválido/desaparecido, conflictos y recuperación al reiniciar. La copia debe contener solo el trabajo seleccionado y contexto explícito; guardar un prompt es opcional y no sobrescribe archivos.",
-      "acceptance_criteria": "Aceptación: flujo reproducible en Ubuntu con teclado y portapapeles/fallback Ctrl+C, tareas recuperables desde la carpeta sin la base antigua y ausencia de chats, cuentas, inferencias o ejecución. El cierre del MVP no requiere una prueba real con IA.\n\nPruebas: API/lógica afectadas, tipos/build web/nativo y un checklist de escritorio. Publicar evidencia en `docs/verification/`; no probar proveedores ausentes del producto.",
-      "sort_order": 2,
-      "status": "done",
-      "version": 1,
-      "dependencies": [
-        "K-032"
-      ]
+      "id": "DMN",
+      "name": "Daemon"
     },
     {
-      "id": "K-025",
-      "title": "K-025 — Arranque integrado y distribución Ubuntu",
-      "description": "Integrar arranque/parada del backend Tauri con la autenticación local de K-032. Detectar puertos ocupados, evitar procesos huérfanos y usar una ubicación de datos apropiada con migración conservadora.\n\nPreparar instalación/diagnóstico y documentarlos en `docs/`; mantener el README en 5–10 líneas descriptivas. No mover tareas/resultados a una base privada ni exigir CLIs de IA.",
-      "acceptance_criteria": "Aceptación: instalar, abrir, visualizar y copiar un prompt sin arrancar el backend manualmente. Actualizar/desinstalar o eliminar la caché no borra los archivos del proyecto; cerrar no deja el servicio activo.\n\nPruebas: instalación limpia, actualización de datos anteriores, múltiples aperturas, puerto ocupado, cierre y permisos. Sin supervisores de agentes ni credenciales de terceros.",
-      "sort_order": 3,
-      "status": "done",
-      "version": 1,
-      "dependencies": [
-        "K-024"
-      ]
-    },
-    {
-      "id": "K-030",
-      "title": "K-030 — Abrir una herramienta de IA y entregarle el prompt",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nDiseñar la selección de ejecutor (Codex, Claude Code u otro validado), modelo/opciones y lanzamiento explícito a partir del prompt revisado. Cada herramienta gestiona su propia sesión; no crear un gestor de cuentas de Konsora ni exigir cerrar sesiones de otras herramientas.\n\nVerificar primero mecanismos, documentación y condiciones oficiales. No asumir que un CLI headless permite una integración de terceros. Si no hay entrega automática permitida, conservar copiar/pegar; sin APIs de pago, endpoints privados ni extracción de tokens.",
-      "acceptance_criteria": "Aceptación/pruebas: con aprobación explícita se abre el ejecutor elegido en la carpeta y recibe exactamente el prompt revisado mediante argumentos/stdin oficiales, sin shell ni ampliación de selección. Rechazar cambios de origen y ejecutables ausentes; documentar qué puede observar/cancelar Konsora y qué gestiona la herramienta externa. Requiere concretar el alcance antes de implementarse.",
-      "sort_order": 20,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-019",
-      "title": "K-019 — Contrato oficial y permisos de ejecución integrada",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nSolo si se pide supervisión integrada además del lanzador, definir contrato separado de generación de prompts: tarea/huella, carpeta, contexto, modelo, permisos, límites, eventos y cancelación. La seguridad local del MVP ya se resuelve en K-032.\n\nValidar aislamiento, aprobaciones y sesión oficial del ejecutor escogido; proteger la aceptación humana frente a cambios del agente. Sin mecanismo compatible, mantener la ejecución integrada bloqueada y la copia manual disponible.",
-      "acceptance_criteria": "Aceptación/pruebas: documentación oficial fechada, versión validada, operaciones fuera de alcance rechazadas y contrato comprobado con CLI falso antes de trabajo real autorizado.",
-      "sort_order": 21,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-020",
-      "title": "K-020 — Supervisar una ejecución y revisar su resultado",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nBasarse en K-019, registrar intentos/resultados en el proyecto, ejecutar sin shell, gestionar límites/cancelación/reconexión y conservar cambios previos. El éxito queda en revisión humana.",
-      "acceptance_criteria": "Aceptación/pruebas: una ejecución explícitamente aprobada en carpeta de prueba, historial persistente, errores/descendientes/cierre sin procesos huérfanos. No se implementa como parte del MVP de copiar prompts.",
-      "sort_order": 22,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [
-        "K-019"
-      ],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-021",
-      "title": "K-021 — Cola persistente de ejecuciones seleccionadas",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nBasarse en K-020; aprobación vinculada a versiones/alcance, orden/dependencias y revalidación antes de arrancar. Una ejecución global inicialmente, sin incorporar dependencias ni reintentos automáticos.",
-      "acceptance_criteria": "Aceptación/pruebas: selección parcial, idempotencia, cambios externos, pausa/cancelación, fallos y reinicio con revisión/nueva autorización. No afecta al flujo de copia manual.",
-      "sort_order": 23,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [
-        "K-020"
-      ],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-026",
-      "title": "K-026 — Añadir otros ejecutores oficialmente compatibles",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nAmpliar K-030 cuando se quiera usar otra herramienta; validar entonces login, entrega de prompts y ejecución permitida. No implica suscripciones simultáneas ni rotación automática de cuentas.",
-      "acceptance_criteria": "Aceptación/pruebas: elegir el ejecutor compatible y entregarle únicamente el prompt revisado. Sin permiso oficial, conservar la copia manual. El bloqueo histórico de Antigravity sigue pendiente de revisión oficial; este cambio de alcance no lo resuelve.",
-      "sort_order": 24,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [
-        "K-030"
-      ],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-023",
-      "title": "K-023 — Información de cuota, si la integración futura la necesita",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nConsultar solo mecanismos oficiales sin inferencia cuando existan; mostrar datos ausentes/desactualizados sin porcentajes inventados. Sin compra de créditos, cambio automático de proveedor ni fallback de pago.",
-      "acceptance_criteria": "Aceptación/pruebas: consulta oficial validada para el ejecutor correspondiente y errores controlados. No es un requisito para visualizar/copiar tareas.",
-      "sort_order": 25,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-029",
-      "title": "K-029 — Varios agentes y ejecuciones paralelas",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nDefinir selección de agentes/modelos, aislamiento por carpetas/worktrees, conflictos, límites y permisos después de validar el flujo de ejecución que se quiera ofrecer.",
-      "acceptance_criteria": "Aceptación/pruebas: tareas seleccionadas sin colisiones ni cambios no autorizados, cancelación y trazabilidad. Requiere diseño y aprobación de alcance antes de implementarse.",
-      "sort_order": 26,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-027",
-      "title": "K-027 — Grafo de dependencias",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nVista adicional de los mismos archivos/selección, sin duplicar fuentes ni saltarse validación de ciclos. Evaluar cuando aporte valor al uso real del tablero.",
-      "acceptance_criteria": "",
-      "sort_order": 27,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-028",
-      "title": "K-028 — Contexto persistente y búsqueda por proyecto",
-      "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nNotas y búsqueda con procedencia y selección explícita del contexto. No sincronizar memorias nativas ni recuperar el chat retirado como interfaz principal.",
-      "acceptance_criteria": "",
-      "sort_order": 28,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-033",
-      "title": "K-033 — UX · Completar el recorrido visual y fijar una referencia de UX",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: La auditoría de 2026-10-31 solo pudo inspeccionar código: el inventario de ventanas/navegadores estaba vacío y el navegador integrado no estaba disponible.\n\nCambio propuesto: Recorrer la aplicación real antes de cerrar decisiones visuales. Capturar inicio, carpeta, tablero, filtros, selección, detalle, revisión y exportación; registrar problemas observados y ajustar estas propuestas con evidencia.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Acceso desbloqueado mediante AT-SPI local: lectura de las 29 tareas y apertura/cierre de un detalle en la ventana Wayland original. Recorrido nativo y capturas en una segunda instancia con Xvfb y datos aislados a 1100×820, 1280×720, 1440×900 y 640×600. Quedan pendientes zoom 200%, recorrido íntegro solo con teclado y otras condiciones de aceptación; no cerrar aún.",
-      "acceptance_criteria": "Documentar capturas y pasos en Ubuntu a 1280×720 y 1440×900, ventana estrecha y zoom 200%; cubrir teclado, proyecto vacío y poblado, nombres largos, archivo inválido y recuperación. Distinguir hallazgos reproducidos de hipótesis. No declarar completada sin acceso real a la UI.",
-      "sort_order": 4,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-034",
-      "title": "K-034 — UX · Proteger borradores al cerrar, recargar o cambiar de proyecto",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx: Cerrar detalle y Escape llaman directamente a onClose; Recargar detalle reemplaza campos y solo avisa mediante title. TaskPrompt se desmonta al cambiar de proyecto y pierde el contexto.\n\nCambio propuesto: Detectar cambios sin guardar en tareas nuevas/existentes, comentario de revisión y contexto. Ofrecer conservar/seguir editando o descartar explícitamente antes de abandonar o recargar; recuperar el borrador tras conflictos sin sobrescribir el origen.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Reproducido: editar el título de K-034 en la copia de prueba, pulsar Cerrar detalle y reabrir descarta el borrador sin confirmación. Priorizar esta pérdida de trabajo. No se ha probado aún cada vía de abandono.",
-      "acceptance_criteria": "Escribir una tarea nueva, editar otra y añadir contexto; probar Escape, cerrar, recargar y cambio de proyecto. Cancelar conserva todo; descartar requiere acción explícita. Un 409 mantiene borrador y permite comparar o copiarlo. No persistir contexto en archivos del proyecto sin autorización. Probar estas transiciones y la revalidación de origen.",
-      "sort_order": 5,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-035",
-      "title": "K-035 — UX · Unificar estilo visual, tipografía y jerarquía de acciones",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: styles.css define colores, tamaños y espaciados dispersos; metadatos de 10–11 px y numerosos bordes compiten con contenido. Nueva tarea es primaria mientras Preparar/Copiar prompt usan estilo genérico.\n\nCambio propuesto: Definir una escala coherente de tipografía, espaciado, superficies, bordes y estados. Dar protagonismo al flujo seleccionar → revisar → copiar; mantener acciones secundarias discretas y destructivas separadas. Validar la propuesta visual en K-033.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Capturas confirman la jerarquía invertida: Nueva tarea destaca como acción primaria, mientras Preparar prompt y Copiar prompt tienen estilo secundario. Abundan superficies/bordes y etiquetas pequeñas. No se ha medido todavía el contraste.",
-      "acceptance_criteria": "Comparar antes/después de inicio, tablero, detalle y prompt. Títulos, texto, metadatos y acciones tienen jerarquía consistente; texto principal legible sin zoom; selección, foco, bloqueo y error se distinguen sin depender solo del color. Medir contraste y revisar disabled, hover y carga. No añadir dependencias visuales sin justificar.",
-      "sort_order": 6,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-036",
-      "title": "K-036 — UX · Dar más espacio al tablero y simplificar la navegación",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: App.tsx muestra cabecera con lema, estado técnico de API y pie; Projects.tsx añade gran título y botones Renombrar/Eliminar permanentes. CSS mantiene lateral incluso por debajo de 700 px y cinco columnas de al menos 205 px.\n\nCambio propuesto: Compactar la cabecera, llevar gestión del proyecto a un menú accesible y permitir contraer la barra lateral. Mantener proyecto/carpeta reconocibles. Adaptar el tablero a ventanas pequeñas y ofrecer desplazamiento evidente sin ocultar acciones.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: A 1280×720 las tarjetas empiezan aproximadamente en y=620 y la quinta columna queda recortada; a 640×600 no aparece ninguna tarjeta en la primera pantalla. A 1440×900 caben las cinco columnas, pero gran parte de la altura sigue ocupada por cabecera y controles.",
-      "acceptance_criteria": "En 1280×720 aparecen tareas y controles principales sin una pila de bloques informativos previa. En ventana estrecha y al 200% no hay recorte de botones ni desplazamiento horizontal global; el tablero puede desplazarse en su región. Menú y lateral funcionan con teclado y conservan proyecto y selección.",
-      "sort_order": 7,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-037",
-      "title": "K-037 — UX · Abrir una carpeta con un flujo inicial claro",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: Projects.tsx crea un registro por nombre; la carpeta se asocia después dentro de un desplegable. TaskBoard puede mostrar Tu tablero está listo aunque no exista una fuente editable.\n\nCambio propuesto: Ofrecer Abrir carpeta como entrada principal, derivar un nombre editable y detectar tareas sin crear archivos. Guiar por separado sin carpeta, archivo ausente, archivo vacío, histórico migrable e inaccesibilidad. Incluir ayuda breve al formato v1 y ejemplo para una IA externa.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Probado crear registro → desplegar Carpeta y proyecto → selector GTK → Guardar carpeta → detección de 29 tareas. Antes de asociar carpeta coexisten la petición de asociarla y Tu tablero está listo. La configuración desplegada ocupa casi toda la ventana y contiene fechas de poco valor para este paso.",
-      "acceptance_criteria": "Desde inicio se elige carpeta y se llega a sus tareas sin crear manualmente un registro previo. Cancelar no deja registros vacíos. Abrir carpeta ya registrada no duplica proyecto. Inicializar/migrar muestra destino y requiere confirmación; no se escribe al abrir. Cada vacío explica causa y siguiente acción posible.",
-      "sort_order": 8,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-038",
-      "title": "K-038 — UX · Simplificar tarjetas y hacer reconocibles las tareas",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskBoard.tsx muestra vN y Orden N arriba de cada tarjeta, fecha aun cuando falta y etiquetas de intentos. No muestra el ID estable salvo que esté incluido en el título.\n\nCambio propuesto: Priorizar título, ID, descripción breve y bloqueo relevante; pasar versión, orden numérico e historial a detalle. Diferenciar visualmente seleccionar de abrir, hacer legible el área seleccionable y reservar las fechas para cuando aporten información.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Las tarjetas del backlog real muestran v1 y Orden encima del título; los títulos largos ocupan muchas líneas y el texto repetido de prioridad tapa el resumen del trabajo en la descripción truncada. Revisar también la redacción de resúmenes para que el primer texto sea específico de cada tarea.",
-      "acceptance_criteria": "Una tarea cuyo título no contiene su ID sigue siendo identificable. Títulos largos no ocultan selección ni estado. Abrir no cambia selección y seleccionar no abre el detalle. No mostrar fechas inexistentes ni metadatos técnicos repetidos en todas las tarjetas. Revisar tarjetas con/sin descripción, bloqueo y selección.",
-      "sort_order": 9,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-039",
-      "title": "K-039 — UX · Mejorar búsqueda, filtros y recuperación de resultados",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: board.ts busca solo título/descripción; TaskBoard no tiene Limpiar filtros, Mostrar seleccionadas ni acceso directo a las seleccionadas ocultas. Todas las columnas siguen presentes al filtrar un estado.\n\nCambio propuesto: Buscar también por ID, mostrar filtros activos y un restablecimiento claro. Permitir inspeccionar selección oculta y compactar las columnas irrelevantes al filtrar sin modificar datos. Mantener el alcance de seleccionar visibles inequívoco.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Probado filtrar K-034 tras seleccionar K-034 y K-035: se conserva la selección y se anuncia una oculta. Persisten columnas vacías y el resumen queda debajo del tablero. La búsqueda por ID independiente del título sigue pendiente de implementar/verificar.",
-      "acceptance_criteria": "Encontrar una tarea por su ID aunque el título no lo contenga. Sin resultados ofrece limpiar filtros. Mostrar seleccionadas incluye las ocultas y permite volver al filtro anterior. Cambiar filtros no elimina selección ni añade tareas. Comprobar búsqueda, bloqueo, estado y selección combinados.",
-      "sort_order": 10,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-040",
-      "title": "K-040 — UX · Mantener la selección y la acción de prompt siempre accesibles",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskBoard.tsx coloca selection-summary y TaskPrompt después de todas las columnas; la lista completa de seleccionadas crece sin límite visible antes de preparar el prompt.\n\nCambio propuesto: Crear una barra compacta persistente con número seleccionado, ocultas y acción Revisar prompt. Expandir la lista bajo demanda y permitir quitar elementos o limpiar. Con cero seleccionadas, mostrar una instrucción breve en lugar del formulario completo.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Confirmado visualmente que el resumen y Preparar prompt están después de las tarjetas. Incluso filtrando una sola tarjeta es necesario desplazarse para llegar al flujo principal. Con 25 pendientes en una columna la separación es especialmente grande.",
-      "acceptance_criteria": "Con 100 tareas y 30 seleccionadas se llega a revisar sin recorrer hasta el final del tablero. El contador incluye ocultas y el desglose es accesible; quitar o limpiar actualiza vista previa. La barra no tapa última tarjeta, foco ni controles con zoom. Cambiar proyecto reinicia selección conforme al contrato.",
-      "sort_order": 11,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-041",
-      "title": "K-041 — UX · Separar revisión del prompt y exportación opcional",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskPrompt.tsx muestra contexto, origen, hash completo, textarea de vista previa y formulario de exportación en un bloque continuo; Copiar prompt no destaca y los avisos quedan al final.\n\nCambio propuesto: Presentar una revisión enfocada con tareas incluidas, dependencias externas y contexto opcional. Mostrar detalles técnicos bajo demanda, destacar Copiar prompt y plegar Guardar archivo como alternativa secundaria. Acercar confirmación/error a la acción y facilitar regenerar tras invalidación.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Copia exacta al portapapeles GTK comprobada; cambio de contexto invalida Copiar prompt. Exportación exacta comprobada y segundo guardado rechazado con Ese prompt ya existe. Elige otro nombre; no se sobrescribe. El aviso de error aparece por encima de la vista previa, lejos del botón de exportación, y puede quedar fuera de pantalla: acercarlo a la acción. Origen/hash ocupan espacio permanente.",
-      "acceptance_criteria": "Revisar y copiar requiere una ruta clara desde la selección. La revisión permite inspeccionar el texto completo; el contexto tiene contador de límite. Copiar confirma éxito o explica Ctrl+C sin afirmarlo antes. Selección, contexto o archivo cambiado bloquean copia/guardado hasta revalidar. Exportar conserva nombre ante error y nunca sobrescribe. Dependencias externas no añaden trabajo.",
-      "sort_order": 12,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-042",
-      "title": "K-042 — UX · Hacer el detalle legible y ordenar la edición manual",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx abre directamente un formulario largo con orden numérico, todas las dependencias y comentario; estado y revisión quedan después de Guardar cambios.\n\nCambio propuesto: Priorizar lectura del título, descripción, criterios, estado y dependencias; ofrecer edición explícita y agrupar opciones avanzadas. Mantener cerrar/guardar accesibles y explicar qué impide editar o cambiar estado. Ofrecer controles comprensibles para ordenar sin exigir conocer el número interno.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: El detalle de 620 px presenta descripción y criterios en áreas pequeñas con scroll interno, lista larga de dependencias y desplazamiento del propio diálogo. Guardar y los cambios de estado quedan por debajo de la primera pantalla. Evitar esta combinación de desplazamientos al leer.",
-      "acceptance_criteria": "Leer una tarea no requiere recorrer campos editables. Editar mantiene todos los campos del contrato y protege borradores. Guardar/cancelar están disponibles al desplazar descripciones largas. Ordenar solo cambia orden/versiones pertinentes y revalida origen; no modifica estados. Estado/revisión tienen acciones manuales claras sin sugerir ejecución automática.",
-      "sort_order": 13,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-043",
-      "title": "K-043 — UX · Encontrar dependencias y explicar los bloqueos",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx enumera todas las tareas como casillas, sin búsqueda ni ID visible; la tarjeta reduce el bloqueo a un conteo y el prompt usa IDs sin títulos.\n\nCambio propuesto: Mostrar dependencias elegidas primero, buscarlas por título/ID y distinguir aceptadas de pendientes. Permitir consultar la referencia bloqueante conservando selección y borrador. Explicar qué aceptación falta sin ampliar el trabajo seleccionado.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: El detalle enumera las otras 28 tareas como casillas sin buscador; esta lista ocupa espacio incluso al consultar una tarea. Confirmada la necesidad de priorizar dependencias elegidas y buscar por ID/título.",
-      "acceptance_criteria": "Con 200 tareas se puede localizar y elegir una dependencia por ID sin recorrer toda la lista. El bloqueo identifica tarea y causa. Consultar otra tarea conserva borrador o solicita decisión explícita. Ciclos/autodependencias siguen rechazados. No se incorpora automáticamente una dependencia al prompt ni se convierte en aceptación por cambiar un campo.",
-      "sort_order": 14,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-044",
-      "title": "K-044 — UX · Hacer comprensibles actualización, errores y recuperación",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskBoard.tsx activa notice ante cambios y no lo limpia; ConnectionStatus.tsx muestra API conectada tras una comprobación puntual aunque una lectura posterior falle. Rutas y mensajes técnicos ocupan espacio permanente.\n\nCambio propuesto: Unificar estado de origen/servicio con lenguaje de usuario: actualizado, comprobando, última lectura y solo lectura. Dar acciones específicas por error y avisos descartables de cambios; ofrecer detalles técnicos bajo demanda sin secretos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Con JSON inválido se conservan las tarjetas y se deshabilita Nueva tarea; restaurar el archivo recupera edición. El mensaje enumera esquema, IDs, dependencias, estados y límites sin identificar la causa concreta. Añadir diagnóstico seguro por campo/línea cuando sea posible, manteniendo el resumen sencillo y la última lectura inequívoca.",
-      "acceptance_criteria": "Simular desconexión, JSON inválido, archivo desaparecido y restaurado. Se conserva última lectura con aviso inequívoco y se impiden operaciones inseguras. Recuperar elimina avisos obsoletos; cambios relevantes invalidan prompt. Los errores señalan acción útil y no desaparecen antes de poder leerlos. Actualizar no roba foco ni desplaza la vista.",
-      "sort_order": 15,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-045",
-      "title": "K-045 — UX · Aclarar el alcance y la confirmación de los borrados",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Projects.tsx mantiene Eliminar en cabecera. TaskDialog.tsx dice historial local y Sus archivos se conservan aunque eliminar tarea modifica el documento portable que contiene tarea e historial.\n\nCambio propuesto: Separar acciones destructivas, diferenciar desvincular carpeta, eliminar registro y eliminar tarea, y describir con precisión qué datos desaparecen. Facilitar cancelar y nombrar el elemento afectado; conservar todas las validaciones y rechazos por dependencias.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
-      "acceptance_criteria": "Cada confirmación identifica proyecto/tarea y datos afectados. Eliminar tarea avisa del cambio en tasks.json y del historial afectado; no promete conservar ese contenido. Eliminar registro distingue SQL local de archivos del proyecto. Cancelar no escribe. Probar borrado solo con datos desechables; no introducir borrado masivo ni purgar históricos para simplificar UI.",
-      "sort_order": 16,
-      "status": "pending",
-      "version": 1,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-046",
-      "title": "K-046 — UX · Verificar accesibilidad de teclado, foco y lectura",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Hay etiquetas y focus-visible, pero estilos pequeños y cursor wait para cualquier botón disabled. No existe evidencia nueva de lector de pantalla, contraste, zoom o retorno del foco en el rediseño.\n\nCambio propuesto: Auditar y corregir orden de tabulación, retorno de foco, nombres de controles, anuncios, áreas interactivas y contraste en todos los flujos. Diferenciar indisponibilidad de operación en curso, con explicación accesible.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
-      "acceptance_criteria": "Completar abrir proyecto → seleccionar → revisar → copiar y edición usando solo teclado. Diálogos retienen foco y lo devuelven al origen; Escape respeta borradores. Verificar lector de pantalla y zoom 200%, contraste de texto normal de al menos 4.5:1 y controles/foco perceptibles. Los anuncios del sondeo no se repiten cada 2.5 segundos. Documentar herramientas y resultados reales.",
-      "sort_order": 17,
-      "status": "pending",
-      "version": 1,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
-    },
-    {
-      "id": "K-047",
-      "title": "K-047 — UX · Distinguir revisión humana e historial importado",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx muestra No hay intentos de ejecución y llama activo a un intento running importado; las tarjetas muestran Intento. Las tareas done externas aparecen en revisión por diseño, lo que necesita explicación contextual.\n\nCambio propuesto: Presentar intentos como historial importado, plegar secciones vacías y explicar aceptación pendiente de esta instalación. No sugerir procesos supervisados, cancelación o reanudación. Explicar bloqueos históricos y una recuperación manual compatible sin borrar datos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: En la copia del proyecto aparecen cuatro tareas done en En revisión, coherente con la falta de aceptación local; explicar esta distinción sin falsear firmas. La ayuda de carpeta aún dice La ejecución requerirá su propia aprobación, ajeno al flujo actual: retirar esa anticipación de la ayuda principal, conservando historial.",
-      "acceptance_criteria": "Con documento sin intentos no aparece ruido de ejecución. Con intento running importado la UI aclara que Konsora no lo está ejecutando y no ofrece arrancar/cancelar procesos. Una tarea done sin firma válida sigue en revisión con explicación; aceptar exige acción humana y revalidación. Se conservan intentos, eventos, revisiones y restricciones de integridad.",
-      "sort_order": 18,
-      "status": "pending",
-      "version": 2,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:34:21.372400+00:00"
-    },
-    {
-      "id": "K-048",
-      "title": "K-048 — UX · Validar el flujo completo tras las mejoras de UX",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Las propuestas de esta auditoría no se han implementado ni verificado en vivo. Los informes anteriores del MVP no acreditan una interfaz rediseñada.\n\nCambio propuesto: Cerrar la iteración con un recorrido real, evidencia antes/después y comprobaciones afectadas de selección, borradores, archivos y prompts. Actualizar la guía de uso según los flujos finales.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
-      "acceptance_criteria": "En Ubuntu verificar carpeta nueva/existente, dos proyectos, filtros/ocultas, selección múltiple, edición/conflicto, revisión/copia normal y fallback, exportación existente, errores/recuperación y reinicio. Incluir 0, 1, 100 tareas y prueba de escala con 2000, nombres largos, teclado y zoom. Ejecutar tipos/build y pruebas afectadas. No cerrar con comprobaciones esenciales pendientes ni usar proveedores o inferencia real.",
-      "sort_order": 19,
-      "status": "pending",
-      "version": 1,
-      "dependencies": [],
-      "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "id": "UI",
+      "name": "Interfaz web"
     }
   ],
-  "attempts": [],
-  "activity": [],
-  "reviews": []
+  "seq": {
+    "CORE": 6,
+    "CLI": 4,
+    "DMN": 3,
+    "UI": 3
+  },
+  "tasks": [
+    {
+      "id": "CORE-01",
+      "title": "Define schema v2 with zod and generate JSON Schema",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "a0",
+      "desc": "Implement the structural schema of `konsora/2` exactly as in docs/esquema-tareas.md §1 (root, project, groups, seq, tasks, acceptance, agent, notes). Generate `schema/tasks.v2.schema.json` from zod with a script and a test that fails if the committed file is stale.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "All field constraints of §1 are enforced (patterns, lengths, enums); unknown keys rejected except `x-*`"
+        },
+        {
+          "id": "ac2",
+          "text": "Committed JSON Schema matches the generated one",
+          "check": "npx vitest run packages/core"
+        },
+        {
+          "id": "ac3",
+          "text": "This repo's .konsora/tasks.json validates"
+        },
+        {
+          "id": "ac4",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m1"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CORE-02",
+      "title": "Semantic validation with JSON Pointer errors",
+      "state": "todo",
+      "group": "CORE",
+      "deps": [
+        "CORE-01"
+      ],
+      "rank": "a1",
+      "desc": "Validate the rules of §3: unique ids with prefix = group, `seq` ≥ max used number, existing groups and deps, no self-deps, no cycles (iterative Kahn), unique note/acceptance ids, `yolo` not on done tasks, duplicate JSON keys rejected, 8 MiB limit. Errors are `{path, code, message}`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Each rule has a failing-fixture test that asserts path and code"
+        },
+        {
+          "id": "ac2",
+          "text": "A 2000-task generated document validates in < 200 ms"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m1"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CORE-03",
+      "title": "Canonical serializer",
+      "state": "todo",
+      "group": "CORE",
+      "deps": [
+        "CORE-01"
+      ],
+      "rank": "a2",
+      "desc": "Serialize per §4: fixed key order, empty optionals omitted, 2-space indent, LF, trailing newline, tasks ordered by group order then numeric id, deps/labels sorted.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Property test (fast-check): serialize(parse(x)) === x for generated canonical documents"
+        },
+        {
+          "id": "ac2",
+          "text": "Adding one task to a document changes a single contiguous hunk"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m1"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CORE-04",
+      "title": "Graph derivations: blocked, ready, waiting, topo order, YOLO chain",
+      "state": "todo",
+      "group": "CORE",
+      "deps": [
+        "CORE-02"
+      ],
+      "rank": "a3",
+      "desc": "Pure functions over a validated document: blocked (todo with a dep not done), ready, waiting (last question without later answer), topological order, transitive deps and YOLO chain of a task.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Unit and property tests for each derivation, including review deps not unblocking"
+        },
+        {
+          "id": "ac2",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m1"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CORE-05",
+      "title": "State machine and semantic operations with per-task preconditions",
+      "state": "todo",
+      "group": "CORE",
+      "deps": [
+        "CORE-03",
+        "CORE-04"
+      ],
+      "rank": "a4",
+      "desc": "Implement the transitions and role table of §2 as semantic ops (propose, batch, approve, edit, withdraw, depend, undepend, start, pause, note, ask, answer, finish, accept, send-back, reopen, set-yolo). Each op carries the hash of the tasks it reads; if any changed → conflict, otherwise apply on the latest document (§5). New ids use and bump `seq`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Property test: no agent-role op sequence ever yields proposed→todo or →done"
+        },
+        {
+          "id": "ac2",
+          "text": "finish requires a summary note; send-back requires a feedback note; start on a blocked task is rejected"
+        },
+        {
+          "id": "ac3",
+          "text": "An op whose task changed returns a conflict with the current task; ops on other tasks still apply"
+        },
+        {
+          "id": "ac4",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m1"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CORE-06",
+      "title": "File store: PID lock, atomic write, fsync and watcher",
+      "state": "todo",
+      "group": "CORE",
+      "deps": [
+        "CORE-05"
+      ],
+      "rank": "a5",
+      "desc": "Store for `.konsora/tasks.json` per §5: O_EXCL lock with {pid, host, at}, stale only if the PID is dead on the same host, 5 s wait; read → validate → apply op → validate → canonical write to temp + fsync + rename + dir fsync. Invalid files are never overwritten. Watcher with hash comparison and 100 ms debounce. Opening never writes; `.konsora` symlinks are rejected.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Test with two real child processes interleaving 200 ops: none lost, final file valid"
+        },
+        {
+          "id": "ac2",
+          "text": "Invalid file on disk → write rejected and file bytes unchanged"
+        },
+        {
+          "id": "ac3",
+          "text": "External edit is reported by the watcher within 300 ms"
+        },
+        {
+          "id": "ac4",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m1"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CLI-01",
+      "title": "CLI skeleton, init and read commands",
+      "state": "todo",
+      "group": "CLI",
+      "deps": [
+        "CORE-06"
+      ],
+      "rank": "a6",
+      "desc": "`konsora` binary (commander) runnable with Node type stripping. Commands: init (creates tasks.json, default group, .konsora/.gitignore with runs/), status, list (--state --group --ready --blocked), show, ready, blocked, check. `--json` output on all read commands; English, actionable errors with non-zero exit codes.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "e2e tests in a temp git repo for every command, text and --json"
+        },
+        {
+          "id": "ac2",
+          "text": "init refuses to overwrite an existing tasks.json"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m2"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CLI-02",
+      "title": "Agent write commands",
+      "state": "todo",
+      "group": "CLI",
+      "deps": [
+        "CLI-01"
+      ],
+      "rank": "a7",
+      "desc": "propose, batch (JSON on stdin or --file, all-or-nothing, deps by id or by title of an earlier task in the batch), edit/withdraw/undepend (proposals only), depend, start, pause, note, ask, finish --summary. Actor from --as or KONSORA_AGENT. No human transitions exposed.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "e2e: batch with a cycle or unknown dep writes nothing"
+        },
+        {
+          "id": "ac2",
+          "text": "e2e: an agent cannot approve, accept or mark done through any command"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m2"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CLI-03",
+      "title": "Migrate v1 → v2",
+      "state": "todo",
+      "group": "CLI",
+      "deps": [
+        "CLI-01"
+      ],
+      "rank": "a8",
+      "desc": "`konsora migrate` per docs/esquema-tareas.md §7: dry-run by default with a summary, explicit --write, backup tasks.v1.json.bak, v1 attempts/activity/reviews moved to .konsora/legacy/v1-history.json.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Migrating the v1 tasks.json from tag legacy-v0 yields a valid v2 file with the expected state mapping"
+        },
+        {
+          "id": "ac2",
+          "text": "Dry-run never writes"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m2"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "CLI-04",
+      "title": "Agent protocol skill installed by init",
+      "state": "todo",
+      "group": "CLI",
+      "deps": [
+        "CLI-02"
+      ],
+      "rank": "a9",
+      "desc": "A concise skill/snippet explaining the protocol (status → ready → start → note/ask → finish; never edit the JSON by hand; humans approve and accept), installed by `konsora init` for Claude Code and referenced from AGENTS.md for Codex.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "A manual Claude Code session following the skill proposes a batch and reads it back with status (documented in the commit)"
+        },
+        {
+          "id": "ac2",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m2"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "DMN-01",
+      "title": "Daemon: loopback, token, Host/Origin checks and project registry",
+      "state": "todo",
+      "group": "DMN",
+      "deps": [
+        "CORE-06"
+      ],
+      "rank": "b0",
+      "desc": "Hono server on 127.0.0.1 random port; 256-bit token in ~/.local/share/konsora/daemon.json (0600); Host/Origin validation and Bearer auth on every request; project registry (projects.json) with realpath canonicalisation; read endpoints for board and task.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Tests: missing/wrong token, foreign Origin and wrong Host get 403"
+        },
+        {
+          "id": "ac2",
+          "text": "Linking a folder writes nothing inside it"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "DMN-02",
+      "title": "Ops endpoint, approvals ledger and external-change detection",
+      "state": "todo",
+      "group": "DMN",
+      "deps": [
+        "CORE-05",
+        "DMN-01"
+      ],
+      "rank": "b1",
+      "desc": "POST /projects/:id/ops for all ops including human ones; approvals.jsonl written only by the daemon; external changes diffed against the last snapshot and human-only transitions without a ledger entry flagged as unapproved.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Setting a task to done by hand in the file is reported as an unapproved external change"
+        },
+        {
+          "id": "ac2",
+          "text": "Conflict responses include the current task"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "DMN-03",
+      "title": "WebSocket board events",
+      "state": "todo",
+      "group": "DMN",
+      "deps": [
+        "DMN-02"
+      ],
+      "rank": "b2",
+      "desc": "WS with token handshake; events board.changed (new hash + per-task diff) and board.invalid (errors), driven by the core watcher.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Editing tasks.json externally emits board.changed within 500 ms (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "UI-01",
+      "title": "Web app scaffold, i18n and `konsora ui`",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "DMN-01"
+      ],
+      "rank": "b3",
+      "desc": "packages/web with React + Vite + TanStack Query; token bootstrap from the URL fragment into sessionStorage; Spanish strings through an i18n layer; project list and link-folder flow. `konsora ui` starts or reuses the daemon and opens the browser.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora ui` opens a working page listing projects"
+        },
+        {
+          "id": "ac2",
+          "text": "No user-facing string literals in components (lint or test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "UI-02",
+      "title": "Board view with validated drag and drop",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "DMN-03",
+        "UI-01"
+      ],
+      "rank": "b4",
+      "desc": "Columns proposed/todo/doing/review/done, optional group swimlanes, blocked/waiting badges, live updates from WS, drag and drop that only allows transitions the core permits and explains why otherwise.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Editing tasks.json in an editor updates the board in < 1 s without reload"
+        },
+        {
+          "id": "ac2",
+          "text": "Forbidden drops are rejected with an explanation"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "UI-03",
+      "title": "Human actions, invalid-file and external-change states",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "DMN-02",
+        "UI-02"
+      ],
+      "rank": "b5",
+      "desc": "Approve, accept, send back with feedback, reopen, answer a question; read-only mode with the error list when the file is invalid; badge and confirm/revert for unapproved external changes.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Each human action round-trips to the file and the ledger"
+        },
+        {
+          "id": "ac2",
+          "text": "An invalid file blocks all writes in the UI and lists its errors"
+        },
+        {
+          "id": "ac3",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T18:10:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T18:10:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T18:10:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    }
+  ]
 }

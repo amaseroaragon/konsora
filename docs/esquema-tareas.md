@@ -173,7 +173,7 @@ Para conseguir diffs mínimos y escrituras byte-idénticas entre la CLI, el MCP 
 - Las claves van en el orden de este documento.
 - Los campos opcionales vacíos se omiten (`deps: []`, `notes: []`, `yolo: false`…).
 - Indentación de 2 espacios, LF, UTF-8 sin BOM, salto de línea final.
-- Las tareas se ordenan en el array por grupo y número de ID (orden natural: `BE-99` va antes que `BE-100`), y `deps` y `labels` alfabéticamente. Así, añadir una tarea es un *hunk* aislado.
+- Las tareas se ordenan en el array según el orden de `groups` y, dentro de cada grupo, por número de ID (orden natural: `BE-99` va antes que `BE-100`), y `deps` y `labels` alfabéticamente. Así, añadir una tarea es un *hunk* aislado.
 - `parse(serialize(doc))` es idéntico a `doc`, y `serialize(parse(bytes))` es idéntico a `bytes` cuando `bytes` ya es canónico. Ambas propiedades se prueban con fast-check.
 
 ## 5. Concurrencia y cambios externos
