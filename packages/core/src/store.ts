@@ -361,3 +361,57 @@ export async function initTasks(root: string, doc: TasksDocument): Promise<InitR
     return { ok: false, error: toStoreError(error) };
   }
 }
+
+export const BACKUP_V1_FILE = "tasks.v1.json.bak";
+export const LEGACY_HISTORY_FILE = join("legacy", "v1-history.json");
+
+/**
+ * Replaces a v1 `tasks.json` with its migrated v2 text, under the lock. Refuses if the file
+ * changed since `expectedText` was read, or if the backup or history file already exist.
+ * Order: backup → history → atomic replace, so a crash never loses the original.
+ */
+export async function writeMigration(
+  root: string,
+  input: { expectedText: string; text: string; history: unknown },
+  options: StoreOptions = {},
+): Promise<{ ok: true; backup: string; history: string } | { ok: false; error: StoreError }> {
+  let release: (() => Promise<void>) | undefined;
+  try {
+    await ensureSafe(root);
+    release = await acquireLock(root, options);
+    const current = await readFile(tasksPath(root), "utf8");
+    if (current !== input.expectedText)
+      fail("invalid", `${TASKS_FILE} changed since the migration preview; run it again`);
+    const parsed = parseTasksFile(input.text);
+    if (!parsed.ok) fail("invalid", "The migrated plan is invalid", parsed.issues);
+    const dir = join(root, KONSORA_DIR);
+    const exclusive = async (path: string, text: string) => {
+      const handle = await open(
+        path,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+        0o644,
+      ).catch((error) => {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST")
+          fail("exists", `${path} already exists; move it away first`);
+        throw error;
+      });
+      try {
+        await handle.writeFile(text, "utf8");
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+    };
+    const backup = join(dir, BACKUP_V1_FILE);
+    const history = join(dir, LEGACY_HISTORY_FILE);
+    await exclusive(backup, current);
+    await mkdir(join(dir, "legacy"), { recursive: true });
+    await exclusive(history, `${JSON.stringify(input.history, null, 2)}\n`);
+    await writeAtomically(root, input.text);
+    return { ok: true, backup, history };
+  } catch (error) {
+    return { ok: false, error: toStoreError(error) };
+  } finally {
+    await release?.();
+  }
+}

@@ -564,7 +564,7 @@
     {
       "id": "CLI-03",
       "title": "Migrate v1 → v2",
-      "state": "doing",
+      "state": "done",
       "group": "CLI",
       "deps": [
         "CLI-01"
@@ -593,7 +593,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:02:07Z",
+      "updated_at": "2026-10-31T20:05:22Z",
       "notes": [
         {
           "id": "n1",
@@ -608,13 +608,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Plan: konsora migrate with dry-run by default, explicit --write, backup tasks.v1.json.bak and v1 history moved to .konsora/legacy/v1-history.json; test against the v1 file from tag legacy-v0."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T20:05:22Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "konsora migrate (packages/cli/src/migrate.ts) over a pure migrateV1() in @konsora/core: preview by default, --write applies; states proposal/pending/in_progress/in_review/done → proposed/todo/todo+note/review/done; GROUP-NN ids kept with a group per prefix, others renumbered into T with the old id in a note and deps remapped; redundant 'ID — ' title prefixes stripped; criteria split into items (bullets or paragraphs), kept losslessly in the description when an item exceeds 500 chars; ranks follow v1 sort_order; attempts/activity/reviews moved unchanged to .konsora/legacy/v1-history.json. store.writeMigration: under the lock, refuses if the file changed since the preview or if the backup/history exist; order backup → history → atomic replace. Tests: the real v1 file from tag legacy-v0 (fixture, bytes verified identical) migrates to a valid v2 plan with done→done ×4 and pending→todo ×25; dry-run writes nothing; backup/history/refusals; edge cases. npm run check green (287 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:05:22Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
     {
       "id": "CLI-04",
       "title": "Agent protocol skill installed by init",
-      "state": "todo",
+      "state": "doing",
       "group": "CLI",
       "deps": [
         "CLI-02"
@@ -639,7 +653,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T20:05:22Z",
       "notes": [
         {
           "id": "n1",
@@ -647,6 +661,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T20:05:22Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: a concise protocol skill installed by konsora init for Claude Code (.claude/skills/konsora/SKILL.md) plus an AGENTS.md snippet for Codex; then a manual Claude Code session in a temp project proposes a batch and reads it back."
         }
       ]
     },

@@ -16,6 +16,7 @@ import {
   taskTable,
   views,
 } from "./format.ts";
+import { registerMigrate } from "./migrate.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
 import { registerWriteCommands } from "./write.ts";
 
@@ -227,6 +228,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     });
 
   registerWriteCommands(program, io, root);
+  registerMigrate(program, io, root);
 
   try {
     await program.parseAsync([...argv], { from: "user" });
