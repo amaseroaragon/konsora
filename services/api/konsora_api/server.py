@@ -6,6 +6,8 @@ import os
 import secrets
 import socket
 import stat
+import sqlite3
+from contextlib import ExitStack
 import sys
 import threading
 from pathlib import Path
@@ -13,6 +15,8 @@ from pathlib import Path
 import uvicorn
 
 from konsora_api.main import create_app
+from konsora_api.database import StorageError
+from konsora_api.maintenance import data_lock, import_registry, diagnostics
 
 
 def private_directory(path: Path) -> Path:
@@ -40,11 +44,23 @@ def main():
     parser.add_argument("--parent-stdin", action="store_true")
     parser.add_argument("--session-file", type=Path)
     parser.add_argument("--web-origin")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--import-registry", type=Path)
+    mode.add_argument("--diagnose", action="store_true")
     arguments = parser.parse_args()
+    os.umask(0o077)
+    lifetime = ExitStack()
     session_file = None
     listener = None
     try:
         data_dir = private_directory(arguments.data_dir)
+        lifetime.enter_context(data_lock(data_dir))
+        if arguments.import_registry is not None:
+            print(json.dumps(import_registry(arguments.import_registry, data_dir)))
+            return 0
+        if arguments.diagnose:
+            print(json.dumps(diagnostics(data_dir)))
+            return 0
         if arguments.parent_stdin:
             initial = sys.stdin.buffer.readline(2048)
             value = json.loads(initial)
@@ -80,10 +96,13 @@ def main():
         print(json.dumps({"protocol": 1, "port": port, "pid": os.getpid()}), flush=True)
         server.run(sockets=[listener])
         return 0
-    except (OSError, ValueError, KeyError, TypeError):
-        print("No se pudo iniciar el servicio privado de Konsora. Revisa datos, permisos y sesión.", file=sys.stderr)
+    except (OSError, ValueError, KeyError, TypeError, sqlite3.Error, StorageError) as error:
+        # Mensajes de dominio controlados; no registrar excepciones SQL/rutas/credenciales.
+        message = str(error) if isinstance(error, (ValueError, StorageError)) else "Revisa datos, permisos, registro y sesión."
+        print(f"No se pudo iniciar Konsora. {message}", file=sys.stderr)
         return 1
     finally:
+        lifetime.close()
         if listener is not None:
             listener.close()
         if session_file is not None:

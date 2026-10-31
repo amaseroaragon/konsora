@@ -64,11 +64,13 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 
 - **Verificación:** [K-024](docs/verification/K-024.md): recorrido completo de selección/copia, errores y recuperación correcto; migración e historial cubiertos por API. **Siguiente tarea: K-025.**
 
-### [ ] K-025 — Arranque integrado y distribución Ubuntu
+### [x] K-025 — Arranque integrado y distribución Ubuntu
 - Integrar arranque/parada del backend Tauri con la autenticación local de K-032. Detectar puertos ocupados, evitar procesos huérfanos y usar una ubicación de datos apropiada con migración conservadora.
 - Preparar instalación/diagnóstico y documentarlos en `docs/`; mantener el README en 5–10 líneas descriptivas. No mover tareas/resultados a una base privada ni exigir CLIs de IA.
 - **Aceptación:** instalar, abrir, visualizar y copiar un prompt sin arrancar el backend manualmente. Actualizar/desinstalar o eliminar la caché no borra los archivos del proyecto; cerrar no deja el servicio activo.
 - **Pruebas:** instalación limpia, actualización de datos anteriores, múltiples aperturas, puerto ocupado, cierre y permisos. Sin supervisores de agentes ni credenciales de terceros.
+
+- **Verificación:** [K-025](docs/verification/K-025.md): `.deb` generado e instalado en raíz aislada, flujo nativo correcto, aperturas repetidas/puertos/cierre/permisos y conservación al reinstalar/desinstalar comprobados. **MVP completado; no hay más tareas pendientes dentro de su alcance.**
 
 ## Después del MVP — No implementar todavía
 
@@ -112,3 +114,5 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 
 - **2026-10-30:** el usuario reduce el MVP a visualizar tareas de archivos y generar un prompt para copiar/pegar. Cuentas globales (K-018) y chat interno (K-022) cancelados; ejecución, agentes, modelos y cuota aplazados. K-031 retira las funciones actuales descartadas; K-032 separa la seguridad local necesaria antes de distribuir. No se marca el MVP entero como completado por actualizar el plan.
 - **2026-10-30 (K-031):** retirados chats, conectores, modelos, comprobación de Codex y código de invocación de CLIs; eliminada la acción de ejecución. Flujo de selección/copia verificado, sin borrar tablas ni filas históricas. **Siguiente tarea pendiente: K-032.**
+
+- **2026-10-31:** completadas K-032 (seguridad local), K-024 (verificación del flujo) y K-025 (arranque/distribución Ubuntu). MVP cerrado con evidencia enlazada. K-030 y el resto del trabajo posterior requieren una petición y su alcance explícito.

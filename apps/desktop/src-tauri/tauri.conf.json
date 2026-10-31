@@ -23,8 +23,40 @@
     "security": {
       "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
       "devCsp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:1420; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
-      "capabilities": [{ "identifier": "workspace-folder", "windows": ["main"], "permissions": ["dialog:allow-open"] }]
+      "capabilities": [
+        {
+          "identifier": "workspace-folder",
+          "windows": [
+            "main"
+          ],
+          "permissions": [
+            "dialog:allow-open"
+          ]
+        }
+      ]
     }
   },
-  "bundle": { "active": false, "icon": ["icons/128x128.png"], "resources": { "resources/backend/": "backend/" } }
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/128x128.png"
+    ],
+    "resources": {
+      "resources/backend/": "backend/"
+    },
+    "targets": [
+      "deb"
+    ],
+    "shortDescription": "Tareas de proyecto y prompts locales",
+    "category": "Development",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0t64",
+          "libssl3t64"
+        ]
+      }
+    }
+  }
 }

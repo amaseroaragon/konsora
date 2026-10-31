@@ -4,6 +4,8 @@ Konsora visualiza tareas en archivos y permite seleccionar varias para generar u
 
 ## Instalación
 
+Para utilizar un paquete ya construido, consulta [Instalación Ubuntu](instalacion-ubuntu.md). Los siguientes requisitos son solo para desarrollar/compilar.
+
 Requiere Ubuntu 24.04 con sesión gráfica, Node.js 22.12+ (22 LTS recomendado), npm, Python 3.12 y [Rust estable](https://www.rust-lang.org/tools/install).
 
 ```bash
@@ -33,7 +35,7 @@ Para desarrollo **en navegador**, inicia `npm run dev:api` y `npm run dev:web` e
 
 Para otra sesión aislada, exporta **en ambas terminales** `KONSORA_WEB_PORT` y `KONSORA_DEV_SESSION_FILE` (ruta absoluta dentro de un directorio privado). No uses el servidor estático `preview` para probar API: el proxy solo está disponible en desarrollo. Todas las rutas del backend requieren Bearer de instancia, un origen permitido, Host exacto y cliente loopback; CORS por sí solo no concede acceso.
 
-El escritorio conserva el registro de proyectos y los datos históricos en `${XDG_DATA_HOME:-~/.local/share}/app.konsora.desktop/konsora.sqlite3`, dentro de un directorio 0700. El servicio web de desarrollo usa `.local/dev-data/konsora.sqlite3`. Los registros antiguos de `.local/konsora.sqlite3` permanecen intactos; no se importan ni trasladan silenciosamente. El archivo `.konsora/tasks.json` de cada proyecto sigue siendo la fuente de tareas.
+El escritorio conserva el registro de proyectos y los datos históricos en `${XDG_DATA_HOME:-~/.local/share}/app.konsora.desktop/konsora.sqlite3`, dentro de un directorio 0700. El servicio web de desarrollo usa `.local/dev-data/konsora.sqlite3`. Los registros antiguos de `.local/konsora.sqlite3` permanecen intactos; su [importación opcional](instalacion-ubuntu.md#importar-un-registro-anterior-opcional) exige una acción explícita antes de la primera apertura. El archivo `.konsora/tasks.json` de cada proyecto sigue siendo la fuente de tareas.
 
 ## Carpeta y archivo de tareas
 
@@ -92,4 +94,4 @@ npm run build:desktop  # Tipos y builds web/nativo sin instalador
 
 `npm run check` reúne tipos, build web y pruebas. En cambios acotados, ejecutar únicamente las comprobaciones afectadas. Las pruebas del MVP no llaman a modelos ni consumen cuotas; las de conectores/conversaciones retirados se sustituyen por inaccesibilidad de rutas y conservación del historial.
 
-La [verificación K-031](verification/K-031.md) acredita la simplificación. Los informes anteriores describen su implementación histórica y no añaden funcionalidades al MVP actual.
+Las verificaciones [K-031](verification/K-031.md), [K-032](verification/K-032.md) [K-024](verification/K-024.md) y [K-025](verification/K-025.md) acreditan simplificación, seguridad, flujo de copia y distribución. Los informes anteriores describen su implementación histórica y no añaden funcionalidades al MVP actual.
