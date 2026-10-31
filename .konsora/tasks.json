@@ -688,7 +688,7 @@
     {
       "id": "DMN-01",
       "title": "Daemon: loopback, token, Host/Origin checks and project registry",
-      "state": "todo",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "CORE-06"
@@ -717,7 +717,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T20:21:49Z",
       "notes": [
         {
           "id": "n1",
@@ -725,6 +725,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T20:18:31Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: packages/daemon with Hono on 127.0.0.1 random port, token in data dir daemon.json (0600), auth middleware (Host, Origin, Bearer), project registry with realpath, read endpoints for board and task; tests with app.request for auth and a real server for startup."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T20:21:49Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/daemon: Hono 4.13.13 served by @hono/node-server 2.1.5 on 127.0.0.1 with a free port; fresh 256-bit token; daemon.json {url, token, pid, started_at} written atomically with 0600 in the data dir (KONSORA_DATA_DIR, XDG_DATA_HOME or ~/.local/share/konsora, dir forced to 0700); one daemon per data dir (live one is never duplicated), daemon.json removed on close. Guard on every /api route: Host must be 127.0.0.1:<port> or localhost:<port> (DNS rebinding), Origin if present must be allowed (own origins + configured dev origins), Bearer token compared in constant time; checkRequest() exported for the WebSocket handshake. Registry (projects.json, 0600): link by realpath, stable id from the path, idempotent, refuses files/missing paths/the data dir itself; unlink never touches the folder. Read endpoints: health, projects (with plan status), board (validated plan with derived flags and per-task hash, or missing/invalid with issues, read-only), task (with dependents). Tests: 22 (403 for missing/wrong/malformed token, foreign Origin, rebinding Host, wrong port — mutation-checked by disabling the Host check; linking writes nothing inside the folder (listing and mtime unchanged); private file modes; real server). Manual smoke against this repo with a temp data dir. npm run check green."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:21:49Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
