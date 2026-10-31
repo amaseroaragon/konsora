@@ -95,3 +95,7 @@ npm run build:desktop  # Tipos y builds web/nativo sin instalador
 `npm run check` reúne tipos, build web y pruebas. En cambios acotados, ejecutar únicamente las comprobaciones afectadas. Las pruebas del MVP no llaman a modelos ni consumen cuotas; las de conectores/conversaciones retirados se sustituyen por inaccesibilidad de rutas y conservación del historial.
 
 Las verificaciones [K-031](verification/K-031.md), [K-032](verification/K-032.md) [K-024](verification/K-024.md) y [K-025](verification/K-025.md) acreditan simplificación, seguridad, flujo de copia y distribución. Los informes anteriores describen su implementación histórica y no añaden funcionalidades al MVP actual.
+
+## Automatización visual local
+
+Para inspeccionar la ventana de Ubuntu por AT-SPI y obtener capturas en una sesión Xvfb aislada, consulta [Automatización local](automatizacion-local.md). No requiere APIs de pago ni modifica la autenticación del servicio.

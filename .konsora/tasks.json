@@ -155,146 +155,146 @@
     {
       "id": "K-033",
       "title": "K-033 — UX · Completar el recorrido visual y fijar una referencia de UX",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): La auditoría de 2026-10-31 solo pudo inspeccionar código: el inventario de ventanas/navegadores estaba vacío y el navegador integrado no estaba disponible.\n\nCambio propuesto: Recorrer la aplicación real antes de cerrar decisiones visuales. Capturar inicio, carpeta, tablero, filtros, selección, detalle, revisión y exportación; registrar problemas observados y ajustar estas propuestas con evidencia.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: La auditoría de 2026-10-31 solo pudo inspeccionar código: el inventario de ventanas/navegadores estaba vacío y el navegador integrado no estaba disponible.\n\nCambio propuesto: Recorrer la aplicación real antes de cerrar decisiones visuales. Capturar inicio, carpeta, tablero, filtros, selección, detalle, revisión y exportación; registrar problemas observados y ajustar estas propuestas con evidencia.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Acceso desbloqueado mediante AT-SPI local: lectura de las 29 tareas y apertura/cierre de un detalle en la ventana Wayland original. Recorrido nativo y capturas en una segunda instancia con Xvfb y datos aislados a 1100×820, 1280×720, 1440×900 y 640×600. Quedan pendientes zoom 200%, recorrido íntegro solo con teclado y otras condiciones de aceptación; no cerrar aún.",
       "acceptance_criteria": "Documentar capturas y pasos en Ubuntu a 1280×720 y 1440×900, ventana estrecha y zoom 200%; cubrir teclado, proyecto vacío y poblado, nombres largos, archivo inválido y recuperación. Distinguir hallazgos reproducidos de hipótesis. No declarar completada sin acceso real a la UI.",
       "sort_order": 4,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-034",
       "title": "K-034 — UX · Proteger borradores al cerrar, recargar o cambiar de proyecto",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx: Cerrar detalle y Escape llaman directamente a onClose; Recargar detalle reemplaza campos y solo avisa mediante title. TaskPrompt se desmonta al cambiar de proyecto y pierde el contexto.\n\nCambio propuesto: Detectar cambios sin guardar en tareas nuevas/existentes, comentario de revisión y contexto. Ofrecer conservar/seguir editando o descartar explícitamente antes de abandonar o recargar; recuperar el borrador tras conflictos sin sobrescribir el origen.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx: Cerrar detalle y Escape llaman directamente a onClose; Recargar detalle reemplaza campos y solo avisa mediante title. TaskPrompt se desmonta al cambiar de proyecto y pierde el contexto.\n\nCambio propuesto: Detectar cambios sin guardar en tareas nuevas/existentes, comentario de revisión y contexto. Ofrecer conservar/seguir editando o descartar explícitamente antes de abandonar o recargar; recuperar el borrador tras conflictos sin sobrescribir el origen.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Reproducido: editar el título de K-034 en la copia de prueba, pulsar Cerrar detalle y reabrir descarta el borrador sin confirmación. Priorizar esta pérdida de trabajo. No se ha probado aún cada vía de abandono.",
       "acceptance_criteria": "Escribir una tarea nueva, editar otra y añadir contexto; probar Escape, cerrar, recargar y cambio de proyecto. Cancelar conserva todo; descartar requiere acción explícita. Un 409 mantiene borrador y permite comparar o copiarlo. No persistir contexto en archivos del proyecto sin autorización. Probar estas transiciones y la revalidación de origen.",
       "sort_order": 5,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-035",
       "title": "K-035 — UX · Unificar estilo visual, tipografía y jerarquía de acciones",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): styles.css define colores, tamaños y espaciados dispersos; metadatos de 10–11 px y numerosos bordes compiten con contenido. Nueva tarea es primaria mientras Preparar/Copiar prompt usan estilo genérico.\n\nCambio propuesto: Definir una escala coherente de tipografía, espaciado, superficies, bordes y estados. Dar protagonismo al flujo seleccionar → revisar → copiar; mantener acciones secundarias discretas y destructivas separadas. Validar la propuesta visual en K-033.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: styles.css define colores, tamaños y espaciados dispersos; metadatos de 10–11 px y numerosos bordes compiten con contenido. Nueva tarea es primaria mientras Preparar/Copiar prompt usan estilo genérico.\n\nCambio propuesto: Definir una escala coherente de tipografía, espaciado, superficies, bordes y estados. Dar protagonismo al flujo seleccionar → revisar → copiar; mantener acciones secundarias discretas y destructivas separadas. Validar la propuesta visual en K-033.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Capturas confirman la jerarquía invertida: Nueva tarea destaca como acción primaria, mientras Preparar prompt y Copiar prompt tienen estilo secundario. Abundan superficies/bordes y etiquetas pequeñas. No se ha medido todavía el contraste.",
       "acceptance_criteria": "Comparar antes/después de inicio, tablero, detalle y prompt. Títulos, texto, metadatos y acciones tienen jerarquía consistente; texto principal legible sin zoom; selección, foco, bloqueo y error se distinguen sin depender solo del color. Medir contraste y revisar disabled, hover y carga. No añadir dependencias visuales sin justificar.",
       "sort_order": 6,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-036",
       "title": "K-036 — UX · Dar más espacio al tablero y simplificar la navegación",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): App.tsx muestra cabecera con lema, estado técnico de API y pie; Projects.tsx añade gran título y botones Renombrar/Eliminar permanentes. CSS mantiene lateral incluso por debajo de 700 px y cinco columnas de al menos 205 px.\n\nCambio propuesto: Compactar la cabecera, llevar gestión del proyecto a un menú accesible y permitir contraer la barra lateral. Mantener proyecto/carpeta reconocibles. Adaptar el tablero a ventanas pequeñas y ofrecer desplazamiento evidente sin ocultar acciones.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: App.tsx muestra cabecera con lema, estado técnico de API y pie; Projects.tsx añade gran título y botones Renombrar/Eliminar permanentes. CSS mantiene lateral incluso por debajo de 700 px y cinco columnas de al menos 205 px.\n\nCambio propuesto: Compactar la cabecera, llevar gestión del proyecto a un menú accesible y permitir contraer la barra lateral. Mantener proyecto/carpeta reconocibles. Adaptar el tablero a ventanas pequeñas y ofrecer desplazamiento evidente sin ocultar acciones.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: A 1280×720 las tarjetas empiezan aproximadamente en y=620 y la quinta columna queda recortada; a 640×600 no aparece ninguna tarjeta en la primera pantalla. A 1440×900 caben las cinco columnas, pero gran parte de la altura sigue ocupada por cabecera y controles.",
       "acceptance_criteria": "En 1280×720 aparecen tareas y controles principales sin una pila de bloques informativos previa. En ventana estrecha y al 200% no hay recorte de botones ni desplazamiento horizontal global; el tablero puede desplazarse en su región. Menú y lateral funcionan con teclado y conservan proyecto y selección.",
       "sort_order": 7,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-037",
       "title": "K-037 — UX · Abrir una carpeta con un flujo inicial claro",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Projects.tsx crea un registro por nombre; la carpeta se asocia después dentro de un desplegable. TaskBoard puede mostrar Tu tablero está listo aunque no exista una fuente editable.\n\nCambio propuesto: Ofrecer Abrir carpeta como entrada principal, derivar un nombre editable y detectar tareas sin crear archivos. Guiar por separado sin carpeta, archivo ausente, archivo vacío, histórico migrable e inaccesibilidad. Incluir ayuda breve al formato v1 y ejemplo para una IA externa.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: Projects.tsx crea un registro por nombre; la carpeta se asocia después dentro de un desplegable. TaskBoard puede mostrar Tu tablero está listo aunque no exista una fuente editable.\n\nCambio propuesto: Ofrecer Abrir carpeta como entrada principal, derivar un nombre editable y detectar tareas sin crear archivos. Guiar por separado sin carpeta, archivo ausente, archivo vacío, histórico migrable e inaccesibilidad. Incluir ayuda breve al formato v1 y ejemplo para una IA externa.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Probado crear registro → desplegar Carpeta y proyecto → selector GTK → Guardar carpeta → detección de 29 tareas. Antes de asociar carpeta coexisten la petición de asociarla y Tu tablero está listo. La configuración desplegada ocupa casi toda la ventana y contiene fechas de poco valor para este paso.",
       "acceptance_criteria": "Desde inicio se elige carpeta y se llega a sus tareas sin crear manualmente un registro previo. Cancelar no deja registros vacíos. Abrir carpeta ya registrada no duplica proyecto. Inicializar/migrar muestra destino y requiere confirmación; no se escribe al abrir. Cada vacío explica causa y siguiente acción posible.",
       "sort_order": 8,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-038",
       "title": "K-038 — UX · Simplificar tarjetas y hacer reconocibles las tareas",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskBoard.tsx muestra vN y Orden N arriba de cada tarjeta, fecha aun cuando falta y etiquetas de intentos. No muestra el ID estable salvo que esté incluido en el título.\n\nCambio propuesto: Priorizar título, ID, descripción breve y bloqueo relevante; pasar versión, orden numérico e historial a detalle. Diferenciar visualmente seleccionar de abrir, hacer legible el área seleccionable y reservar las fechas para cuando aporten información.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskBoard.tsx muestra vN y Orden N arriba de cada tarjeta, fecha aun cuando falta y etiquetas de intentos. No muestra el ID estable salvo que esté incluido en el título.\n\nCambio propuesto: Priorizar título, ID, descripción breve y bloqueo relevante; pasar versión, orden numérico e historial a detalle. Diferenciar visualmente seleccionar de abrir, hacer legible el área seleccionable y reservar las fechas para cuando aporten información.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Las tarjetas del backlog real muestran v1 y Orden encima del título; los títulos largos ocupan muchas líneas y el texto repetido de prioridad tapa el resumen del trabajo en la descripción truncada. Revisar también la redacción de resúmenes para que el primer texto sea específico de cada tarea.",
       "acceptance_criteria": "Una tarea cuyo título no contiene su ID sigue siendo identificable. Títulos largos no ocultan selección ni estado. Abrir no cambia selección y seleccionar no abre el detalle. No mostrar fechas inexistentes ni metadatos técnicos repetidos en todas las tarjetas. Revisar tarjetas con/sin descripción, bloqueo y selección.",
       "sort_order": 9,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-039",
       "title": "K-039 — UX · Mejorar búsqueda, filtros y recuperación de resultados",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): board.ts busca solo título/descripción; TaskBoard no tiene Limpiar filtros, Mostrar seleccionadas ni acceso directo a las seleccionadas ocultas. Todas las columnas siguen presentes al filtrar un estado.\n\nCambio propuesto: Buscar también por ID, mostrar filtros activos y un restablecimiento claro. Permitir inspeccionar selección oculta y compactar las columnas irrelevantes al filtrar sin modificar datos. Mantener el alcance de seleccionar visibles inequívoco.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: board.ts busca solo título/descripción; TaskBoard no tiene Limpiar filtros, Mostrar seleccionadas ni acceso directo a las seleccionadas ocultas. Todas las columnas siguen presentes al filtrar un estado.\n\nCambio propuesto: Buscar también por ID, mostrar filtros activos y un restablecimiento claro. Permitir inspeccionar selección oculta y compactar las columnas irrelevantes al filtrar sin modificar datos. Mantener el alcance de seleccionar visibles inequívoco.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Probado filtrar K-034 tras seleccionar K-034 y K-035: se conserva la selección y se anuncia una oculta. Persisten columnas vacías y el resumen queda debajo del tablero. La búsqueda por ID independiente del título sigue pendiente de implementar/verificar.",
       "acceptance_criteria": "Encontrar una tarea por su ID aunque el título no lo contenga. Sin resultados ofrece limpiar filtros. Mostrar seleccionadas incluye las ocultas y permite volver al filtro anterior. Cambiar filtros no elimina selección ni añade tareas. Comprobar búsqueda, bloqueo, estado y selección combinados.",
       "sort_order": 10,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-040",
       "title": "K-040 — UX · Mantener la selección y la acción de prompt siempre accesibles",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskBoard.tsx coloca selection-summary y TaskPrompt después de todas las columnas; la lista completa de seleccionadas crece sin límite visible antes de preparar el prompt.\n\nCambio propuesto: Crear una barra compacta persistente con número seleccionado, ocultas y acción Revisar prompt. Expandir la lista bajo demanda y permitir quitar elementos o limpiar. Con cero seleccionadas, mostrar una instrucción breve en lugar del formulario completo.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskBoard.tsx coloca selection-summary y TaskPrompt después de todas las columnas; la lista completa de seleccionadas crece sin límite visible antes de preparar el prompt.\n\nCambio propuesto: Crear una barra compacta persistente con número seleccionado, ocultas y acción Revisar prompt. Expandir la lista bajo demanda y permitir quitar elementos o limpiar. Con cero seleccionadas, mostrar una instrucción breve en lugar del formulario completo.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Confirmado visualmente que el resumen y Preparar prompt están después de las tarjetas. Incluso filtrando una sola tarjeta es necesario desplazarse para llegar al flujo principal. Con 25 pendientes en una columna la separación es especialmente grande.",
       "acceptance_criteria": "Con 100 tareas y 30 seleccionadas se llega a revisar sin recorrer hasta el final del tablero. El contador incluye ocultas y el desglose es accesible; quitar o limpiar actualiza vista previa. La barra no tapa última tarjeta, foco ni controles con zoom. Cambiar proyecto reinicia selección conforme al contrato.",
       "sort_order": 11,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-041",
       "title": "K-041 — UX · Separar revisión del prompt y exportación opcional",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskPrompt.tsx muestra contexto, origen, hash completo, textarea de vista previa y formulario de exportación en un bloque continuo; Copiar prompt no destaca y los avisos quedan al final.\n\nCambio propuesto: Presentar una revisión enfocada con tareas incluidas, dependencias externas y contexto opcional. Mostrar detalles técnicos bajo demanda, destacar Copiar prompt y plegar Guardar archivo como alternativa secundaria. Acercar confirmación/error a la acción y facilitar regenerar tras invalidación.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskPrompt.tsx muestra contexto, origen, hash completo, textarea de vista previa y formulario de exportación en un bloque continuo; Copiar prompt no destaca y los avisos quedan al final.\n\nCambio propuesto: Presentar una revisión enfocada con tareas incluidas, dependencias externas y contexto opcional. Mostrar detalles técnicos bajo demanda, destacar Copiar prompt y plegar Guardar archivo como alternativa secundaria. Acercar confirmación/error a la acción y facilitar regenerar tras invalidación.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Copia exacta al portapapeles GTK comprobada; cambio de contexto invalida Copiar prompt. Exportación exacta comprobada y segundo guardado rechazado con Ese prompt ya existe. Elige otro nombre; no se sobrescribe. El aviso de error aparece por encima de la vista previa, lejos del botón de exportación, y puede quedar fuera de pantalla: acercarlo a la acción. Origen/hash ocupan espacio permanente.",
       "acceptance_criteria": "Revisar y copiar requiere una ruta clara desde la selección. La revisión permite inspeccionar el texto completo; el contexto tiene contador de límite. Copiar confirma éxito o explica Ctrl+C sin afirmarlo antes. Selección, contexto o archivo cambiado bloquean copia/guardado hasta revalidar. Exportar conserva nombre ante error y nunca sobrescribe. Dependencias externas no añaden trabajo.",
       "sort_order": 12,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-042",
       "title": "K-042 — UX · Hacer el detalle legible y ordenar la edición manual",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx abre directamente un formulario largo con orden numérico, todas las dependencias y comentario; estado y revisión quedan después de Guardar cambios.\n\nCambio propuesto: Priorizar lectura del título, descripción, criterios, estado y dependencias; ofrecer edición explícita y agrupar opciones avanzadas. Mantener cerrar/guardar accesibles y explicar qué impide editar o cambiar estado. Ofrecer controles comprensibles para ordenar sin exigir conocer el número interno.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx abre directamente un formulario largo con orden numérico, todas las dependencias y comentario; estado y revisión quedan después de Guardar cambios.\n\nCambio propuesto: Priorizar lectura del título, descripción, criterios, estado y dependencias; ofrecer edición explícita y agrupar opciones avanzadas. Mantener cerrar/guardar accesibles y explicar qué impide editar o cambiar estado. Ofrecer controles comprensibles para ordenar sin exigir conocer el número interno.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: El detalle de 620 px presenta descripción y criterios en áreas pequeñas con scroll interno, lista larga de dependencias y desplazamiento del propio diálogo. Guardar y los cambios de estado quedan por debajo de la primera pantalla. Evitar esta combinación de desplazamientos al leer.",
       "acceptance_criteria": "Leer una tarea no requiere recorrer campos editables. Editar mantiene todos los campos del contrato y protege borradores. Guardar/cancelar están disponibles al desplazar descripciones largas. Ordenar solo cambia orden/versiones pertinentes y revalida origen; no modifica estados. Estado/revisión tienen acciones manuales claras sin sugerir ejecución automática.",
       "sort_order": 13,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-043",
       "title": "K-043 — UX · Encontrar dependencias y explicar los bloqueos",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx enumera todas las tareas como casillas, sin búsqueda ni ID visible; la tarjeta reduce el bloqueo a un conteo y el prompt usa IDs sin títulos.\n\nCambio propuesto: Mostrar dependencias elegidas primero, buscarlas por título/ID y distinguir aceptadas de pendientes. Permitir consultar la referencia bloqueante conservando selección y borrador. Explicar qué aceptación falta sin ampliar el trabajo seleccionado.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx enumera todas las tareas como casillas, sin búsqueda ni ID visible; la tarjeta reduce el bloqueo a un conteo y el prompt usa IDs sin títulos.\n\nCambio propuesto: Mostrar dependencias elegidas primero, buscarlas por título/ID y distinguir aceptadas de pendientes. Permitir consultar la referencia bloqueante conservando selección y borrador. Explicar qué aceptación falta sin ampliar el trabajo seleccionado.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: El detalle enumera las otras 28 tareas como casillas sin buscador; esta lista ocupa espacio incluso al consultar una tarea. Confirmada la necesidad de priorizar dependencias elegidas y buscar por ID/título.",
       "acceptance_criteria": "Con 200 tareas se puede localizar y elegir una dependencia por ID sin recorrer toda la lista. El bloqueo identifica tarea y causa. Consultar otra tarea conserva borrador o solicita decisión explícita. Ciclos/autodependencias siguen rechazados. No se incorpora automáticamente una dependencia al prompt ni se convierte en aceptación por cambiar un campo.",
       "sort_order": 14,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-044",
       "title": "K-044 — UX · Hacer comprensibles actualización, errores y recuperación",
-      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskBoard.tsx activa notice ante cambios y no lo limpia; ConnectionStatus.tsx muestra API conectada tras una comprobación puntual aunque una lectura posterior falle. Rutas y mensajes técnicos ocupan espacio permanente.\n\nCambio propuesto: Unificar estado de origen/servicio con lenguaje de usuario: actualizado, comprobando, última lectura y solo lectura. Dar acciones específicas por error y avisos descartables de cambios; ofrecer detalles técnicos bajo demanda sin secretos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskBoard.tsx activa notice ante cambios y no lo limpia; ConnectionStatus.tsx muestra API conectada tras una comprobación puntual aunque una lectura posterior falle. Rutas y mensajes técnicos ocupan espacio permanente.\n\nCambio propuesto: Unificar estado de origen/servicio con lenguaje de usuario: actualizado, comprobando, última lectura y solo lectura. Dar acciones específicas por error y avisos descartables de cambios; ofrecer detalles técnicos bajo demanda sin secretos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: Con JSON inválido se conservan las tarjetas y se deshabilita Nueva tarea; restaurar el archivo recupera edición. El mensaje enumera esquema, IDs, dependencias, estados y límites sin identificar la causa concreta. Añadir diagnóstico seguro por campo/línea cuando sea posible, manteniendo el resumen sencillo y la última lectura inequívoca.",
       "acceptance_criteria": "Simular desconexión, JSON inválido, archivo desaparecido y restaurado. Se conserva última lectura con aviso inequívoco y se impiden operaciones inseguras. Recuperar elimina avisos obsoletos; cambios relevantes invalidan prompt. Los errores señalan acción útil y no desaparecen antes de poder leerlos. Actualizar no roba foco ni desplaza la vista.",
       "sort_order": 15,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-045",
@@ -323,14 +323,14 @@
     {
       "id": "K-047",
       "title": "K-047 — UX · Distinguir revisión humana e historial importado",
-      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx muestra No hay intentos de ejecución y llama activo a un intento running importado; las tarjetas muestran Intento. Las tareas done externas aparecen en revisión por diseño, lo que necesita explicación contextual.\n\nCambio propuesto: Presentar intentos como historial importado, plegar secciones vacías y explicar aceptación pendiente de esta instalación. No sugerir procesos supervisados, cancelación o reanudación. Explicar bloqueos históricos y una recuperación manual compatible sin borrar datos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia inicial de inspección de código: TaskDialog.tsx muestra No hay intentos de ejecución y llama activo a un intento running importado; las tarjetas muestran Intento. Las tareas done externas aparecen en revisión por diseño, lo que necesita explicación contextual.\n\nCambio propuesto: Presentar intentos como historial importado, plegar secciones vacías y explicar aceptación pendiente de esta instalación. No sugerir procesos supervisados, cancelación o reanudación. Explicar bloqueos históricos y una recuperación manual compatible sin borrar datos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.\n\nVerificación local 2026-10-31: En la copia del proyecto aparecen cuatro tareas done en En revisión, coherente con la falta de aceptación local; explicar esta distinción sin falsear firmas. La ayuda de carpeta aún dice La ejecución requerirá su propia aprobación, ajeno al flujo actual: retirar esa anticipación de la ayuda principal, conservando historial.",
       "acceptance_criteria": "Con documento sin intentos no aparece ruido de ejecución. Con intento running importado la UI aclara que Konsora no lo está ejecutando y no ofrece arrancar/cancelar procesos. Una tarea done sin firma válida sigue en revisión con explicación; aceptar exige acción humana y revalidación. Se conservan intentos, eventos, revisiones y restricciones de integridad.",
       "sort_order": 18,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [],
       "created_at": "2026-10-31T09:19:13.128834+00:00",
-      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+      "updated_at": "2026-10-31T09:34:21.372400+00:00"
     },
     {
       "id": "K-048",
