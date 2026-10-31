@@ -1,4 +1,4 @@
-import { API_URL } from "./api";
+import { apiFetch } from "./transport";
 
 export type TaskStatus = "proposal" | "pending" | "in_progress" | "in_review" | "done";
 export type AttemptStatus = "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
@@ -87,7 +87,7 @@ function parseDetails(value: unknown): TaskDetails {
 }
 
 async function request(project: string, path: string, signal: AbortSignal, method = "GET", body?: object): Promise<unknown> {
-  const response = await fetch(`${API_URL}/projects/${encodeURIComponent(project)}/tasks${path}`, {
+  const response = await apiFetch(`/projects/${encodeURIComponent(project)}/tasks${path}`, {
     signal, cache: "no-store", method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,

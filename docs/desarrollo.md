@@ -21,23 +21,19 @@ No es necesario instalar Codex, Claude Code ni otro CLI de IA. No hacen falta lo
 
 ## Arranque de desarrollo
 
-Desde la raíz, inicia el servicio local:
-
-```bash
-npm run dev:api
-```
-
-En otra terminal:
+Para escritorio basta con:
 
 ```bash
 npm run dev:desktop
 ```
 
-La API escucha únicamente en `127.0.0.1:8000`. Para usar la interfaz en navegador, inicia `npm run dev:web` en lugar del escritorio y abre `http://127.0.0.1:1420`.
+El script prepara el backend con PyInstaller y Tauri lo inicia en un puerto libre de `127.0.0.1`. La clave aleatoria de instancia se entrega por stdin y permanece en Rust; el WebView utiliza IPC. No se incluye en JavaScript, URLs ni logs. Cerrar Konsora detiene su servicio; un EOF del padre también lo detiene. No se reutilizan servidores abiertos en 8000 ni otros puertos.
 
-Detén cada proceso con Ctrl+C. Por ahora cerrar la ventana no detiene la API; el arranque/parada integrado y la distribución corresponden a K-025. La autenticación de instancia y validación de origen/host están pendientes de K-032 antes de distribuir; no expongas el servicio en una interfaz pública.
+Para desarrollo **en navegador**, inicia `npm run dev:api` y `npm run dev:web` en dos terminales. La API crea `.local/dev-session.json` con permisos 0600 (no versionarlo); Vite mantiene un proxy `/api` autenticado. Abre `http://127.0.0.1:1420/api/health`: el diálogo HTTP del navegador usa usuario `konsora` y la clave `token` del archivo privado, consultada localmente con tu editor. Luego abre `/`. Es una credencial temporal de desarrollo local, sin relación con cuentas de IA. No la copies a `.env`, código ni logs. Ctrl+C cierra cada proceso y elimina su sesión; después de una caída, comprueba que el PID guardado ya no existe antes de retirar el archivo obsoleto. No sobrescribir una sesión activa.
 
-El registro local de proyectos y los datos históricos se guardan en `.local/konsora.sqlite3`. `KONSORA_DATABASE_PATH` permite usar otro archivo; una ruta relativa se resuelve desde el repositorio. Las migraciones conservan los datos existentes. Las tareas del proyecto se leen de su archivo y no dependen de una copia SQL.
+Para otra sesión aislada, exporta **en ambas terminales** `KONSORA_WEB_PORT` y `KONSORA_DEV_SESSION_FILE` (ruta absoluta dentro de un directorio privado). No uses el servidor estático `preview` para probar API: el proxy solo está disponible en desarrollo. Todas las rutas del backend requieren Bearer de instancia, un origen permitido, Host exacto y cliente loopback; CORS por sí solo no concede acceso.
+
+El escritorio conserva el registro de proyectos y los datos históricos en `${XDG_DATA_HOME:-~/.local/share}/app.konsora.desktop/konsora.sqlite3`, dentro de un directorio 0700. El servicio web de desarrollo usa `.local/dev-data/konsora.sqlite3`. Los registros antiguos de `.local/konsora.sqlite3` permanecen intactos; no se importan ni trasladan silenciosamente. El archivo `.konsora/tasks.json` de cada proyecto sigue siendo la fuente de tareas.
 
 ## Carpeta y archivo de tareas
 
@@ -57,7 +53,7 @@ El proyecto abre directamente el tablero. La configuración de carpeta es un des
 
 Usa las casillas por tarjeta o **Seleccionar visibles**/**Deseleccionar visibles**. Los filtros no eliminan selecciones: el resumen enumera todas e indica cuántas están ocultas. Abrir un detalle conserva la selección; cambiar de proyecto o recargar la aplicación la reinicia sin perder tareas guardadas.
 
-Los estados se actualizan manualmente. El historial compatible de resultados/intentos se puede consultar, pero no representa trabajo ejecutado por este MVP. Una tarea declarada hecha externamente requiere aceptación humana; las firmas de revisión se documentan en el formato. Si el almacenamiento de Konsora está dentro de la carpeta del proyecto, configura `KONSORA_DATABASE_PATH` fuera antes de aceptar resultados para proteger su clave propia. Esto no se necesita para visualizar o copiar prompts.
+Los estados se actualizan manualmente. El historial compatible de resultados/intentos se puede consultar, pero no representa trabajo ejecutado por este MVP. Una tarea declarada hecha externamente requiere aceptación humana; las firmas de revisión se documentan en el formato. Si el almacenamiento de Konsora está dentro de la carpeta del proyecto, utiliza un directorio de datos de Konsora fuera antes de aceptar resultados para proteger su clave propia. Esto no se necesita para visualizar o copiar prompts.
 
 Tab, Espacio y Enter permiten operar controles; Escape cierra el detalle. El área de columnas tiene desplazamiento horizontal propio. Los estados vacíos, de carga y de error incluyen recuperación.
 

@@ -5,7 +5,7 @@ import sqlite3
 from uuid import UUID
 
 import pytest
-from fastapi.testclient import TestClient
+from local_client import TestClient
 
 from konsora_api import legacy_tasks
 from konsora_api.main import create_app

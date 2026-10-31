@@ -1,6 +1,7 @@
 """Contrato HTTP inicial; el arranque de desarrollo solo escucha en loopback."""
 
 from pathlib import Path
+import secrets
 from typing import Literal
 
 from fastapi import FastAPI, Request
@@ -13,11 +14,7 @@ from pydantic import BaseModel
 from konsora_api.database import Database, StorageError, default_database_path
 from konsora_api.projects import router as projects_router
 from konsora_api.tasks import router as tasks_router
-
-LOCAL_ORIGINS = [
-    "http://127.0.0.1:1420", "http://localhost:1420",
-    "tauri://localhost", "http://tauri.localhost",
-]
+from konsora_api.security import LocalSecurityMiddleware, development_origin
 
 
 class HealthResponse(BaseModel):
@@ -29,18 +26,25 @@ async def health() -> HealthResponse:
     return HealthResponse()
 
 
-def create_app(database_path: Path | None = None) -> FastAPI:
+def create_app(database_path: Path | None = None, *, instance_token: str | None = None,
+               instance_port: int = 8000, web_origin: str | None = None) -> FastAPI:
     application = FastAPI(title="Konsora API", version="0.1.0")
     application.state.database = Database(
         database_path if database_path is not None else default_database_path()
     )
+    token = instance_token if instance_token is not None else secrets.token_hex(32)
+    if len(token) < 32 or not token.isascii() or not 1 <= instance_port <= 65535:
+        raise ValueError("Configuración local no válida.")
+    application.state.instance_token = token
+    origins = development_origin(web_origin)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=LOCAL_ORIGINS,
+        allow_origins=origins,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "Authorization"],
         allow_credentials=False,
     )
+    application.add_middleware(LocalSecurityMiddleware, token=token, port=instance_port, origins=origins)
 
     @application.exception_handler(StorageError)
     async def storage_error_handler(request: Request, error: StorageError) -> JSONResponse:

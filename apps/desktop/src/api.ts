@@ -1,3 +1,5 @@
+import { apiFetch } from "./transport";
+
 // Contrato de GET /health, definido en services/api/konsora_api/main.py.
 export interface HealthResponse {
   status: "ok";
@@ -13,12 +15,8 @@ export interface Project {
   workspace_status: "unassigned" | "ready" | "missing" | "inaccessible" | "unsafe";
 }
 
-export const API_URL = (
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-).replace(/\/$/, "");
-
 export async function getHealth(signal: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch(`${API_URL}/health`, {
+  const response = await apiFetch("/health", {
     signal,
     cache: "no-store",
   });
@@ -51,7 +49,7 @@ async function projectRequest(path = "", options: RequestInit = {}): Promise<unk
   try {
     let response: Response;
     try {
-      response = await fetch(`${API_URL}/projects${path}`, {
+      response = await apiFetch(`/projects${path}`, {
         ...options,
         signal: controller.signal,
         cache: "no-store",

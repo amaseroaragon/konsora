@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from local_client import TestClient
 
 from konsora_api.main import create_app
 

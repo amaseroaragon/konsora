@@ -48,11 +48,13 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 - **Pruebas:** rutas retiradas 404/ausentes de OpenAPI y conservación de filas; copia de selección parcial con creación de procesos prohibida; tipos/build web/nativo y un recorrido UI sin solicitudes a proveedores. No repetir pruebas de los conectores retirados.
 - **Verificación:** [K-031](docs/verification/K-031.md): 98 pruebas API restantes y tres de selección correctas; tipos/build web/nativo y recorrido de copia con dos proyectos, sin rutas de chat/proveedor ni invocaciones CLI. Datos históricos conservados. **Siguiente tarea: K-032.**
 
-### [ ] K-032 — Proteger el servicio local del MVP
+### [x] K-032 — Proteger el servicio local del MVP
 - Extraer la seguridad local de la antigua K-019: autenticación de instancia y validación de origen/host para operaciones de proyectos, archivos y prompts. El servicio sigue escuchando solo en loopback; CORS no sustituye a la autenticación.
 - Integrar el secreto propio de Konsora con el arranque de escritorio, sin credenciales de proveedor ni exposición en logs. Mantener el desarrollo web local documentado y recuperar errores sin perder archivos/borradores.
 - **Aceptación:** un cliente/origen/host no autorizado no puede leer ni modificar datos del proyecto. El escritorio conserva su flujo carpeta → selección → copia.
 - **Pruebas:** secreto ausente/incorrecto, origen/host rechazados y un recorrido autorizado; comprobación de ausencia de secretos en respuestas y logs.
+
+- **Verificación:** [K-032](docs/verification/K-032.md): servicio autenticado, transporte IPC privado, 106 pruebas API y recorrido nativo de carpeta/copia/cierre correctos. **Siguiente tarea: K-024.**
 
 ### [ ] K-024 — Verificar y cerrar el flujo del MVP simplificado
 - Verificar carpeta → archivo generado externamente → detección/tablero → selección → vista previa → copiar/pegar, sin instalar herramientas de IA ni iniciar sesión. Incluir dos proyectos, dependencias fuera de selección, filtros y cambios externos.

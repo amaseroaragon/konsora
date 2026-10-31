@@ -10,6 +10,8 @@ apps/desktop/src-tauri/gen/
 *.sqlite3-wal
 *.sqlite3-shm
 instance-review.key
+apps/desktop/src-tauri/resources/backend/
+*.spec
 __pycache__/
 *.py[cod]
 .pytest_cache/

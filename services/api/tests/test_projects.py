@@ -3,7 +3,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from local_client import TestClient
 
 from konsora_api.database import MIGRATIONS, Database, StorageError, default_database_path
 from konsora_api.main import create_app

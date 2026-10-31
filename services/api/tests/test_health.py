@@ -1,5 +1,5 @@
 import pytest
-from fastapi.testclient import TestClient
+from local_client import TestClient
 
 
 def test_health_returns_service_contract(client: TestClient) -> None:
@@ -30,5 +30,5 @@ def test_health_allows_desktop_origins(client: TestClient, origin: str) -> None:
 def test_health_does_not_allow_external_origin(client: TestClient) -> None:
     response = client.get("/health", headers={"Origin": "https://example.com"})
 
-    assert response.status_code == 200
+    assert response.status_code == 403
     assert "access-control-allow-origin" not in response.headers
