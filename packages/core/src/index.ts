@@ -5,6 +5,7 @@ export * from "./hash.ts";
 export * from "./json-schema.ts";
 export * from "./json-text.ts";
 export * from "./migrate.ts";
+export * from "./moves.ts";
 export * from "./op-schema.ts";
 export * from "./ops.ts";
 export * from "./rank.ts";

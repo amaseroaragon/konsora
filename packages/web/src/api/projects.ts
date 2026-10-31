@@ -51,21 +51,3 @@ export function useUnlinkProject() {
     onSuccess: () => client.invalidateQueries({ queryKey: projectsKey }),
   });
 }
-
-/** Counts per state from the board endpoint; the full board view arrives in UI-02. */
-export type BoardSummary =
-  | { status: "ok"; project: Omit<ProjectSummary, "plan">; tasks: { state: string }[] }
-  | {
-      status: Exclude<PlanStatus["status"], "ok">;
-      project: Omit<ProjectSummary, "plan">;
-      message: string;
-      issues: { path: string; code: string; message: string }[];
-    };
-
-export function useBoard(id: string) {
-  const api = useApi();
-  return useQuery({
-    queryKey: ["board", id],
-    queryFn: () => api.get<BoardSummary>(`/projects/${encodeURIComponent(id)}/board`),
-  });
-}
