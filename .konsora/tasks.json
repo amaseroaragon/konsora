@@ -299,7 +299,7 @@
     {
       "id": "CORE-05",
       "title": "State machine and semantic operations with per-task preconditions",
-      "state": "doing",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-03",
@@ -333,7 +333,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:01:29Z",
+      "updated_at": "2026-10-31T19:07:13Z",
       "notes": [
         {
           "id": "n1",
@@ -348,13 +348,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Started: state machine and semantic ops with per-task preconditions (docs/esquema-tareas.md §2 and §5)."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T19:07:13Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/core/src/ops.ts: applyOp(doc, op, ctx) — pure semantic ops (propose, batch, add-group, approve, edit, withdraw, depend, undepend, start, pause, note, ask, answer, finish, accept, send-back, reopen, set-yolo) with the role table of §2 (human/agent/konsora), run scope (an agent inside a run acts only on its task, may still propose), per-task preconditions (expect: taskHash per task read → conflict with the current task; other tasks never conflict), new ids from seq, notes numbered, YOLO (turning on approves the chain, intermediates finish to done, the YOLO task to review and YOLO ends), runtime edit whitelist, final validateDocument. Also rank.ts (lexicographic fractional ranks, never ending in 0) and hash.ts (isomorphic SHA-256 checked against node:crypto). Tests: 29 unit tests + properties: no agent/konsora op sequence yields proposed→todo or →done and results stay valid (mutation-checked: allowing agents to approve is caught), input never mutated. npm run check green (213 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T19:07:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
     {
       "id": "CORE-06",
       "title": "File store: PID lock, atomic write, fsync and watcher",
-      "state": "todo",
+      "state": "doing",
       "group": "CORE",
       "deps": [
         "CORE-05"
@@ -387,7 +401,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:07:13Z",
       "notes": [
         {
           "id": "n1",
@@ -395,6 +409,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T19:07:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Started: file store per §5: O_EXCL PID lock, atomic write with fsync, invalid files never overwritten, watcher with hash comparison."
         }
       ]
     },
