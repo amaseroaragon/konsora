@@ -90,6 +90,7 @@ export type Op = Base &
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
     | { op: "set-yolo"; task: string; value: boolean }
+    | { op: "restore"; task: string; version: Task }
   );
 
 export type OpName = Op["op"];
@@ -147,6 +148,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   "send-back": ["human"],
   reopen: ["human"],
   "set-yolo": ["human"],
+  restore: ["human"],
 };
 
 const EDITABLE = ["title", "desc", "acceptance", "labels", "agent", "group", "rank"] as const;
@@ -467,6 +469,18 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         delete task.yolo;
       }
       touch(task);
+      break;
+    }
+    case "restore": {
+      // Human-only: put back a previous version of a task (reverting an unapproved external change).
+      if (op.version.id !== op.task)
+        fail("invalid", `restore: version is for ${op.version.id}, not ${op.task}`);
+      const version: Task = { ...structuredClone(op.version), updated_at: ctx.at };
+      const position = doc.tasks.findIndex((t) => t.id === op.task);
+      if (position >= 0) doc.tasks[position] = version;
+      else doc.tasks.push(version);
+      index.set(version.id, version);
+      changed.add(version.id);
       break;
     }
   }

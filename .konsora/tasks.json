@@ -752,7 +752,7 @@
     {
       "id": "DMN-02",
       "title": "Ops endpoint, approvals ledger and external-change detection",
-      "state": "todo",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "CORE-05",
@@ -782,7 +782,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T20:27:28Z",
       "notes": [
         {
           "id": "n1",
@@ -790,6 +790,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T20:23:42Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: OpSchema (zod) in core + human-only restore op; daemon POST /ops acting as human with ledger (approvals.jsonl); per-project snapshot + external-change detection with persistent flags, confirm/revert endpoints; board includes flags."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T20:27:28Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "POST /api/projects/:id/ops: ops parsed with the new core OpSchema (zod, strict) and applied through the store as human (the daemon is the human's channel); errors keep the full core error with fitting statuses (403 forbidden, 404, 409 conflict/transition/blocked with the current task on conflict, 422 missing feedback/summary or invalid result, 503 lock timeout). Oversight (packages/daemon/src/oversight.ts) per project in the data dir: snapshot.json (trusted plan), external.json (open flags), approvals.jsonl (append-only, fsynced, only the daemon writes it). detectUnapproved() flags human-only changes made outside Konsora: approve/accept/send-back/reopen transitions, tasks created as approved, approved tasks edited or deleted, deps removed, YOLO enabled, notes rewritten; agent changes (start, finish, pause, notes, proposals, added deps) pass. Checks run on every board read and before each UI op (so an external change cannot hide behind the daemon's write); flags persist until confirm (logged) or revert (new human-only core op restore puts back the version from before the first flagged change; created-as-approved goes back to proposed; deleted comes back), and clear themselves if the task leaves the flagged state or is set back by hand. Tests: 20 new (hand-set done reported as unapproved; conflict 409 with current task; agent changes not flagged; confirm/revert; ledger contents) + restore op tests. npm run check green (333 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:27:28Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },

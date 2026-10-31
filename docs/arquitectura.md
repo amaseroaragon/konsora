@@ -70,6 +70,7 @@ Cualquier dependencia nueva fuera de esta lista se justifica en el PR o commit q
 | `<proyecto>/.konsora/runs/` | Runs (en `.gitignore`) |
 | `~/.local/share/konsora/projects.json` | Registro de proyectos: `{id, name, path}`. Un "proyecto" de Konsora es solo un enlace a una carpeta. |
 | `~/.local/share/konsora/projects/<id>/approvals.jsonl` | Registro de transiciones humanas (solo lo escribe el daemon) |
+| `~/.local/share/konsora/projects/<id>/snapshot.json`, `external.json` | Última versión de confianza del plan y cambios externos sin aprobar pendientes (confirmar o revertir) |
 | `~/.local/share/konsora/worktrees/<id>/…` | Worktrees de los runs, fuera del repo para no confundir a herramientas que recorren el árbol |
 | `~/.local/share/konsora/daemon.json` | `{url, token, pid}` con permisos 0600 |
 | `~/.local/state/konsora/logs/` | Logs del daemon (sin secretos ni contenido de prompts) |

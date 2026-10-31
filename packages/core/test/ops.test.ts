@@ -435,3 +435,23 @@ describe("properties", () => {
     );
   });
 });
+
+describe("restore (human-only revert)", () => {
+  it("puts back a previous version, or re-adds a deleted task; agents cannot", () => {
+    const original = task("BE-01", "review");
+    const changed = doc({ ...original, state: "done", title: "Hand edit" });
+    const restored = ok(
+      applyOp(changed, { op: "restore", task: "BE-01", version: original }, human),
+    ).document;
+    expect(restored.tasks[0]).toMatchObject({ state: "review", title: "BE-01", updated_at: at });
+    expect(
+      ok(applyOp(doc(), { op: "restore", task: "BE-01", version: original }, human)).document.tasks,
+    ).toHaveLength(1);
+    expect(err(applyOp(changed, { op: "restore", task: "BE-01", version: original }, agent))).toBe(
+      "forbidden",
+    );
+    expect(err(applyOp(changed, { op: "restore", task: "BE-02", version: original }, human))).toBe(
+      "invalid",
+    );
+  });
+});

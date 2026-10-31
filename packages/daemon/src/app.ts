@@ -6,15 +6,17 @@ import {
   dependentsOf,
   deriveFlags,
   indexTasks,
+  parseOp,
   type Task,
   type TasksDocument,
   taskHash,
   topoOrder,
 } from "@konsora/core";
-import { readTasks } from "@konsora/core/store";
+import { mutate, readTasks } from "@konsora/core/store";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthConfig, guard } from "./auth.ts";
+import { type LedgerEntry, Oversight } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
 
 export const VERSION = "0.0.0";
@@ -30,6 +32,22 @@ function taskViews(doc: TasksDocument) {
     return { ...task, ...flags.get(id), hash: taskHash(task) };
   });
 }
+
+/** HTTP status for each op error code (the body always carries the full error). */
+const OP_STATUS: Record<string, 400 | 403 | 404 | 409 | 422> = {
+  forbidden: 403,
+  out_of_scope: 403,
+  not_found: 404,
+  conflict: 409,
+  invalid_transition: 409,
+  blocked: 409,
+  has_dependents: 409,
+  not_waiting: 409,
+  summary_required: 422,
+  feedback_required: 422,
+  text_required: 422,
+  invalid: 422,
+};
 
 const LinkBody = z.strictObject({
   path: z.string().min(1),
@@ -48,6 +66,15 @@ export function createApp(options: AppOptions): Hono {
   const { registry } = options;
   const now = () => (options.now?.() ?? new Date()).toISOString().replace(/\.\d{3}Z$/, "Z");
   const app = new Hono();
+  const watchers = new Map<string, Oversight>();
+  const oversight = (id: string) => {
+    let o = watchers.get(id);
+    if (!o) {
+      o = new Oversight(registry.dataDir, id);
+      watchers.set(id, o);
+    }
+    return o;
+  };
 
   app.onError((error, c) => {
     if (error instanceof RegistryError) {
@@ -112,10 +139,12 @@ export function createApp(options: AppOptions): Hono {
         issues: plan.error.issues ?? [],
       });
     }
+    const external = await oversight(project.id).check(plan.document, plan.hash, now());
     return c.json({
       project,
       status: "ok",
       hash: plan.hash,
+      external,
       plan: {
         schema: plan.document.schema,
         project: plan.document.project,
@@ -145,6 +174,150 @@ export function createApp(options: AppOptions): Hono {
     if (!task)
       return c.json({ error: { code: "not_found", message: `Task ${id} does not exist` } }, 404);
     return c.json({ task, dependents: dependentsOf(id, plan.document), fileHash: plan.hash });
+  });
+
+  /**
+   * Semantic ops from the UI. The daemon is the human's channel, so ops run as `human`.
+   * External changes made since the last look are recorded before writing, so they cannot
+   * hide behind the daemon's own write; then the result becomes the trusted snapshot and the
+   * human action is logged in approvals.jsonl.
+   */
+  api.post("/projects/:id/ops", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const parsed = parseOp(await c.req.json().catch(() => null));
+    if (!parsed.ok) return c.json({ error: { code: "bad_request", message: parsed.message } }, 400);
+    const at = now();
+    const before = await readTasks(project.path);
+    if (!before.ok) {
+      return c.json(
+        {
+          error: {
+            code: `plan_${before.error.code}`,
+            message: before.error.message,
+            issues: before.error.issues ?? [],
+          },
+        },
+        409,
+      );
+    }
+    const watch = oversight(project.id);
+    await watch.check(before.document, before.hash, at);
+    const result = await mutate(project.path, parsed.op, { actor: "human", at });
+    if (!result.ok) {
+      if (result.source === "store") {
+        const status = result.error.code === "lock_timeout" ? 503 : 409;
+        return c.json(
+          {
+            error: {
+              code: `plan_${result.error.code}`,
+              message: result.error.message,
+              issues: result.error.issues ?? [],
+            },
+          },
+          status,
+        );
+      }
+      const status = OP_STATUS[result.error.code] ?? 409;
+      return c.json({ error: result.error }, status);
+    }
+    const previous = new Map(before.document.tasks.map((t) => [t.id, t.state]));
+    const entries: LedgerEntry[] = result.changed.map((task) => {
+      const after = result.document.tasks.find((t) => t.id === task);
+      const from = previous.get(task);
+      return {
+        at,
+        task,
+        op: parsed.op.op,
+        ...(from ? { from } : {}),
+        ...(after ? { to: after.state } : {}),
+        actor: "human",
+      };
+    });
+    await watch.log(entries);
+    await watch.trust(result.document, result.hash, at);
+    const affected = new Set([...result.created, ...result.changed]);
+    return c.json({
+      ok: true,
+      hash: result.hash,
+      created: result.created,
+      changed: result.changed,
+      tasks: taskViews(result.document).filter((t) => affected.has(t.id)),
+      external: await watch.flags(),
+    });
+  });
+
+  api.get("/projects/:id/external", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({
+      external: await oversight(project.id).flags(),
+      approvals: await oversight(project.id).ledger(),
+    });
+  });
+
+  /** The human accepts an external change as if they had made it. */
+  api.post("/projects/:id/external/:taskId/confirm", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const task = c.req.param("taskId").toUpperCase();
+    const watch = oversight(project.id);
+    const flags = await watch.resolve(task);
+    if (flags.length === 0)
+      return c.json(
+        { error: { code: "not_found", message: `No external change is flagged on ${task}` } },
+        404,
+      );
+    const at = now();
+    await watch.log(
+      flags.map((f) => ({
+        at,
+        task,
+        op: `confirm:${f.kind}`,
+        ...(f.from ? { from: f.from } : {}),
+        ...(f.to ? { to: f.to } : {}),
+        actor: "human" as const,
+      })),
+    );
+    return c.json({ ok: true, confirmed: flags });
+  });
+
+  /** The human undoes an external change: the task goes back to its version before the first flagged change. */
+  api.post("/projects/:id/external/:taskId/revert", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const task = c.req.param("taskId").toUpperCase();
+    const watch = oversight(project.id);
+    const flags = await watch.flags();
+    const first = flags.find((f) => f.task === task);
+    if (!first)
+      return c.json(
+        { error: { code: "not_found", message: `No external change is flagged on ${task}` } },
+        404,
+      );
+    const at = now();
+    const op = first.previous
+      ? ({ op: "restore", task, version: first.previous } as const)
+      : // Created externally as approved: send it back to being a proposal.
+        null;
+    let result: Awaited<ReturnType<typeof mutate>>;
+    if (op) result = await mutate(project.path, op, { actor: "human", at });
+    else {
+      const current = await readTasks(project.path);
+      const version = current.ok ? current.document.tasks.find((t) => t.id === task) : undefined;
+      if (!version)
+        return c.json({ error: { code: "not_found", message: `${task} no longer exists` } }, 404);
+      result = await mutate(
+        project.path,
+        { op: "restore", task, version: { ...version, state: "proposed" } },
+        { actor: "human", at },
+      );
+    }
+    if (!result.ok) return c.json({ error: result.error }, 409);
+    await watch.resolve(task);
+    await watch.log([{ at, task, op: `revert:${first.kind}`, actor: "human" }]);
+    await watch.trust(result.document, result.hash, at);
+    return c.json({
+      ok: true,
+      hash: result.hash,
+      task: taskViews(result.document).find((t) => t.id === task) ?? null,
+    });
   });
 
   api.notFound((c) => c.json({ error: { code: "not_found", message: "Unknown endpoint" } }, 404));
