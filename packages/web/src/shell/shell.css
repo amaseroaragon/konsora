@@ -240,3 +240,62 @@
   justify-content: flex-end;
   gap: var(--k-space-4);
 }
+
+/* Task panel, external changes and read-only mode (UI-03) */
+.b-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--k-space-6);
+}
+.b-layout__main {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+.b-panel {
+  position: sticky;
+  top: 0;
+  flex: 0 0 min(440px, 40%);
+  max-height: calc(100vh - 56px - 2 * var(--k-space-8));
+  overflow-y: auto;
+  border: 1px solid var(--k-line-strong);
+}
+@media (max-width: 960px) {
+  .b-layout {
+    flex-direction: column;
+  }
+  .b-panel {
+    position: static;
+    flex-basis: auto;
+    width: 100%;
+    max-height: none;
+  }
+}
+.b-external {
+  border-left: 3px solid var(--k-danger);
+}
+.b-external__list {
+  list-style: none;
+  margin: var(--k-space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+}
+.b-external__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-4);
+}
+.b-readonly {
+  border-left: 3px solid var(--k-danger);
+}
+/* The panel shows full dates ("1/11/26, 0:05"), wider than the mock's HH:MM column. */
+.b-panel .a-note {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.b-panel .a-note__at {
+  white-space: nowrap;
+}

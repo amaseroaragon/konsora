@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyOp, planMove, type Task, TaskStateSchema, type TasksDocument } from "../src/index.ts";
+import {
+  applyOp,
+  availableActions,
+  planMove,
+  type Task,
+  TaskStateSchema,
+  type TasksDocument,
+} from "../src/index.ts";
 
 const taskStates = TaskStateSchema.options;
 
@@ -102,5 +109,35 @@ describe("planMove (human)", () => {
         );
         expect(result.ok && result.document.tasks.find((x) => x.id === task.id)?.state).toBe(to);
       }
+  });
+});
+
+describe("availableActions", () => {
+  const withQuestion: TasksDocument = {
+    ...doc,
+    tasks: doc.tasks.map((task) =>
+      task.id === "BE-06"
+        ? { ...task, notes: [{ id: "n1", at, by: "agent:claude", kind: "question", text: "TTL?" }] }
+        : task,
+    ),
+  };
+
+  it.each([
+    ["BE-05", ["approve"]],
+    ["BE-02", ["accept", "send-back"]],
+    ["BE-01", ["reopen"]],
+    ["BE-04", []],
+    ["BE-06", []],
+  ] as const)("human on %s", (id, actions) => {
+    expect(availableActions(doc, id)).toEqual(actions);
+  });
+
+  it("offers answering only while a question is open", () => {
+    expect(availableActions(withQuestion, "BE-06")).toEqual(["answer"]);
+  });
+
+  it("offers agents none of the human actions", () => {
+    for (const task of withQuestion.tasks)
+      expect(availableActions(withQuestion, task.id, "agent:claude")).toEqual([]);
   });
 });

@@ -150,6 +150,68 @@ describe("daemon ops and oversight over HTTP", () => {
     expect((await board()).body.external).toEqual([]);
   });
 
+  it("each UI action (with expect, as the web sends it) round-trips to the file and the ledger", async () => {
+    writeByHand(
+      doc(
+        t("BE-01", "proposed"),
+        t("BE-02", "review"),
+        t("BE-03", "done"),
+        t("BE-04", "doing", {
+          notes: [{ id: "n1", at, by: "agent:claude", kind: "question", text: "Which TTL?" }],
+        }),
+        t("BE-05", "review"),
+      ),
+    );
+    await board(); // baseline: the hand-written file is the trusted starting point
+    const hashOf = (task: string) => taskHash(read().tasks.find((x) => x.id === task) as Task);
+    const actions = [
+      { op: "approve", task: "BE-01", state: "todo" },
+      { op: "accept", task: "BE-02", state: "done" },
+      { op: "reopen", task: "BE-03", state: "todo", text: "Found a bug" },
+      { op: "answer", task: "BE-04", state: "doing", text: "10 minutes" },
+      { op: "send-back", task: "BE-05", state: "todo", feedback: "Add a test" },
+    ];
+    for (const { state, ...op } of actions) {
+      const r = await call(`/projects/${id}/ops`, {
+        ...op,
+        expect: { [op.task]: hashOf(op.task) },
+      });
+      expect(r.status, op.op).toBe(200);
+      expect(read().tasks.find((x) => x.id === op.task)?.state, op.op).toBe(state);
+    }
+    const notes = (task: string) =>
+      read()
+        .tasks.find((x) => x.id === task)
+        ?.notes?.at(-1);
+    expect(notes("BE-03")).toMatchObject({ by: "human", kind: "note", text: "Found a bug" });
+    expect(notes("BE-04")).toMatchObject({ by: "human", kind: "answer", text: "10 minutes" });
+    expect(notes("BE-05")).toMatchObject({ by: "human", kind: "feedback", text: "Add a test" });
+    const ledger = readFileSync(join(data, "projects", id, "approvals.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(ledger.map((e) => [e.task, e.op, e.from, e.to, e.actor])).toEqual([
+      ["BE-01", "approve", "proposed", "todo", "human"],
+      ["BE-02", "accept", "review", "done", "human"],
+      ["BE-03", "reopen", "done", "todo", "human"],
+      ["BE-04", "answer", "doing", "doing", "human"],
+      ["BE-05", "send-back", "review", "todo", "human"],
+    ]);
+    expect((await board()).body.external).toEqual([]);
+  });
+
+  it("a stale expect hash is refused as a conflict and changes nothing", async () => {
+    await board();
+    const before = readFileSync(file(), "utf8");
+    const r = await call(`/projects/${id}/ops`, {
+      op: "accept",
+      task: "BE-02",
+      expect: { "BE-02": "sha256:stale" },
+    });
+    expect([r.status, r.body.error.code]).toEqual([409, "conflict"]);
+    expect(readFileSync(file(), "utf8")).toBe(before);
+  });
+
   it("ops act as human: agent-only ops are forbidden over HTTP", async () => {
     const r = await call(`/projects/${id}/ops`, { op: "start", task: "BE-03" });
     expect([r.status, r.body.error.code]).toEqual([403, "forbidden"]);

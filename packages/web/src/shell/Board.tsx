@@ -14,7 +14,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { type MovePlan, planMove, type TaskState } from "@konsora/core";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type BoardOk,
   type BoardTask,
@@ -29,13 +29,16 @@ import {
   Matrix,
   type MatrixCellProps,
   Segmented,
+  StateBadge,
   stateLabel,
   TaskCard,
   taskStates,
   useToast,
 } from "../ui/index.ts";
 import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
+import { ExternalChanges } from "./External.tsx";
 import { FeedbackDialog } from "./FeedbackDialog.tsx";
+import { TaskPanel } from "./TaskPanel.tsx";
 
 const LANES_KEY = "konsora.board.swimlanes";
 
@@ -89,7 +92,15 @@ const agentLabel = (task: BoardTask) =>
     ? [task.agent.provider, task.agent.model, task.agent.effort].filter(Boolean).join(" · ")
     : undefined;
 
-function Card({ task }: { task: BoardTask }) {
+function Card({
+  task,
+  external = false,
+  onOpen,
+}: {
+  task: BoardTask;
+  external?: boolean;
+  onOpen?: () => void;
+}) {
   const agent = agentLabel(task);
   const proposer = task.created.by.replace(/^agent:/, "");
   return (
@@ -99,17 +110,31 @@ function Card({ task }: { task: BoardTask }) {
       state={task.state}
       blockedBy={task.state === "todo" ? task.blockers : []}
       waiting={task.waiting}
+      external={external}
+      {...(onOpen ? { onOpen } : {})}
       {...(agent ? { agent } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
     />
   );
 }
 
-function DraggableCard({ task }: { task: BoardTask }) {
+function DraggableCard({
+  task,
+  external,
+  disabled,
+  onOpen,
+}: {
+  task: BoardTask;
+  external: boolean;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: task.id,
+    disabled,
     attributes: { roleDescription: t("board.draggable") },
   });
+  if (disabled) return <Card task={task} external={external} onOpen={onOpen} />;
   return (
     // biome-ignore lint/a11y/useSemanticElements: a <button> cannot contain the card's <article>/<h3>.
     <div
@@ -119,10 +144,14 @@ function DraggableCard({ task }: { task: BoardTask }) {
       role="button"
       tabIndex={0}
       {...listeners}
+      // Keys pressed on the card's own open button open it; they do not pick the card up.
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget) listeners?.onKeyDown?.(event);
+      }}
       aria-label={`${t("board.drag", { id: task.id })}: ${task.title}`}
       className={cx("b-drag", isDragging && "b-drag--source")}
     >
-      <Card task={task} />
+      <Card task={task} external={external} onOpen={onOpen} />
     </div>
   );
 }
@@ -161,7 +190,16 @@ const LIVE_KEYS: Record<LiveState, MessageKey> = {
   offline: "board.offline",
 };
 
-export function Board({ board, live }: { board: BoardOk; live: LiveState }) {
+export function Board({
+  board,
+  live,
+  readOnly = false,
+}: {
+  board: BoardOk;
+  live: LiveState;
+  /** The file is invalid: this is the last valid version, shown without drag or actions. */
+  readOnly?: boolean;
+}) {
   const doc = useMemo(() => toDocument(board), [board]);
   const [swimlanes, setSwimlanes] = useState(readLanesPref);
   const [active, setActive] = useState<BoardTask | null>(null);
@@ -169,6 +207,7 @@ export function Board({ board, live }: { board: BoardOk; live: LiveState }) {
     task: BoardTask;
     plan: MovePlan & { ok: true };
   } | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const move = useMoveTask(board.project.id);
   const toast = useToast();
   const sensors = useSensors(
@@ -178,6 +217,16 @@ export function Board({ board, live }: { board: BoardOk; live: LiveState }) {
   const targets = useMemo(() => (active ? dropTargets(doc, active.id) : null), [doc, active]);
   const lanes = boardLanes(board, swimlanes);
   const byId = useMemo(() => new Map(board.tasks.map((task) => [task.id, task])), [board.tasks]);
+  const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
+  const opened = openId ? byId.get(openId) : undefined;
+  useEffect(() => {
+    if (!openId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !(event.target instanceof HTMLTextAreaElement)) setOpenId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openId]);
   const stateOf = (over: Over | null) => over?.data.current?.state as TaskState | undefined;
 
   const commit = (task: BoardTask, plan: MovePlan & { ok: true }, feedback?: string) =>
@@ -247,6 +296,7 @@ export function Board({ board, live }: { board: BoardOk; live: LiveState }) {
         <span className={`b-live b-live--${live}`} role="status">
           {t(LIVE_KEYS[live])}
         </span>
+        {readOnly && <StateBadge kind="blocked" label={t("readonly.badge")} />}
         <Segmented
           label={t("board.lanes")}
           value={swimlanes ? "groups" : "none"}
@@ -263,39 +313,66 @@ export function Board({ board, live }: { board: BoardOk; live: LiveState }) {
           {t("project.back")}
         </a>
       </div>
-      {board.tasks.length === 0 ? (
-        <p className="s-text s-muted">{t("board.empty")}</p>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onDragCancel={() => setActive(null)}
-          accessibility={{
-            announcements,
-            screenReaderInstructions: { draggable: t("board.dnd.instructions") },
-          }}
-        >
-          <div className="a-board">
-            <Matrix
-              label={t("board.label", { name: board.project.name })}
-              columns={taskStates.map((state) => ({
-                state,
-                count: board.tasks.filter((task) => task.state === state).length,
-              }))}
-              lanes={lanes.map((lane) => ({
-                id: lane.id,
-                name: lane.name,
-                cells: lane.cells.map((cell) =>
-                  cell.map((task) => <DraggableCard key={task.id} task={task} />),
-                ),
-              }))}
-              renderCell={(props) => <DropCell {...props} verdict={verdict(props.state)} />}
-            />
-          </div>
-          <DragOverlay dropAnimation={null}>{active ? <Card task={active} /> : null}</DragOverlay>
-        </DndContext>
-      )}
+      <ExternalChanges projectId={board.project.id} flags={board.external} readOnly={readOnly} />
+      <div className="b-layout">
+        <div className="b-layout__main">
+          {board.tasks.length === 0 ? (
+            <p className="s-text s-muted">{t("board.empty")}</p>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDragCancel={() => setActive(null)}
+              accessibility={{
+                announcements,
+                screenReaderInstructions: { draggable: t("board.dnd.instructions") },
+              }}
+            >
+              <div className="a-board">
+                <Matrix
+                  label={t("board.label", { name: board.project.name })}
+                  columns={taskStates.map((state) => ({
+                    state,
+                    count: board.tasks.filter((task) => task.state === state).length,
+                  }))}
+                  lanes={lanes.map((lane) => ({
+                    id: lane.id,
+                    name: lane.name,
+                    cells: lane.cells.map((cell) =>
+                      cell.map((task) => (
+                        <DraggableCard
+                          key={task.id}
+                          task={task}
+                          external={flagged.has(task.id)}
+                          disabled={readOnly}
+                          onOpen={() => setOpenId(task.id)}
+                        />
+                      )),
+                    ),
+                  }))}
+                  renderCell={(props) => <DropCell {...props} verdict={verdict(props.state)} />}
+                />
+              </div>
+              <DragOverlay dropAnimation={null}>
+                {active ? <Card task={active} external={flagged.has(active.id)} /> : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+        </div>
+        {opened && (
+          <TaskPanel
+            projectId={board.project.id}
+            task={opened}
+            doc={doc}
+            groupName={board.plan.groups.find((g) => g.id === opened.group)?.name ?? opened.group}
+            external={board.external.filter((f) => f.task === opened.id)}
+            readOnly={readOnly}
+            onClose={() => setOpenId(null)}
+            onOpen={setOpenId}
+          />
+        )}
+      </div>
       {sendBack && (
         <FeedbackDialog
           id={sendBack.task.id}

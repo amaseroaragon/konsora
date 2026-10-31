@@ -1,6 +1,6 @@
 /** Board view model: lanes, drop targets and the Spanish reason for each refused move. */
 import { type MovePlan, planMove, type TaskState, type TasksDocument } from "@konsora/core";
-import type { BoardOk, BoardTask } from "../api/board.ts";
+import type { BoardOk, BoardTask, ExternalFlag } from "../api/board.ts";
 import { t } from "../i18n/index.ts";
 import { stateLabel, taskStates } from "../ui/index.ts";
 
@@ -55,4 +55,26 @@ export function opErrorText(code: string, id: string, message: string): string {
   if (code === "conflict") return t("move.conflict", { id });
   if (code.startsWith("plan_")) return t("move.plan_unavailable");
   return t("move.refused", { id, message });
+}
+
+/** Spanish description of an unapproved external change (the daemon's message is English). */
+export function externalText(flag: ExternalFlag): string {
+  const state = (value: string | undefined) =>
+    value && (taskStates as readonly string[]).includes(value)
+      ? stateLabel(value as TaskState)
+      : (value ?? "");
+  switch (flag.kind) {
+    case "transition":
+      return t("external.transition", { from: state(flag.from), to: state(flag.to) });
+    case "created_approved":
+      return t("external.created_approved", { to: state(flag.to) });
+    case "edited":
+      return t("external.edited");
+    case "deleted":
+      return t("external.deleted", { from: state(flag.from) });
+    case "notes_rewritten":
+      return t("external.notes_rewritten");
+    default:
+      return flag.message;
+  }
 }

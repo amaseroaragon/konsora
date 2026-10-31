@@ -173,6 +173,13 @@ a {
   background: var(--k-warn-soft);
   color: var(--k-warn-ink);
 }
+.k-badge--external {
+  background: var(--k-danger-soft);
+  color: var(--k-danger-ink);
+}
+.k-card--external {
+  border-color: var(--k-danger);
+}
 
 /* ── Task card ──────────────────────────────────────────── */
 .k-card {

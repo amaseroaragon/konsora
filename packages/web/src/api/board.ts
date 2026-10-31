@@ -1,5 +1,5 @@
 /** A project's board over the daemon: the plan with derived flags, live events and moves. */
-import type { Op, Task, TaskFlags, TasksDocument } from "@konsora/core";
+import type { Op, Task, TaskAction, TaskFlags, TasksDocument } from "@konsora/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
@@ -154,4 +154,42 @@ export function useBoardEvents(projectId: string): LiveState {
     };
   }, [client, projectId]);
   return state;
+}
+
+/** A human action from the task panel, conditioned on the task as the panel showed it. */
+export type TaskActionInput = { task: BoardTask; action: TaskAction; text?: string };
+
+export function actionBody({ task, action, text }: TaskActionInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    op: action,
+    task: task.id,
+    expect: { [task.id]: task.hash },
+  };
+  const value = text?.trim();
+  if (action === "send-back") body.feedback = value ?? "";
+  else if (action === "answer" || (action === "reopen" && value)) body.text = value ?? "";
+  return body;
+}
+
+export function useTaskAction(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TaskActionInput) =>
+      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, actionBody(input)),
+    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
+}
+
+/** Confirms (keeps, logged as yours) or reverts an unapproved external change on a task. */
+export function useResolveExternal(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ task, how }: { task: string; how: "confirm" | "revert" }) =>
+      api.post(
+        `/projects/${encodeURIComponent(projectId)}/external/${encodeURIComponent(task)}/${how}`,
+      ),
+    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
 }

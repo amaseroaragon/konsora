@@ -1,10 +1,17 @@
 import { deriveFlags, planMove, type Task, type TasksDocument, taskHash } from "@konsora/core";
 import { describe, expect, it } from "vitest";
-import { type BoardOk, moveBody, reconnectDelay, toDocument } from "../src/api/board.ts";
+import {
+  actionBody,
+  type BoardOk,
+  moveBody,
+  reconnectDelay,
+  toDocument,
+} from "../src/api/board.ts";
 import {
   ALL_LANE,
   boardLanes,
   dropTargets,
+  externalText,
   opErrorText,
   refusalText,
 } from "../src/shell/board-model.ts";
@@ -129,5 +136,53 @@ describe("drops", () => {
   it("explains refusals from the daemon", () => {
     expect(opErrorText("conflict", "BE-02", "x")).toContain("ha cambiado mientras tanto");
     expect(opErrorText("plan_invalid", "BE-02", "x")).toContain("no se puede escribir");
+  });
+});
+
+describe("task actions", () => {
+  const task = board.tasks.find((x) => x.id === "BE-02") as BoardOk["tasks"][number];
+  const expectHash = { "BE-02": task.hash };
+
+  it("builds each op with its text field and the task hash", () => {
+    expect(actionBody({ task, action: "accept" })).toEqual({
+      op: "accept",
+      task: "BE-02",
+      expect: expectHash,
+    });
+    expect(actionBody({ task, action: "send-back", text: "  More tests " })).toEqual({
+      op: "send-back",
+      task: "BE-02",
+      expect: expectHash,
+      feedback: "More tests",
+    });
+    expect(actionBody({ task, action: "answer", text: "10 min" })).toMatchObject({
+      text: "10 min",
+    });
+    expect(actionBody({ task, action: "reopen" })).not.toHaveProperty("text");
+    expect(actionBody({ task, action: "reopen", text: "Bug" })).toMatchObject({ text: "Bug" });
+  });
+});
+
+describe("external changes", () => {
+  const flag = (extra: Partial<Parameters<typeof externalText>[0]>) => ({
+    task: "BE-02",
+    kind: "transition",
+    message: "english",
+    detected_at: at,
+    ...extra,
+  });
+
+  it("describes each kind in Spanish", () => {
+    expect(externalText(flag({ from: "review", to: "done" }))).toBe(
+      "En revisión → Hecho sin tu aprobación.",
+    );
+    expect(externalText(flag({ kind: "created_approved", to: "todo" }))).toBe(
+      "Creada fuera de Konsora directamente en Por hacer.",
+    );
+    expect(externalText(flag({ kind: "deleted", from: "done" }))).toContain("estaba en Hecho");
+    expect(externalText(flag({ kind: "edited" }))).toBe(
+      "Tarea aprobada modificada fuera de Konsora.",
+    );
+    expect(externalText(flag({ kind: "future_kind" }))).toBe("english");
   });
 });

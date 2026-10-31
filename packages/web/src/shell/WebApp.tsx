@@ -31,7 +31,13 @@ export function WebApp({ token, route }: { token: string | null; route: Route })
   return (
     <ApiContext.Provider value={setup.api}>
       <QueryClientProvider client={setup.queries}>
-        <Shell>{route.name === "project" ? <ProjectPage id={route.id} /> : <ProjectsPage />}</Shell>
+        <Shell>
+          {route.name === "project" ? (
+            <ProjectPage key={route.id} id={route.id} />
+          ) : (
+            <ProjectsPage />
+          )}
+        </Shell>
       </QueryClientProvider>
     </ApiContext.Provider>
   );

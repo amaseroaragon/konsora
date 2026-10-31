@@ -104,3 +104,33 @@ export function planMove(
     };
   return { ok: true, op, from, to, ...(needs ? { needs } : {}) };
 }
+
+/** Actions offered as buttons on a task (UI-03), in display order. */
+export const TASK_ACTIONS = ["approve", "answer", "accept", "send-back", "reopen"] as const;
+export type TaskAction = (typeof TASK_ACTIONS)[number];
+
+/** Text each action asks for: required, optional or none. */
+export const ACTION_TEXT: Record<TaskAction, "required" | "optional" | "none"> = {
+  approve: "none",
+  answer: "required",
+  accept: "none",
+  "send-back": "required",
+  reopen: "optional",
+};
+
+/** The actions `actor` may take on a task right now, decided by dry-running each op. */
+export function availableActions(
+  doc: TasksDocument,
+  taskId: string,
+  actor = "human",
+): TaskAction[] {
+  return TASK_ACTIONS.filter((action) => {
+    const op = {
+      op: action,
+      task: taskId,
+      ...(action === "answer" ? { text: "…" } : {}),
+      ...(action === "send-back" ? { feedback: "…" } : {}),
+    } as Parameters<typeof applyOp>[1];
+    return applyOp(doc, op, { actor, at: "1970-01-01T00:00:00Z" }).ok;
+  });
+}
