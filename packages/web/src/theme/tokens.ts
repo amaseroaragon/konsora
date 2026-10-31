@@ -188,6 +188,8 @@ export const contrastPairs: readonly ContrastPair[] = [
   { fg: "warn-ink", bg: "warn-soft", min: 4.5, use: "waiting / warning badges" },
   { fg: "danger-ink", bg: "danger-soft", min: 4.5, use: "error badges and field errors" },
   { fg: "danger", bg: "surface", min: 4.5, use: "error text under fields" },
+  { fg: "warn-ink", bg: "surface", min: 4.5, use: "permission / bash events in the run log" },
+  { fg: "done-ink", bg: "surface", min: 4.5, use: "check / end events and diff stats" },
   { fg: "neutral-ink", bg: "neutral-soft", min: 4.5, use: "blocked / todo badges" },
   { fg: "ink-muted", bg: "neutral-soft", min: 4.5, use: "disabled controls" },
   { fg: "ink", bg: "accent-soft", min: 4.5, use: "card in review" },

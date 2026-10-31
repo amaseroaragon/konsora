@@ -3,9 +3,9 @@ import { cx } from "./cx.ts";
 
 type Common = {
   label: string;
-  hint?: string;
+  hint?: string | undefined;
   /** Message shown when invalid; sets aria-invalid and links it via aria-describedby. */
-  error?: string;
+  error?: string | undefined;
   mono?: boolean;
   /** Visually hide the label (it stays available to assistive tech). */
   hideLabel?: boolean;

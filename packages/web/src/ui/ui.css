@@ -192,6 +192,10 @@ a {
   font-family: var(--k-font-mono);
   font-size: var(--k-text-label);
 }
+.k-card .k-badge {
+  white-space: normal;
+  text-align: left;
+}
 .k-card__id {
   font-weight: var(--k-weight-medium);
 }
@@ -551,4 +555,104 @@ textarea.k-field__control {
   color: var(--k-ink-muted);
   font: inherit;
   cursor: pointer;
+}
+
+/* ── Diff ───────────────────────────────────────────────── */
+.k-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-6);
+}
+.k-diff__file {
+  border: 1px solid var(--k-line-strong);
+  background: var(--k-surface);
+}
+.k-diff__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--k-space-6);
+  padding: var(--k-space-3) var(--k-space-5);
+  border-bottom: 1px solid var(--k-line-strong);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+}
+.k-diff__path {
+  overflow-wrap: anywhere;
+}
+.k-diff__plus {
+  color: var(--k-done-ink);
+}
+.k-diff__minus {
+  color: var(--k-danger);
+}
+.k-diff__body {
+  margin: 0;
+  padding: var(--k-space-3) 0;
+  overflow-x: auto;
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+  line-height: 1.6;
+}
+.k-diff__line {
+  display: block;
+  padding: 0 var(--k-space-5);
+  white-space: pre;
+}
+.k-diff__line--hunk,
+.k-diff__line--ctx {
+  color: var(--k-ink-muted);
+}
+.k-diff__line--add {
+  background: var(--k-diff-add-bg);
+  color: var(--k-diff-add-ink);
+}
+.k-diff__line--del {
+  background: var(--k-diff-del-bg);
+  color: var(--k-diff-del-ink);
+}
+
+/* ── Run log ────────────────────────────────────────────── */
+.k-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--k-line);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+}
+.k-log__row {
+  display: grid;
+  grid-template-columns: 64px 76px minmax(0, 1fr);
+  gap: var(--k-space-4);
+  padding: var(--k-space-3) var(--k-space-5);
+  border-bottom: 1px solid var(--k-grid);
+}
+.k-log__row:last-child {
+  border-bottom: 0;
+}
+.k-log__at {
+  color: var(--k-ink-muted);
+}
+.k-log__kind {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--k-ink-muted);
+}
+.k-log__kind--start,
+.k-log__kind--edit {
+  color: var(--k-accent);
+}
+.k-log__kind--permission,
+.k-log__kind--bash {
+  color: var(--k-warn-ink);
+}
+.k-log__kind--check,
+.k-log__kind--end {
+  color: var(--k-done-ink);
+}
+.k-log__kind--error {
+  color: var(--k-danger);
+}
+.k-log__text {
+  overflow-wrap: anywhere;
 }

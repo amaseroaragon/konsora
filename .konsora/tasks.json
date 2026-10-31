@@ -772,7 +772,7 @@
         "at": "2026-10-31T19:30:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T20:30:00Z",
+      "updated_at": "2026-10-31T21:30:00Z",
       "notes": [
         {
           "id": "n1",
@@ -801,6 +801,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Phase 2 done: tokens (src/theme/tokens.ts → generated tokens.css, light + dark), base components in src/ui (Button, StateBadge, TaskCard, Matrix, Field, Menu, Tabs/Segmented, Panel, Toast), Spanish strings via src/i18n, self-hosted IBM Plex fonts, dev gallery (npm run dev -w @konsora/web). Tests: 32 contrast pairs × 2 themes pass AA, generated CSS freshness, component semantics. Screenshots reviewed in both themes; fixed a theme flash (theme now applied before first render). Next: phase 3, navigable mock app with fake data."
+        },
+        {
+          "id": "n5",
+          "at": "2026-10-31T21:30:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Phase 3 built: navigable mock app (npm run dev -w @konsora/web; gallery at #/muestrario). Header with project menu, views and filter; group × state board with selection; layered dependency graph; runs table; selection bar (agent, permissions, parallel, run); detail panel with Detalle/Ejecución/Revisión tabs, approve/request changes, answer a question, cancel run, accept/send back. Fake data in src/mock/data.ts mirrors the real backlog. Reviewed in light/dark at 1440×900 and 420 px. Waiting for the human to approve the mock (ac3)."
         }
       ]
     }
