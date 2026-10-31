@@ -772,7 +772,7 @@
         "at": "2026-10-31T19:30:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:30:00Z",
+      "updated_at": "2026-10-31T20:30:00Z",
       "notes": [
         {
           "id": "n1",
@@ -787,6 +787,20 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Started: preparing 2–3 visual directions as mockups."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T19:50:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "The human chose direction B · Plano in chat (\"Me quedo con B, Plano.\"): light technical blueprint, IBM Plex Sans/Mono, ink hairlines, ink-blue accent #1F3BD6, group × state matrix. Mockups: https://claude.ai/artifact/Ht69JsmnjumhfzJFrCVLBQ. Next: tokens + base components in packages/web."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:30:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Phase 2 done: tokens (src/theme/tokens.ts → generated tokens.css, light + dark), base components in src/ui (Button, StateBadge, TaskCard, Matrix, Field, Menu, Tabs/Segmented, Panel, Toast), Spanish strings via src/i18n, self-hosted IBM Plex fonts, dev gallery (npm run dev -w @konsora/web). Tests: 32 contrast pairs × 2 themes pass AA, generated CSS freshness, component semantics. Screenshots reviewed in both themes; fixed a theme flash (theme now applied before first render). Next: phase 3, navigable mock app with fake data."
         }
       ]
     }

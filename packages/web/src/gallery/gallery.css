@@ -1,0 +1,98 @@
+/* Layout for the dev-only component gallery. */
+.g-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--k-space-10) var(--k-space-7) var(--k-space-11);
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-10);
+}
+.g-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--k-space-7);
+  padding-bottom: var(--k-space-8);
+  border-bottom: 1px solid var(--k-line-strong);
+}
+.g-title {
+  margin: 0;
+  font-size: var(--k-text-2xl);
+  font-weight: var(--k-weight-semibold);
+}
+.g-intro {
+  margin: var(--k-space-3) 0 0;
+  max-width: 60ch;
+  color: var(--k-ink-muted);
+}
+.g-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-6);
+}
+.g-section__title {
+  margin: 0;
+  padding-bottom: var(--k-space-3);
+  border-bottom: 1px solid var(--k-line);
+}
+.g-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-6);
+}
+.g-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-7);
+}
+.g-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--k-space-4);
+}
+.g-swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-5);
+  margin: 0;
+  padding: var(--k-space-4);
+  background: var(--k-surface);
+  border: 1px solid var(--k-line);
+}
+.g-swatch__chip {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--k-line-strong);
+}
+.g-swatch figcaption {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--k-text-xs);
+  min-width: 0;
+}
+.g-swatch__hex {
+  color: var(--k-ink-muted);
+}
+.g-type {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-5);
+}
+.g-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--k-space-7);
+  align-items: start;
+}
+.g-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--k-space-8);
+}
+.g-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--k-line-strong);
+}
