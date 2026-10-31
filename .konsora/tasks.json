@@ -39,7 +39,7 @@
     "CORE": 6,
     "CLI": 4,
     "DMN": 3,
-    "UI": 4
+    "UI": 9
   },
   "tasks": [
     {
@@ -1153,6 +1153,199 @@
           "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
+    },
+    {
+      "id": "UI-05",
+      "title": "Vista de grafo con disposición ELK coloreada por estado",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-03"
+      ],
+      "rank": "n",
+      "desc": "Añade la vista Grafo junto al Tablero en la página del proyecto, con @xyflow/react y elkjs (ya están en la tabla de dependencias). Cada tarea es un nodo coloreado por su estado con los tokens de *Plano*, con etiquetas de bloqueada, esperando respuesta y cambio externo, y cada dependencia es una arista. La disposición por capas la calcula ELK sin bloquear la interfaz. El grafo se mantiene en vivo con los eventos `board.*`, y al hacer clic en un nodo se abre el mismo panel de tarea que en el tablero. La vista elegida y la tarea abierta quedan en la URL, para poder enlazarlas y recargar sin perderlas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con un plan generado de 150 tareas, el grafo se dibuja en menos de 1 s en el navegador (medido y anotado en el commit)"
+        },
+        {
+          "id": "ac2",
+          "text": "Editar tasks.json con un editor actualiza el grafo en menos de 1 s, sin recargar"
+        },
+        {
+          "id": "ac3",
+          "text": "Los colores de los nodos salen de los tokens de estado y cumplen el contraste AA en modo claro y oscuro (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Recargar la página conserva la vista y la tarea abierta"
+        },
+        {
+          "id": "ac5",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m4"
+      ],
+      "created": {
+        "at": "2026-10-31T23:10:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T23:10:22Z"
+    },
+    {
+      "id": "UI-06",
+      "title": "Navegación con teclado en el grafo",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-05"
+      ],
+      "rank": "t",
+      "desc": "Hace el grafo usable sin ratón. Cada nodo recibe el foco; las flechas recorren el grafo siguiendo su estructura (hacia las dependencias, hacia las tareas que dependen de ella y entre tareas de la misma capa), Intro abre el panel de la tarea y Escape lo cierra. La vista se desplaza para que el nodo con el foco siempre esté visible, y un lector de pantalla anuncia en español la tarea, su estado y sus dependencias. El modelo de navegación es una función pura sobre el grafo, para poder probarlo sin navegador.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Se puede llegar a cualquier tarea de un plan de 150 tareas y abrir su detalle solo con el teclado (test del modelo de navegación y prueba manual)"
+        },
+        {
+          "id": "ac2",
+          "text": "El foco es siempre visible y el nodo enfocado queda dentro de la vista"
+        },
+        {
+          "id": "ac3",
+          "text": "Los anuncios para lector de pantalla están en español y pasan por i18n"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m4"
+      ],
+      "created": {
+        "at": "2026-10-31T23:10:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T23:10:22Z"
+    },
+    {
+      "id": "UI-07",
+      "title": "Selección de tareas y de subgrafos compartida entre grafo y tablero",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-05"
+      ],
+      "rank": "w",
+      "desc": "Permite seleccionar tareas en el tablero (casillas en las tarjetas) y en el grafo, con una única selección que se conserva al cambiar de vista. En el grafo, «seleccionar con dependencias» marca una tarea junto con sus dependencias que aún no están hechas: el subgrafo que habría que ejecutar. Ese cálculo vive en core. Una barra de selección muestra cuántas tareas hay seleccionadas y permite quitarlas; el botón Ejecutar aparece desactivado hasta M6. Nada de esto escribe en el plan.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una selección hecha en el grafo se conserva al pasar al tablero y al volver (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "«Seleccionar con dependencias» marca la tarea y sus dependencias pendientes, calculadas por una función de core con tests"
+        },
+        {
+          "id": "ac3",
+          "text": "Seleccionar o deseleccionar no modifica tasks.json"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m4"
+      ],
+      "created": {
+        "at": "2026-10-31T23:10:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T23:10:22Z"
+    },
+    {
+      "id": "UI-08",
+      "title": "Descripción y notas en markdown seguro en el panel de tarea",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-03"
+      ],
+      "rank": "y",
+      "desc": "Muestra la descripción de cada tarea (y el texto de las notas) como markdown: encabezados, listas, énfasis, código y enlaces, con el estilo del sistema de diseño. El HTML incrustado nunca se interpreta, los enlaces solo admiten http, https y mailto y se abren con rel=\"noopener noreferrer\", y todo funciona con la CSP estricta del daemon (sin estilos ni scripts en línea). Si hace falta una dependencia nueva para el markdown, se justifica en el commit frente a la tabla de arquitectura.md.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El HTML o los scripts dentro de una descripción se muestran como texto y nunca se ejecutan (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Un enlace javascript: o data: no se convierte en enlace (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Encabezados, listas, bloques de código y enlaces se ven con los tokens de Plano en modo claro y oscuro"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m4"
+      ],
+      "created": {
+        "at": "2026-10-31T23:10:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T23:10:22Z"
+    },
+    {
+      "id": "UI-09",
+      "title": "Edición del trabajo aprobado desde el panel de tarea (solo el humano)",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-08"
+      ],
+      "rank": "z",
+      "desc": "Permite al humano editar desde el panel el título, la descripción, los criterios de aceptación, las etiquetas y el grupo de una tarea, y añadir o quitar dependencias. Cada cambio se envía al daemon como una operación semántica (edit, depend o undepend) con el hash de la tarea, de modo que nunca pisa un cambio hecho por otro mientras editabas: en ese caso se muestra la versión actual y no se pierde lo que escribiste. Los errores (un ciclo, un grupo inexistente, un campo vacío) se explican en español. En modo solo lectura no se puede editar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada edición llega a tasks.json con una sola operación y queda en el registro de aprobaciones (test del daemon)"
+        },
+        {
+          "id": "ac2",
+          "text": "Añadir una dependencia que crearía un ciclo se rechaza con una explicación en español y el archivo no cambia"
+        },
+        {
+          "id": "ac3",
+          "text": "Si la tarea cambió mientras la editabas, no se sobrescribe: se muestra la versión actual y se conserva tu borrador (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Con el plan inválido no se ofrece ninguna edición"
+        },
+        {
+          "id": "ac5",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m4"
+      ],
+      "created": {
+        "at": "2026-10-31T23:10:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T23:10:22Z"
     }
   ]
 }
