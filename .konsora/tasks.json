@@ -239,7 +239,7 @@
     {
       "id": "CORE-04",
       "title": "Graph derivations: blocked, ready, waiting, topo order, YOLO chain",
-      "state": "doing",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-02"
@@ -264,7 +264,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:00:13Z",
+      "updated_at": "2026-10-31T19:01:29Z",
       "notes": [
         {
           "id": "n1",
@@ -279,13 +279,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Started: pure graph derivations over a validated document (blocked, ready, waiting, topological order, transitive deps, YOLO chain)."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T19:01:29Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/core/src/graph.ts: blockers/isBlocked/isReady (only done unblocks; review still blocks; missing deps count as unmet), isWaiting (last question without later answer), dependentsOf, transitiveDeps/transitiveDependents (iterative, cycle-safe), topoOrder (Kahn with rank then natural id tie-break; reports cyclic leftovers), yoloChain and yoloCovering (only active YOLO tasks cover), deriveFlags for views. Unit tests plus property tests: ready ⇔ todo with all deps done, transitive closure, topological permutation with deps first, order independent of the tasks array. npm run check green (173 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T19:01:29Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
     {
       "id": "CORE-05",
       "title": "State machine and semantic operations with per-task preconditions",
-      "state": "todo",
+      "state": "doing",
       "group": "CORE",
       "deps": [
         "CORE-03",
@@ -319,7 +333,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:01:29Z",
       "notes": [
         {
           "id": "n1",
@@ -327,6 +341,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T19:01:29Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Started: state machine and semantic ops with per-task preconditions (docs/esquema-tareas.md §2 and §5)."
         }
       ]
     },
