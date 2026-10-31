@@ -175,7 +175,7 @@
     {
       "id": "CORE-03",
       "title": "Canonical serializer",
-      "state": "doing",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-01"
@@ -204,7 +204,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:00:00Z",
+      "updated_at": "2026-10-31T19:00:13Z",
       "notes": [
         {
           "id": "n1",
@@ -219,13 +219,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Started: canonical serializer per docs/esquema-tareas.md §4 with fast-check property tests."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T19:00:13Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "canonicalize()/serializeDocument() in packages/core/src/serialize.ts per §4: spec key order then x-* keys sorted, empty optionals omitted, tasks by groups order then natural id, seq keys by groups order, deps natural and labels alphabetical, 2-space LF trailing newline. compareTaskIds() exported. Property tests (fast-check, shared generator in test/arbitraries.ts that only yields valid documents): round-trip serialize(parse(x)) === x; output independent of key order, task/dep/label order and empty optionals; meaning preserved; formatting; adding a task with seq already ahead changes one contiguous block. Spec §4 updated with the decisions made. This repo backlog was already canonical. npm run check green (154 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T19:00:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
     {
       "id": "CORE-04",
       "title": "Graph derivations: blocked, ready, waiting, topo order, YOLO chain",
-      "state": "todo",
+      "state": "doing",
       "group": "CORE",
       "deps": [
         "CORE-02"
@@ -250,7 +264,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:00:13Z",
       "notes": [
         {
           "id": "n1",
@@ -258,6 +272,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T19:00:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Started: pure graph derivations over a validated document (blocked, ready, waiting, topological order, transitive deps, YOLO chain)."
         }
       ]
     },

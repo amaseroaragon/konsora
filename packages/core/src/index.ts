@@ -3,3 +3,4 @@ export * from "./json-schema.ts";
 export * from "./json-text.ts";
 export * from "./schema.ts";
 export * from "./semantics.ts";
+export * from "./serialize.ts";
