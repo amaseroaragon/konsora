@@ -935,7 +935,7 @@
     {
       "id": "UI-02",
       "title": "Board view with validated drag and drop",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-03",
@@ -966,7 +966,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:30:00Z",
+      "updated_at": "2026-10-31T22:59:30Z",
       "notes": [
         {
           "id": "n1",
@@ -974,6 +974,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T22:51:02Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Board over /board + WS board.* (TanStack Query cache updated on events); columns by state, optional group swimlanes, blocked/waiting/external badges; drag and drop with dnd-kit where each drop maps to a human op and is pre-validated by core's transition rules (explained when forbidden), then confirmed by POST /ops."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T22:59:15Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "core planMove maps each column change to one semantic op and decides by dry-running applyOp (no rules in the UI). Board page: state columns, optional group swimlanes, blocked/ready/waiting badges, live indicator; WS board.* subscription refetches the board (reconnect with backoff). Drag and drop with @dnd-kit/core (pointer + keyboard, Spanish announcements): allowed/refused cells marked while dragging, refused drops explained in Spanish, send-back asks for feedback, optimistic moves sent with expect hashes, conflicts explained. ac1: headless Chrome (CDP) against a scratch copy of the plan: an in-place write of tasks.json appears on the board in 150-175 ms (3 runs), no reload. ac2: dragging a todo task to En curso is refused with 'Las tareas las empieza un agente…' and the file is unchanged; unit tests cover every refusal text; allowed drops (approve, send-back with dialog, keyboard approve) verified in the file. ac3: npm run check green, 410 tests. Commit a186835."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T22:59:21Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
