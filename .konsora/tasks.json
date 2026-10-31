@@ -39,7 +39,7 @@
     "CORE": 6,
     "CLI": 4,
     "DMN": 3,
-    "UI": 3
+    "UI": 4
   },
   "tasks": [
     {
@@ -607,7 +607,8 @@
       "state": "todo",
       "group": "UI",
       "deps": [
-        "DMN-01"
+        "DMN-01",
+        "UI-04"
       ],
       "rank": "b3",
       "desc": "packages/web with React + Vite + TanStack Query; token bootstrap from the URL fragment into sessionStorage; Spanish strings through an i18n layer; project list and link-folder flow. `konsora ui` starts or reuses the daemon and opens the browser.",
@@ -633,7 +634,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:30:00Z",
       "notes": [
         {
           "id": "n1",
@@ -651,7 +652,8 @@
       "group": "UI",
       "deps": [
         "DMN-03",
-        "UI-01"
+        "UI-01",
+        "UI-04"
       ],
       "rank": "b4",
       "desc": "Columns proposed/todo/doing/review/done, optional group swimlanes, blocked/waiting badges, live updates from WS, drag and drop that only allows transitions the core permits and explains why otherwise.",
@@ -677,7 +679,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T19:30:00Z",
       "notes": [
         {
           "id": "n1",
@@ -729,6 +731,62 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        }
+      ]
+    },
+    {
+      "id": "UI-04",
+      "title": "Visual direction and design system",
+      "state": "doing",
+      "group": "UI",
+      "rank": "9",
+      "desc": "Konsora's look is designed up front instead of screen by screen. 1) Present 2–3 clearly distinct visual directions as viewable mockups (board, task card, detail panel, run log, review with diff) using fake data shaped like schema v2; the human picks or blends one. 2) Turn it into a design system in packages/web: tokens (color, type, spacing, radii, shadows, motion) with light and dark themes, and base components (button, state badge, card, panel, column, field, menu, toast) with focus/disabled/error states. 3) A navigable mock app with fake data (board, graph, detail, runs, review) approved before UI-01/UI-02 wire real data. Runs in parallel with M1; it does not depend on core.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "The human has chosen a visual direction (recorded as a note on this task)"
+        },
+        {
+          "id": "ac2",
+          "text": "Tokens and base components live in packages/web with light and dark themes"
+        },
+        {
+          "id": "ac3",
+          "text": "Navigable mock app with fake data approved by the human"
+        },
+        {
+          "id": "ac4",
+          "text": "WCAG AA contrast for text and visible focus on every interactive component"
+        },
+        {
+          "id": "ac5",
+          "text": "Workspace checks pass",
+          "check": "npm run check"
+        }
+      ],
+      "labels": [
+        "design",
+        "m3"
+      ],
+      "created": {
+        "at": "2026-10-31T19:30:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-10-31T19:30:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-10-31T19:30:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Added at the human's request on 2026-10-31: no dedicated visual-design task existed. No reference apps preferred; directions should be original."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T19:30:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Started: preparing 2–3 visual directions as mockups."
         }
       ]
     }
