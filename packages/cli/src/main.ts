@@ -4,8 +4,8 @@
  */
 import { execFileSync } from "node:child_process";
 import { basename, relative, resolve } from "node:path";
-import { GroupIdSchema, parseTasksFile, type TaskState, type TasksDocument } from "@konsora/core";
-import { initTasks, readTasks, type StoreError, tasksPath } from "@konsora/core/store";
+import { GroupIdSchema, type TaskState, type TasksDocument } from "@konsora/core";
+import { initTasks, readTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
 import {
   issuesText,
@@ -16,72 +16,10 @@ import {
   taskTable,
   views,
 } from "./format.ts";
-import { findRoot } from "./project.ts";
+import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
+import { registerWriteCommands } from "./write.ts";
 
-export type Io = {
-  stdout: (text: string) => void;
-  stderr: (text: string) => void;
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  /** Injected clock for reproducible output in tests. */
-  now?: () => Date;
-};
-
-export const EXIT = { ok: 0, failure: 1, usage: 2 } as const;
-
-class CliError extends Error {
-  readonly exitCode: number;
-  readonly hint: string | undefined;
-  constructor(message: string, hint?: string, exitCode: number = EXIT.failure) {
-    super(message);
-    this.hint = hint;
-    this.exitCode = exitCode;
-  }
-}
-
-const VERSION = "0.0.0";
-
-function timestamp(io: Io): string {
-  return (io.now?.() ?? new Date()).toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
-function storeError(error: StoreError, root: string): never {
-  switch (error.code) {
-    case "missing":
-      throw new CliError(
-        `No plan at ${tasksPath(root)}.`,
-        "Run `konsora init` in your project folder.",
-      );
-    case "invalid":
-      throw new CliError(
-        `The plan is invalid:\n${issuesText(error.issues ?? []).trimEnd()}`,
-        "Fix the file (see `konsora check`); Konsora never overwrites an invalid plan.",
-      );
-    default:
-      throw new CliError(error.message);
-  }
-}
-
-function locate(io: Io, explicit: string | undefined): string {
-  const root = findRoot(io.cwd, explicit, io.env);
-  if (!root) {
-    throw new CliError(
-      `No .konsora/ folder found in ${io.cwd} or its parents.`,
-      "Run `konsora init` in your project folder, or pass --root <dir>.",
-    );
-  }
-  return root;
-}
-
-async function load(
-  io: Io,
-  explicit: string | undefined,
-): Promise<{ root: string; doc: TasksDocument }> {
-  const root = locate(io, explicit);
-  const result = await readTasks(root);
-  if (!result.ok) storeError(result.error, root);
-  return { root, doc: (result as { document: TasksDocument }).document };
-}
+export { EXIT, type Io } from "./shared.ts";
 
 function gitBranch(cwd: string): string | undefined {
   try {
@@ -95,10 +33,6 @@ function gitBranch(cwd: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function json(io: Io, value: unknown) {
-  io.stdout(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 export async function main(argv: readonly string[], io: Io): Promise<number> {
@@ -292,6 +226,8 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
       throw new CliError("", undefined, EXIT.failure);
     });
 
+  registerWriteCommands(program, io, root);
+
   try {
     await program.parseAsync([...argv], { from: "user" });
     return EXIT.ok;
@@ -315,6 +251,3 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     return EXIT.failure;
   }
 }
-
-/** Re-exported for tests that build fixtures. */
-export { parseTasksFile, timestamp };

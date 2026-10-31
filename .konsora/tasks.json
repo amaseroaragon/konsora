@@ -500,7 +500,7 @@
     {
       "id": "CLI-02",
       "title": "Agent write commands",
-      "state": "doing",
+      "state": "done",
       "group": "CLI",
       "deps": [
         "CLI-01"
@@ -529,7 +529,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:59:02Z",
+      "updated_at": "2026-10-31T20:02:07Z",
       "notes": [
         {
           "id": "n1",
@@ -544,13 +544,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Started: agent write commands (propose, batch, edit, withdraw, depend, undepend, start, pause, note, ask, finish) through core ops and the store, with --as / KONSORA_AGENT."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T20:02:07Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Agent write commands in packages/cli/src/write.ts, each one core op applied through the store: propose (--desc, --criterion…, --deps, --labels), batch (JSON from stdin or --file, all-or-nothing, deps by id or earlier title, strict shape), edit/withdraw/undepend (proposals only, enforced by core), depend (cycle-checked), start/pause (optional note), note/ask (text from argument, -m, --file or --stdin), finish (--summary/--summary-file/--stdin). Actor from --as or KONSORA_AGENT; \"human\" and \"konsora\" are refused, so the Kanvas --as human loophole does not exist. Run scope via KONSORA_RUN_TASK/KONSORA_RUN. --json returns affected tasks with their hash. Human transitions are absent (approve/accept/send-back/reopen/yolo are unknown commands). store.mutate now tags errors by source (op/store). Tests: 26 e2e (batches with a cycle-like later-title dep, unknown dep or unknown group write nothing; impersonation refused; no agent sequence reaches done). npm run check green (271 tests)."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:02:07Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },
     {
       "id": "CLI-03",
       "title": "Migrate v1 → v2",
-      "state": "todo",
+      "state": "doing",
       "group": "CLI",
       "deps": [
         "CLI-01"
@@ -579,7 +593,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T20:02:07Z",
       "notes": [
         {
           "id": "n1",
@@ -587,6 +601,13 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T20:02:07Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: konsora migrate with dry-run by default, explicit --write, backup tasks.v1.json.bak and v1 history moved to .konsora/legacy/v1-history.json; test against the v1 file from tag legacy-v0."
         }
       ]
     },

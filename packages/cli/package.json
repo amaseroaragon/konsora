@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@konsora/core": "*",
-    "commander": "15.0.0"
+    "commander": "15.0.0",
+    "zod": "4.6.7"
   },
   "bin": {
     "konsora": "./src/bin.ts"

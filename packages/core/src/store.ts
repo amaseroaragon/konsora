@@ -38,7 +38,8 @@ export type Snapshot = { document: TasksDocument; hash: string; text: string };
 export type ReadResult = ({ ok: true } & Snapshot) | { ok: false; error: StoreError };
 export type MutateResult =
   | ({ ok: true; changed: string[]; created: string[] } & Snapshot)
-  | { ok: false; error: OpError | StoreError };
+  | { ok: false; source: "op"; error: OpError }
+  | { ok: false; source: "store"; error: StoreError };
 
 export type StoreOptions = {
   /** How long to wait for another writer's lock. Default 5000 ms. */
@@ -224,7 +225,7 @@ export async function mutate(
     release = await acquireLock(root, options);
     const current = await load(root);
     const result = applyOp(current.document, op, ctx);
-    if (!result.ok) return result;
+    if (!result.ok) return { ok: false, source: "op", error: result.error };
     const text = serializeDocument(result.document);
     if (text !== current.text) await writeAtomically(root, text);
     return {
@@ -236,7 +237,7 @@ export async function mutate(
       created: result.created,
     };
   } catch (error) {
-    return { ok: false, error: toStoreError(error) };
+    return { ok: false, source: "store", error: toStoreError(error) };
   } finally {
     await release?.();
   }
