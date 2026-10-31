@@ -877,7 +877,7 @@
     {
       "id": "UI-01",
       "title": "Web app scaffold, i18n and `konsora ui`",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-01",
@@ -907,7 +907,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T19:30:00Z",
+      "updated_at": "2026-10-31T22:47:43Z",
       "notes": [
         {
           "id": "n1",
@@ -915,6 +915,20 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T22:39:14Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Daemon serves the built web app (static, Host-checked, CSP); konsora ui starts or reuses a detached daemon, rebuilds the web bundle when stale and opens /#token=…; web: token bootstrap fragment→sessionStorage, API client + TanStack Query, project list and link-folder flow, hash routes (mock kept at #/maqueta); AST-based test forbidding string literals in components."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T22:47:31Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "konsora ui (packages/cli/src/ui.ts) rebuilds the web bundle when stale, starts a detached daemon or reuses the running one, links the current project and opens /#token=…&project=…; the daemon serves the built UI outside /api (Host check, strict CSP). Web: token fragment→sessionStorage with URL rewrite, typed API client + TanStack Query, project list with plan status, link-folder form (Spanish errors), unlink with confirmation, project page with counts per state (the board is UI-02), no-session/expired screens; mock moved to #/maqueta. ac1: e2e test runs konsora ui --no-open against a real detached daemon and fetches the page and the linked project; manual run with headless Chrome against this repo shows the list and project page. ac2: packages/web/test/i18n-literals.test.ts parses every .tsx (rolldown/parseAst) and fails on JSX text, string children or text props with letters (gallery exempt as dev showcase with sample data; brand name allowed). ac3: npm run check green, 391 tests. Commit c438d8a."
         }
       ]
     },
