@@ -28,7 +28,7 @@ apps/desktop      Tauri (M10)
 schema/           tasks.v2.schema.json generado desde core
 ```
 
-Regla de capas: `web → daemon → runner → core` y `cli → runner, core`. **Ninguna regla de negocio fuera de `core`.**
+Regla de capas: `web → daemon → runner → core` y `cli → runner, core` (y `cli → daemon` solo para `konsora ui`). **Ninguna regla de negocio fuera de `core`.**
 
 ## Comandos
 

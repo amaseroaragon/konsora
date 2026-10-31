@@ -24,6 +24,8 @@ export type StartOptions = {
   port?: number;
   /** Extra allowed browser origins, e.g. the Vite dev server http://127.0.0.1:5173. */
   extraOrigins?: string[];
+  /** Folder with the built web UI to serve outside `/api`. */
+  webDir?: string;
 };
 
 export type RunningDaemon = DaemonInfo & { dataDir: string; close: () => Promise<void> };
@@ -68,7 +70,12 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const port = (server.address() as AddressInfo).port;
   const oversight = createOversights(dir);
   const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
-  app = createApp({ ...auth, registry, oversight });
+  app = createApp({
+    ...auth,
+    registry,
+    oversight,
+    ...(options.webDir ? { webDir: options.webDir } : {}),
+  });
   const hub = new EventHub({ ...auth, registry, oversight });
   server.on("upgrade", hub.handleUpgrade);
 

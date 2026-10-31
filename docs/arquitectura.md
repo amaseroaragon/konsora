@@ -44,7 +44,7 @@ schema/      tasks.v2.schema.json (generado desde core)
 docs/
 ```
 
-Dependencias permitidas en las capas: `web → (HTTP/WS) → daemon → runner → core`, y `cli → runner, core`. `core` no depende de nada del proyecto ni de procesos externos, salvo `git` (para el hash de HEAD), y lo hace a través de una interfaz que se puede sustituir en tests.
+Dependencias permitidas en las capas: `web → (HTTP/WS) → daemon → runner → core`, y `cli → runner, core` (más `cli → daemon` solo para que `konsora ui` localice y arranque el daemon, que además sirve la UI compilada fuera de `/api`). `core` no depende de nada del proyecto ni de procesos externos, salvo `git` (para el hash de HEAD), y lo hace a través de una interfaz que se puede sustituir en tests.
 
 ### Dependencias y por qué
 

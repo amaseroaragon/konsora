@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// Manual entry point until `konsora ui` (UI-01) manages the daemon: node packages/daemon/src/bin.ts
+// Daemon entry point. `konsora ui` runs it detached; it can also be started by hand:
+// node packages/daemon/src/bin.ts   (KONSORA_DEV_ORIGIN=http://127.0.0.1:5173 for `vite dev`)
+import { webDir } from "./paths.ts";
 import { startDaemon } from "./server.ts";
 
 const origins = process.env.KONSORA_DEV_ORIGIN ? [process.env.KONSORA_DEV_ORIGIN] : [];
-const daemon = await startDaemon({ extraOrigins: origins });
+const daemon = await startDaemon({ extraOrigins: origins, webDir: webDir() });
 console.log(
-  `Konsora daemon listening on ${daemon.url} (data: ${daemon.dataDir}; token in daemon.json)`,
+  `Konsora daemon listening on ${daemon.url} (pid ${daemon.pid}, data: ${daemon.dataDir})`,
 );
 const stop = async () => {
   await daemon.close();

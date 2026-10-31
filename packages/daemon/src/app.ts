@@ -1,6 +1,6 @@
 /**
- * HTTP API of the daemon (DMN-01: health, project registry, read endpoints).
- * Writes to plans (ops) arrive in DMN-02; live events over WebSocket in DMN-03.
+ * HTTP API of the daemon (DMN-01: health, project registry, read endpoints; DMN-02: ops) and,
+ * outside `/api`, the built web UI (UI-01).
  */
 import {
   dependentsOf,
@@ -18,6 +18,7 @@ import { z } from "zod";
 import { type AuthConfig, guard } from "./auth.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
+import { site } from "./site.ts";
 
 export const VERSION = "0.0.0";
 
@@ -25,6 +26,8 @@ export type AppOptions = AuthConfig & {
   registry: Registry;
   oversight?: OversightFor;
   now?: () => Date;
+  /** Folder with the built web UI (`packages/web/dist`), served outside `/api`. */
+  webDir?: string;
 };
 
 /** Every task as the UI needs it: stored fields, derived flags and the hash for `expect`. */
@@ -318,6 +321,7 @@ export function createApp(options: AppOptions): Hono {
 
   api.notFound((c) => c.json({ error: { code: "not_found", message: "Unknown endpoint" } }, 404));
   app.route("/api", api);
+  app.route("/", site(options));
   app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found" } }, 404));
   return app;
 }

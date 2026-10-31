@@ -1,6 +1,7 @@
 import type { Dispatch } from "react";
 import { t } from "../i18n/index.ts";
 import { otherProjects, usage } from "../mock/data.ts";
+import { Brand } from "../shell/Brand.tsx";
 import { Menu, Segmented } from "../ui/index.ts";
 import type { Action, AppState, View } from "./state.ts";
 
@@ -9,15 +10,7 @@ export function Header({ state, dispatch }: { state: AppState; dispatch: Dispatc
   const running = state.project.runs.filter((run) => run.state === "running").length;
   return (
     <header className="a-header">
-      <div className="a-header__brand">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="3" y="3" width="7" height="7" stroke="var(--k-accent)" strokeWidth="1.75" />
-          <rect x="14" y="3" width="7" height="7" stroke="var(--k-accent)" strokeWidth="1.75" />
-          <rect x="8.5" y="14" width="7" height="7" stroke="var(--k-accent)" strokeWidth="1.75" />
-          <path d="M6.5 10v2h11v-2M12 12v2" stroke="var(--k-accent)" strokeWidth="1.75" />
-        </svg>
-        <span className="a-header__name">KONSORA</span>
-      </div>
+      <Brand />
       <div className="a-header__cell">
         <Menu
           caption={t("app.project")}

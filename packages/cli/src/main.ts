@@ -19,6 +19,7 @@ import {
 import { registerMigrate } from "./migrate.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
+import { registerUi } from "./ui.ts";
 import { registerWriteCommands } from "./write.ts";
 
 export { EXIT, type Io } from "./shared.ts";
@@ -240,6 +241,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   registerWriteCommands(program, io, root);
   registerMigrate(program, io, root);
   registerSkill(program, io, root);
+  registerUi(program, io, root);
 
   try {
     await program.parseAsync([...argv], { from: "user" });
