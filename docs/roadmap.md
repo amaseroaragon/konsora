@@ -19,7 +19,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 `init`, `status`, `list`, `show`, `ready`, `blocked`, `check`, `propose`, `batch`, `edit`, `withdraw`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish` y `migrate` (v1 → v2), con `--json` y `--as`. Skill o snippet de protocolo para agentes, instalado por `init`.
 ✅ Tests e2e sobre un repo temporal. `konsora migrate --dry-run` sobre el `tasks.json` de `legacy-v0` muestra el mapeo esperado, y la migración real produce un archivo válido conservando el historial en `.konsora/legacy/`. Una sesión manual de Claude Code, siguiendo la skill, propone tareas con `batch` y las ve con `status`.
 
-## M3 — Daemon y tablero
+## M3 — Daemon y tablero ✔ (2026-11-01)
 
 🔧 Daemon en loopback con token y validación de Host y Origin, registro de proyectos, endpoints de lectura y operaciones, WS `board.*`, registro de aprobaciones. `konsora ui`. UI web: lista de proyectos, tablero por estados con arrastrar y soltar validado, y acciones humanas (aprobar, aceptar, devolver con feedback, reabrir).
 ✅ Al editar `tasks.json` con un editor, la UI se actualiza en menos de 1 s sin recargar. Un archivo inválido muestra sus errores y bloquea la escritura. Una petición sin token, o con `Origin` ajeno, recibe 403 (con test). Poner `done` a mano en el archivo aparece como "cambio externo sin aprobar".

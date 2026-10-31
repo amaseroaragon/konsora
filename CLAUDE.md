@@ -10,7 +10,7 @@ Documentación de referencia (léela antes de cambiar algo en su ámbito):
 
 ## Estado actual
 
-**M0, M1 y M2 cerrados.** `packages/core` está completo: esquema v2, validación, serializador canónico, grafo, máquina de estados con operaciones semánticas y almacén de archivos (`@konsora/core/store`, solo Node). `packages/web` tiene el sistema de diseño *Plano* y la maqueta navegable (`UI-04`). La CLI `konsora` (init, lectura, comandos de agente, `migrate`, `skill`) está en `packages/cli`. **Siguiente: M3 (daemon + tablero), empezando por `DMN-01`** (consulta `npx konsora status`).
+**M0, M1, M2 y M3 cerrados.** `packages/core` está completo: esquema v2, validación, serializador canónico, grafo, máquina de estados con operaciones semánticas, movimientos y acciones del tablero, y almacén de archivos (`@konsora/core/store`, solo Node). La CLI `konsora` (init, lectura, comandos de agente, `migrate`, `skill`, `ui`) está en `packages/cli`. El daemon en loopback (`packages/daemon`) sirve la API, el WebSocket `board.*` y la web compilada. `packages/web` tiene el sistema de diseño *Plano*, la lista de proyectos, el tablero en vivo con arrastrar y soltar validado, el panel de tarea con las acciones humanas, el modo solo lectura y los cambios externos (la maqueta de `UI-04` sigue en `#/maqueta`). **Siguiente: M4 (grafo y detalle)** (consulta `npx konsora status`).
 
 El v0 que desarrolló Codex (Tauri + sidecar Python, MVP de "copiar prompt"), con su código y sus docs, solo existe en la etiqueta git `legacy-v0`. No lo restaures ni lo tomes como referencia, salvo para la migración v1→v2 (`CLI-03`).
 
