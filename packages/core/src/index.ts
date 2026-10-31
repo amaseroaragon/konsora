@@ -1,2 +1,3 @@
-/** Task schema v2, state machine, dependency graph, canonical serializer and store. Implementation starts in its roadmap milestone. */
-export const packageName = "@konsora/core";
+/** Konsora core: task schema v2 (CORE-01). Graph, state machine and store follow in CORE-02..06. */
+export * from "./json-schema.ts";
+export * from "./schema.ts";
