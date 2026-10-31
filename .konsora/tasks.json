@@ -52,96 +52,297 @@
       "title": "K-030 — Abrir una herramienta de IA y entregarle el prompt",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nDiseñar la selección de ejecutor (Codex, Claude Code u otro validado), modelo/opciones y lanzamiento explícito a partir del prompt revisado. Cada herramienta gestiona su propia sesión; no crear un gestor de cuentas de Konsora ni exigir cerrar sesiones de otras herramientas.\n\nVerificar primero mecanismos, documentación y condiciones oficiales. No asumir que un CLI headless permite una integración de terceros. Si no hay entrega automática permitida, conservar copiar/pegar; sin APIs de pago, endpoints privados ni extracción de tokens.",
       "acceptance_criteria": "Aceptación/pruebas: con aprobación explícita se abre el ejecutor elegido en la carpeta y recibe exactamente el prompt revisado mediante argumentos/stdin oficiales, sin shell ni ampliación de selección. Rechazar cambios de origen y ejecutables ausentes; documentar qué puede observar/cancelar Konsora y qué gestiona la herramienta externa. Requiere concretar el alcance antes de implementarse.",
-      "sort_order": 4,
+      "sort_order": 20,
       "status": "pending",
-      "version": 1,
-      "dependencies": []
+      "version": 2,
+      "dependencies": [],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-019",
       "title": "K-019 — Contrato oficial y permisos de ejecución integrada",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nSolo si se pide supervisión integrada además del lanzador, definir contrato separado de generación de prompts: tarea/huella, carpeta, contexto, modelo, permisos, límites, eventos y cancelación. La seguridad local del MVP ya se resuelve en K-032.\n\nValidar aislamiento, aprobaciones y sesión oficial del ejecutor escogido; proteger la aceptación humana frente a cambios del agente. Sin mecanismo compatible, mantener la ejecución integrada bloqueada y la copia manual disponible.",
       "acceptance_criteria": "Aceptación/pruebas: documentación oficial fechada, versión validada, operaciones fuera de alcance rechazadas y contrato comprobado con CLI falso antes de trabajo real autorizado.",
-      "sort_order": 5,
+      "sort_order": 21,
       "status": "pending",
-      "version": 1,
-      "dependencies": []
+      "version": 2,
+      "dependencies": [],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-020",
       "title": "K-020 — Supervisar una ejecución y revisar su resultado",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nBasarse en K-019, registrar intentos/resultados en el proyecto, ejecutar sin shell, gestionar límites/cancelación/reconexión y conservar cambios previos. El éxito queda en revisión humana.",
       "acceptance_criteria": "Aceptación/pruebas: una ejecución explícitamente aprobada en carpeta de prueba, historial persistente, errores/descendientes/cierre sin procesos huérfanos. No se implementa como parte del MVP de copiar prompts.",
-      "sort_order": 6,
+      "sort_order": 22,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [
         "K-019"
-      ]
+      ],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-021",
       "title": "K-021 — Cola persistente de ejecuciones seleccionadas",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nBasarse en K-020; aprobación vinculada a versiones/alcance, orden/dependencias y revalidación antes de arrancar. Una ejecución global inicialmente, sin incorporar dependencias ni reintentos automáticos.",
       "acceptance_criteria": "Aceptación/pruebas: selección parcial, idempotencia, cambios externos, pausa/cancelación, fallos y reinicio con revisión/nueva autorización. No afecta al flujo de copia manual.",
-      "sort_order": 7,
+      "sort_order": 23,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [
         "K-020"
-      ]
+      ],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-026",
       "title": "K-026 — Añadir otros ejecutores oficialmente compatibles",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nAmpliar K-030 cuando se quiera usar otra herramienta; validar entonces login, entrega de prompts y ejecución permitida. No implica suscripciones simultáneas ni rotación automática de cuentas.",
       "acceptance_criteria": "Aceptación/pruebas: elegir el ejecutor compatible y entregarle únicamente el prompt revisado. Sin permiso oficial, conservar la copia manual. El bloqueo histórico de Antigravity sigue pendiente de revisión oficial; este cambio de alcance no lo resuelve.",
-      "sort_order": 8,
+      "sort_order": 24,
       "status": "pending",
-      "version": 1,
+      "version": 2,
       "dependencies": [
         "K-030"
-      ]
+      ],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-023",
       "title": "K-023 — Información de cuota, si la integración futura la necesita",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nConsultar solo mecanismos oficiales sin inferencia cuando existan; mostrar datos ausentes/desactualizados sin porcentajes inventados. Sin compra de créditos, cambio automático de proveedor ni fallback de pago.",
       "acceptance_criteria": "Aceptación/pruebas: consulta oficial validada para el ejecutor correspondiente y errores controlados. No es un requisito para visualizar/copiar tareas.",
-      "sort_order": 9,
+      "sort_order": 25,
       "status": "pending",
-      "version": 1,
-      "dependencies": []
+      "version": 2,
+      "dependencies": [],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-029",
       "title": "K-029 — Varios agentes y ejecuciones paralelas",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nDefinir selección de agentes/modelos, aislamiento por carpetas/worktrees, conflictos, límites y permisos después de validar el flujo de ejecución que se quiera ofrecer.",
       "acceptance_criteria": "Aceptación/pruebas: tareas seleccionadas sin colisiones ni cambios no autorizados, cancelación y trazabilidad. Requiere diseño y aprobación de alcance antes de implementarse.",
-      "sort_order": 10,
+      "sort_order": 26,
       "status": "pending",
-      "version": 1,
-      "dependencies": []
+      "version": 2,
+      "dependencies": [],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-027",
       "title": "K-027 — Grafo de dependencias",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nVista adicional de los mismos archivos/selección, sin duplicar fuentes ni saltarse validación de ciclos. Evaluar cuando aporte valor al uso real del tablero.",
       "acceptance_criteria": "",
-      "sort_order": 11,
+      "sort_order": 27,
       "status": "pending",
-      "version": 1,
-      "dependencies": []
+      "version": 2,
+      "dependencies": [],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     },
     {
       "id": "K-028",
       "title": "K-028 — Contexto persistente y búsqueda por proyecto",
       "description": "Posterior al MVP. Requiere autorización y concretar el alcance antes de implementarse.\n\nNotas y búsqueda con procedencia y selección explícita del contexto. No sincronizar memorias nativas ni recuperar el chat retirado como interfaz principal.",
       "acceptance_criteria": "",
+      "sort_order": 28,
+      "status": "pending",
+      "version": 2,
+      "dependencies": [],
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-033",
+      "title": "K-033 — UX · Completar el recorrido visual y fijar una referencia de UX",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): La auditoría de 2026-10-31 solo pudo inspeccionar código: el inventario de ventanas/navegadores estaba vacío y el navegador integrado no estaba disponible.\n\nCambio propuesto: Recorrer la aplicación real antes de cerrar decisiones visuales. Capturar inicio, carpeta, tablero, filtros, selección, detalle, revisión y exportación; registrar problemas observados y ajustar estas propuestas con evidencia.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Documentar capturas y pasos en Ubuntu a 1280×720 y 1440×900, ventana estrecha y zoom 200%; cubrir teclado, proyecto vacío y poblado, nombres largos, archivo inválido y recuperación. Distinguir hallazgos reproducidos de hipótesis. No declarar completada sin acceso real a la UI.",
+      "sort_order": 4,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-034",
+      "title": "K-034 — UX · Proteger borradores al cerrar, recargar o cambiar de proyecto",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx: Cerrar detalle y Escape llaman directamente a onClose; Recargar detalle reemplaza campos y solo avisa mediante title. TaskPrompt se desmonta al cambiar de proyecto y pierde el contexto.\n\nCambio propuesto: Detectar cambios sin guardar en tareas nuevas/existentes, comentario de revisión y contexto. Ofrecer conservar/seguir editando o descartar explícitamente antes de abandonar o recargar; recuperar el borrador tras conflictos sin sobrescribir el origen.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Escribir una tarea nueva, editar otra y añadir contexto; probar Escape, cerrar, recargar y cambio de proyecto. Cancelar conserva todo; descartar requiere acción explícita. Un 409 mantiene borrador y permite comparar o copiarlo. No persistir contexto en archivos del proyecto sin autorización. Probar estas transiciones y la revalidación de origen.",
+      "sort_order": 5,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-035",
+      "title": "K-035 — UX · Unificar estilo visual, tipografía y jerarquía de acciones",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): styles.css define colores, tamaños y espaciados dispersos; metadatos de 10–11 px y numerosos bordes compiten con contenido. Nueva tarea es primaria mientras Preparar/Copiar prompt usan estilo genérico.\n\nCambio propuesto: Definir una escala coherente de tipografía, espaciado, superficies, bordes y estados. Dar protagonismo al flujo seleccionar → revisar → copiar; mantener acciones secundarias discretas y destructivas separadas. Validar la propuesta visual en K-033.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Comparar antes/después de inicio, tablero, detalle y prompt. Títulos, texto, metadatos y acciones tienen jerarquía consistente; texto principal legible sin zoom; selección, foco, bloqueo y error se distinguen sin depender solo del color. Medir contraste y revisar disabled, hover y carga. No añadir dependencias visuales sin justificar.",
+      "sort_order": 6,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-036",
+      "title": "K-036 — UX · Dar más espacio al tablero y simplificar la navegación",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): App.tsx muestra cabecera con lema, estado técnico de API y pie; Projects.tsx añade gran título y botones Renombrar/Eliminar permanentes. CSS mantiene lateral incluso por debajo de 700 px y cinco columnas de al menos 205 px.\n\nCambio propuesto: Compactar la cabecera, llevar gestión del proyecto a un menú accesible y permitir contraer la barra lateral. Mantener proyecto/carpeta reconocibles. Adaptar el tablero a ventanas pequeñas y ofrecer desplazamiento evidente sin ocultar acciones.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "En 1280×720 aparecen tareas y controles principales sin una pila de bloques informativos previa. En ventana estrecha y al 200% no hay recorte de botones ni desplazamiento horizontal global; el tablero puede desplazarse en su región. Menú y lateral funcionan con teclado y conservan proyecto y selección.",
+      "sort_order": 7,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-037",
+      "title": "K-037 — UX · Abrir una carpeta con un flujo inicial claro",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Projects.tsx crea un registro por nombre; la carpeta se asocia después dentro de un desplegable. TaskBoard puede mostrar Tu tablero está listo aunque no exista una fuente editable.\n\nCambio propuesto: Ofrecer Abrir carpeta como entrada principal, derivar un nombre editable y detectar tareas sin crear archivos. Guiar por separado sin carpeta, archivo ausente, archivo vacío, histórico migrable e inaccesibilidad. Incluir ayuda breve al formato v1 y ejemplo para una IA externa.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Desde inicio se elige carpeta y se llega a sus tareas sin crear manualmente un registro previo. Cancelar no deja registros vacíos. Abrir carpeta ya registrada no duplica proyecto. Inicializar/migrar muestra destino y requiere confirmación; no se escribe al abrir. Cada vacío explica causa y siguiente acción posible.",
+      "sort_order": 8,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-038",
+      "title": "K-038 — UX · Simplificar tarjetas y hacer reconocibles las tareas",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskBoard.tsx muestra vN y Orden N arriba de cada tarjeta, fecha aun cuando falta y etiquetas de intentos. No muestra el ID estable salvo que esté incluido en el título.\n\nCambio propuesto: Priorizar título, ID, descripción breve y bloqueo relevante; pasar versión, orden numérico e historial a detalle. Diferenciar visualmente seleccionar de abrir, hacer legible el área seleccionable y reservar las fechas para cuando aporten información.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Una tarea cuyo título no contiene su ID sigue siendo identificable. Títulos largos no ocultan selección ni estado. Abrir no cambia selección y seleccionar no abre el detalle. No mostrar fechas inexistentes ni metadatos técnicos repetidos en todas las tarjetas. Revisar tarjetas con/sin descripción, bloqueo y selección.",
+      "sort_order": 9,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-039",
+      "title": "K-039 — UX · Mejorar búsqueda, filtros y recuperación de resultados",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): board.ts busca solo título/descripción; TaskBoard no tiene Limpiar filtros, Mostrar seleccionadas ni acceso directo a las seleccionadas ocultas. Todas las columnas siguen presentes al filtrar un estado.\n\nCambio propuesto: Buscar también por ID, mostrar filtros activos y un restablecimiento claro. Permitir inspeccionar selección oculta y compactar las columnas irrelevantes al filtrar sin modificar datos. Mantener el alcance de seleccionar visibles inequívoco.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Encontrar una tarea por su ID aunque el título no lo contenga. Sin resultados ofrece limpiar filtros. Mostrar seleccionadas incluye las ocultas y permite volver al filtro anterior. Cambiar filtros no elimina selección ni añade tareas. Comprobar búsqueda, bloqueo, estado y selección combinados.",
+      "sort_order": 10,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-040",
+      "title": "K-040 — UX · Mantener la selección y la acción de prompt siempre accesibles",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskBoard.tsx coloca selection-summary y TaskPrompt después de todas las columnas; la lista completa de seleccionadas crece sin límite visible antes de preparar el prompt.\n\nCambio propuesto: Crear una barra compacta persistente con número seleccionado, ocultas y acción Revisar prompt. Expandir la lista bajo demanda y permitir quitar elementos o limpiar. Con cero seleccionadas, mostrar una instrucción breve en lugar del formulario completo.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Con 100 tareas y 30 seleccionadas se llega a revisar sin recorrer hasta el final del tablero. El contador incluye ocultas y el desglose es accesible; quitar o limpiar actualiza vista previa. La barra no tapa última tarjeta, foco ni controles con zoom. Cambiar proyecto reinicia selección conforme al contrato.",
+      "sort_order": 11,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-041",
+      "title": "K-041 — UX · Separar revisión del prompt y exportación opcional",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskPrompt.tsx muestra contexto, origen, hash completo, textarea de vista previa y formulario de exportación en un bloque continuo; Copiar prompt no destaca y los avisos quedan al final.\n\nCambio propuesto: Presentar una revisión enfocada con tareas incluidas, dependencias externas y contexto opcional. Mostrar detalles técnicos bajo demanda, destacar Copiar prompt y plegar Guardar archivo como alternativa secundaria. Acercar confirmación/error a la acción y facilitar regenerar tras invalidación.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Revisar y copiar requiere una ruta clara desde la selección. La revisión permite inspeccionar el texto completo; el contexto tiene contador de límite. Copiar confirma éxito o explica Ctrl+C sin afirmarlo antes. Selección, contexto o archivo cambiado bloquean copia/guardado hasta revalidar. Exportar conserva nombre ante error y nunca sobrescribe. Dependencias externas no añaden trabajo.",
       "sort_order": 12,
       "status": "pending",
       "version": 1,
-      "dependencies": []
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-042",
+      "title": "K-042 — UX · Hacer el detalle legible y ordenar la edición manual",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx abre directamente un formulario largo con orden numérico, todas las dependencias y comentario; estado y revisión quedan después de Guardar cambios.\n\nCambio propuesto: Priorizar lectura del título, descripción, criterios, estado y dependencias; ofrecer edición explícita y agrupar opciones avanzadas. Mantener cerrar/guardar accesibles y explicar qué impide editar o cambiar estado. Ofrecer controles comprensibles para ordenar sin exigir conocer el número interno.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Leer una tarea no requiere recorrer campos editables. Editar mantiene todos los campos del contrato y protege borradores. Guardar/cancelar están disponibles al desplazar descripciones largas. Ordenar solo cambia orden/versiones pertinentes y revalida origen; no modifica estados. Estado/revisión tienen acciones manuales claras sin sugerir ejecución automática.",
+      "sort_order": 13,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-043",
+      "title": "K-043 — UX · Encontrar dependencias y explicar los bloqueos",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx enumera todas las tareas como casillas, sin búsqueda ni ID visible; la tarjeta reduce el bloqueo a un conteo y el prompt usa IDs sin títulos.\n\nCambio propuesto: Mostrar dependencias elegidas primero, buscarlas por título/ID y distinguir aceptadas de pendientes. Permitir consultar la referencia bloqueante conservando selección y borrador. Explicar qué aceptación falta sin ampliar el trabajo seleccionado.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Con 200 tareas se puede localizar y elegir una dependencia por ID sin recorrer toda la lista. El bloqueo identifica tarea y causa. Consultar otra tarea conserva borrador o solicita decisión explícita. Ciclos/autodependencias siguen rechazados. No se incorpora automáticamente una dependencia al prompt ni se convierte en aceptación por cambiar un campo.",
+      "sort_order": 14,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-044",
+      "title": "K-044 — UX · Hacer comprensibles actualización, errores y recuperación",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskBoard.tsx activa notice ante cambios y no lo limpia; ConnectionStatus.tsx muestra API conectada tras una comprobación puntual aunque una lectura posterior falle. Rutas y mensajes técnicos ocupan espacio permanente.\n\nCambio propuesto: Unificar estado de origen/servicio con lenguaje de usuario: actualizado, comprobando, última lectura y solo lectura. Dar acciones específicas por error y avisos descartables de cambios; ofrecer detalles técnicos bajo demanda sin secretos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Simular desconexión, JSON inválido, archivo desaparecido y restaurado. Se conserva última lectura con aviso inequívoco y se impiden operaciones inseguras. Recuperar elimina avisos obsoletos; cambios relevantes invalidan prompt. Los errores señalan acción útil y no desaparecen antes de poder leerlos. Actualizar no roba foco ni desplaza la vista.",
+      "sort_order": 15,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-045",
+      "title": "K-045 — UX · Aclarar el alcance y la confirmación de los borrados",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Projects.tsx mantiene Eliminar en cabecera. TaskDialog.tsx dice historial local y Sus archivos se conservan aunque eliminar tarea modifica el documento portable que contiene tarea e historial.\n\nCambio propuesto: Separar acciones destructivas, diferenciar desvincular carpeta, eliminar registro y eliminar tarea, y describir con precisión qué datos desaparecen. Facilitar cancelar y nombrar el elemento afectado; conservar todas las validaciones y rechazos por dependencias.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Cada confirmación identifica proyecto/tarea y datos afectados. Eliminar tarea avisa del cambio en tasks.json y del historial afectado; no promete conservar ese contenido. Eliminar registro distingue SQL local de archivos del proyecto. Cancelar no escribe. Probar borrado solo con datos desechables; no introducir borrado masivo ni purgar históricos para simplificar UI.",
+      "sort_order": 16,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-046",
+      "title": "K-046 — UX · Verificar accesibilidad de teclado, foco y lectura",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Hay etiquetas y focus-visible, pero estilos pequeños y cursor wait para cualquier botón disabled. No existe evidencia nueva de lector de pantalla, contraste, zoom o retorno del foco en el rediseño.\n\nCambio propuesto: Auditar y corregir orden de tabulación, retorno de foco, nombres de controles, anuncios, áreas interactivas y contraste en todos los flujos. Diferenciar indisponibilidad de operación en curso, con explicación accesible.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Completar abrir proyecto → seleccionar → revisar → copiar y edición usando solo teclado. Diálogos retienen foco y lo devuelven al origen; Escape respeta borradores. Verificar lector de pantalla y zoom 200%, contraste de texto normal de al menos 4.5:1 y controles/foco perceptibles. Los anuncios del sondeo no se repiten cada 2.5 segundos. Documentar herramientas y resultados reales.",
+      "sort_order": 17,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-047",
+      "title": "K-047 — UX · Distinguir revisión humana e historial importado",
+      "description": "Prioridad: Media. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): TaskDialog.tsx muestra No hay intentos de ejecución y llama activo a un intento running importado; las tarjetas muestran Intento. Las tareas done externas aparecen en revisión por diseño, lo que necesita explicación contextual.\n\nCambio propuesto: Presentar intentos como historial importado, plegar secciones vacías y explicar aceptación pendiente de esta instalación. No sugerir procesos supervisados, cancelación o reanudación. Explicar bloqueos históricos y una recuperación manual compatible sin borrar datos.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "Con documento sin intentos no aparece ruido de ejecución. Con intento running importado la UI aclara que Konsora no lo está ejecutando y no ofrece arrancar/cancelar procesos. Una tarea done sin firma válida sigue en revisión con explicación; aceptar exige acción humana y revalidación. Se conservan intentos, eventos, revisiones y restricciones de integridad.",
+      "sort_order": 18,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
+    },
+    {
+      "id": "K-048",
+      "title": "K-048 — UX · Validar el flujo completo tras las mejoras de UX",
+      "description": "Prioridad: Alta. Mejora del flujo actual, anterior a integraciones futuras.\n\nEvidencia de inspección de código (no verificación en pantalla): Las propuestas de esta auditoría no se han implementado ni verificado en vivo. Los informes anteriores del MVP no acreditan una interfaz rediseñada.\n\nCambio propuesto: Cerrar la iteración con un recorrido real, evidencia antes/después y comprobaciones afectadas de selección, borradores, archivos y prompts. Actualizar la guía de uso según los flujos finales.\n\nAuditoría y límites: docs/verification/UX-2026-10-31.md. No implementar como parte del registro de esta auditoría.",
+      "acceptance_criteria": "En Ubuntu verificar carpeta nueva/existente, dos proyectos, filtros/ocultas, selección múltiple, edición/conflicto, revisión/copia normal y fallback, exportación existente, errores/recuperación y reinicio. Incluir 0, 1, 100 tareas y prueba de escala con 2000, nombres largos, teclado y zoom. Ejecutar tipos/build y pruebas afectadas. No cerrar con comprobaciones esenciales pendientes ni usar proveedores o inferencia real.",
+      "sort_order": 19,
+      "status": "pending",
+      "version": 1,
+      "dependencies": [],
+      "created_at": "2026-10-31T09:19:13.128834+00:00",
+      "updated_at": "2026-10-31T09:19:13.128834+00:00"
     }
   ],
   "attempts": [],

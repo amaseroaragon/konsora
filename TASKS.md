@@ -72,6 +72,12 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 
 - **Verificación:** [K-025](docs/verification/K-025.md): `.deb` generado e instalado en raíz aislada, flujo nativo correcto, aperturas repetidas/puertos/cierre/permisos y conservación al reinstalar/desinstalar comprobados. **MVP completado; no hay más tareas pendientes dentro de su alcance.**
 
+## Mejora de estética y UX del MVP — antes de integraciones
+
+Petición del usuario de 2026-10-31: auditar y registrar propuestas, **sin implementarlas todavía**. [Informe y limitaciones](docs/verification/UX-2026-10-31.md): revisión de código realizada; acceso a la interfaz en vivo pendiente.
+
+Las tareas **K-033–K-048** están registradas en [.konsora/tasks.json](.konsora/tasks.json) para aparecer en el tablero, con prioridad, evidencia y criterios de aceptación. Ese archivo contiene su definición canónica; este apartado fija únicamente su posición en el orden operativo. Empezar por **K-033 (recorrido visual real)**, continuar con K-034–K-047 y cerrar con K-048. Ninguna está completada. Las integraciones siguientes permanecen aplazadas.
+
 ## Después del MVP — No implementar todavía
 
 ### [ ] K-030 — Abrir una herramienta de IA y entregarle el prompt
