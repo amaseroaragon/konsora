@@ -22,7 +22,8 @@ export function allowedOrigins(config: AuthConfig): Set<string> {
   ]);
 }
 
-function sameToken(given: string, expected: string): boolean {
+/** Constant-time token comparison. */
+export function sameToken(given: string, expected: string): boolean {
   const a = Buffer.from(given);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);

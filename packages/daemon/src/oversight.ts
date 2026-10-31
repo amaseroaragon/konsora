@@ -270,3 +270,18 @@ export class Oversight {
     return next;
   }
 }
+
+export type OversightFor = (projectId: string) => Oversight;
+
+/** One Oversight per project, shared by the HTTP app and the event hub (same write queue). */
+export function createOversights(dataDir: string): OversightFor {
+  const cache = new Map<string, Oversight>();
+  return (projectId) => {
+    let instance = cache.get(projectId);
+    if (!instance) {
+      instance = new Oversight(dataDir, projectId);
+      cache.set(projectId, instance);
+    }
+    return instance;
+  };
+}

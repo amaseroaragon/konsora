@@ -16,12 +16,16 @@ import { mutate, readTasks } from "@konsora/core/store";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthConfig, guard } from "./auth.ts";
-import { type LedgerEntry, Oversight } from "./oversight.ts";
+import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
 
 export const VERSION = "0.0.0";
 
-export type AppOptions = AuthConfig & { registry: Registry; now?: () => Date };
+export type AppOptions = AuthConfig & {
+  registry: Registry;
+  oversight?: OversightFor;
+  now?: () => Date;
+};
 
 /** Every task as the UI needs it: stored fields, derived flags and the hash for `expect`. */
 function taskViews(doc: TasksDocument) {
@@ -66,15 +70,7 @@ export function createApp(options: AppOptions): Hono {
   const { registry } = options;
   const now = () => (options.now?.() ?? new Date()).toISOString().replace(/\.\d{3}Z$/, "Z");
   const app = new Hono();
-  const watchers = new Map<string, Oversight>();
-  const oversight = (id: string) => {
-    let o = watchers.get(id);
-    if (!o) {
-      o = new Oversight(registry.dataDir, id);
-      watchers.set(id, o);
-    }
-    return o;
-  };
+  const oversight = options.oversight ?? createOversights(registry.dataDir);
 
   app.onError((error, c) => {
     if (error instanceof RegistryError) {

@@ -817,7 +817,7 @@
     {
       "id": "DMN-03",
       "title": "WebSocket board events",
-      "state": "todo",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "DMN-02"
@@ -842,7 +842,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T20:31:12Z",
       "notes": [
         {
           "id": "n1",
@@ -850,6 +850,27 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T20:28:29Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: ws WebSocketServer on the daemon's HTTP server (/api/ws); Host/Origin checked at upgrade, token as first message (5 s); subscribe per project; one core watcher per project shared by subscribers; board.changed with per-task diff by hash + updated external flags, board.invalid with issues, board.missing."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T20:31:12Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/daemon/src/events.ts: ws 8.22.0 WebSocketServer (noServer) on the daemon's HTTP server at /api/ws. Host and Origin are checked at the upgrade (403 before any socket exists); the first message must be {type:auth, token} (constant-time compare) within 5 s or the socket closes with 4401; no events before auth. Clients subscribe/unsubscribe per project; one core watchTasks per project shared by all its subscribers (registered synchronously so concurrent subscriptions cannot start two), stopped when the last one leaves. Events: board.changed {hash, changes: {added, removed, modified} by task hash, external: flags from the shared Oversight}, board.invalid {message, issues}, board.missing. The Oversight cache is now shared by the HTTP app and the hub. Tests: 9 against the real daemon — external edit emits board.changed in < 500 ms with the right diff; unapproved changes included; invalid/missing; the daemon's own ops reach subscribers; shared watcher stops after the last client; 4401 without auth or with a wrong token (mutation-checked: accepting any token fails the test); 403 for foreign Origin and rebinding Host. Daemon suite repeated 5× without flakes. npm run check green."
+        },
+        {
+          "id": "n4",
+          "at": "2026-10-31T20:31:12Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
     },

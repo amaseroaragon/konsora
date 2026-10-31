@@ -10,7 +10,9 @@ import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 import { createApp } from "./app.ts";
+import { EventHub } from "./events.ts";
 import { ensurePrivateDir, readJson, writePrivateFile } from "./files.ts";
+import { createOversights } from "./oversight.ts";
 import { DAEMON_FILE, dataDir as defaultDataDir } from "./paths.ts";
 import { Registry } from "./registry.ts";
 
@@ -64,7 +66,11 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     s.on("error", reject);
   });
   const port = (server.address() as AddressInfo).port;
-  app = createApp({ token, port, extraOrigins: options.extraOrigins ?? [], registry });
+  const oversight = createOversights(dir);
+  const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
+  app = createApp({ ...auth, registry, oversight });
+  const hub = new EventHub({ ...auth, registry, oversight });
+  server.on("upgrade", hub.handleUpgrade);
 
   const info: DaemonInfo = {
     url: `http://127.0.0.1:${port}`,
@@ -78,6 +84,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     ...info,
     dataDir: dir,
     close: async () => {
+      hub.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       const current = await readJson<DaemonInfo>(join(dir, DAEMON_FILE)).catch(() => undefined);
       if (current?.token === token) await unlink(join(dir, DAEMON_FILE)).catch(() => undefined);
