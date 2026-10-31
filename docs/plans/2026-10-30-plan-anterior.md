@@ -1,4 +1,4 @@
-> Archivo histórico, sustituido el 2026-10-30. Sus tareas pendientes ya no dirigen el desarrollo; consultar `TASKS.md` en la raíz. Se conserva como evidencia del trabajo anterior.
+> Archivo histórico, sustituido el 2026-10-30. Sus tareas pendientes ya no dirigen el desarrollo; consultar el [backlog JSON](../../.konsora/tasks.json). Se conserva como evidencia del trabajo anterior.
 
 # Konsora — Plan de implementación
 

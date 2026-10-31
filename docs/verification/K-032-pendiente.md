@@ -1,6 +1,6 @@
 # Punto de pausa — K-032 / K-024 / K-025
 
-Pausa solicitada por la persona el 2026-10-30. Registro histórico del punto de pausa; retomado el 2026-10-31. K-032 se cerró posteriormente en [su verificación](K-032.md); consultar `TASKS.md` para el estado vigente.
+Pausa solicitada por la persona el 2026-10-30. Registro histórico del punto de pausa; retomado el 2026-10-31. K-032 se cerró posteriormente en [su verificación](K-032.md); consultar el [backlog JSON](../../.konsora/tasks.json) para el estado vigente.
 
 ## Cambios en curso
 

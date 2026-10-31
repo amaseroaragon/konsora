@@ -1,6 +1,6 @@
 # Archivo histórico — plan de ejecución integrada
 
-Este plan fue sustituido por la simplificación del MVP solicitada el 2026-10-30: visualizar tareas y copiar prompts. No es un backlog operativo. El vigente está en [TASKS.md](../../TASKS.md). Se conserva para trazabilidad; sus requisitos de cuentas, chats y ejecución no rigen el MVP actual.
+Este plan fue sustituido por la simplificación del MVP solicitada el 2026-10-30: visualizar tareas y copiar prompts. No es un backlog operativo. El vigente está en [.konsora/tasks.json](../../.konsora/tasks.json). Se conserva para trazabilidad; sus requisitos de cuentas, chats y ejecución no rigen el MVP actual.
 
 # Konsora — Plan de implementación
 
@@ -27,7 +27,7 @@ Este es el único backlog operativo. Ejecutar las tareas pendientes en el orden 
 
 ## Auditoría y trabajo anterior
 
-La [auditoría del repositorio](docs/auditoria-2026-10-30.md) detalla evidencias, límites y decisiones. El [plan anterior archivado](docs/plans/2026-10-30-plan-anterior.md) y los informes de verificación conservan su valor histórico, pero no fijan el siguiente trabajo.
+La [auditoría del repositorio](../auditoria-2026-10-30.md) detalla evidencias, límites y decisiones. El [plan anterior archivado](../plans/2026-10-30-plan-anterior.md) y los informes de verificación conservan su valor histórico, pero no fijan el siguiente trabajo.
 
 | Tarea anterior | Situación tras el rediseño |
 | --- | --- |
@@ -54,7 +54,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Ajustar las pruebas del contrato retirado y conservar la regresión útil de procesos, errores y persistencia. Referenciar el nuevo plan desde la documentación técnica vigente.
 - **Aceptación:** no se puede crear ni ejecutar un debate desde UI o API; siguen funcionando proyectos y chats con las bases existentes, incluidos registros históricos intactos.
 - **Pruebas:** migración/apertura desde esquema v3, conservación de filas históricas, rutas retiradas inaccesibles, regresión de proyectos/chats, tipos, build y comprobación de escritorio.
-- **Verificación:** [K-014](docs/verification/K-014.md), 2026-10-30: 115 pruebas API, tipos, build web/nativo y comprobación del escritorio correctos.
+- **Verificación:** [K-014](../verification/K-014.md), 2026-10-30: 115 pruebas API, tipos, build web/nativo y comprobación del escritorio correctos.
 
 ### [x] K-015 — Asociar los proyectos a carpetas locales
 - Añadir carpeta de trabajo opcional a proyectos existentes y selección explícita de una carpeta existente para los que se vayan a ejecutar. Crear/abrir un proyecto no lanza agentes ni modifica sus archivos.
@@ -62,7 +62,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Conservar los proyectos actuales sin inventarles rutas. Mantener el borrado como eliminación de registros locales confirmada, sin borrar nunca la carpeta de trabajo.
 - **Aceptación:** una carpeta autorizada queda asociada y persiste; solo se puede ejecutar sobre ella tras la aprobación de ejecución correspondiente. Los proyectos antiguos siguen abriéndose.
 - **Pruebas:** migración sin pérdidas, rutas inexistentes/simbólicas, errores de permisos, cambio de carpeta y borrado de proyecto sin modificar archivos. Verificación manual del selector Ubuntu.
-- **Verificación:** [K-015](docs/verification/K-015.md), 2026-10-30: 70 pruebas afectadas correctas, tipos/build web y nativo, selector Ubuntu y conservación de archivos al borrar el proyecto.
+- **Verificación:** [K-015](../verification/K-015.md), 2026-10-30: 70 pruebas afectadas correctas, tipos/build web y nativo, selector Ubuntu y conservación de archivos al borrar el proyecto.
 
 ### [x] K-016 — Modelo de tareas, dependencias y registro de intentos
 - Crear tareas por proyecto: título, descripción, criterios de aceptación, orden, fechas y versión. Separar el estado de trabajo de la tarea del estado de cada intento de ejecución.
@@ -70,7 +70,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - CRUD tipado y persistente, cambios de estado validados y dependencias del mismo proyecto sin ciclos. Registrar actividad y resultados; conservar intentos al reintentar, sin sobrescribir evidencias.
 - **Aceptación:** tareas manuales editables y persistentes, aisladas por proyecto; las dependencias se desbloquean al aceptar resultados. Un movimiento de tarjeta no inicia un agente ni acredita éxito.
 - **Pruebas:** contratos API, CRUD, transiciones, ciclos/autodependencias, dependencias entre proyectos rechazadas, rollback, reinicio e historial de intentos. Proteger el borrado de tareas de las que dependen otras y de tareas activas.
-- **Verificación:** [K-016](docs/verification/K-016.md), 2026-10-30: 19 pruebas de tareas y 43 de regresión afectada correctas; contrato TypeScript comprobado. Sin ejecución de agentes.
+- **Verificación:** [K-016](../verification/K-016.md), 2026-10-30: 19 pruebas de tareas y 43 de regresión afectada correctas; contrato TypeScript comprobado. Sin ejecución de agentes.
 
 ### [x] K-017 — Tablero como interfaz principal y selección múltiple
 - Mantener una navegación lateral de proyectos y abrir su tablero por defecto. Añadir columnas por estado, tarjetas, filtros básicos y panel de detalle; chat como vista secundaria. Mostrar bloqueos, errores y actividad.
@@ -78,7 +78,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Preparar la barra «Ejecutar seleccionadas» con resumen de tareas elegibles y bloqueadas. Hasta K-021, mostrar ejecución no disponible; no simular éxito ni lanzar el conector de texto como si ejecutara trabajo.
 - **Aceptación:** se crean, editan y organizan tareas desde el tablero y se seleccionan varias sin mezclar proyectos. Acciones por teclado y estados vacíos/carga/error utilizables en Ubuntu.
 - **Pruebas:** selección, filtros, persistencia y accesibilidad; UI con al menos dos proyectos y tareas bloqueadas; tipos y build web/nativo. Cambiar de proyecto no pierde las tarjetas guardadas.
-- **Verificación:** [K-017](docs/verification/K-017.md), 2026-10-30: tres pruebas focalizadas, recorrido UI con dos proyectos, filtros/selección, revisión/persistencia/errores y tipos/build web/nativo correctos. Ejecución deshabilitada.
+- **Verificación:** [K-017](../verification/K-017.md), 2026-10-30: tres pruebas focalizadas, recorrido UI con dos proyectos, filtros/selección, revisión/persistencia/errores y tipos/build web/nativo correctos. Ejecución deshabilitada.
 
 ### [x] K-017A — Contrato portable de tareas y resultados en el proyecto
 - Definir y documentar el esquema versionado de `.konsora/tasks.json`: IDs estables, título, descripción, criterios, orden, estado y dependencias locales. Elegir una única representación; no interpretar Markdown arbitrario ni el `TASKS.md` de desarrollo como órdenes ejecutables.
@@ -87,7 +87,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Separar estado declarado en archivos de aceptación humana y autorización de ejecución. Un resultado marcado hecho externamente no desbloquea trabajo automáticamente; especificar cómo se verifica la revisión y qué se invalida al cambiar el contenido o trasladar el proyecto, sin dar por fiables los archivos solo por contener un campo «aprobado».
 - **Aceptación:** tareas y resultados se entienden y validan desde una carpeta de ejemplo sin SQLite ni sesión de proveedor; formato y reglas permiten crearlos con una IA externa. Ningún archivo por sí solo inicia trabajo o fabrica una aprobación.
 - **Pruebas:** ejemplos válidos, formato/esquema inválidos, duplicados, dependencias/ciclos y cambio de contenido sin incrementar versión. Documentar el contrato antes de sustituir la persistencia.
-- **Verificación:** [formato v1](docs/formato-tareas.md), JSON Schema y ejemplo sin SQLite; 12 pruebas focalizadas correctas. El adaptador de almacenamiento y la comprobación de firmas se conectan en K-017B.
+- **Verificación:** [formato v1](../formato-tareas.md), JSON Schema y ejemplo sin SQLite; 12 pruebas focalizadas correctas. El adaptador de almacenamiento y la comprobación de firmas se conectan en K-017B.
 
 ### [x] K-017B — Usar los archivos como fuente del tablero y migrar sin pérdidas
 - Sustituir el almacenamiento autoritativo de tareas de K-016 por lectura/escritura del contrato K-017A dentro de la carpeta aprobada. El tablero y el detalle reutilizan los componentes actuales; SQLite solo podrá indexar/cachar datos reconstruibles.
@@ -97,7 +97,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Conservar IDs, dependencias, actividad y resultados al migrar. Abrir la misma carpeta en una instalación limpia debe reconstruir sus tarjetas e historial sin la base anterior. Desvincular/eliminar el registro de proyecto no borra `.konsora/` ni otros archivos.
 - **Aceptación:** una IA crea o modifica el archivo con Konsora cerrado o abierto y el tablero lo detecta; editar en UI cambia ese mismo archivo. Copiar la carpeta permite recuperar tareas/resultados. No hay dos fuentes de verdad.
 - **Pruebas:** migración con datos existentes, reinicio/reconstrucción sin caché, cambios externos, archivo inválido/desaparecido, conflictos y fallos de escritura, enlaces fuera del alcance y selección tras cambios. Un recorrido UI con dos carpetas y un archivo generado externamente; tipos y builds afectados.
-- **Verificación:** [K-017B](docs/verification/K-017B.md): 19 pruebas de tareas, 10 nuevas de archivos y 43 de regresión correctas; tres pruebas de selección y tipos/build web/nativo. UI con dos carpetas, migración, cambios externos, borrador en conflicto y recuperación comprobados.
+- **Verificación:** [K-017B](../verification/K-017B.md): 19 pruebas de tareas, 10 nuevas de archivos y 43 de regresión correctas; tres pruebas de selección y tipos/build web/nativo. UI con dos carpetas, migración, cambios externos, borrador en conflicto y recuperación comprobados.
 
 ### [x] K-017C — Preparar prompts desde tareas seleccionadas en archivos
 - Añadir vista previa y acción de copiar/guardar un prompt portable a partir exclusivamente de las tareas seleccionadas, con sus IDs/huellas, descripción, criterios, orden y contexto aprobado. Funciona sin login y puede usarse con una IA externa; guardarlo requiere elegir explícitamente un destino dentro del proyecto.
@@ -106,7 +106,7 @@ K-016 y K-017 conservan su casilla y evidencia de la implementación anterior en
 - Copiar un prompt no autoriza ni acredita ejecución. Si se usa con una herramienta externa, Konsora solo detecta sus archivos/resultados y los ofrece a revisión; no promete supervisar procesos que no lanzó. La ejecución integrada permanece deshabilitada hasta K-019–K-021.
 - **Aceptación:** al seleccionar A y C en un archivo con A/B/C, la vista previa contiene trabajo de A y C y puede copiarse sin proveedor; B no se incorpora. Cambiar A externamente invalida esa vista previa. No se invocan agentes.
 - **Pruebas:** selección parcial, dependencias fuera de selección, texto/contexto incluido, cambios de archivo sin incremento de versión, ausencia de sesión y un recorrido UI de archivo → selección → prompt inspeccionable.
-- **Verificación:** [K-017C](docs/verification/K-017C.md): ocho pruebas API y recorrido UI A/C con B excluida, copia revalidada, exportación explícita y cambios externos/contexto invalidando la vista previa. Tipos y builds web/nativo correctos; sin inferencia.
+- **Verificación:** [K-017C](../verification/K-017C.md): ocho pruebas API y recorrido UI A/C con B excluida, copia revalidada, exportación explícita y cambios externos/contexto invalidando la vista previa. Tipos y builds web/nativo correctos; sin inferencia.
 
 ### [ ] K-018 — Una cuenta y un proveedor activos para toda la aplicación
 - **Precondición:** K-017A–K-017C completadas. La cuenta se exige para envíos/ejecución integrada, no para leer archivos, usar el tablero o preparar/copiar prompts.

@@ -1,3 +1,5 @@
+> Archivo histórico de `TASKS.md`, archivado el 2026-10-31. El único [backlog operativo](../../.konsora/tasks.json) es el JSON; las [reglas de desarrollo](../../AGENTS.md) fijan el alcance y la autorización. El contenido siguiente se conserva como evidencia, incluidas sus instrucciones antiguas: sus estados, orden y menciones a la siguiente tarea no son vigentes. No sincronizar este archivo con el JSON ni recuperar tareas ausentes a partir de él.
+
 # Konsora — Plan de implementación
 
 **Alcance vigente, 2026-10-30:** el MVP es un visualizador de tareas en archivos que permite seleccionar varias y generar un prompt para copiar y pegar en una herramienta de IA externa. No incluye chats, cuentas de proveedores ni ejecución automática.
@@ -19,7 +21,7 @@ Este es el único backlog operativo. Ejecutar las tareas pendientes del MVP en e
 
 ## Trabajo anterior y trazabilidad
 
-Los identificadores no se reutilizan. El [plan de ejecución integrada archivado](docs/plans/2026-10-30-plan-ejecucion-integrada.md), el [primer plan](docs/plans/2026-10-30-plan-anterior.md) y los informes de verificación conservan la evidencia de su alcance de entonces.
+Los identificadores no se reutilizan. El [plan de ejecución integrada archivado](../plans/2026-10-30-plan-ejecucion-integrada.md), el [primer plan](../plans/2026-10-30-plan-anterior.md) y los informes de verificación conservan la evidencia de su alcance de entonces.
 
 | Trabajo | Situación actual |
 | --- | --- |
@@ -30,9 +32,9 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 | K-007–K-013 | Plan original sustituido; no son tareas operativas pendientes. |
 | K-015 | Carpetas persistentes y selector nativo completados. |
 | K-016, K-017 | Modelo inicial y tablero completados; persistencia adaptada posteriormente a archivos. |
-| K-017A | Formato portable v1, esquema y ejemplo completados. [Evidencia](docs/verification/K-017A.md). |
-| K-017B | Archivos como fuente, cambios externos y migración sin pérdidas completados. [Evidencia](docs/verification/K-017B.md). |
-| K-017C | Selección → prompt → copia/exportación revalidadas completado. [Evidencia](docs/verification/K-017C.md). |
+| K-017A | Formato portable v1, esquema y ejemplo completados. [Evidencia](../verification/K-017A.md). |
+| K-017B | Archivos como fuente, cambios externos y migración sin pérdidas completados. [Evidencia](../verification/K-017B.md). |
+| K-017C | Selección → prompt → copia/exportación revalidadas completado. [Evidencia](../verification/K-017C.md). |
 | K-018 | Cancelada: gestor global de cuenta/proveedor y login/logout en Konsora. |
 | K-022 | Cancelada: chat de planificación y propuestas generadas dentro de Konsora. La IA externa crea los archivos. |
 | K-019–K-021, K-023, K-026–K-029 | Funcionalidades posteriores al MVP, sin autorización para adelantarlas. |
@@ -46,7 +48,7 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 - Separar utilidades compartidas de los módulos retirados y ajustar las pruebas del contrato eliminado. Actualizar las instrucciones, README y guía de desarrollo al alcance actual.
 - **Aceptación:** abrir proyecto, seleccionar tareas y copiar prompt funciona sin CLI, login ni conexión a proveedor. No hay UI/rutas de chat, inferencia, modelos o ejecución. Proyectos, archivos de tareas y filas históricas permanecen intactos.
 - **Pruebas:** rutas retiradas 404/ausentes de OpenAPI y conservación de filas; copia de selección parcial con creación de procesos prohibida; tipos/build web/nativo y un recorrido UI sin solicitudes a proveedores. No repetir pruebas de los conectores retirados.
-- **Verificación:** [K-031](docs/verification/K-031.md): 98 pruebas API restantes y tres de selección correctas; tipos/build web/nativo y recorrido de copia con dos proyectos, sin rutas de chat/proveedor ni invocaciones CLI. Datos históricos conservados. **Siguiente tarea: K-032.**
+- **Verificación:** [K-031](../verification/K-031.md): 98 pruebas API restantes y tres de selección correctas; tipos/build web/nativo y recorrido de copia con dos proyectos, sin rutas de chat/proveedor ni invocaciones CLI. Datos históricos conservados. **Siguiente tarea: K-032.**
 
 ### [x] K-032 — Proteger el servicio local del MVP
 - Extraer la seguridad local de la antigua K-019: autenticación de instancia y validación de origen/host para operaciones de proyectos, archivos y prompts. El servicio sigue escuchando solo en loopback; CORS no sustituye a la autenticación.
@@ -54,7 +56,7 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 - **Aceptación:** un cliente/origen/host no autorizado no puede leer ni modificar datos del proyecto. El escritorio conserva su flujo carpeta → selección → copia.
 - **Pruebas:** secreto ausente/incorrecto, origen/host rechazados y un recorrido autorizado; comprobación de ausencia de secretos en respuestas y logs.
 
-- **Verificación:** [K-032](docs/verification/K-032.md): servicio autenticado, transporte IPC privado, 106 pruebas API y recorrido nativo de carpeta/copia/cierre correctos. **Siguiente tarea: K-024.**
+- **Verificación:** [K-032](../verification/K-032.md): servicio autenticado, transporte IPC privado, 106 pruebas API y recorrido nativo de carpeta/copia/cierre correctos. **Siguiente tarea: K-024.**
 
 ### [x] K-024 — Verificar y cerrar el flujo del MVP simplificado
 - Verificar carpeta → archivo generado externamente → detección/tablero → selección → vista previa → copiar/pegar, sin instalar herramientas de IA ni iniciar sesión. Incluir dos proyectos, dependencias fuera de selección, filtros y cambios externos.
@@ -62,7 +64,7 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 - **Aceptación:** flujo reproducible en Ubuntu con teclado y portapapeles/fallback Ctrl+C, tareas recuperables desde la carpeta sin la base antigua y ausencia de chats, cuentas, inferencias o ejecución. El cierre del MVP no requiere una prueba real con IA.
 - **Pruebas:** API/lógica afectadas, tipos/build web/nativo y un checklist de escritorio. Publicar evidencia en `docs/verification/`; no probar proveedores ausentes del producto.
 
-- **Verificación:** [K-024](docs/verification/K-024.md): recorrido completo de selección/copia, errores y recuperación correcto; migración e historial cubiertos por API. **Siguiente tarea: K-025.**
+- **Verificación:** [K-024](../verification/K-024.md): recorrido completo de selección/copia, errores y recuperación correcto; migración e historial cubiertos por API. **Siguiente tarea: K-025.**
 
 ### [x] K-025 — Arranque integrado y distribución Ubuntu
 - Integrar arranque/parada del backend Tauri con la autenticación local de K-032. Detectar puertos ocupados, evitar procesos huérfanos y usar una ubicación de datos apropiada con migración conservadora.
@@ -70,13 +72,13 @@ Los identificadores no se reutilizan. El [plan de ejecución integrada archivado
 - **Aceptación:** instalar, abrir, visualizar y copiar un prompt sin arrancar el backend manualmente. Actualizar/desinstalar o eliminar la caché no borra los archivos del proyecto; cerrar no deja el servicio activo.
 - **Pruebas:** instalación limpia, actualización de datos anteriores, múltiples aperturas, puerto ocupado, cierre y permisos. Sin supervisores de agentes ni credenciales de terceros.
 
-- **Verificación:** [K-025](docs/verification/K-025.md): `.deb` generado e instalado en raíz aislada, flujo nativo correcto, aperturas repetidas/puertos/cierre/permisos y conservación al reinstalar/desinstalar comprobados. **MVP completado; no hay más tareas pendientes dentro de su alcance.**
+- **Verificación:** [K-025](../verification/K-025.md): `.deb` generado e instalado en raíz aislada, flujo nativo correcto, aperturas repetidas/puertos/cierre/permisos y conservación al reinstalar/desinstalar comprobados. **MVP completado; no hay más tareas pendientes dentro de su alcance.**
 
 ## Mejora de estética y UX del MVP — antes de integraciones
 
-Petición del usuario de 2026-10-31: auditar y registrar propuestas, **sin implementarlas todavía**. [Informe y limitaciones](docs/verification/UX-2026-10-31.md): revisión de código y recorrido nativo local realizados; capturas y hallazgos incorporados. K-033 conserva comprobaciones pendientes (incluido zoom 200%).
+Petición del usuario de 2026-10-31: auditar y registrar propuestas, **sin implementarlas todavía**. [Informe y limitaciones](../verification/UX-2026-10-31.md): revisión de código y recorrido nativo local realizados; capturas y hallazgos incorporados. K-033 conserva comprobaciones pendientes (incluido zoom 200%).
 
-Las tareas **K-033–K-048** están registradas en [.konsora/tasks.json](.konsora/tasks.json) para aparecer en el tablero, con prioridad, evidencia y criterios de aceptación. Ese archivo contiene su definición canónica; este apartado fija únicamente su posición en el orden operativo. Empezar por **K-033 (recorrido visual real)**, continuar con K-034–K-047 y cerrar con K-048. Ninguna está completada. Las integraciones siguientes permanecen aplazadas.
+Las tareas **K-033–K-048** están registradas en [.konsora/tasks.json](../../.konsora/tasks.json) para aparecer en el tablero, con prioridad, evidencia y criterios de aceptación. Ese archivo contiene su definición canónica; este apartado fija únicamente su posición en el orden operativo. Empezar por **K-033 (recorrido visual real)**, continuar con K-034–K-047 y cerrar con K-048. Ninguna está completada. Las integraciones siguientes permanecen aplazadas.
 
 ## Después del MVP — No implementar todavía
 

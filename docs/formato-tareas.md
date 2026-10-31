@@ -1,6 +1,6 @@
 # Archivos portables de tareas — v1
 
-El único origen del tablero es `.konsora/tasks.json` en la carpeta asociada. No se interpreta `TASKS.md` ni Markdown arbitrario. Una IA externa puede escribir el JSON sin Konsora ni una cuenta de proveedor. El [ejemplo mínimo](examples/portable-project/.konsora/tasks.json) y el [JSON Schema](schemas/tasks-v1.schema.json) definen el contrato.
+El único origen del tablero es `.konsora/tasks.json` en la carpeta asociada. No se interpretan planes ni Markdown arbitrario. El propio repositorio de Konsora utiliza ese archivo como único backlog operativo; las reglas de alcance y autorización están en `AGENTS.md`. Una IA externa puede escribir el JSON sin Konsora ni una cuenta de proveedor. El [ejemplo mínimo](examples/portable-project/.konsora/tasks.json) y el [JSON Schema](schemas/tasks-v1.schema.json) definen el contrato.
 
 La raíz contiene `schema_version: 1`, `tasks` y, opcionalmente, `attempts`, `activity` y `reviews`. Se mantiene el historial en el mismo documento para guardar tareas/resultados/revisiones juntos mediante una única sustitución atómica. No hay un segundo archivo ni una tabla SQL que prevalezca sobre él.
 

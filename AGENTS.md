@@ -12,8 +12,8 @@ Abrir Codex, Claude Code u otras herramientas y entregarles automáticamente un 
 
 ## Forma de trabajar
 
-1. Lee `TASKS.md` antes de empezar. Ejecuta tareas pendientes del MVP en el orden indicado, una por vez. No anticipes funcionalidades posteriores.
-2. Inspecciona el código, implementa el cambio mínimo, ajusta las pruebas afectadas y ejecuta solo las comprobaciones necesarias. Marca una tarea como completada únicamente al cumplir sus criterios de aceptación.
+1. Lee `.konsora/tasks.json` antes de empezar: es el único backlog operativo de este repositorio. Para trabajo del backlog, consulta descripción, criterios, estado y dependencias; sigue `sort_order` (no la posición en el array ni el número del ID), una tarea por vez y dentro del alcance autorizado por la persona. Una tarea pendiente no autoriza su implementación: las propuestas registradas solo para auditoría y las funcionalidades aplazadas requieren una petición explícita. No anticipes funcionalidades posteriores.
+2. Inspecciona el código, implementa el cambio mínimo, ajusta las pruebas afectadas y ejecuta solo las comprobaciones necesarias. Actualiza las tareas únicamente en `.konsora/tasks.json`, conservando IDs e historial y respetando el formato v1 y los cambios externos. Marca una tarea como completada únicamente al cumplir sus criterios de aceptación y enlaza la evidencia pertinente; cambiar `status` no sustituye la aceptación humana en Konsora.
 3. Mantén la aplicación ejecutable al finalizar cada tarea. Resume cambios, comprobaciones y resultado, decisiones/limitaciones relevantes y siguiente tarea pendiente.
 4. Realiza commits locales pequeños y descriptivos cuando el entorno lo permita. No publiques ni hagas push sin aprobación.
 5. Consulta si hace falta una decisión de producto importante, credenciales, gastos, permisos o una acción destructiva no autorizada. No inventes claves ni uses cuentas personales.
@@ -24,7 +24,7 @@ Abrir Codex, Claude Code u otras herramientas y entregarles automáticamente un 
 ## Principios técnicos
 
 - Tauri + React + TypeScript para escritorio; Python + FastAPI para servicio local; archivos de proyecto como fuente de tareas y SQLite para registro/configuración y datos históricos. Separar contratos frontend/backend.
-- Un único formato canónico de tareas. No mantener Markdown y JSON como fuentes paralelas ni interpretar `TASKS.md` de este repositorio como trabajo ejecutable automáticamente. El esquema y ejemplo están en `docs/formato-tareas.md`.
+- Un único formato canónico de tareas: `.konsora/tasks.json`, también para el desarrollo de Konsora. No mantener Markdown y JSON como fuentes paralelas ni interpretar planes Markdown como trabajo ejecutable automáticamente. El esquema y ejemplo están en `docs/formato-tareas.md`.
 - Leer, detectar, seleccionar y copiar prompts funciona sin instalaciones ni sesiones de proveedores. El backend no debe buscar ejecutables de IA, consultar sus sesiones/modelos ni iniciar procesos de agentes.
 - Los prompts contienen solo el trabajo seleccionado y contexto expresamente incluido. No añadir dependencias ni leer archivos/código/chats implícitamente. Mostrar dependencias externas como referencias/bloqueos.
 - Revalidar origen y contenido antes de editar/copiar/guardar; un modelo puede cambiar el archivo sin aumentar `version`. Detectar conflictos y conservar borradores; no sobrescribir cambios externos ni destinos existentes silenciosamente.
@@ -43,6 +43,6 @@ Abrir Codex, Claude Code u otras herramientas y entregarles automáticamente un 
 
 ## Documentación y calidad
 
-- `TASKS.md` es el único backlog operativo; los planes e informes anteriores son históricos.
+- `.konsora/tasks.json` es el único backlog operativo: definición, criterios, estado, dependencias y orden se mantienen allí. `AGENTS.md` fija las reglas y límites de producto; los planes archivados en `docs/plans/` y los informes de verificación conservan decisiones y evidencia, sin dirigir el trabajo ni duplicar estados pendientes.
 - `docs/desarrollo.md` documenta instalación, comandos y límites actuales. `README.md` contiene únicamente 5–10 líneas descriptivas, sin backlog ni instrucciones técnicas.
 - Mantener pruebas de lógica/API afectadas y describir las comprobaciones de escritorio. No repetir suites de funciones retiradas ni hacer inferencias reales para validar el MVP de copiar prompts.

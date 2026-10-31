@@ -1,6 +1,6 @@
 # Desarrollo de Konsora
 
-Konsora visualiza tareas en archivos y permite seleccionar varias para generar un prompt que se copia y pega fuera de la aplicación. El [plan vigente](../TASKS.md) limita el MVP a ese flujo; no hay chats, cuentas, consultas de proveedores ni ejecución de agentes.
+Konsora visualiza tareas en archivos y permite seleccionar varias para generar un prompt que se copia y pega fuera de la aplicación. Las [reglas de desarrollo](../AGENTS.md) limitan el MVP a ese flujo; no hay chats, cuentas, consultas de proveedores ni ejecución de agentes. El único [backlog operativo](../.konsora/tasks.json) usa el mismo formato que cualquier proyecto abierto en Konsora.
 
 ## Instalación
 
@@ -41,7 +41,7 @@ El escritorio conserva el registro de proyectos y los datos históricos en `${XD
 
 Crea o abre un proyecto desde la barra lateral. Despliega **Carpeta y proyecto**, pulsa **Seleccionar carpeta…**, elige una carpeta existente y guarda la asociación. En desarrollo web se introduce la ruta absoluta. Se valida su destino canónico y acceso, rechazando ubicaciones inseguras. Abrir/asociar no crea archivos ni inicia herramientas.
 
-El origen es `.konsora/tasks.json`; el [formato v1, esquema y ejemplo](formato-tareas.md) permiten que una IA externa lo genere. No se interpreta Markdown arbitrario ni el backlog de desarrollo `TASKS.md`.
+El origen es `.konsora/tasks.json`; el [formato v1, esquema y ejemplo](formato-tareas.md) permiten que una IA externa lo genere. No se interpretan planes Markdown. Para desarrollar Konsora también se utiliza este JSON: `sort_order` determina el orden, y cada tarea contiene su estado, dependencias y criterios. Registrar una propuesta o dejarla pendiente no autoriza implementarla. El antiguo `TASKS.md` se conserva como [plan histórico](plans/2026-10-31-backlog-markdown-archivado.md), sin mantenimiento operativo.
 
 Si falta el archivo, **Preparar archivo de tareas** muestra destino y confirmación antes de crearlo. Con tareas SQL anteriores aparece **Revisar migración a archivos**, que incluye conteos de tareas, intentos y eventos. No se borran las filas anteriores ni se sobrescribe un `tasks.json` existente. Una carpeta copiada permite reconstruir tarjetas e historial sin la base privada de otra instalación.
 

@@ -4,7 +4,7 @@
 
 El código responde al plan anterior: proyectos, conversaciones y un módulo de debate simulado. La necesidad expresada ahora es gestionar y ejecutar trabajo desde un tablero con una sola cuenta. El desajuste principal estaba en la prioridad del producto: tablero y ejecución se habían dejado para después del MVP, y las tareas dependían de un debate con dos proveedores. No hace falta reconstruir toda la aplicación; sí cambiar su flujo principal y añadir el modelo y supervisor de tareas que aún no existen.
 
-Esta revisión es documental. El debate permanece en el código hasta K-014, y no se presentan como existentes ni el tablero ni la ejecución. El nuevo orden, aceptación y pruebas están en [TASKS.md](../TASKS.md).
+Esta revisión es documental. El debate permanece en el código hasta K-014, y no se presentan como existentes ni el tablero ni la ejecución. El orden, aceptación y pruebas de entonces se conservan en el [plan de ejecución integrada archivado](plans/2026-10-30-plan-ejecucion-integrada.md). El [backlog JSON](../.konsora/tasks.json) contiene el estado vigente.
 
 ## Evidencias del repositorio
 
