@@ -1001,7 +1001,7 @@
     {
       "id": "UI-03",
       "title": "Human actions, invalid-file and external-change states",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-02",
@@ -1031,7 +1031,7 @@
         "at": "2026-10-31T18:10:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T18:10:00Z",
+      "updated_at": "2026-10-31T23:06:27Z",
       "notes": [
         {
           "id": "n1",
@@ -1039,6 +1039,20 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Created from docs/roadmap.md, approved by the human in Phase 0 (2026-10-31). See docs/esquema-tareas.md for the spec."
+        },
+        {
+          "id": "n2",
+          "at": "2026-10-31T23:00:35Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Task panel opened from a card: description, criteria, notes timeline and the human actions for its state (approve, accept, send back with feedback, reopen, answer an open question) as ops with expect hashes; external-change badge on cards + panel box with confirm/revert; invalid plan → read-only (last good board kept, no drag or actions) with the issue list. Daemon test for each action's file + ledger round trip; CDP e2e."
+        },
+        {
+          "id": "n3",
+          "at": "2026-10-31T23:06:27Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "core availableActions decides the human actions per task by dry-running applyOp. Task panel opened from a card: description, criteria, deps, notes timeline and the allowed actions (approve, answer, accept, send back with feedback, reopen) sent as ops with expect hashes. External changes: card badge, board banner and panel box in Spanish with Confirmar/Revertir. Invalid plan: read-only mode with the issue list and the last valid board without drag or actions. ac1: daemon test sends each action as the web does and checks tasks.json and approvals.jsonl; CDP e2e in headless Chrome did the five actions from the panel and found each in the file and the ledger; confirm/revert of a hand-made done→todo also logged. ac2: invalid state written by hand → read-only banner with /tasks/16/state listed in ~150 ms, 0 draggable cards, no action buttons; fixed file restores the board in ~170 ms. ac3: npm run check green, 423 tests. Commit eb5d332."
         }
       ]
     },
