@@ -1,4 +1,5 @@
 /** Helpers shared by the CLI commands: I/O, errors, plan discovery and loading. */
+import { resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import type { TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError, tasksPath } from "@konsora/core/store";
@@ -53,7 +54,38 @@ export function storeError(error: StoreError, root: string): never {
   }
 }
 
+export type RunScope = { task?: string; run?: string };
+
+/**
+ * Inside a Konsora run the runner sets KONSORA_TASK (KONSORA_RUN_TASK is accepted as an alias)
+ * and KONSORA_RUN: an agent may then only work on that task, and its notes carry the run id.
+ */
+export function runScope(env: NodeJS.ProcessEnv): RunScope {
+  const task = env.KONSORA_TASK?.trim().toUpperCase() || undefined;
+  const alias = env.KONSORA_RUN_TASK?.trim().toUpperCase() || undefined;
+  if (task && alias && task !== alias) {
+    throw new CliError(
+      `KONSORA_TASK (${task}) and KONSORA_RUN_TASK (${alias}) name different tasks.`,
+      "Set only KONSORA_TASK.",
+      EXIT.usage,
+    );
+  }
+  const scope: RunScope = {};
+  const runTask = task ?? alias;
+  if (runTask) scope.task = runTask;
+  if (env.KONSORA_RUN?.trim()) scope.run = env.KONSORA_RUN.trim();
+  return scope;
+}
+
 export function locate(io: Io, explicit: string | undefined): string {
+  const project = io.env.KONSORA_PROJECT;
+  if (project && explicit && resolve(io.cwd, explicit) !== resolve(io.cwd, project)) {
+    throw new CliError(
+      "--root points to a different plan than KONSORA_PROJECT.",
+      "Inside a Konsora run the plan lives in the main checkout: drop --root.",
+      EXIT.usage,
+    );
+  }
   const root = findRoot(io.cwd, explicit, io.env);
   if (!root) {
     throw new CliError(

@@ -1485,7 +1485,7 @@
     {
       "id": "MCP-02",
       "title": "Herramientas de escritura de agente en el MCP",
-      "state": "review",
+      "state": "done",
       "group": "MCP",
       "deps": [
         "MCP-01"
@@ -1517,7 +1517,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:17:30Z",
+      "updated_at": "2026-11-01T10:18:36Z",
       "notes": [
         {
           "id": "n1",
@@ -1538,7 +1538,7 @@
     {
       "id": "MCP-03",
       "title": "Modo run del MCP limitado a su tarea",
-      "state": "todo",
+      "state": "review",
       "group": "MCP",
       "deps": [
         "MCP-02"
@@ -1570,7 +1570,23 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:08:00Z"
+      "updated_at": "2026-11-01T10:21:37Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T10:19:49Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Regla en core: con runTask, un agente solo puede note, ask y finish sobre su tarea, o propose/batch; lo demás devuelve out_of_scope. Contexto de run compartido por la CLI y el MCP: KONSORA_TASK (o el alias KONSORA_RUN_TASK; si los dos difieren, error) y KONSORA_RUN. KONSORA_PROJECT fija la raíz del plan por encima de KONSORA_ROOT y de la búsqueda desde cwd, y un --root distinto es un error. Las instrucciones del servidor MCP mencionan el run. Tests con un checkout principal y una copia que hace de worktree."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T10:21:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Modo run del MCP, que comparte las reglas con la CLI.\n- Regla nueva en core (ops.ts, RUN_OPS): con runTask, un agente solo puede hacer note, ask y finish sobre su tarea, o propose y batch. Cualquier otra operación (start, pause, depend, edit…) devuelve out_of_scope, también sobre la propia tarea, porque la tarea la empieza el runner. El runner (konsora) no tiene esa limitación.\n- runScope en shared.ts: lee KONSORA_TASK (con KONSORA_RUN_TASK como alias; si los dos difieren, es un error de uso) y KONSORA_RUN. Lo usan runOp y, por tanto, tanto la CLI como el MCP.\n- Raíz del proyecto: KONSORA_PROJECT tiene prioridad sobre KONSORA_ROOT y sobre la búsqueda desde cwd, así que se ignora el .konsora/ copiado en el worktree. Un --root que apunte a otro plan da un error con pista.\n- En modo run, las instrucciones del servidor MCP le dicen al agente en qué run y tarea está y qué puede hacer.\n- Docs: esquema-tareas.md (fila todo → doing) y arquitectura.md §6 actualizados.\nCriterios:\n- ac1: test/mcp-run.test.ts prueba note, ask, finish, start, pause y depend sobre otra tarea. Todos devuelven 'Error (out_of_scope): This run works on BE-04' con la pista, y tasks.json no cambia. También se prueba el rechazo de pause, start y depend sobre la propia tarea.\n- ac2: el servidor arranca en worktree/src/deep (una copia con su propio .konsora/) con KONSORA_PROJECT apuntando al checkout principal. Las lecturas y escrituras van al principal y la copia del worktree queda igual byte a byte. Hay un test equivalente para la CLI.\n- ac3: las notas de note, ask y finish llevan run = KONSORA_RUN y by = agent:claude.\n- ac4: npm run check pasa (33 archivos, 525 tests). La única advertencia de Biome ya existía (daemon/test/events.test.ts).\nNota: según esquema-tareas.md §146, dentro de un run el runner aplicará doing → review después de los checks. Eso es de M6 y M8; por ahora, finish en modo run pasa la tarea a review directamente, como fuera de un run."
+        }
+      ]
     },
     {
       "id": "MCP-04",

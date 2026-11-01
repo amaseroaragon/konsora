@@ -185,7 +185,7 @@ La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salid
 
 Más comandos de la CLI: `init`, `migrate`, `ui`, `mcp`, `run <ids…>`, `runs [id]`, `cancel <run>`. Las transiciones humanas **no** están en la CLI ni en el MCP.
 
-- **MCP en modo run**: el runner lo inyecta con `KONSORA_PROJECT=<checkout principal>`, `KONSORA_RUN=<id>` y `KONSORA_TASK=<id>`. En este modo las escrituras se limitan a la tarea del run (`note`, `ask`, `finish`, `propose` de subtareas como `proposed`), y añade la herramienta `permission` para Claude. Escribe en el `tasks.json` del checkout principal, no en la copia del worktree.
+- **MCP en modo run**: el runner lo inyecta con `KONSORA_PROJECT=<checkout principal>`, `KONSORA_RUN=<id>` y `KONSORA_TASK=<id>`. En este modo las escrituras se limitan a la tarea del run (`note`, `ask`, `finish`, `propose` de subtareas como `proposed`), y añade la herramienta `permission` para Claude. Escribe en el `tasks.json` del checkout principal, no en la copia del worktree: `KONSORA_PROJECT` manda sobre `KONSORA_ROOT` y sobre la búsqueda desde la carpeta actual, y un `--root` distinto es un error. La CLI aplica las mismas reglas y acepta `KONSORA_RUN_TASK` como alias de `KONSORA_TASK`.
 - **MCP o CLI en una sesión manual**: un agente que el usuario abre por su cuenta usa `konsora` o `konsora mcp`, que funcionan sin daemon. `konsora init` instala una skill o snippet que explica el protocolo (como hace Kanvas).
 - Los mensajes de la CLI y el MCP están en inglés y los errores son accionables: `Error: BE-03 is blocked by BE-02 (review). Wait for acceptance or ask the human.`
 

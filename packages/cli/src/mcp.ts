@@ -12,7 +12,7 @@ import { z } from "zod";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
 import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
-import { type Io, load, locate, VERSION } from "./shared.ts";
+import { type Io, load, locate, type RunScope, runScope, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 
@@ -24,18 +24,33 @@ const listFilter = {
   waiting: z.boolean().optional().describe("only tasks waiting for an answer from the human"),
 };
 
+const GUIDE =
+  "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
+  "show. Plan by proposing tasks (propose, batch): a human approves them. Work one task at a " +
+  "time: start it, add notes as you go, ask when blocked on a decision (then stop and wait), " +
+  "and finish with a summary of how you met each acceptance criterion (then stop for review). " +
+  "Humans approve, accept and change approved work; there are no tools for that. " +
+  "Never edit .konsora/tasks.json by hand.";
+
+function instructions(env: NodeJS.ProcessEnv): string {
+  let scope: RunScope;
+  try {
+    scope = runScope(env);
+  } catch {
+    return GUIDE;
+  }
+  if (!scope.task) return GUIDE;
+  return (
+    `${GUIDE}\n\nYou are inside Konsora run ${scope.run ?? "(unnamed)"}, working on ${scope.task}. ` +
+    `It is already started: record progress with note, ask the human with ask, and end with ` +
+    `finish and a summary. You may propose follow-up tasks; every other write is out of scope.`
+  );
+}
+
 export function createMcpServer(io: Io, root: string | undefined): McpServer {
   const server = new McpServer(
     { name: "konsora", version: VERSION },
-    {
-      instructions:
-        "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
-        "show. Plan by proposing tasks (propose, batch): a human approves them. Work one task at a " +
-        "time: start it, add notes as you go, ask when blocked on a decision (then stop and wait), " +
-        "and finish with a summary of how you met each acceptance criterion (then stop for review). " +
-        "Humans approve, accept and change approved work; there are no tools for that. " +
-        "Never edit .konsora/tasks.json by hand.",
-    },
+    { instructions: instructions(io.env) },
   );
 
   server.registerTool(

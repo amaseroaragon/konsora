@@ -141,7 +141,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 | `proposed` → borrada | A, H | `withdraw`. Solo si ninguna otra tarea depende de ella. |
 | `proposed` → `todo` | **H** | `approve`. |
 | editar `todo`/`review`/`done` | **H** | Los agentes no cambian trabajo aprobado; solo añaden notas y dependencias. |
-| `todo` → `doing` | A, K | `start`. Rechazado si está `blocked`. Un agente ejecutándose dentro de un run solo puede empezar su propia tarea. |
+| `todo` → `doing` | A, K | `start`. Rechazado si está `blocked`. Dentro de un run, la tarea la empieza el runner: el agente solo puede hacer `note`, `ask` y `finish` sobre su tarea, o proponer tareas nuevas (`out_of_scope` en otro caso). |
 | `doing` → `todo` | A, K, H | `pause` (opcionalmente con nota), cancelación o fallo de un run. |
 | `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, el runner aplica la transición **después** de los checks (§6). |
 | `review` → `done` | **H** | `accept`. Si la tarea tiene un run, integra su rama (squash, ver `arquitectura.md`). |

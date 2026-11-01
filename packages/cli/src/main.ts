@@ -40,7 +40,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .version(VERSION)
     .option(
       "--root <dir>",
-      "project folder (default: nearest ancestor with .konsora/, or $KONSORA_ROOT)",
+      "project folder (default: $KONSORA_PROJECT, $KONSORA_ROOT, or nearest ancestor with .konsora/)",
     )
     .showHelpAfterError("(run `konsora --help` for usage)")
     .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })

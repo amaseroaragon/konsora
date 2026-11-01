@@ -13,7 +13,16 @@ import { mutate } from "@konsora/core/store";
 import type { Command } from "commander";
 import { z } from "zod";
 import { showText, views } from "./format.ts";
-import { CliError, EXIT, type Io, json, locate, storeError, timestamp } from "./shared.ts";
+import {
+  CliError,
+  EXIT,
+  type Io,
+  json,
+  locate,
+  runScope,
+  storeError,
+  timestamp,
+} from "./shared.ts";
 
 const AGENT_NAME = /^[a-z0-9][a-z0-9._-]{0,39}$/;
 
@@ -180,8 +189,9 @@ export async function runOp(
 ): Promise<WriteOutcome> {
   const root = locate(io, explicitRoot);
   const ctx: OpContext = { actor, at: timestamp(io) };
-  if (io.env.KONSORA_RUN_TASK) ctx.runTask = io.env.KONSORA_RUN_TASK;
-  if (io.env.KONSORA_RUN) ctx.run = io.env.KONSORA_RUN;
+  const scope = runScope(io.env);
+  if (scope.task) ctx.runTask = scope.task;
+  if (scope.run) ctx.run = scope.run;
   const result = await mutate(root, op, ctx);
   if (result.ok)
     return {

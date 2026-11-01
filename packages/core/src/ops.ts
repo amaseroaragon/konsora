@@ -155,6 +155,8 @@ const EDITABLE = ["title", "desc", "acceptance", "labels", "agent", "group", "ra
 
 /** Ops an agent inside a run may apply to tasks other than its own. */
 const RUN_SCOPE_FREE: ReadonlySet<OpName> = new Set(["propose", "batch"]);
+/** All an agent inside a run may do: note, ask and finish its own task, or propose new tasks. */
+const RUN_OPS: ReadonlySet<OpName> = new Set(["note", "ask", "finish", ...RUN_SCOPE_FREE]);
 
 class OpFailure extends Error {
   readonly detail: OpError;
@@ -198,16 +200,19 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
   }
 
-  if (
-    ctx.runTask &&
-    role === "agent" &&
-    "task" in op &&
-    op.task !== ctx.runTask &&
-    !RUN_SCOPE_FREE.has(op.op)
-  ) {
-    fail("out_of_scope", `This run works on ${ctx.runTask}; it cannot ${op.op} ${op.task}`, {
-      task: op.task,
-    });
+  if (ctx.runTask && role === "agent") {
+    if ("task" in op && op.task !== ctx.runTask && !RUN_SCOPE_FREE.has(op.op)) {
+      fail("out_of_scope", `This run works on ${ctx.runTask}; it cannot ${op.op} ${op.task}`, {
+        task: op.task,
+      });
+    }
+    if (!RUN_OPS.has(op.op)) {
+      fail(
+        "out_of_scope",
+        `Inside a run you can only note, ask and finish ${ctx.runTask}, or propose new tasks; ${op.op} is not available`,
+        "task" in op ? { task: op.task } : {},
+      );
+    }
   }
 
   const changed = new Set<string>();

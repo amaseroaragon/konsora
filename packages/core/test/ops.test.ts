@@ -319,6 +319,19 @@ describe("run scope", () => {
     expect(err(applyOp(d, { op: "note", task: "BE-01", text: "x" }, inRun))).toBe("ok");
     expect(err(applyOp(d, { op: "propose", title: "Follow-up", group: "BE" }, inRun))).toBe("ok");
   });
+
+  it("inside a run, the agent may only note, ask and finish its task (the runner starts it)", () => {
+    for (const op of [
+      { op: "pause", task: "BE-01" },
+      { op: "depend", task: "BE-01", on: "BE-02" },
+      { op: "edit", task: "BE-01", changes: { title: "x" } },
+    ] as const)
+      expect(err(applyOp(d, op, inRun)), op.op).toBe("out_of_scope");
+    expect(err(applyOp(d, { op: "ask", task: "BE-01", text: "Q?" }, inRun))).toBe("ok");
+    expect(err(applyOp(d, { op: "finish", task: "BE-01", summary: "S" }, inRun))).toBe("ok");
+    const asRunner = { actor: "konsora", at: inRun.at, runTask: "BE-01" };
+    expect(err(applyOp(d, { op: "pause", task: "BE-01" }, asRunner))).toBe("ok");
+  });
 });
 
 describe("preconditions (per-task hashes)", () => {
