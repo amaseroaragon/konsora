@@ -887,7 +887,7 @@
     {
       "id": "DMN-04",
       "title": "API y eventos de runs en el daemon",
-      "state": "todo",
+      "state": "review",
       "group": "DMN",
       "deps": [
         "RUN-05",
@@ -922,7 +922,23 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:38Z"
+      "updated_at": "2026-11-01T12:07:24Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T12:02:15Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "RunManager en daemon/src/runs.ts: lanza runs con el supervisor (RunRegistry sobre Approvals), mantiene las sesiones vivas, cancela, entrega respuestas tras answer e integra en accept. Un RunStore que publica run.event y run.state al hub WS al escribir (mismo orden que events.jsonl). Rutas en app.ts: POST/GET /projects/:id/runs, GET /runs/:runId, /events, /diff y POST /cancel, todas tras el guard de token/Host/Origin. accept con run: comprueba la op en seco, integra y luego acepta; conflicto → 409 y la tarea sigue en review. answer → deliverAnswer. Aprobaciones → waiting_approval. Al arrancar, recoverRuns en cada proyecto. Comando del MCP por defecto: el bin de la CLI de este checkout (KONSORA_MCP_BIN lo cambia)."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T12:07:24Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "RunManager en packages/daemon/src/runs.ts, rutas en app.ts y conexión en server.ts. Probado con un daemon real (startDaemon), un adaptador falso y un repo git temporal (packages/daemon/test/runs.test.ts).\n\n- ac1: lanzar (POST /projects/:id/runs → 201), listar (?task=), leer, ver events y diff, y cancelar (POST …/cancel → run cancelled y tarea en todo) por HTTP. Un run no listo da 409 not_ready; un cuerpo inválido, 400; un run desconocido, 404; cancelar dos veces, 409 not_active. Las cuatro rutas de runs devuelven 403 sin token, con un token incorrecto o con un Origin ajeno, sin lanzar nada. El MCP del run recibe la URL del daemon y su propio token, nunca el del humano (tests).\n- ac2: un suscriptor WS del proyecto recibe run.event en el mismo orden que events.jsonl (started, file, message, turn_end, finished) y run.state en cada cambio de run.json, de queued a succeeded (test).\n- ac3: accept sobre una tarea con un run succeeded sin integrar comprueba la op en seco, integra y después marca done: queda exactamente un commit nuevo en main («BE-01: …»), los archivos del checkout se actualizan, la integración queda merged y la respuesta incluye integrated {run, commit}. Con conflicto: 409 integration_conflict con los ficheros, main sin tocar, la tarea en review y la integración en conflict (tests).\n- ac4: npm run check pasa (650 tests).\n\nMás (tests incluidos): tras la op answer, el daemon entrega la respuesta al run que la espera; una aprobación pendiente pasa el run a waiting_approval y vuelve a running al decidirla; al arrancar, los runs vivos quedan interrupted sin relanzarse. El comando del MCP por defecto es la CLI de este checkout (KONSORA_MCP_BIN lo cambia), igual que webDir.\n\nCorrección en el runner (RUN-06): este test destapó una carrera. Si la respuesta se escribía antes de que el supervisor procesara el fin del turno, la pregunta ya no constaba como abierta y el run se cerraba sin entregarla. Ahora el supervisor recuerda qué respuestas ha entregado y espera las que están escritas pero sin entregar (test nuevo en el runner).\n\nLímite: al cerrar el daemon no se matan los procesos de los agentes vivos; sus runs quedan interrupted en el siguiente arranque. Cerrar sin dejar procesos huérfanos es un criterio de M10.\nDocumentado en arquitectura.md §4."
+        }
+      ]
     },
     {
       "id": "UI-01",
@@ -2170,7 +2186,7 @@
     {
       "id": "RUN-06",
       "title": "Entregar al agente las respuestas del humano",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-05"
@@ -2198,7 +2214,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:55:18Z",
+      "updated_at": "2026-11-01T12:00:45Z",
       "notes": [
         {
           "id": "n1",
@@ -2219,7 +2235,7 @@
     {
       "id": "RUN-07",
       "title": "Cancelar runs y marcar los interrumpidos",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-05"
@@ -2247,7 +2263,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:57:36Z",
+      "updated_at": "2026-11-01T12:00:47Z",
       "notes": [
         {
           "id": "n1",
