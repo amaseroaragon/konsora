@@ -29,7 +29,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 Vista de grafo (`@xyflow/react` + ELK) coloreada por estado, con selección de subgrafo. Panel de detalle: markdown, criterios, línea de tiempo de notas, dependencias navegables y edición del trabajo aprobado (solo el humano).
 ✅ Un proyecto de 150 tareas se dibuja en menos de 1 s y es navegable con el teclado. Una selección en el grafo se conserva al pasar al tablero.
 
-## M5 — Servidor MCP
+## M5 — Servidor MCP ✔ (2026-11-01)
 
 🔧 `konsora mcp` (stdio), con las mismas operaciones de agente que la CLI, y modo run (`KONSORA_RUN`/`KONSORA_TASK`) con escritura limitada a su tarea. Herramienta `permission`.
 ✅ Una sesión real de Claude Code y otra de Codex, cada una con el MCP configurado, listan las tareas ready, empiezan una, añaden una nota y la terminan con un resumen. En modo run, intentar escribir en otra tarea devuelve un error (con test).
