@@ -943,7 +943,7 @@
     {
       "id": "DMN-05",
       "title": "Catálogo de agentes y validación al lanzar",
-      "state": "review",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "RUN-13"
@@ -971,7 +971,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T14:57:31Z",
+      "updated_at": "2026-11-01T14:58:03Z",
       "notes": [
         {
           "id": "n1",
@@ -1733,7 +1733,7 @@
     {
       "id": "UI-14",
       "title": "Uso y rate limits visibles en la UI",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "RUN-11",
@@ -1762,7 +1762,23 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:58:04Z"
+      "updated_at": "2026-11-01T15:00:33Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T15:00:32Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Marcada tarde: el trabajo ya está hecho (commit de UI-14); paso a review."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T15:00:33Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Sección del run: muestra los tokens de entrada y salida, la caché (leída y escrita, como parte de la entrada), el razonamiento (como parte de la salida) y el coste. Si el proveedor no da coste (Codex), dice El proveedor no lo da. Si un run cerrado no tiene uso, o solo tiene ceros sin eventos de uso, dice El proveedor no da el uso. En vivo, runUsage suma también el desglose de los eventos usage. Página del proyecto: nuevo panel Últimos rate limits conocidos, con latestRateLimits de core, que toma la última foto de cada proveedor del run más reciente que la dio. Muestra cada ventana (5 h, 7 días o N min), su utilización con un meter y en %, su estado (disponible, cerca del límite o agotado) y cuándo se reinicia, y aclara que son de la cuenta y no del proyecto. ac1: tests en web/test/usage.test.tsx (desglose completo, Codex sin coste, run sin uso y suma en vivo). ac2: test con las ventanas de Claude y Codex, su utilización, estado y reinicio, más el test de core de latestRateLimits. ac3: npm run check pasa (757 tests). Limitaciones: los rate limits salen de run.json, que se escribe al cerrar el run, así que los de un run en marcha aparecen cuando termina. No lo he revisado en un navegador."
+        }
+      ]
     },
     {
       "id": "MCP-01",
