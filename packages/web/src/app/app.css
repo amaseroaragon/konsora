@@ -542,3 +542,116 @@
     margin-left: 0;
   }
 }
+
+/* Markdown in task descriptions and notes (UI-08): only Plano tokens, no inline styles. */
+.md {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md .md-pre {
+  margin: 0 0 var(--k-space-6);
+}
+.md ul,
+.md ol {
+  padding-left: var(--k-space-9);
+}
+.md li + li {
+  margin-top: var(--k-space-2);
+}
+.md .md-h {
+  margin: var(--k-space-8) 0 var(--k-space-4);
+  color: var(--k-ink);
+  font-weight: var(--k-weight-semibold);
+  line-height: 1.3;
+}
+.md .md-h1 {
+  font-size: var(--k-text-lg);
+}
+.md .md-h2 {
+  font-size: var(--k-text-md);
+}
+.md .md-h3,
+.md .md-h4,
+.md .md-h5,
+.md .md-h6 {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--k-ink-muted);
+}
+.md code {
+  padding: 0 var(--k-space-2);
+  background: var(--k-neutral-soft);
+  color: var(--k-neutral-ink);
+  font-family: var(--k-font-mono);
+  font-size: 0.92em;
+}
+.md .md-pre {
+  overflow-x: auto;
+  padding: var(--k-space-5) var(--k-space-6);
+  border: 1px solid var(--k-line);
+  background: var(--k-surface-sunken);
+  color: var(--k-ink);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+  line-height: 1.5;
+}
+.md .md-pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+.md a {
+  color: var(--k-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md a:focus-visible {
+  outline: 2px solid var(--k-focus);
+  outline-offset: 2px;
+}
+.md blockquote {
+  padding-left: var(--k-space-6);
+  border-left: 3px solid var(--k-line-strong);
+  color: var(--k-ink-muted);
+}
+.md hr {
+  margin: var(--k-space-7) 0;
+  border: 0;
+  border-top: 1px solid var(--k-line);
+}
+.md--compact p,
+.md--compact ul,
+.md--compact ol,
+.md--compact blockquote,
+.md--compact .md-pre {
+  margin-bottom: var(--k-space-3);
+}
+.md li > p {
+  margin: 0;
+}
+.a-note__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  min-width: 0;
+}
+/* On a warning-tinted note (feedback, question) text and links keep the note's ink. */
+.a-note--feedback .md,
+.a-note--question .md,
+.a-note--feedback .md a,
+.a-note--question .md a {
+  color: inherit;
+}

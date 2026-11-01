@@ -6,7 +6,7 @@ import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
-import { Rich } from "./Rich.tsx";
+import { Markdown } from "./Markdown.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   approve: "action.approve",
@@ -196,11 +196,7 @@ export function TaskPanel({
             </Button>
           </div>
         )}
-        {task.desc && (
-          <p className="a-desc">
-            <Rich text={task.desc} />
-          </p>
-        )}
+        {task.desc && <Markdown className="a-desc" text={task.desc} />}
         {(task.acceptance ?? []).length > 0 && (
           <table className="a-criteria">
             <caption className="k-label">{t("detail.criteria")}</caption>
@@ -243,13 +239,13 @@ export function TaskPanel({
               {(task.notes ?? []).map((note) => (
                 <li key={note.id} className={`a-note a-note--${note.kind}`}>
                   <span className="k-mono a-note__at">{when(note.at)}</span>
-                  <span>
+                  <div className="a-note__body">
                     <b className="a-note__by">
                       {note.by === "human" ? t("detail.you") : note.by.replace(/^agent:/, "")} ·{" "}
                       {t(`note.${note.kind}`)}
-                    </b>{" "}
-                    {note.text}
-                  </span>
+                    </b>
+                    <Markdown className="md--compact" text={note.text} />
+                  </div>
                 </li>
               ))}
             </ol>
