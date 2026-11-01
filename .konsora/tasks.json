@@ -1214,7 +1214,7 @@
     {
       "id": "UI-06",
       "title": "Navegación con teclado en el grafo",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "UI-05"
@@ -1246,7 +1246,7 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:31:04Z",
+      "updated_at": "2026-11-01T09:33:36Z",
       "notes": [
         {
           "id": "n1",
@@ -1267,7 +1267,7 @@
     {
       "id": "UI-07",
       "title": "Selección de tareas y de subgrafos compartida entre grafo y tablero",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "UI-05"
@@ -1299,7 +1299,23 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:09:23Z"
+      "updated_at": "2026-11-01T09:40:43Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T09:34:17Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: función pendingSubgraph en core (tarea + dependencias transitivas sin hacer, en orden topológico) con tests; almacén de selección por proyecto en web, compartido por tablero y grafo (vive fuera de las vistas, solo en memoria); casillas en las tarjetas y en los nodos; «Seleccionar con dependencias» en el grafo (Mayús+clic, Mayús+Espacio y botón del panel); barra de selección con contador, Quitar y Ejecutar desactivado hasta M6."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T09:40:43Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Una sola selección por proyecto, en memoria (selection.ts), compartida por el tablero y el grafo. Se conserva al cambiar de vista y las tareas hechas o que desaparecen salen de ella solas. En el tablero hay casillas en las tarjetas. En el grafo hay una casilla por nodo, Espacio selecciona el nodo con el foco, y Mayús+Espacio o Mayús+clic lo seleccionan con sus dependencias pendientes; el panel de tarea ofrece además «Seleccionar con dependencias» en la vista Grafo. La barra de selección muestra el contador y los ids, permite Quitar y deja Ejecutar desactivado hasta M6. ac1: test/selection.test.tsx comprueba que lo seleccionado desde el grafo aparece en el grafo, marcado en el tablero y otra vez en el grafo; en Chrome, con el plan de 150 tareas, la selección pasó del grafo al tablero y una casilla desmarcada en el tablero se reflejó al volver al grafo. ac2: pendingSubgraph en core, con tests unitarios y una propiedad sobre planes aleatorios. ac3: el test confirma que seleccionar no llama al daemon, y en Chrome el sha256 de tasks.json no cambió en toda la sesión. ac4: npm run check pasa (467 tests). Además corrige un fallo de UI-05: el clic con ratón en un nodo no abría el panel porque React Flow desactivaba los eventos de puntero; ahora funciona. Commit 5e96181."
+        }
+      ]
     },
     {
       "id": "UI-08",
