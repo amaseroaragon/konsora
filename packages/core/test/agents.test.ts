@@ -32,6 +32,8 @@ describe("checkAgent", () => {
     ).toBe(true);
     expect(checkAgent({ provider: "codex", model: "gpt-9" }, codex)).toEqual({
       ok: false,
+      code: "model",
+      options: ["gpt-6-luna"],
       reason: 'codex has no model "gpt-9"; use "gpt-6-luna"',
     });
   });
@@ -44,6 +46,8 @@ describe("checkAgent", () => {
   it("only offers the efforts Konsora can ask for", () => {
     expect(checkAgent({ provider: "codex", model: "gpt-6-luna", effort: "high" }, codex)).toEqual({
       ok: false,
+      code: "effort",
+      options: ["low"],
       reason: 'gpt-6-luna does not take effort "high"; use "low" or none',
     });
   });

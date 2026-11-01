@@ -1,5 +1,6 @@
-import { pendingSubgraph } from "@konsora/core";
+import { type AgentSpec, pendingSubgraph } from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAgents } from "../api/agents.ts";
 import { useApprovals } from "../api/approvals.ts";
 import { type BoardOk, type LiveState, toDocument } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
@@ -7,13 +8,14 @@ import { useRuns, useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { ApprovalNotice } from "./Approvals.tsx";
+import { initialBatchAgent } from "./agent-model.ts";
 import { Board } from "./Board.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
 import { RateLimits } from "./RateLimits.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
-import { agentForRun, runErrorText, runnableSelection } from "./run-model.ts";
+import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskPanel } from "./TaskPanel.tsx";
@@ -105,6 +107,17 @@ export function ProjectView({
   );
   const open = useCallback((id: string) => go({ task: id }), [go]);
   const runnable = runnableSelection(selectedIds, board.tasks, { readOnly, runs });
+  const catalog = useAgents().data;
+  const [chosenAgent, setChosenAgent] = useState<AgentSpec | undefined>(undefined);
+  const batchAgent =
+    chosenAgent ??
+    (catalog
+      ? initialBatchAgent(
+          board.tasks.filter((task) => runnable.includes(task.id)),
+          board.plan.project,
+          catalog,
+        )
+      : undefined);
   /** Launches each selected ready task in its own run, one after another. */
   const runSelected = async (ids: readonly string[]) => {
     let started = 0;
@@ -112,7 +125,7 @@ export function ProjectView({
       const task = board.tasks.find((x) => x.id === id);
       if (!task) continue;
       try {
-        await startRun.mutateAsync({ task: id, agent: agentForRun(task, board.plan.project) });
+        await startRun.mutateAsync({ task: id, agent: catalog ? batchAgent : undefined });
         started++;
       } catch (error) {
         if (error instanceof ApiError && error.unauthorized) return;
@@ -226,6 +239,9 @@ export function ProjectView({
           runnable={runnable}
           readOnly={readOnly}
           busy={startRun.isPending}
+          agent={batchAgent}
+          catalog={catalog}
+          onAgent={setChosenAgent}
           onRun={(ids) => void runSelected(ids)}
           onClear={() => dispatchSelection({ type: "clear" })}
         />

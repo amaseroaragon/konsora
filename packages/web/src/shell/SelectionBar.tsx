@@ -1,6 +1,9 @@
+import type { AgentCatalogEntry, AgentSpec } from "@konsora/core";
 import { useId } from "react";
 import { t } from "../i18n/index.ts";
 import { Button } from "../ui/index.ts";
+import { AgentPicker } from "./AgentPicker.tsx";
+import { agentProblem } from "./agent-model.ts";
 
 /**
  * How many tasks are selected, which ones, and Run: it launches the selected tasks that are ready
@@ -11,6 +14,9 @@ export function SelectionBar({
   runnable,
   readOnly,
   busy = false,
+  agent,
+  catalog,
+  onAgent,
   onRun,
   onClear,
 }: {
@@ -19,11 +25,17 @@ export function SelectionBar({
   runnable: readonly string[];
   readOnly: boolean;
   busy?: boolean;
+  /** The agent every launched run uses; `undefined` while the catalog loads. */
+  agent?: AgentSpec | undefined;
+  /** `GET /api/agents`; without it there is no selector and each task uses its own agent. */
+  catalog?: readonly AgentCatalogEntry[] | undefined;
+  onAgent?: (agent: AgentSpec) => void;
   onRun: (ids: readonly string[]) => void;
   onClear: () => void;
 }) {
   const hint = useId();
-  const disabled = readOnly || runnable.length === 0;
+  const problem = catalog ? agentProblem(agent, catalog) : null;
+  const disabled = readOnly || runnable.length === 0 || problem !== null;
   return (
     <section className="a-selection b-selection" aria-label={t("app.selection")}>
       <div className="a-selection__count">
@@ -36,6 +48,9 @@ export function SelectionBar({
           {t("app.selection.clear")}
         </Button>
       </div>
+      {catalog && onAgent && !readOnly && runnable.length > 0 && (
+        <AgentPicker agent={agent} catalog={catalog} onChange={onAgent} />
+      )}
       <div className="a-selection__controls">
         <p id={hint} className="b-selection__hint s-muted">
           {readOnly

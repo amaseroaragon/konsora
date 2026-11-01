@@ -76,6 +76,30 @@ export const es = {
   "run.section": "Run",
   "run.id": "Run {id}",
   "run.agent": "Agente",
+  "agent.label": "Agente del run",
+  "agent.provider": "Proveedor",
+  "agent.model": "Modelo",
+  "agent.effort": "Esfuerzo",
+  "agent.effort.default": "Por defecto",
+  "agent.profile": "Permisos",
+  "agent.loading": "Cargando los agentes disponibles…",
+  "agent.unavailable":
+    "No se pudo leer qué agentes hay: se usará el de la tarea o el del proyecto.",
+  "agent.notInstalled": "no instalado",
+  "agent.none": "Elige un modelo.",
+  "agent.problem.no_adapter": "Konsora todavía no sabe ejecutar {provider}.",
+  "agent.problem.not_installed":
+    "{provider} no está instalado o no está en el PATH: instálalo e inicia sesión con su CLI.",
+  "agent.problem.profile": "{provider} no tiene ese perfil de permisos; usa {options}.",
+  "agent.problem.model": "{provider} no tiene el modelo {model}; usa {options}.",
+  "agent.problem.effort": "{model} no admite ese esfuerzo; usa {options} o el de por defecto.",
+  "agent.warning.version":
+    "Tienes codex {version}, pero Konsora se hizo con {expected}: puede fallar. Regenera los tipos con npm run codex:types.",
+  "agent.warning.exec":
+    "codex app-server no está disponible: los runs usarán codex exec, sin aprobaciones ni rate limits.",
+  "agent.edit": "Agente de la tarea",
+  "agent.edit.inherit": "Usa el del proyecto ({agent}).",
+  "agent.edit.set": "Fijar un agente para esta tarea",
   "run.transport.exec":
     "Este run usa codex exec porque codex app-server no está disponible: no admite aprobaciones (lo que el sandbox no permite, falla) ni rate limits, y una respuesta tuya reanuda la sesión cuando el agente termina su turno.",
   "run.cost": "Coste",
@@ -395,6 +419,7 @@ export const es = {
   "edit.field.name.labels": "etiquetas",
   "edit.field.name.group": "grupo",
   "edit.field.name.acceptance": "criterios",
+  "edit.field.name.agent": "agente",
   "edit.error.title.empty": "El título no puede quedar vacío.",
   "edit.error.title.long": "El título no puede pasar de 120 caracteres.",
   "edit.error.desc.long": "La descripción es demasiado larga.",

@@ -14,10 +14,8 @@ import {
   startRunRequest,
 } from "../src/api/runs.ts";
 import {
-  agentForRun,
   appendEvent,
   canRun,
-  DEFAULT_AGENT,
   logRows,
   type RunEventRecord,
   runnableSelection,
@@ -29,6 +27,7 @@ import { SelectionBar } from "../src/shell/SelectionBar.tsx";
 import { TaskPanel } from "../src/shell/TaskPanel.tsx";
 import { ToastProvider } from "../src/ui/index.ts";
 
+const AGENT = { provider: "claude", model: "sonnet", permissions: "default" } as const;
 const at = "2026-11-02T10:00:00Z";
 const task = (id: string, extra: Partial<Task> = {}): Task => ({
   id,
@@ -156,24 +155,18 @@ describe("run model (UI-10)", () => {
     const once = appendEvent([events[0] as RunEventRecord], events[1] as RunEventRecord);
     expect(appendEvent(once, events[1] as RunEventRecord)).toHaveLength(2);
   });
-
-  it("sends Claude with the default profile unless the task or plan names an agent", () => {
-    expect(agentForRun({}, {})).toEqual(DEFAULT_AGENT);
-    expect(agentForRun({}, { defaults: { provider: "claude", model: "opus" } })).toBeUndefined();
-    expect(agentForRun({ agent: { provider: "claude", model: "haiku" } }, {})).toBeUndefined();
-  });
 });
 
 describe("launching runs (UI-10 ac1)", () => {
   it("posts the task (and the agent) to the daemon", async () => {
     const { calls, api } = recorder({ run: run({ state: "starting" }) });
-    const started = await startRunRequest(api, "p 1", { task: "BE-01", agent: DEFAULT_AGENT });
+    const started = await startRunRequest(api, "p 1", { task: "BE-01", agent: AGENT });
     expect(started.state).toBe("starting");
     expect(calls).toEqual([
       {
         url: "/api/projects/p%201/runs",
         method: "POST",
-        body: { task: "BE-01", agent: DEFAULT_AGENT },
+        body: { task: "BE-01", agent: AGENT },
       },
     ]);
   });

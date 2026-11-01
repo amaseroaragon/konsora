@@ -34,6 +34,17 @@ export type AgentCatalogEntry = {
   models_error?: string;
 };
 
+export type AgentCheck =
+  | { ok: true }
+  | {
+      ok: false;
+      code: "no_adapter" | "not_installed" | "profile" | "model" | "effort";
+      /** What is available instead (profiles, models or efforts). */
+      options?: string[];
+      /** In English, for the API and logs; the UI words it from `code` and `options`. */
+      reason: string;
+    };
+
 /** The agent a run of `task` uses: the one asked for, the task's, or the project's default. */
 export function runAgentFor(
   task: Task,
@@ -47,15 +58,14 @@ export function runAgentFor(
  * Whether `agent` is something its provider's adapter declares. The reason is actionable: it
  * says what is available instead.
  */
-export function checkAgent(
-  agent: AgentSpec,
-  entry: AgentCatalogEntry | undefined,
-): { ok: true } | { ok: false; reason: string } {
+export function checkAgent(agent: AgentSpec, entry: AgentCatalogEntry | undefined): AgentCheck {
   const provider = agent.provider;
-  if (!entry) return { ok: false, reason: `Konsora cannot run ${provider} yet` };
+  if (!entry)
+    return { ok: false, code: "no_adapter", reason: `Konsora cannot run ${provider} yet` };
   if (!entry.installed) {
     return {
       ok: false,
+      code: "not_installed",
       reason: `${provider} is not installed or not on PATH; install it and log in with its own CLI`,
     };
   }
@@ -63,6 +73,8 @@ export function checkAgent(
   if (!entry.profiles.includes(profile)) {
     return {
       ok: false,
+      code: "profile",
+      options: [...entry.profiles],
       reason: `${provider} has no permission profile "${profile}"; use ${list(entry.profiles)}`,
     };
   }
@@ -72,6 +84,8 @@ export function checkAgent(
     if (entry.open_models || entry.models_error !== undefined) return { ok: true };
     return {
       ok: false,
+      code: "model",
+      options: entry.models.map((m) => m.id),
       reason: `${provider} has no model "${agent.model}"; use ${list(entry.models.map((m) => m.id))}`,
     };
   }
@@ -79,6 +93,8 @@ export function checkAgent(
     const allowed = model.efforts.filter((e) => EffortSchema.safeParse(e).success);
     return {
       ok: false,
+      code: "effort",
+      options: allowed,
       reason: `${model.id} does not take effort "${agent.effort}"; use ${list(allowed)} or none`,
     };
   }

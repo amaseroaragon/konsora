@@ -1,16 +1,20 @@
 import {
   ACTION_TEXT,
+  type AgentSpec,
   availableActions,
   type Run,
   type TaskAction,
   type TasksDocument,
 } from "@konsora/core";
 import { type FormEvent, useState } from "react";
+import { useAgents } from "../api/agents.ts";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
+import { AgentPicker } from "./AgentPicker.tsx";
+import { agentProblem, initialAgent } from "./agent-model.ts";
 import { opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -18,7 +22,7 @@ import { OlderRuns } from "./OlderRuns.tsx";
 import { ReviewSection } from "./ReviewSection.tsx";
 import { RunSection } from "./RunSection.tsx";
 import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
-import { agentForRun, canRun, latestRun, olderDiscardable, runErrorText } from "./run-model.ts";
+import { canRun, latestRun, olderDiscardable, runErrorText } from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
@@ -176,28 +180,42 @@ function RunButton({
 }) {
   const start = useStartRun(projectId);
   const toast = useToast();
+  const agents = useAgents();
+  const catalog = agents.data;
+  const [chosen, setChosen] = useState<AgentSpec | undefined>(undefined);
+  const agent = chosen ?? (catalog ? initialAgent(task, doc.project, catalog) : undefined);
+  const problem = agentProblem(agent, catalog);
   return (
-    <div className="a-actions">
-      <Button
-        variant="primary"
-        busy={start.isPending}
-        title={t("run.run.hint", { id: task.id })}
-        onClick={() =>
-          start.mutate(
-            { task: task.id, agent: agentForRun(task, doc.project) },
-            {
-              onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
-              onError: (error) => {
-                if (error instanceof ApiError && error.unauthorized) return;
-                const code = error instanceof ApiError ? error.code : "error";
-                toast.show(runErrorText(code, task.id, error.message), "error");
+    <div className="a-stack">
+      {catalog ? (
+        <AgentPicker agent={agent} catalog={catalog} onChange={setChosen} />
+      ) : (
+        <p className="s-muted">{agents.isError ? t("agent.unavailable") : t("agent.loading")}</p>
+      )}
+      <div className="a-actions">
+        <Button
+          variant="primary"
+          busy={start.isPending}
+          disabled={problem !== null}
+          title={t("run.run.hint", { id: task.id })}
+          onClick={() =>
+            start.mutate(
+              // Without the catalog, the daemon uses the task's agent or the project's.
+              { task: task.id, agent: catalog ? agent : undefined },
+              {
+                onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
+                onError: (error) => {
+                  if (error instanceof ApiError && error.unauthorized) return;
+                  const code = error instanceof ApiError ? error.code : "error";
+                  toast.show(runErrorText(code, task.id, error.message), "error");
+                },
               },
-            },
-          )
-        }
-      >
-        {t("run.run")} →
-      </Button>
+            )
+          }
+        >
+          {t("run.run")} →
+        </Button>
+      </div>
     </div>
   );
 }
@@ -312,6 +330,7 @@ export function TaskPanel({
             projectId={projectId}
             task={task}
             groups={groups}
+            defaults={doc.project.defaults}
             onClose={() => setEditing(false)}
           />
         ) : (

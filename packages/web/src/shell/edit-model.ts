@@ -5,6 +5,7 @@
  */
 import {
   type Acceptance,
+  type AgentSpec,
   indexTasks,
   type Task,
   type TasksDocument,
@@ -20,6 +21,8 @@ export type Draft = {
   labels: string;
   group: string;
   acceptance: DraftCriterion[];
+  /** The task's own agent; `null` while it uses the project's (the edit op can set, not clear). */
+  agent: AgentSpec | null;
 };
 export type DraftField = keyof Draft;
 export const draftFields: readonly DraftField[] = [
@@ -28,9 +31,11 @@ export const draftFields: readonly DraftField[] = [
   "labels",
   "group",
   "acceptance",
+  "agent",
 ];
 
-type Editable = Pick<Task, "id" | "title" | "desc" | "labels" | "group" | "acceptance">;
+type Editable = Pick<Task, "id" | "title" | "desc" | "labels" | "group" | "acceptance"> &
+  Partial<Pick<Task, "agent">>;
 
 export function draftFrom(task: Editable): Draft {
   return {
@@ -43,6 +48,7 @@ export function draftFrom(task: Editable): Draft {
       text: ac.text,
       check: ac.check ?? "",
     })),
+    agent: task.agent ?? null,
   };
 }
 
@@ -84,6 +90,7 @@ export function criteriaFrom(rows: readonly DraftCriterion[]): Acceptance[] {
 
 export type EditChanges = Partial<Pick<Task, "title" | "desc" | "labels" | "group">> & {
   acceptance?: Acceptance[];
+  agent?: AgentSpec;
 };
 
 export type DraftCheck =
@@ -98,6 +105,8 @@ export function changesFrom(
   draft: Draft,
   base: Editable,
   groups: readonly { id: string }[],
+  /** Why the draft's agent cannot run (`agentProblem`), if it cannot. */
+  agentIssue?: string | null,
 ): DraftCheck {
   const touched = new Set(touchedFields(draft, base));
   const title = draft.title.trim();
@@ -111,14 +120,18 @@ export function changesFrom(
     return { ok: false, field: "acceptance", message: t("edit.error.criterion.long") };
   if (draft.acceptance.some((row) => !row.text.trim() && row.check.trim()))
     return { ok: false, field: "acceptance", message: t("edit.error.criterion.empty") };
+  const touchedAgent = touched.has("agent") && draft.agent !== null;
+  if (touchedAgent && agentIssue) return { ok: false, field: "agent", message: agentIssue };
   const changes: EditChanges = {};
   if (touched.has("title") && title !== base.title) changes.title = title;
   if (touched.has("desc")) changes.desc = draft.desc.trim();
   if (touched.has("labels")) changes.labels = parseLabels(draft.labels);
   if (touched.has("group")) changes.group = draft.group;
   if (touched.has("acceptance")) changes.acceptance = criteriaFrom(draft.acceptance);
+  if (touchedAgent && draft.agent) changes.agent = draft.agent;
   // A field typed back to what it was is not a change.
-  const stored: Required<EditChanges> = {
+  const stored: Omit<Required<EditChanges>, "agent"> & { agent: AgentSpec | undefined } = {
+    agent: base.agent,
     title: base.title,
     desc: base.desc ?? "",
     labels: base.labels ?? [],

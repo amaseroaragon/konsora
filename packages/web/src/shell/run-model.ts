@@ -2,7 +2,7 @@
  * Runs as the UI shows them (UI-10): pure functions over the daemon's `run.json` and the lines of
  * `events.jsonl`, so the live log, the touched files and the usage are testable without a DOM.
  */
-import { type AgentSpec, isActiveRunState, type Run, stableStringify } from "@konsora/core";
+import { isActiveRunState, type Run, stableStringify } from "@konsora/core";
 import { type MessageKey, t } from "../i18n/index.ts";
 import type { RunLogEvent, RunLogEventKind } from "../ui/index.ts";
 
@@ -53,21 +53,6 @@ export function canRun(
     !options.readOnly &&
     !activeRun(options.runs, options.id)
   );
-}
-
-/** Until the selector (M7): Claude with the default profile, unless the task or plan says more. */
-export const DEFAULT_AGENT: AgentSpec = {
-  provider: "claude",
-  model: "sonnet",
-  permissions: "default",
-};
-
-/** The agent to send with a launch; `undefined` lets the daemon use the task's or the plan's. */
-export function agentForRun(
-  task: { agent?: AgentSpec | undefined },
-  plan: { defaults?: AgentSpec | undefined },
-): AgentSpec | undefined {
-  return task.agent || plan.defaults ? undefined : DEFAULT_AGENT;
 }
 
 const READ_TOOLS = new Set(["Read", "Glob", "Grep", "WebFetch", "WebSearch", "LS"]);

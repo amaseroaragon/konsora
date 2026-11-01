@@ -1,9 +1,12 @@
-import type { TasksDocument } from "@konsora/core";
+import type { AgentSpec, TasksDocument } from "@konsora/core";
 import { type FormEvent, useId, useState } from "react";
+import { useAgents } from "../api/agents.ts";
 import { type BoardTask, useEditTask } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, useToast } from "../ui/index.ts";
+import { AgentPicker } from "./AgentPicker.tsx";
+import { agentProblem, initialAgent } from "./agent-model.ts";
 import {
   changesFrom,
   type Draft,
@@ -14,12 +17,17 @@ import {
   rebaseDraft,
 } from "./edit-model.ts";
 
+/** "claude · opus · high" */
+const agentText = (agent: AgentSpec) =>
+  [agent.provider, agent.model, agent.effort].filter(Boolean).join(" · ");
+
 const FIELD_NAME: Record<DraftField, MessageKey> = {
   title: "edit.field.name.title",
   desc: "edit.field.name.desc",
   labels: "edit.field.name.labels",
   group: "edit.field.name.group",
   acceptance: "edit.field.name.acceptance",
+  agent: "edit.field.name.agent",
 };
 
 const errorText = (error: unknown, ctx: { id: string; on?: string }) =>
@@ -43,6 +51,8 @@ function ChangedOutside({ base, current }: { base: Draft; current: Draft }) {
   if (base.group !== current.group) rows.push(["group", current.group]);
   if (JSON.stringify(base.acceptance) !== JSON.stringify(current.acceptance))
     rows.push(["acceptance", current.acceptance.map((ac) => ac.text).join(" · ")]);
+  if (JSON.stringify(base.agent) !== JSON.stringify(current.agent))
+    rows.push(["agent", current.agent ? agentText(current.agent) : ""]);
   if (rows.length === 0) return <p className="a-callout__text">{t("edit.changed.none")}</p>;
   return (
     <dl className="b-edit__changed">
@@ -65,12 +75,15 @@ export function TaskEditor({
   projectId,
   task,
   groups,
+  defaults,
   onClose,
   startFrom = task,
 }: {
   projectId: string;
   task: BoardTask;
   groups: readonly { id: string; name: string }[];
+  /** The project's default agent, which the task uses until it has its own. */
+  defaults?: AgentSpec | undefined;
   onClose: () => void;
   /** The version the edit starts from (the current task, unless resuming an older draft). */
   startFrom?: BoardTask;
@@ -80,6 +93,7 @@ export function TaskEditor({
   const [error, setError] = useState<{ field?: DraftField; text: string } | null>(null);
   const [clashes, setClashes] = useState<DraftField[]>([]);
   const mutation = useEditTask(projectId);
+  const catalog = useAgents().data;
   const toast = useToast();
   const changedOutside = task.hash !== base.hash;
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
@@ -95,7 +109,7 @@ export function TaskEditor({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (changedOutside) return;
-    const check = changesFrom(draft, base, groups);
+    const check = changesFrom(draft, base, groups, agentProblem(draft.agent ?? undefined, catalog));
     if (!check.ok) {
       setError({ field: check.field, text: check.message });
       return;
@@ -196,6 +210,41 @@ export function TaskEditor({
         error={fieldError("group")}
         onChange={(value) => set("group", value)}
       />
+      <div className="k-field">
+        {!(draft.agent && catalog) && <span className="k-field__label">{t("agent.edit")}</span>}
+        {draft.agent ? (
+          catalog ? (
+            <AgentPicker
+              label={t("agent.edit")}
+              agent={draft.agent}
+              catalog={catalog}
+              onChange={(agent) => set("agent", agent)}
+            />
+          ) : (
+            <p className="k-mono">{agentText(draft.agent)}</p>
+          )
+        ) : (
+          <div className="a-actions">
+            <span className="s-muted">
+              {t("agent.edit.inherit", { agent: defaults ? agentText(defaults) : "—" })}
+            </span>
+            {catalog && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => set("agent", initialAgent({}, { defaults }, catalog) ?? null)}
+              >
+                {t("agent.edit.set")}
+              </Button>
+            )}
+          </div>
+        )}
+        {fieldError("agent") && (
+          <span className="k-field__error" role="alert">
+            {fieldError("agent")}
+          </span>
+        )}
+      </div>
       {error && !error.field && (
         <p className="k-field__error" role="alert">
           {error.text}

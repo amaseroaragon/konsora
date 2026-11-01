@@ -588,3 +588,20 @@
   inline-size: 8rem;
   max-inline-size: 40vw;
 }
+
+/* Agent selector (UI-13) */
+.b-agent {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.b-agent__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--k-space-3);
+  margin-top: var(--k-space-2);
+}
+.b-agent__warning {
+  margin: var(--k-space-2) 0 0;
+}
