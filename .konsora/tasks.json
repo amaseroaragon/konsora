@@ -1696,7 +1696,7 @@
     {
       "id": "UI-13",
       "title": "Selector de agente por tarea y en la barra de selección",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-05"
@@ -1728,12 +1728,28 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:58:13Z"
+      "updated_at": "2026-11-01T15:08:04Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T15:00:44Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Selector de agente (proveedor, modelo, esfuerzo, perfil) a partir de GET /api/agents, en el panel de tarea y en la barra de selección; el lanzamiento envía el agente elegido."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T15:08:04Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Selector de agente (AgentPicker) con proveedor, modelo, esfuerzo y perfil, alimentado por GET /api/agents, en Ejecutar del panel, en la barra de selección y en el editor de la tarea. Sustituye el agente fijo de UI-10 (DEFAULT_AGENT). ac1: parte del agente de la tarea, del project.defaults o del primero disponible. En la barra, del agente que comparten las tareas seleccionadas, o si no del del proyecto. Solo ofrece los modelos que declara el adaptador (más un id completo de Claude ya guardado, porque Claude Code los acepta) y los esfuerzos del modelo que Konsora puede pedir (no ultra). Al cambiar de proveedor o de modelo se quita lo que el nuevo no admite. Tests en web/test/agents.test.tsx con el HTML renderizado y el modelo puro. ac2: lanzar envía el agente elegido en POST /runs (test), y el editor lo guarda con la op edit con expect (test con changesFrom y editBody). Un agente que no puede ejecutarse no se guarda ni se lanza (el botón se deshabilita y se explica el motivo). ac3: un proveedor no instalado aparece deshabilitado con «(no instalado)» y el motivo en español (test). checkAgent de core devuelve ahora code y options, para que la UI lo diga en español. ac4: npm run check pasa (766 tests) y vite build compila. Limitaciones: los tests renderizan a HTML estático (no hay entorno DOM), así que el clic en Ejecutar no se simula: se prueba la petición que envía. No lo he revisado en un navegador. La op edit no puede quitar el agente de una tarea, solo fijarlo o cambiarlo, así que el editor no ofrece volver al del proyecto. Si /api/agents falla, se lanza sin agente y el daemon usa el de la tarea o el del proyecto."
+        }
+      ]
     },
     {
       "id": "UI-14",
       "title": "Uso y rate limits visibles en la UI",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "RUN-11",
@@ -1762,7 +1778,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T15:00:33Z",
+      "updated_at": "2026-11-01T15:00:51Z",
       "notes": [
         {
           "id": "n1",
