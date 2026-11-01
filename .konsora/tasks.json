@@ -1591,7 +1591,7 @@
     {
       "id": "MCP-04",
       "title": "Herramienta permission del MCP para las aprobaciones de Claude",
-      "state": "review",
+      "state": "done",
       "group": "MCP",
       "deps": [
         "MCP-03"
@@ -1623,7 +1623,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:27:32Z",
+      "updated_at": "2026-11-01T10:31:35Z",
       "notes": [
         {
           "id": "n1",
@@ -1644,7 +1644,7 @@
     {
       "id": "MCP-05",
       "title": "Configuración del MCP para Claude Code y Codex",
-      "state": "review",
+      "state": "done",
       "group": "MCP",
       "deps": [
         "MCP-02"
@@ -1676,7 +1676,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:30:05Z",
+      "updated_at": "2026-11-01T10:31:38Z",
       "notes": [
         {
           "id": "n1",
@@ -1697,7 +1697,7 @@
     {
       "id": "MCP-06",
       "title": "Verificación con sesiones reales de Claude Code y Codex",
-      "state": "todo",
+      "state": "review",
       "group": "MCP",
       "deps": [
         "MCP-03",
@@ -1730,7 +1730,30 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:08:23Z"
+      "updated_at": "2026-11-01T10:35:04Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T10:32:22Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Proyecto de prueba desechable en el directorio temporal del job (git init + konsora init), con tareas aprobadas creadas como humano mediante core. Claude Code: claude -p con --mcp-config (el fragmento de --print-config claude), --strict-mcp-config y --allowedTools mcp__konsora__*. Codex: codex exec con -c mcp_servers.konsora.* (el fragmento de --print-config codex), sin tocar ~/.codex. Comprobar tasks.json y el tablero con GET /board de un daemon con data dir temporal. Extra: una sesión de Claude en modo run con --permission-prompt-tool mcp__konsora__permission contra el daemon, para verificar el contrato de MCP-04."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T10:35:03Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Verificación real del 2026-11-01. Versiones: Claude Code 2.1.316 (modelo claude-sonnet-5-5), codex-cli 0.166.0, Node 22.22.2.\n\n**Proyecto de prueba** (desechable, en el directorio temporal del job, no en el plan de Konsora): `git init` + `konsora init --name demo --group DEMO --agents-md`. Las cuatro tareas DEMO-01…04 se crearon y aprobaron con un script que aplica `batch` y `approve` como `human` mediante core. Es el papel del humano en un fixture, igual que en los tests.\n\n**Claude Code** (ac1): `konsora mcp --print-config claude > claude-mcp.json` y después `claude -p \"<usa solo las herramientas MCP: ready, start DEMO-01, note, finish>\" --mcp-config claude-mcp.json --strict-mcp-config --allowedTools mcp__konsora__… --model sonnet --output-format stream-json`.\n- El init muestra `konsora` como connected y las 17 herramientas `mcp__konsora__*`. En modo manual no aparece `permission`, como debe ser.\n- Llamadas: ready → show DEMO-01 → start (con plan) → note → finish. Todas con ok:true.\n- Resultado: DEMO-01 en review con las notas note, note y summary de `agent:claude`. Coste de unos 0,07 $ y 7 turnos.\n\n**Codex** (ac2): `konsora mcp --print-config codex` y el mismo fragmento pasado con `codex exec --json --ephemeral -s read-only -c mcp_servers.konsora.command=… -c mcp_servers.konsora.args=[…] -c mcp_servers.konsora.env={KONSORA_AGENT=\"codex\"}`, sin tocar `~/.codex/config.toml` (md5 igual antes y después).\n- Llamadas MCP: ready → show → start → note → finish, todas completed y sin pedir aprobación.\n- Resultado: DEMO-02 en review con las notas de `agent:codex`. Unos 145 000 tokens de entrada (131 000 de caché) y 398 de salida.\n- Con `-s read-only` el servidor MCP pudo escribir en tasks.json: Codex no aplica su sandbox a los procesos MCP.\n\n**Tablero**: un daemon con data dir temporal, el proyecto vinculado y `GET /api/projects/:id/board` dan status ok, sin cambios externos marcados, con DEMO-01 y DEMO-02 en review y las notas firmadas por cada agente.\n\n**Extra: modo run con permission** (ac4, y comprueba el contrato de MCP-04 que quedó pendiente). Un script hizo de runner y de humano:\n- Montaje: `git worktree add` de DEMO-03, un daemon con `approvals.registerRun`, `start` como `konsora`, y Claude lanzado con cwd en el worktree y un --mcp-config con KONSORA_PROJECT, KONSORA_RUN, KONSORA_TASK, KONSORA_DAEMON_URL y KONSORA_RUN_TOKEN, más `--allowedTools` sin Write y `--permission-prompt-tool mcp__konsora__permission`.\n- note sobre DEMO-04 → `Error (out_of_scope): This run works on DEMO-03…` con la pista.\n- Write de hello.txt → llega a `permission` → el daemon lo deja pendiente → el humano lo permite por HTTP → Claude escribe el archivo (hello.txt = \"hola\" en el worktree). El contrato `{behavior:\"allow\", updatedInput}` funciona con Claude Code 2.1.316.\n- note y finish de DEMO-03 se escriben en el tasks.json del checkout principal, con run = r-01JMCP06RUN0000000000000. La copia del worktree sigue en todo y sin notas, y DEMO-04 no cambia. Coste de unos 0,11 $.\n- No se probó un deny real con Claude: ese formato lo cubren los tests de MCP-04.\n\nObservaciones:\n- Claude Code carga las herramientas MCP como diferidas (usa ToolSearch antes de llamarlas). No es un problema.\n- `claude -p` avisa de \"no stdin data received in 3s\" si stdin no se redirige. El runner debe usar `< /dev/null` o stream-json por stdin."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-01T10:35:04Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Verificación real de M5 sobre un proyecto de prueba desechable. El detalle (pasos, versiones, costes y observaciones) está en la nota anterior.\n- ac1: una sesión de Claude Code 2.1.316 (sonnet) con el MCP configurado a partir de `konsora mcp --print-config claude` hizo ready, start, note y finish de DEMO-01 solo con herramientas MCP. DEMO-01 está en review con las notas de agent:claude en tasks.json y en el tablero (GET /board del daemon, sin cambios externos marcados).\n- ac2: lo mismo con codex-cli 0.166.0 (`codex exec` con el fragmento de `--print-config codex` pasado con -c, sin tocar ~/.codex) sobre DEMO-02, con las notas de agent:codex.\n- ac3: los pasos, las versiones y lo observado están en la nota de esta tarea.\n- ac4: lo cubre el test de MCP-03. Además se comprobó en real: en modo run, note sobre otra tarea devolvió out_of_scope. La herramienta permission de MCP-04 llevó un Write de Claude hasta el daemon, el humano lo permitió por HTTP y Claude escribió el archivo. Las notas se escribieron en el checkout principal con el id del run.\nNo hay cambios de código en esta tarea. Coste total aproximado: 0,18 $ de Claude y una sesión corta de Codex."
+        }
+      ]
     }
   ]
 }
