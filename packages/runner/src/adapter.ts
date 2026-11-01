@@ -34,6 +34,8 @@ export type RunEvent =
       rate_limits?: RateLimits;
     }
   | { t: "error"; message: string; retryable: boolean }
+  /** The agent ended a turn and waits for input (more messages, or `endInput`). */
+  | { t: "turn_end"; ok: boolean }
   | { t: "finished"; ok: boolean; summary?: string };
 
 /** Konsora's MCP server in run mode, as the agent must launch it. */

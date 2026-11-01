@@ -366,6 +366,7 @@ export class ClaudeNormalizer {
       });
     }
     this.#apiError = null;
+    events.push({ t: "turn_end", ok });
     return events;
   }
 

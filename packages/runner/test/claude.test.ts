@@ -138,6 +138,7 @@ describe("recorded stream-json (Claude Code 2.1.316)", () => {
       }),
       { t: "message", text: final, final: true },
       { t: "usage", input_tokens: 80772, output_tokens: 765, cost_usd: 0.00514598 },
+      { t: "turn_end", ok: true },
       { t: "finished", ok: true, summary: final },
     ]);
   });
@@ -158,6 +159,7 @@ describe("recorded stream-json (Claude Code 2.1.316)", () => {
       },
       { t: "error", message: apiError, retryable: false },
       { t: "usage", input_tokens: 0, output_tokens: 0, cost_usd: 0 },
+      { t: "turn_end", ok: false },
       {
         t: "error",
         message: "Claude Code exited with code 1: [claude-code:unrecognized_model]",
@@ -286,10 +288,10 @@ describe("the adapter with a fake claude", () => {
     let sent = false;
     for await (const event of handle.events) {
       events.push(event);
-      if (event.t === "usage" && !sent) {
+      if (event.t === "turn_end" && !sent) {
         sent = true;
         handle.send("the answer");
-      } else if (event.t === "usage") {
+      } else if (event.t === "turn_end") {
         handle.endInput();
       }
     }

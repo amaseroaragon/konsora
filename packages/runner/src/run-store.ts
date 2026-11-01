@@ -38,6 +38,7 @@ export const RUN_FILE = "run.json";
 export const EVENTS_FILE = "events.jsonl";
 export const RAW_FILE = "raw.jsonl";
 export const RAW_ROTATED_FILE = "raw.1.jsonl";
+export const DIFF_FILE = "diff.patch";
 export const RAW_MAX_BYTES = 20 * 1024 * 1024;
 
 export type RunStoreErrorCode =
@@ -234,6 +235,22 @@ export class RunStore {
       await this.read(id); // the run must exist; never create stray directories
       await appendLine(path, line);
     });
+  }
+
+  /** Writes `diff.patch` (base..head) atomically, replacing an earlier one. */
+  async writeDiff(id: RunId, patch: string): Promise<void> {
+    await this.read(id);
+    await writeFileAtomically(this.runDir(id), DIFF_FILE, patch, FILE_MODE);
+  }
+
+  /** Reads `diff.patch`, or `null` if the run has none yet. */
+  async readDiff(id: RunId): Promise<string | null> {
+    return readFile(join(this.runDir(id), DIFF_FILE), "utf8").catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      },
+    );
   }
 
   /** Reads `events.jsonl`, ignoring a trailing incomplete line. */
