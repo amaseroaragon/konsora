@@ -1373,7 +1373,7 @@
     {
       "id": "UI-09",
       "title": "Edición del trabajo aprobado desde el panel de tarea (solo el humano)",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "UI-08"
@@ -1409,7 +1409,7 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:55:21Z",
+      "updated_at": "2026-11-01T09:56:16Z",
       "notes": [
         {
           "id": "n1",
