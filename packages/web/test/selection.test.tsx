@@ -139,11 +139,12 @@ describe("selection shared by graph and board (UI-07)", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("offers Run disabled until agents can be launched", () => {
+  it("keeps Run disabled until the runs are known, so it never launches a task twice (UI-10)", () => {
     const board = boardOf(doc, "p-sel000000003");
     selectionStore.dispatch(board.project.id, { type: "toggle", id: "BE-05" });
     const html = render(board, "board");
     expect(html).toContain("1 tarea seleccionada:");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Ejecutar/);
+    expect(html).toContain("Ninguna de las seleccionadas está lista para ejecutarse.");
   });
 });

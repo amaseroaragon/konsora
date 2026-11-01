@@ -507,3 +507,32 @@
 .b-deps__add > .k-btn {
   margin-top: 22px;
 }
+
+/* Runs (UI-10) */
+.b-run {
+  border-top: 1px solid var(--k-line);
+  padding-top: var(--k-space-5);
+}
+.b-run__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--k-space-2);
+}
+.b-run__id {
+  color: var(--k-ink-muted);
+  font-size: var(--k-text-xs);
+}
+.a-run-state--queued,
+.a-run-state--starting,
+.a-run-state--checking {
+  color: var(--k-accent);
+}
+.a-run-state--waiting_approval,
+.a-run-state--interrupted {
+  color: var(--k-warn-ink);
+}
+.b-run__files {
+  margin: 0;
+  padding-left: var(--k-space-4);
+}

@@ -3,6 +3,7 @@ import type { Op, Task, TaskAction, TaskFlags, TasksDocument } from "@konsora/co
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
+import { applyRunMessage } from "./runs.ts";
 import { TOKEN_KEY } from "./session.ts";
 
 export type BoardTask = Task & TaskFlags & { hash: string };
@@ -100,8 +101,9 @@ export type LiveState = "connecting" | "live" | "offline";
 export const reconnectDelay = (attempt: number) => Math.min(10_000, 500 * 2 ** attempt);
 
 /**
- * Subscribes to the daemon's `board.*` events for a project and refetches the board on each one
- * (also after reconnecting, in case events were missed). Returns the connection state.
+ * Subscribes to the daemon's events for a project: `board.*` refetch the board, `run.*` update
+ * the runs in place and `permission.*` refetch the approvals (everything is refetched after
+ * reconnecting, in case events were missed). Returns the connection state.
  */
 export function useBoardEvents(projectId: string): LiveState {
   const client = useQueryClient();
@@ -115,6 +117,11 @@ export function useBoardEvents(projectId: string): LiveState {
       client.invalidateQueries({ queryKey: boardKey(projectId) });
       client.invalidateQueries({ queryKey: projectsKey });
     };
+    const resync = () => {
+      refresh();
+      client.invalidateQueries({ queryKey: ["runs", projectId] });
+      client.invalidateQueries({ queryKey: ["approvals"] });
+    };
     const connect = () => {
       let token: string | null = null;
       try {
@@ -126,14 +133,24 @@ export function useBoardEvents(projectId: string): LiveState {
       socket = new WebSocket(`${scheme}://${window.location.host}/api/ws`);
       socket.onopen = () => socket?.send(JSON.stringify({ type: "auth", token }));
       socket.onmessage = (event) => {
-        const message = JSON.parse(String(event.data)) as { type: string; project?: string };
+        const message = JSON.parse(String(event.data)) as {
+          type: string;
+          project?: string;
+          run?: unknown;
+          event?: unknown;
+        };
         if (message.type === "ready")
           socket?.send(JSON.stringify({ type: "subscribe", project: projectId }));
         else if (message.type === "subscribed") {
-          if (attempt > 0) refresh();
+          if (attempt > 0) resync();
           attempt = 0;
           setState("live");
-        } else if (message.type.startsWith("board.") && message.project === projectId) refresh();
+        } else if (message.project !== projectId) {
+          return;
+        } else if (message.type.startsWith("board.")) refresh();
+        else if (message.type.startsWith("run.")) applyRunMessage(client, projectId, message);
+        else if (message.type.startsWith("permission."))
+          client.invalidateQueries({ queryKey: ["approvals"] });
       };
       socket.onclose = (event) => {
         if (closed) return;

@@ -1,12 +1,21 @@
-import { ACTION_TEXT, availableActions, type TaskAction, type TasksDocument } from "@konsora/core";
+import {
+  ACTION_TEXT,
+  availableActions,
+  type Run,
+  type TaskAction,
+  type TasksDocument,
+} from "@konsora/core";
 import { type FormEvent, useState } from "react";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
+import { useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { RunSection } from "./RunSection.tsx";
+import { agentForRun, canRun, latestRun, runErrorText } from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
@@ -134,6 +143,44 @@ function Actions({
   );
 }
 
+/** Launches a run of a ready task (Claude, default profile, until the selector of M7). */
+function RunButton({
+  projectId,
+  task,
+  doc,
+}: {
+  projectId: string;
+  task: BoardTask;
+  doc: TasksDocument;
+}) {
+  const start = useStartRun(projectId);
+  const toast = useToast();
+  return (
+    <div className="a-actions">
+      <Button
+        variant="primary"
+        busy={start.isPending}
+        title={t("run.run.hint", { id: task.id })}
+        onClick={() =>
+          start.mutate(
+            { task: task.id, agent: agentForRun(task, doc.project) },
+            {
+              onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
+              onError: (error) => {
+                if (error instanceof ApiError && error.unauthorized) return;
+                const code = error instanceof ApiError ? error.code : "error";
+                toast.show(runErrorText(code, task.id, error.message), "error");
+              },
+            },
+          )
+        }
+      >
+        {t("run.run")} →
+      </Button>
+    </div>
+  );
+}
+
 /** Side panel for one task: what it is, its history, and what you can do with it now. */
 export function TaskPanel({
   projectId,
@@ -146,6 +193,7 @@ export function TaskPanel({
   onOpen,
   onSelectWithDeps,
   groups = [],
+  runs,
 }: {
   projectId: string;
   task: BoardTask;
@@ -159,12 +207,16 @@ export function TaskPanel({
   onSelectWithDeps?: (() => void) | undefined;
   /** The plan's groups, for moving the task while editing it. */
   groups?: readonly { id: string; name: string }[];
+  /** The project's runs (undefined while loading). */
+  runs?: readonly Run[] | undefined;
 }) {
   // Editing is the human's, and never on an invalid (read-only) plan.
   const [editing, setEditing] = useState(false);
   const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
+  const run = latestRun(runs, task.id);
+  const runnable = runs !== undefined && canRun(task, { readOnly, runs, id: task.id });
   return (
     <aside className="a-detail b-panel" aria-label={t("detail.label", { id: task.id })}>
       <div className="a-detail__head">
@@ -206,6 +258,8 @@ export function TaskPanel({
             actions={actions}
           />
         )}
+        {runnable && <RunButton projectId={projectId} task={task} doc={doc} />}
+        {run && <RunSection projectId={projectId} run={run} readOnly={readOnly} />}
         {onSelectWithDeps && (
           <div className="a-actions">
             <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>

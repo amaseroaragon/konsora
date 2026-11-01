@@ -1,12 +1,15 @@
 import { pendingSubgraph } from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type BoardOk, type LiveState, toDocument } from "../api/board.ts";
+import { ApiError } from "../api/client.ts";
+import { useRuns, useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { Board } from "./Board.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
+import { agentForRun, runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskPanel } from "./TaskPanel.tsx";
@@ -64,6 +67,8 @@ export function ProjectView({
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
   const toast = useToast();
+  const runs = useRuns(projectId).data;
+  const startRun = useStartRun(projectId);
   const selection = useSelection(projectId);
   const selectedIds = visibleSelection(selection.selected, board.tasks);
   const selectedKey = selectedIds.join(",");
@@ -94,6 +99,27 @@ export function ProjectView({
     [projectId, view, openId],
   );
   const open = useCallback((id: string) => go({ task: id }), [go]);
+  const runnable = runnableSelection(selectedIds, board.tasks, { readOnly, runs });
+  /** Launches each selected ready task in its own run, one after another. */
+  const runSelected = async (ids: readonly string[]) => {
+    let started = 0;
+    for (const id of ids) {
+      const task = board.tasks.find((x) => x.id === id);
+      if (!task) continue;
+      try {
+        await startRun.mutateAsync({ task: id, agent: agentForRun(task, board.plan.project) });
+        started++;
+      } catch (error) {
+        if (error instanceof ApiError && error.unauthorized) return;
+        const code = error instanceof ApiError ? error.code : "error";
+        toast.show(runErrorText(code, id, (error as Error).message), "error");
+      }
+    }
+    if (started > 0) {
+      toast.show(t("selection.run.started", { n: started }), "success");
+      dispatchSelection({ type: "clear" });
+    }
+  };
   useEffect(() => {
     if (!openId) return;
     const onKey = (event: KeyboardEvent) => {
@@ -179,6 +205,7 @@ export function ProjectView({
             readOnly={readOnly}
             onClose={() => go({ task: null })}
             onOpen={open}
+            runs={runs}
             onSelectWithDeps={
               view === "graph" && isSelectable(opened) ? () => selectWithDeps(opened.id) : undefined
             }
@@ -186,7 +213,14 @@ export function ProjectView({
         )}
       </div>
       {selectedIds.length > 0 && (
-        <SelectionBar ids={selectedIds} onClear={() => dispatchSelection({ type: "clear" })} />
+        <SelectionBar
+          ids={selectedIds}
+          runnable={runnable}
+          readOnly={readOnly}
+          busy={startRun.isPending}
+          onRun={(ids) => void runSelected(ids)}
+          onClear={() => dispatchSelection({ type: "clear" })}
+        />
       )}
     </div>
   );
