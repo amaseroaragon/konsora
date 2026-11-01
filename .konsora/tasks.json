@@ -943,7 +943,7 @@
     {
       "id": "DMN-05",
       "title": "Catálogo de agentes y validación al lanzar",
-      "state": "proposed",
+      "state": "todo",
       "group": "DMN",
       "deps": [
         "RUN-13"
@@ -971,7 +971,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:06Z"
     },
     {
       "id": "UI-01",
@@ -1680,7 +1680,7 @@
     {
       "id": "UI-13",
       "title": "Selector de agente por tarea y en la barra de selección",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-05"
@@ -1712,12 +1712,12 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:13Z"
     },
     {
       "id": "UI-14",
       "title": "Uso y rate limits visibles en la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "RUN-11",
@@ -1746,7 +1746,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:04Z"
     },
     {
       "id": "MCP-01",
@@ -2604,7 +2604,7 @@
     {
       "id": "RUN-11",
       "title": "Uso y rate limits de Claude",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "rank": "zzzzv",
       "desc": "Investiga y aprovecha lo que da la salida stream-json de Claude Code (lo pide el roadmap de M7). En las grabaciones de RUN-04 hay `result.usage` (entrada, caché creada y leída, salida, razonamiento), `result.modelUsage` (contextWindow, costUSD) y `rate_limit_event` (estado, ventana, `resetsAt`, `utilization` por ventana de 5 h y 7 días). Amplía `RunEvent.usage` y `run.json` con lo que sea fiable (por ejemplo, tokens de caché aparte y la utilización de cada ventana), sin romper los runs existentes, y documenta en arquitectura.md qué da Claude y qué no.",
@@ -2633,12 +2633,12 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:57:58Z"
     },
     {
       "id": "RUN-12",
       "title": "Tipos del protocolo de codex app-server y comprobación de versión",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "rank": "zzzzx",
       "desc": "Genera los tipos con `codex app-server generate-ts` para la versión instalada (codex-cli 0.166.0) y guárdalos en `packages/runner/src/codex/protocol/` con un script reproducible (`npm run codex:types`). La salida son unos 760 archivos (3,2 MB) con `import type` sin extensión, que no encajan con `nodenext` + `allowImportingTsExtensions`: decide si se guarda todo o solo lo que usa el adaptador, y cómo se adaptan las extensiones (el script lo hace solo). Biome no formatea esa carpeta. `detect()` del adaptador compara la versión instalada con la de los tipos y avisa si no coinciden, sin bloquear.",
@@ -2663,12 +2663,12 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:57:55Z"
     },
     {
       "id": "RUN-13",
       "title": "Adaptador de Codex (app-server)",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-12"
@@ -2704,12 +2704,12 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:01Z"
     },
     {
       "id": "RUN-14",
       "title": "Aprobaciones de Codex en el daemon y la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-13"
@@ -2741,12 +2741,12 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:08Z"
     },
     {
       "id": "RUN-15",
       "title": "Plan B de Codex con codex exec --json",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-13"
@@ -2774,12 +2774,12 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:11Z"
     },
     {
       "id": "RUN-16",
       "title": "Verificación de M7 con el codex real",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-14",
@@ -2810,7 +2810,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:55:22Z"
+      "updated_at": "2026-11-01T13:58:17Z"
     }
   ]
 }
