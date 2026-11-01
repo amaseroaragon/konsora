@@ -887,7 +887,7 @@
     {
       "id": "DMN-04",
       "title": "API y eventos de runs en el daemon",
-      "state": "review",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "RUN-05",
@@ -922,7 +922,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T12:07:24Z",
+      "updated_at": "2026-11-01T12:08:28Z",
       "notes": [
         {
           "id": "n1",
@@ -1496,7 +1496,7 @@
     {
       "id": "UI-10",
       "title": "Botón Ejecutar y log del run en vivo",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1528,12 +1528,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:57Z"
+      "updated_at": "2026-11-01T13:25:29Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T13:20:14Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "api/runs.ts (consultas y mutaciones de runs; los mensajes run.event/run.state del WS actualizan la caché sin recargar) y shell/run-model.ts (puro: eventos → filas del log, archivos tocados, uso, qué agente usar, si se puede ejecutar). Botón Ejecutar en el panel de tarea (solo ready, sin run activo y fuera de solo lectura) y en la barra de selección (lanza las seleccionadas que están listas). Sección del run en el panel: estado, duración, uso, archivos tocados, log en vivo y Cancelar. Textos en es.ts."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T13:25:29Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Botón Ejecutar y vista del run en el panel de tarea, y Ejecutar en la barra de selección. Datos en packages/web/src/api/runs.ts, lógica pura en shell/run-model.ts y componente en shell/RunSection.tsx; textos en es.ts.\n\n- ac1: el panel de una tarea ready ofrece «Ejecutar →», que envía POST /projects/:id/runs con la tarea (y Claude con el perfil default si ni la tarea ni el plan nombran agente; test de la petición). La sección del run muestra estado, agente, duración, tokens y coste, archivos tocados y el log. En el test de componente, los mensajes run.event y run.state del WS (applyRunMessage) actualizan la caché y el siguiente render muestra las filas nuevas, los archivos y el estado sin recargar.\n- ac2: Cancelar envía POST …/cancel; con el run.state cancelled y la tarea de nuevo en todo, el panel muestra «Cancelado», «Run cancelado» en el log, la tarea en Por hacer, sin botón Cancelar y con Ejecutar disponible otra vez (test).\n- ac3: Ejecutar no aparece en tareas bloqueadas o en curso, en modo solo lectura, mientras cargan los runs ni con un run activo (incluido interrupted). La barra de selección lanza solo las seleccionadas que están listas y se deshabilita, con el motivo, si no hay ninguna o el plan es de solo lectura (tests).\n- ac4: npm run check pasa (660 tests) y vite build compila.\n\nMás: el log omite el ruido (fin de herramientas correctas, uso, fin de turno) y muestra en rojo las herramientas que fallan. Un evento repetido (historial + WS) no se duplica. Al reconectar el WS se recargan runs y aprobaciones.\nDecisiones: el modelo por defecto es sonnet hasta el selector de M7 (solo si ni la tarea ni el plan definen agente). Mientras cargan los runs, la barra de selección no deja ejecutar, para no lanzar dos veces una tarea con un run activo. El test antiguo de UI-07 que esperaba Ejecutar deshabilitado hasta M6 ahora comprueba eso.\nNo lo he probado en un navegador real; la verificación de punta a punta es RUN-09."
+        }
+      ]
     },
     {
       "id": "UI-11",
       "title": "Aprobaciones de permisos en la UI",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1561,12 +1577,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:49Z"
+      "updated_at": "2026-11-01T13:27:24Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T13:25:44Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "api/approvals.ts: GET /api/approvals (se recarga con permission.* del WS) y la decisión POST /runs/:run/permissions/:id, que retira la aprobación de la lista al enviarse. Tarjeta de aprobación (herramienta, tarea, hora, entrada como JSON escapado y truncado por una función pura) con Permitir y Denegar (motivo opcional) dentro de la sección del run, y aviso global en la vista del proyecto con enlace a cada tarea."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T13:27:24Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Aprobaciones en packages/web/src/api/approvals.ts, shell/Approvals.tsx y shell/approval-model.ts (puro); textos en es.ts.\n\n- ac1: una aprobación pendiente aparece en la sección del run (solo las de ese run) y en el aviso global de la página del proyecto, con enlace a la tarea. permission.requested y permission.resolved del WS recargan la lista; el test simula esa recarga sobre la caché y el siguiente render muestra la tarjeta. Permitir y Denegar envían POST /runs/:run/permissions/:id con {decision} o {decision, message} (motivo opcional y recortado) y la aprobación sale de la lista en cuanto el daemon la acepta (tests de la petición y de withoutApproval).\n- ac2: la entrada se muestra como JSON indentado en texto plano: React la escapa, así que el marcado del agente (<script>, <img onerror>, etiquetas en rutas o en el nombre de la herramienta) aparece escapado y nunca se interpreta (test). Se recorta a 1500 caracteres y 40 líneas sin partir caracteres (emoji incluido) y se marca «… (recortado)» (tests).\n- ac3: npm run check pasa (667 tests) y vite build compila.\n\nMás: un resumen de una línea con el campo más útil (command, file_path, url…); en modo solo lectura no hay botones de decisión; si la aprobación ya se decidió o caducó, el aviso lo explica.\nNo lo he probado en un navegador real; queda para RUN-09."
+        }
+      ]
     },
     {
       "id": "UI-12",
       "title": "Vista de revisión con diff",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1594,7 +1626,23 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:43Z"
+      "updated_at": "2026-11-01T13:29:50Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T13:27:40Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Parser de unified diff puro (diff.patch → DiffFile[] para el DiffView existente: añadidos, borrados, binarios, renombrados). En el panel, para una tarea en review con run: diff por fichero con estadísticas y resumen del agente dentro de la sección del run (que ya muestra modelo, duración y uso). Aceptar llama a accept y anuncia el commit integrado; los 409 de integración (conflicto, cambios locales…) se explican en un aviso en el panel con sus ficheros, sin cambiar el estado. El aviso de conflicto persiste mientras el run tenga integration conflict."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T13:29:50Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Vista de revisión en packages/web/src/shell/ReviewSection.tsx y review-model.ts (puro); textos en es.ts.\n\n- ac1: parsePatch divide un diff.patch de ejemplo por fichero (modificado, nuevo, borrado, binario y renombrado) con sus líneas añadidas y borradas, hunks y totales, y DiffView lo pinta por fichero con +N −M y el tipo de cada línea (tests). En el panel de una tarea en review con un run succeeded aparecen «5 archivos · +5 −3», el diff por fichero, el resumen del agente (markdown seguro) y los datos del run: modelo, duración, tokens y coste (test).\n- ac2: Aceptar envía la op accept con el hash de la tarea, y si el daemon integró, el aviso dice «BE-01 aceptada e integrada en un commit (9ab1c3e)» (test). Un 409 integration_conflict se explica en español con sus ficheros, en un aviso dentro del panel y en un toast, y la tarea sigue en revisión porque aceptar no es optimista (test). También se explican los demás rechazos de integración (cambios locales en ficheros del run, rama base movida o abierta en otro worktree, sin cambios, cambios en .konsora/). Mientras el run siga en integration conflict, el panel mantiene un aviso con qué hacer.\n- ac3: npm run check pasa (674 tests) y vite build compila.\n\nMás: el cliente HTTP conserva files de los errores del daemon. Devolver con feedback usa la acción que ya existía.\nNo lo he probado en un navegador real; la verificación de punta a punta con el claude real es RUN-09."
+        }
+      ]
     },
     {
       "id": "MCP-01",
