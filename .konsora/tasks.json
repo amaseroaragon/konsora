@@ -1956,7 +1956,7 @@
     {
       "id": "RUN-02",
       "title": "Worktree y rama por run",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -1988,7 +1988,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:29:03Z",
+      "updated_at": "2026-11-01T11:40:06Z",
       "notes": [
         {
           "id": "n1",
@@ -2009,7 +2009,7 @@
     {
       "id": "RUN-03",
       "title": "Prompt de run explícito y auditable",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -2041,7 +2041,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:30:31Z",
+      "updated_at": "2026-11-01T11:40:12Z",
       "notes": [
         {
           "id": "n1",
@@ -2062,7 +2062,7 @@
     {
       "id": "RUN-04",
       "title": "Adaptador de Claude Code (stream-json)",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -2094,7 +2094,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:38:39Z",
+      "updated_at": "2026-11-01T11:40:09Z",
       "notes": [
         {
           "id": "n1",
@@ -2115,7 +2115,7 @@
     {
       "id": "RUN-05",
       "title": "Ciclo de vida de un run",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-02",
@@ -2149,7 +2149,23 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:10Z"
+      "updated_at": "2026-11-01T11:45:08Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:41:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Supervisor en runner/src/supervisor.ts: comprueba ready, crea el run (queued→starting), prepara el worktree, construye el prompt, registra el run en el daemon (callback inyectable que da URL y token), pasa la tarea a doing como konsora y lanza el adaptador con el MCP en modo run. Escribe events.jsonl/raw.jsonl y actualiza run.json (running, waiting_approval, session_id, uso). Al acabar cada turno lee el plan: si la tarea está en review cierra la entrada; si espera una respuesta la mantiene abierta; si no, la cierra. Al salir el proceso: commit wip (sin .konsora/), head_commit, diff.patch sin .konsora/, y succeeded (pasando por checking, sin checks hasta M8) o failed con la tarea devuelta a todo con nota del runner. Añado el evento turn_end al adaptador."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:45:08Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Supervisor en packages/runner/src/supervisor.ts (startRun → RunSession {run, done, setAwaitingApproval}). Probado con un adaptador falso que actúa como el agente y escribe en el plan con la CLI real de Konsora en modo run (mismas reglas que el MCP).\n\n- ac1: el agente falso hace un commit propio, deja un cambio sin commitear, toca la copia de .konsora/ del worktree, escribe una nota y llama a finish. Resultado: tarea en review, run succeeded (pasando por checking, sin checks hasta M8), commit wip con lo que quedaba, diff.patch con los dos cambios y sin .konsora/, head_commit, session_id, uso y exit en run.json, y events.jsonl completo y en orden con at en cada evento (test).\n- ac2: un agente que termina sin finish deja el run failed y la tarea en todo con una nota de konsora enlazada al run («failed: the agent stopped without calling finish…»). Su trabajo queda como wip en la rama y en diff.patch. Un crash deja el código de salida en la nota (tests).\n- ac3: las notas y el summary del agente van al tasks.json del checkout principal con run = id del run, la copia del worktree no cambia, y una nota sobre otra tarea se rechaza como out_of_scope (test).\n- ac4: npm run check pasa (624 tests).\n\nMás: la tarea pasa a doing como konsora; el run se registra en el daemon con un RunRegistry inyectable (URL y token llegan al MCP como KONSORA_DAEMON_URL/KONSORA_RUN_TOKEN) y se da de baja al terminar. setAwaitingApproval mueve running ⇄ waiting_approval (test). Las tareas no listas o de otro proveedor se rechazan sin crear run (test).\n\nDecisiones:\n- Al acabar cada turno se lee el plan: con la tarea en review se cierra la entrada del agente; con una pregunta abierta se mantiene viva para la respuesta (test con send); si no, se cierra y el run falla. Para eso añadí el evento turn_end al adaptador.\n- El commit wip va con --no-verify y --no-gpg-sign (es provisional; el commit que cuenta es el squash de RUN-08), y con identidad Konsora solo si git no tiene una.\nDocumentado en arquitectura.md §5."
+        }
+      ]
     },
     {
       "id": "RUN-06",
@@ -2220,7 +2236,7 @@
     {
       "id": "RUN-08",
       "title": "Integración squash al aceptar",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-02"
@@ -2252,7 +2268,23 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:01Z"
+      "updated_at": "2026-11-01T11:49:45Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:45:57Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "integrateRun en runner/src/integrate.ts: calcula el resultado con git merge-tree --write-tree (sin efectos), crea un único commit con commit-tree (<task-id>: <title>, summary como cuerpo, trailers Konsora-Task y Konsora-Run) y lo aplica: con la rama base en el checkout, git merge --ff-only tras rechazar cambios sin commitear en los ficheros del diff; fuera del checkout, update-ref con el valor anterior. Conflicto → integration conflict sin tocar nada. Si sale bien: integration merged, se borran worktree y rama, se conserva el run. Además el supervisor deja la rama sin cambios en .konsora/ al cerrar."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:49:45Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "integrateRun en packages/runner/src/integrate.ts, probado sobre repos temporales.\n\n- ac1: queda exactamente un commit nuevo en main, con la punta anterior como padre, el mensaje «BE-01: <título>», el summary de la tarea (o el del run) como cuerpo y los trailers Konsora-Task y Konsora-Run (git los lee como trailers). Se borran el worktree y la rama, el run queda con integration merged y el plan no cambia (test).\n- ac2: funciona con main en el checkout (se actualizan los archivos del checkout) y fuera de él (update-ref sin tocar HEAD ni archivos del checkout). Los cambios locales ajenos (archivo modificado, archivo sin seguimiento, el tasks.json sin commitear) se conservan. Un cambio sin commitear en un archivo que toca el run se rechaza con un error accionable que lo nombra, sin mover nada. También integra si main avanzó sin conflicto (tests).\n- ac3: un conflicto deja integration conflict, la tarea en review, la punta de main, el status y los archivos del checkout intactos, y el worktree y la rama conservados. Resuelto a mano en la rama, se vuelve a integrar en un solo commit (test).\n- ac4: npm run check pasa (631 tests).\n\nDecisión (documentada en arquitectura.md §5): en vez de git merge --squash calculo el resultado con git merge-tree --write-tree (sin efectos), creo el commit con commit-tree y en el checkout avanzo con git merge --ff-only. El efecto es el mismo, pero un conflicto nunca deja marcas en tu árbol de trabajo.\nMás: se rechazan resultados que cambian .konsora/ o que no cambian nada, y la rama base si está en otro worktree. Además, el supervisor de RUN-05 deja ahora la rama sin cambios de .konsora/ al cerrar el run (test ampliado), y la interfaz Git admite stdin.\nLa integración no hace accept: el daemon (DMN-04) debe integrar primero y aceptar después."
+        }
+      ]
     },
     {
       "id": "RUN-09",
