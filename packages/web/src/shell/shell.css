@@ -449,3 +449,61 @@
 .g-node__select + .g-node__open .g-node__head {
   padding-left: 22px;
 }
+
+/* Editing approved work (UI-09) */
+.b-edit__criteria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.b-edit__criterion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--k-space-3) var(--k-space-4);
+  padding: var(--k-space-5);
+  border: 1px solid var(--k-line);
+}
+.b-edit__criterion > .k-field {
+  grid-column: 1;
+}
+.b-edit__criterion > .k-btn {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+}
+.b-edit__changed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  margin: var(--k-space-5) 0;
+}
+.b-edit__changed dd {
+  margin: var(--k-space-1) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.b-deps {
+  margin-top: var(--k-space-5);
+}
+.b-deps__remove {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.b-deps__add {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--k-space-4);
+}
+.b-deps__add > .k-field {
+  flex: 1;
+}
+.b-deps__add > .k-btn {
+  margin-top: 22px;
+}

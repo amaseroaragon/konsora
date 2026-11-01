@@ -1,5 +1,5 @@
 // biome-ignore-all lint/suspicious/noExplicitAny: JSON response bodies are inspected loosely in tests.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -198,6 +198,111 @@ describe("daemon ops and oversight over HTTP", () => {
       ["BE-05", "send-back", "review", "todo", "human"],
     ]);
     expect((await board()).body.external).toEqual([]);
+  });
+
+  it("edits of approved work from the panel are one op each, logged, and unflagged (UI-09)", async () => {
+    writeByHand(
+      doc(
+        t("BE-01", "done"),
+        t("BE-02", "review", { deps: ["BE-01"] }),
+        t("BE-03", "todo", { acceptance: [{ id: "ac1", text: "Old" }] }),
+      ),
+    );
+    await board();
+    const hashOf = (task: string) => taskHash(read().tasks.find((x) => x.id === task) as Task);
+    const edits = [
+      {
+        op: "edit",
+        task: "BE-03",
+        changes: {
+          title: "New title",
+          desc: "# Goal\n\nSome *markdown*",
+          labels: ["m4"],
+          acceptance: [
+            { id: "ac1", text: "Old, reworded" },
+            { id: "ac2", text: "New", check: "npm test" },
+          ],
+        },
+      },
+      { op: "depend", task: "BE-03", on: "BE-02" },
+      { op: "undepend", task: "BE-02", on: "BE-01" },
+    ];
+    for (const op of edits) {
+      const before = readFileSync(file(), "utf8");
+      const r = await call(`/projects/${id}/ops`, {
+        ...op,
+        expect: { [op.task]: hashOf(op.task) },
+      });
+      expect(r.status, op.op).toBe(200);
+      expect(r.body.changed, op.op).toEqual([op.task]);
+      expect(readFileSync(file(), "utf8"), op.op).not.toBe(before);
+    }
+    expect(read().tasks.find((x) => x.id === "BE-03")).toMatchObject({
+      title: "New title",
+      desc: "# Goal\n\nSome *markdown*",
+      labels: ["m4"],
+      deps: ["BE-02"],
+      acceptance: [
+        { id: "ac1", text: "Old, reworded" },
+        { id: "ac2", text: "New", check: "npm test" },
+      ],
+      state: "todo",
+    });
+    expect(read().tasks.find((x) => x.id === "BE-02")?.deps).toBeUndefined();
+    const ledger = readFileSync(join(data, "projects", id, "approvals.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(ledger.map((e) => [e.task, e.op, e.from, e.to, e.actor])).toEqual([
+      ["BE-03", "edit", "todo", "todo", "human"],
+      ["BE-03", "depend", "todo", "todo", "human"],
+      ["BE-02", "undepend", "review", "review", "human"],
+    ]);
+    expect((await board()).body.external).toEqual([]);
+  });
+
+  it("a dependency that would close a cycle is refused and the file stays the same (UI-09)", async () => {
+    writeByHand(
+      doc(
+        t("BE-01", "todo"),
+        t("BE-02", "todo", { deps: ["BE-01"] }),
+        t("BE-03", "todo", { deps: ["BE-02"] }),
+      ),
+    );
+    await board();
+    const before = readFileSync(file(), "utf8");
+    const hash = taskHash(read().tasks[0] as Task);
+    const r = await call(`/projects/${id}/ops`, {
+      op: "depend",
+      task: "BE-01",
+      on: "BE-03",
+      expect: { "BE-01": hash },
+    });
+    expect([r.status, r.body.error.code]).toEqual([422, "invalid"]);
+    expect(r.body.error.message).toMatch(/cycle/);
+    expect(readFileSync(file(), "utf8")).toBe(before);
+    // Nothing was done, so nothing is logged as the human's.
+    expect(existsSync(join(data, "projects", id, "approvals.jsonl"))).toBe(false);
+  });
+
+  it("an edit based on an old version is a conflict: nothing is written and the current task comes back (UI-09)", async () => {
+    await board();
+    const seen = taskHash(read().tasks[2] as Task);
+    await mutate(
+      root,
+      { op: "note", task: "BE-03", text: "meanwhile" },
+      { actor: "agent:claude", at },
+    );
+    const before = readFileSync(file(), "utf8");
+    const r = await call(`/projects/${id}/ops`, {
+      op: "edit",
+      task: "BE-03",
+      expect: { "BE-03": seen },
+      changes: { title: "Mine" },
+    });
+    expect([r.status, r.body.error.code]).toEqual([409, "conflict"]);
+    expect(r.body.error.current).toMatchObject({ id: "BE-03", title: "Title BE-03" });
+    expect(readFileSync(file(), "utf8")).toBe(before);
   });
 
   it("a stale expect hash is refused as a conflict and changes nothing", async () => {

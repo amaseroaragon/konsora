@@ -169,7 +169,9 @@ export function ProjectView({
         </div>
         {opened && (
           <TaskPanel
+            key={opened.id}
             projectId={projectId}
+            groups={board.plan.groups}
             task={opened}
             doc={doc}
             groupName={board.plan.groups.find((g) => g.id === opened.group)?.name ?? opened.group}

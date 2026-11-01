@@ -4,10 +4,13 @@ export class ApiError extends Error {
   readonly status: number;
   /** Error code from the daemon's body (`forbidden`, `not_found`, …), or `network`. */
   readonly code: string;
-  constructor(status: number, code: string, message: string) {
+  /** Extra fields of the daemon's error: `issues` for invalid results, `current` on conflicts. */
+  readonly details: ErrorDetails;
+  constructor(status: number, code: string, message: string, details: ErrorDetails = {}) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
   }
   /** The token is missing, wrong or from a daemon that has since restarted. */
   get unauthorized(): boolean {
@@ -21,7 +24,12 @@ export type Api = {
   del: (path: string) => Promise<void>;
 };
 
-type ErrorBody = { error?: { code?: string; message?: string } };
+export type ErrorDetails = {
+  issues?: { path?: unknown; code: string; message: string }[];
+  current?: unknown;
+  task?: string;
+};
+type ErrorBody = { error?: { code?: string; message?: string } & ErrorDetails };
 
 export function createApi(
   token: string,
@@ -50,6 +58,11 @@ export function createApi(
         response.status,
         data.error?.code ?? "http",
         data.error?.message ?? `HTTP ${response.status}`,
+        {
+          ...(data.error?.issues ? { issues: data.error.issues } : {}),
+          ...(data.error?.current ? { current: data.error.current } : {}),
+          ...(data.error?.task ? { task: data.error.task } : {}),
+        },
       );
     }
     return data;

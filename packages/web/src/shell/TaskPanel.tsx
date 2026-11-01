@@ -7,6 +7,7 @@ import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   approve: "action.approve",
@@ -144,6 +145,7 @@ export function TaskPanel({
   onClose,
   onOpen,
   onSelectWithDeps,
+  groups = [],
 }: {
   projectId: string;
   task: BoardTask;
@@ -155,7 +157,12 @@ export function TaskPanel({
   onOpen: (id: string) => void;
   /** Selects this task with its pending dependencies (UI-07); only offered where it applies. */
   onSelectWithDeps?: (() => void) | undefined;
+  /** The plan's groups, for moving the task while editing it. */
+  groups?: readonly { id: string; name: string }[];
 }) {
+  // Editing is the human's, and never on an invalid (read-only) plan.
+  const [editing, setEditing] = useState(false);
+  const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
   return (
@@ -167,6 +174,16 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
+          {canEdit && !editing && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="a-detail__edit"
+              onClick={() => setEditing(true)}
+            >
+              {t("edit.open")}
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="a-detail__close" onClick={onClose}>
             ✕<span className="k-visually-hidden">{t("detail.close")}</span>
           </Button>
@@ -196,24 +213,35 @@ export function TaskPanel({
             </Button>
           </div>
         )}
-        {task.desc && <Markdown className="a-desc" text={task.desc} />}
-        {(task.acceptance ?? []).length > 0 && (
-          <table className="a-criteria">
-            <caption className="k-label">{t("detail.criteria")}</caption>
-            <tbody>
-              {(task.acceptance ?? []).map((ac) => (
-                <tr key={ac.id}>
-                  <td className="k-mono a-criteria__id">{ac.id}</td>
-                  <td>
-                    {ac.text}
-                    {ac.check && <div className="k-mono a-criteria__check">{ac.check}</div>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {editing && canEdit ? (
+          <TaskEditor
+            projectId={projectId}
+            task={task}
+            groups={groups}
+            onClose={() => setEditing(false)}
+          />
+        ) : (
+          <>
+            {task.desc && <Markdown className="a-desc" text={task.desc} />}
+            {(task.acceptance ?? []).length > 0 && (
+              <table className="a-criteria">
+                <caption className="k-label">{t("detail.criteria")}</caption>
+                <tbody>
+                  {(task.acceptance ?? []).map((ac) => (
+                    <tr key={ac.id}>
+                      <td className="k-mono a-criteria__id">{ac.id}</td>
+                      <td>
+                        {ac.text}
+                        {ac.check && <div className="k-mono a-criteria__check">{ac.check}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
-        {(task.deps ?? []).length > 0 && (
+        {((task.deps ?? []).length > 0 || (editing && canEdit)) && (
           <div>
             <div className="k-label">{t("detail.deps")}</div>
             <ul className="a-deps">
@@ -230,6 +258,7 @@ export function TaskPanel({
                 );
               })}
             </ul>
+            {editing && canEdit && <DependencyEditor projectId={projectId} task={task} doc={doc} />}
           </div>
         )}
         {(task.notes ?? []).length > 0 && (

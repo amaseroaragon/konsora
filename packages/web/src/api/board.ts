@@ -193,3 +193,25 @@ export function useResolveExternal(projectId: string) {
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
   });
 }
+
+/** A human edit of a task's content or links, conditioned on the version the human saw. */
+export type EditInput =
+  | { op: "edit"; task: string; hash: string; changes: Record<string, unknown> }
+  | { op: "depend" | "undepend"; task: string; hash: string; on: string };
+
+export function editBody(input: EditInput): Record<string, unknown> {
+  const expect = { [input.task]: input.hash };
+  return input.op === "edit"
+    ? { op: "edit", task: input.task, expect, changes: input.changes }
+    : { op: input.op, task: input.task, expect, on: input.on };
+}
+
+export function useEditTask(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: EditInput) =>
+      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, editBody(input)),
+    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
+}
