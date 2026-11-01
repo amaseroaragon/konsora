@@ -12,6 +12,7 @@
       "!.konsora",
       "!packages/web/src/theme/tokens.css",
       "!schema",
+      "!packages/runner/src/codex/protocol",
       "!**/test/fixtures/**/*.json"
     ]
   },

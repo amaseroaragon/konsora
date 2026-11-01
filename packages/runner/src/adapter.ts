@@ -109,6 +109,12 @@ export type DetectResult = {
   version?: string;
   /** Konsora never reads credentials, so it usually cannot tell. */
   authenticated?: boolean | "unknown";
+  /** The version Konsora's protocol types were generated for, when the adapter has them. */
+  expected_version?: string;
+  /** `false` when `version` is not `expected_version`: it still runs, with `warning`. */
+  version_matches?: boolean;
+  /** Something the human should know, without blocking runs. */
+  warning?: string;
 };
 
 export type ModelInfo = { id: string; label: string; efforts: string[] };

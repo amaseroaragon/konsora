@@ -158,7 +158,12 @@ claude -p --output-format stream-json --input-format stream-json --verbose
 
 ### Codex
 
-`codex app-server` por stdio (JSON-RPC sin cabecera `jsonrpc`, NDJSON). Los tipos se generan con `codex app-server generate-ts` para la versión instalada y se guardan en `packages/runner/src/codex/protocol/`; el adaptador comprueba la versión al hacer `detect()` y avisa si no coincide.
+`codex app-server` por stdio (JSON-RPC sin cabecera `jsonrpc`, NDJSON). Los tipos se generan con `codex app-server generate-ts` para la versión instalada y se guardan en `packages/runner/src/codex/protocol/` (`npm run codex:types`, que puede usar otro binario con `CODEX_BIN`):
+
+- **Solo se guarda lo que se usa**: el cierre transitivo de las cuatro uniones del protocolo (`ClientRequest`, `ClientNotification`, `ServerRequest`, `ServerNotification`) más las respuestas que lee el adaptador (la lista `ROOTS` de `packages/runner/scripts/codex-protocol.ts`). Con codex-cli 0.166.0 son 470 archivos (~280 KB) de los ~760 (3,2 MB) que genera. Si el adaptador necesita otra respuesta, se añade a `ROOTS` y se regenera.
+- ts-rs escribe `import type … from "./X"`, y con `nodenext` + `allowImportingTsExtensions` un import relativo necesita su extensión, así que el script añade `.ts`. Los `index.ts` generados reexportan todo, así que se sustituyen por índices de lo guardado (`v2` y `serde_json` como espacios de nombres). `version.ts` guarda `CODEX_PROTOCOL_VERSION`.
+- Sin la variante `--experimental`. La salida es determinista y Biome no formatea esa carpeta. Un test comprueba que todos sus imports resuelven dentro de ella.
+- `detectCodex()` compara `codex --version` con `CODEX_PROTOCOL_VERSION` y devuelve `expected_version`, `version_matches` y, si no coinciden, un `warning`. Nunca bloquea.
 
 - `initialize` (con `clientInfo.name = "konsora"`) → `model/list` (modelos y niveles de razonamiento) → `thread/start {cwd: worktree, sandbox: workspace-write, approvalPolicy: on-request, config: {mcp_servers.konsora: …}}` → `turn/start`.
 - Notificaciones: `item/*` → `message`/`tool`/`file`, `turn/completed` → `finished`, rate limits → `usage.rate_limits`.

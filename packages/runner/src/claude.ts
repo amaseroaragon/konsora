@@ -30,6 +30,7 @@ import {
   type RunIO,
   type RunSpec,
 } from "./adapter.ts";
+import { readVersion } from "./version.ts";
 
 export const MCP_CONFIG_FILE = "claude-mcp.json";
 export const PERMISSION_TOOL = "mcp__konsora__permission";
@@ -457,37 +458,13 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions = {}): AgentAd
   };
 }
 
-function detectClaude(
+async function detectClaude(
   command: string,
   prefix: string[],
   env: NodeJS.ProcessEnv,
 ): Promise<DetectResult> {
-  return new Promise((resolve) => {
-    let out = "";
-    let child: ChildProcess;
-    try {
-      child = nodeSpawn(command, [...prefix, "--version"], {
-        env,
-        stdio: ["ignore", "pipe", "ignore"],
-        timeout: 10_000,
-      });
-    } catch {
-      resolve({ installed: false });
-      return;
-    }
-    child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
-      out += chunk;
-    });
-    child.on("error", () => resolve({ installed: false }));
-    child.on("close", (code) => {
-      const version = /(\d+\.\d+\.\d+)/.exec(out)?.[1];
-      resolve(
-        code === 0 && version
-          ? { installed: true, version, authenticated: "unknown" }
-          : { installed: false },
-      );
-    });
-  });
+  const version = await readVersion(command, [...prefix, "--version"], env);
+  return version ? { installed: true, version, authenticated: "unknown" } : { installed: false };
 }
 
 function startClaude(

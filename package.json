@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json",
     "test": "vitest run",
     "schema": "node packages/core/scripts/gen-schema.ts",
+    "codex:types": "node packages/runner/scripts/codex-types.ts",
     "konsora": "node packages/cli/src/bin.ts"
   },
   "devDependencies": {

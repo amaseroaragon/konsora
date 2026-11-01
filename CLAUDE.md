@@ -37,6 +37,7 @@ npm ci
 npm run check                  # biome + tsc --noEmit + vitest, en todos los paquetes
 npm run format                 # aplica el formato y las correcciones seguras de Biome
 npx vitest run packages/core   # tests de un paquete
+npm run codex:types            # regenera los tipos de codex app-server para el codex instalado
 ```
 
 Requisitos: Node ≥ 22.18 (ejecuta `.ts` directamente con *type stripping*, sin paso de build), git ≥ 2.38, y `claude` y/o `codex` instalados y autenticados (solo para los runs reales).
