@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ApiError, createApi } from "../src/api/client.ts";
 import { bootstrapSession, TOKEN_KEY } from "../src/api/session.ts";
 import { linkErrorText, planLabel } from "../src/shell/ProjectsPage.tsx";
-import { parseRoute } from "../src/shell/route.ts";
+import { parseRoute, projectHref } from "../src/shell/route.ts";
 
 const token = "ab".repeat(32);
 
@@ -55,11 +55,27 @@ describe("routes", () => {
   it.each([
     ["", { name: "projects" }],
     ["#/", { name: "projects" }],
-    ["#/p/p-0123456789ab", { name: "project", id: "p-0123456789ab" }],
+    ["#/p/p-0123456789ab", { name: "project", id: "p-0123456789ab", view: "board", task: null }],
+    [
+      "#/p/p-0123456789ab?view=graph&task=UI-05",
+      { name: "project", id: "p-0123456789ab", view: "graph", task: "UI-05" },
+    ],
+    [
+      "#/p/p-0123456789ab?view=nope&task=",
+      { name: "project", id: "p-0123456789ab", view: "board", task: null },
+    ],
     ["#/muestrario", { name: "gallery" }],
     ["#/maqueta", { name: "mock" }],
     ["#/whatever", { name: "projects" }],
   ])("%s", (hash, route) => expect(parseRoute(hash)).toEqual(route));
+
+  it("builds project links that parse back to the same view and task", () => {
+    expect(projectHref("p-1")).toBe("#/p/p-1");
+    expect(projectHref("p-1", { task: "UI-05" })).toBe("#/p/p-1?task=UI-05");
+    const href = projectHref("p-1", { view: "graph", task: "UI-05" });
+    expect(href).toBe("#/p/p-1?view=graph&task=UI-05");
+    expect(parseRoute(href)).toEqual({ name: "project", id: "p-1", view: "graph", task: "UI-05" });
+  });
 });
 
 const failed = (): never => {

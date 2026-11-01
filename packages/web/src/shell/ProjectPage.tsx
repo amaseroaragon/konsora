@@ -3,8 +3,9 @@ import { type BoardOk, type Issue, useBoard, useBoardEvents } from "../api/board
 import { ApiError } from "../api/client.ts";
 import { t } from "../i18n/index.ts";
 import { Panel } from "../ui/index.ts";
-import { Board } from "./Board.tsx";
+import { ProjectView } from "./ProjectView.tsx";
 import { Rich } from "./Rich.tsx";
+import type { ProjectViewName } from "./route.ts";
 import { QueryError } from "./Shell.tsx";
 
 function IssueList({ issues }: { issues: readonly Issue[] }) {
@@ -20,11 +21,19 @@ function IssueList({ issues }: { issues: readonly Issue[] }) {
 }
 
 /**
- * A project's board, kept live over the daemon's WebSocket (also while the plan is unreadable).
+ * A project's board and graph, kept live over the daemon's WebSocket (also while the plan is unreadable).
  * An invalid plan puts the page in read-only mode: its errors on top and, if this page saw one,
  * the last valid board below without drag or actions. Nothing can be written until it is fixed.
  */
-export function ProjectPage({ id }: { id: string }) {
+export function ProjectPage({
+  id,
+  view,
+  task,
+}: {
+  id: string;
+  view: ProjectViewName;
+  task: string | null;
+}) {
   const board = useBoard(id);
   const live = useBoardEvents(id);
   const lastValid = useRef<BoardOk | null>(null);
@@ -47,7 +56,8 @@ export function ProjectPage({ id }: { id: string }) {
     return <QueryError error={board.error} retry={() => board.refetch()} />;
   }
   const data = board.data;
-  if (data.status === "ok") return <Board board={data} live={live} />;
+  if (data.status === "ok")
+    return <ProjectView board={data} live={live} view={view} openId={task} />;
   if (data.status === "missing")
     return (
       <Panel title={data.project.name} actions={back}>
@@ -70,7 +80,7 @@ export function ProjectPage({ id }: { id: string }) {
         )}
         {!last && <p className="s-text">{back}</p>}
       </section>
-      {last && <Board board={last} live={live} readOnly />}
+      {last && <ProjectView board={last} live={live} view={view} openId={task} readOnly />}
     </div>
   );
 }
