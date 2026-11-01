@@ -302,6 +302,7 @@ class Supervision {
     let head: string | undefined;
     try {
       await this.#commitLeftovers();
+      await this.#dropPlanChanges();
       head = await this.#gitOut(["rev-parse", "HEAD"]);
       const diff = await this.#git.run(
         ["diff", "--binary", `${this.#base}..${head}`, "--", ".", ":(exclude).konsora"],
@@ -380,18 +381,31 @@ class Supervision {
     if (add.code !== 0) throw new Error("git add failed");
     const staged = await this.#git.run(["diff", "--cached", "--quiet"], { cwd: this.#worktree });
     if (staged.code === 0) return;
+    await this.#commit(`wip: ${this.#task} (Konsora run ${this.#id})`);
+  }
+
+  /**
+   * If the agent committed changes to `.konsora/` anyway, a last commit puts it back as it was at
+   * `base_commit`, so the branch (and its integration) never carries plan changes.
+   */
+  async #dropPlanChanges(): Promise<void> {
+    const changed = await this.#git.run(["diff", "--quiet", this.#base, "HEAD", "--", ".konsora"], {
+      cwd: this.#worktree,
+    });
+    if (changed.code === 0) return;
+    await this.#git.run(["rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", ".konsora"], {
+      cwd: this.#worktree,
+    });
+    await this.#git.run(["reset", "-q", this.#base, "--", ".konsora"], { cwd: this.#worktree });
+    await this.#commit(`konsora: keep .konsora/ out of run ${this.#id}`);
+  }
+
+  async #commit(message: string): Promise<void> {
     const ident = await this.#git.run(["var", "GIT_COMMITTER_IDENT"], { cwd: this.#worktree });
     const identity =
       ident.code === 0 ? [] : ["-c", "user.name=Konsora", "-c", "user.email=konsora@localhost"];
     const commit = await this.#git.run(
-      [
-        ...identity,
-        "commit",
-        "--no-verify",
-        "--no-gpg-sign",
-        "-m",
-        `wip: ${this.#task} (Konsora run ${this.#id})`,
-      ],
+      [...identity, "commit", "--no-verify", "--no-gpg-sign", "-q", "-m", message],
       { cwd: this.#worktree },
     );
     if (commit.code !== 0) throw new Error("git commit failed");

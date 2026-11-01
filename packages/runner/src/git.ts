@@ -13,6 +13,8 @@ export type GitOptions = {
   cwd: string;
   /** Run git under this umask (e.g. 0o077 so a new worktree is private to the user). */
   umask?: number;
+  /** Written to git's stdin (e.g. a commit message for `commit-tree -F -`). */
+  input?: string;
 };
 
 export interface Git {
@@ -55,14 +57,18 @@ export const systemGit: Git = {
       const child = spawn(command, argv, {
         cwd: options.cwd,
         env: gitEnv(),
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
       });
+      if (options.input !== undefined) {
+        child.stdin?.on("error", () => undefined); // git may exit before reading it all
+        child.stdin?.end(options.input);
+      }
       let stdout = "";
       let stderr = "";
-      child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+      child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
         stdout += chunk;
       });
-      child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+      child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
         stderr += chunk;
       });
       child.on("error", reject);

@@ -184,7 +184,8 @@ describe("startRun", () => {
         emit({ t: "started", session: "s-1", model: "fake" });
         // A commit of its own, an uncommitted file, and a stray edit to the plan copy.
         writeFileSync(join(spec.cwd, "feature.txt"), "feature\n");
-        git(spec.cwd, "add", "feature.txt");
+        writeFileSync(join(spec.cwd, ".konsora", "extra.txt"), "plan change\n");
+        git(spec.cwd, "add", "feature.txt", ".konsora/extra.txt");
         git(spec.cwd, "commit", "-q", "-m", "add feature");
         writeFileSync(join(spec.cwd, "readme.txt"), "hello world\n");
         writeFileSync(join(spec.cwd, ".konsora", "tasks.json"), "{}\n");
@@ -219,8 +220,12 @@ describe("startRun", () => {
     expect(diff).toContain("+hello world");
     expect(diff).not.toContain(".konsora");
     expect(git(run.worktree as string, "log", "--format=%s", `${run.base_commit}..HEAD`)).toBe(
-      `wip: BE-01 (Konsora run ${run.id})\nadd feature`,
+      `konsora: keep .konsora/ out of run ${run.id}\nwip: BE-01 (Konsora run ${run.id})\nadd feature`,
     );
+    // The branch carries no plan changes, even those the agent committed.
+    expect(
+      git(root, "diff", "--name-only", run.base_commit as string, run.head_commit as string),
+    ).toBe("feature.txt\nreadme.txt");
     expect(run.head_commit).toBe(git(run.worktree as string, "rev-parse", "HEAD"));
 
     // events.jsonl has every event, in order, each with its time.
