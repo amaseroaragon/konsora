@@ -28,6 +28,8 @@ export type ErrorDetails = {
   issues?: { path?: unknown; code: string; message: string }[];
   current?: unknown;
   task?: string;
+  /** Files involved, e.g. in an integration conflict. */
+  files?: string[];
 };
 type ErrorBody = { error?: { code?: string; message?: string } & ErrorDetails };
 
@@ -62,6 +64,7 @@ export function createApi(
           ...(data.error?.issues ? { issues: data.error.issues } : {}),
           ...(data.error?.current ? { current: data.error.current } : {}),
           ...(data.error?.task ? { task: data.error.task } : {}),
+          ...(Array.isArray(data.error?.files) ? { files: data.error.files } : {}),
         },
       );
     }

@@ -1,0 +1,56 @@
+import type { Run } from "@konsora/core";
+import { useRunDiff } from "../api/runs.ts";
+import { t } from "../i18n/index.ts";
+import { DiffView } from "../ui/index.ts";
+import { Markdown } from "./Markdown.tsx";
+import { diffTotals, parsePatch } from "./review-model.ts";
+
+/**
+ * What to review before accepting a run's work: its diff per file and the agent's summary (the
+ * run section around it shows model, duration and usage). A failed integration is explained
+ * until it is retried.
+ */
+export function ReviewSection({
+  projectId,
+  run,
+  summary,
+}: {
+  projectId: string;
+  run: Run;
+  /** The agent's summary (its `finish`), if any. */
+  summary: string | undefined;
+}) {
+  const diff = useRunDiff(projectId, run.id);
+  const files = diff.data ? parsePatch(diff.data) : [];
+  const totals = diffTotals(files);
+  return (
+    <div className="a-stack b-review">
+      {run.integration?.state === "conflict" && (
+        <p className="a-callout a-callout--warn" role="status">
+          {t("review.conflict.persist")}
+        </p>
+      )}
+      {summary && (
+        <div className="a-summary">
+          <div className="k-label">{t("review.summary")}</div>
+          <Markdown className="md--compact" text={summary} />
+        </div>
+      )}
+      <div>
+        <div className="k-label">{t("review.diff")}</div>
+        {diff.isPending ? (
+          <p className="s-muted">{t("review.diff.loading")}</p>
+        ) : files.length === 0 ? (
+          <p className="s-muted">{t("review.diff.none")}</p>
+        ) : (
+          <>
+            <p className="k-mono a-diffstat">
+              {t("review.files", { n: files.length })} · +{totals.added} −{totals.removed}
+            </p>
+            <DiffView files={files} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

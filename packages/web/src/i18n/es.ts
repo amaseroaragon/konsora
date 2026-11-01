@@ -144,6 +144,28 @@ export const es = {
   "review.accept": "Aceptar e integrar",
   "review.sendBack": "Devolver",
   "review.retry": "Reintentar con",
+  "review.diff": "Cambios del run",
+  "review.diff.loading": "Cargando el diff…",
+  "review.diff.none": "El run no cambió ningún archivo.",
+  "review.binary": "Archivo binario",
+  "review.integrated": "{id} aceptada e integrada en un commit ({sha}).",
+  "review.conflict.persist":
+    "La última integración chocó con la rama base. Pide al agente que actualice su rama o resuélvelo a mano en ella, y vuelve a aceptar.",
+  "review.error.conflict":
+    "No se pudo integrar {id}: sus cambios chocan con la rama base. La tarea sigue en revisión.",
+  "review.error.conflict.files":
+    "No se pudo integrar {id}: sus cambios chocan con la rama base en {files}. La tarea sigue en revisión.",
+  "review.error.dirty":
+    "Tienes cambios sin commitear en {files}, que el run también cambia. Haz commit o guárdalos aparte y vuelve a aceptar.",
+  "review.error.moved": "La rama base cambió mientras se integraba. Vuelve a aceptar.",
+  "review.error.nothing":
+    "{id} no aporta cambios a la rama base: descarta el run en lugar de integrarlo.",
+  "review.error.plan":
+    "El run de {id} cambia .konsora/, y Konsora no integra cambios del plan desde una rama.",
+  "review.error.elsewhere":
+    "La rama base está abierta en otro worktree: intégralo desde allí o cámbiala de rama.",
+  "review.error.base": "La rama base del proyecto no existe. Revisa project.base_branch.",
+  "review.error.other": "No se pudo integrar {id}. La tarea sigue en revisión.",
   "diff.added": "añadida: ",
   "diff.removed": "eliminada: ",
   "log.start": "inicio",

@@ -14,7 +14,9 @@ import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { ReviewSection } from "./ReviewSection.tsx";
 import { RunSection } from "./RunSection.tsx";
+import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
 import { agentForRun, canRun, latestRun, runErrorText } from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
@@ -56,19 +58,30 @@ function Actions({
   // Answering is always shown as a form: an open question is what needs the human.
   const [open, setOpen] = useState<TaskAction | null>(actions.includes("answer") ? "answer" : null);
   const [text, setText] = useState("");
+  /** Why the last accept could not integrate the run's work (the task stays in review). */
+  const [problem, setProblem] = useState<string | null>(null);
   const run = (action: TaskAction, value?: string) =>
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
       {
-        onSuccess: () => {
-          toast.show(t(DONE[action], { id: task.id }), "success");
+        onSuccess: (result) => {
+          toast.show(
+            action === "accept"
+              ? acceptText(task.id, result as AcceptResult)
+              : t(DONE[action], { id: task.id }),
+            "success",
+          );
+          setProblem(null);
           setOpen(null);
           setText("");
         },
         onError: (error) => {
           if (error instanceof ApiError && error.unauthorized) return;
           const code = error instanceof ApiError ? error.code : "error";
-          toast.show(opErrorText(code, task.id, error.message), "error");
+          const files = error instanceof ApiError ? (error.details.files ?? []) : [];
+          const integration = integrationErrorText(code, task.id, files);
+          if (integration) setProblem(integration);
+          toast.show(integration ?? opErrorText(code, task.id, error.message), "error");
         },
       },
     );
@@ -118,28 +131,35 @@ function Actions({
     );
   }
   return (
-    <div className="a-actions">
-      {actions.map((action, index) =>
-        ACTION_TEXT[action] === "none" ? (
-          <Button
-            key={action}
-            variant={index === 0 ? "primary" : "secondary"}
-            busy={busy(action)}
-            onClick={() => run(action)}
-          >
-            {t(LABEL[action])}
-          </Button>
-        ) : (
-          <Button
-            key={action}
-            variant={index === 0 ? "primary" : "secondary"}
-            onClick={() => setOpen(action)}
-          >
-            {t(LABEL[action])}
-          </Button>
-        ),
+    <>
+      {problem && (
+        <p className="a-callout a-callout--warn" role="alert">
+          {problem}
+        </p>
       )}
-    </div>
+      <div className="a-actions">
+        {actions.map((action, index) =>
+          ACTION_TEXT[action] === "none" ? (
+            <Button
+              key={action}
+              variant={index === 0 ? "primary" : "secondary"}
+              busy={busy(action)}
+              onClick={() => run(action)}
+            >
+              {t(LABEL[action])}
+            </Button>
+          ) : (
+            <Button
+              key={action}
+              variant={index === 0 ? "primary" : "secondary"}
+              onClick={() => setOpen(action)}
+            >
+              {t(LABEL[action])}
+            </Button>
+          ),
+        )}
+      </div>
+    </>
   );
 }
 
@@ -259,7 +279,21 @@ export function TaskPanel({
           />
         )}
         {runnable && <RunButton projectId={projectId} task={task} doc={doc} />}
-        {run && <RunSection projectId={projectId} run={run} readOnly={readOnly} />}
+        {run && (
+          <RunSection projectId={projectId} run={run} readOnly={readOnly}>
+            {task.state === "review" && run.state === "succeeded" && (
+              <ReviewSection
+                projectId={projectId}
+                run={run}
+                summary={
+                  [...(task.notes ?? [])]
+                    .reverse()
+                    .find((n) => n.kind === "summary" && n.run === run.id)?.text ?? run.summary
+                }
+              />
+            )}
+          </RunSection>
+        )}
         {onSelectWithDeps && (
           <div className="a-actions">
             <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>
