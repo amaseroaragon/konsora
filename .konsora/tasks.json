@@ -2450,7 +2450,7 @@
     {
       "id": "RUN-10",
       "title": "Descartar runs y limpiar sus worktrees",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "rank": "zzzzr",
       "desc": "Hoy un run cancelado, fallido o devuelto conserva su worktree y su rama `konsora/…` para siempre: el diseño dice «hasta integrar o descartar», pero no existe la acción de descartar (lo vio RUN-09 con los dos runs cancelados de DEMO-02). Añadir `POST /projects/:id/runs/:run/discard` en el daemon (integration discarded + borrar worktree y rama con removeWorktree; el run se conserva) y el botón Descartar en la sección del run de la UI para runs terminados sin integrar. Al devolver una tarea (send-back), ofrecer descartar su run. Mostrar los worktrees huérfanos que detecta findOrphanWorktrees.",
@@ -2479,7 +2479,7 @@
         "at": "2026-11-01T13:41:54Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:51:55Z",
+      "updated_at": "2026-11-01T13:53:24Z",
       "notes": [
         {
           "id": "n1",
