@@ -2700,7 +2700,7 @@
     {
       "id": "RUN-13",
       "title": "Adaptador de Codex (app-server)",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-12"
@@ -2736,7 +2736,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T14:34:02Z",
+      "updated_at": "2026-11-01T14:34:26Z",
       "notes": [
         {
           "id": "n1",
