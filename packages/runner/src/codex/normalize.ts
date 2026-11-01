@@ -69,6 +69,8 @@ export class CodexNormalizer {
   #lastError: string | null = null;
   #malformed = false;
   #failed = false;
+  /** The paths of each file change in progress, for its approval request. */
+  readonly #filePaths = new Map<string, string[]>();
 
   constructor(cwd: string) {
     this.#cwd = cwd;
@@ -202,10 +204,22 @@ export class CodexNormalizer {
     }
   }
 
+  /** The worktree-relative paths of a file change that started, if known. */
+  filePaths(itemId: string): string[] {
+    return [...(this.#filePaths.get(itemId) ?? [])];
+  }
+
   #itemStarted(item: Json): RunEvent[] {
     const tool = this.#tool(item);
     if (!tool) return [];
     const id = str(item.id);
+    if (id && item.type === "fileChange") {
+      const changes = Array.isArray(item.changes) ? item.changes.filter(isObject) : [];
+      this.#filePaths.set(
+        id,
+        changes.map((c) => this.#relative(str(c.path) ?? "")).filter(Boolean),
+      );
+    }
     return [{ t: "tool", phase: "start", ...(id ? { id } : {}), ...tool }];
   }
 
@@ -220,6 +234,7 @@ export class CodexNormalizer {
     const tool = this.#tool(item);
     if (!tool) return [];
     const id = str(item.id);
+    if (id) this.#filePaths.delete(id);
     const status = str(item.status);
     const events: RunEvent[] = [];
     let ok = status === "completed";

@@ -58,7 +58,12 @@ export type RunManagerOptions = {
   now?: () => Date;
   /** Passed to the supervisor (tests shorten it). */
   interruptGraceMs?: number;
+  /** How long an approval asked through the agent's own protocol (Codex) waits. Default 300 s. */
+  permissionWaitMs?: number;
 };
+
+/** The same default wait as the MCP `permission` tool's (`wait_s`). */
+const PERMISSION_WAIT_MS = 300_000;
 
 export class RunManagerError extends Error {
   readonly code: "not_found" | "not_active" | "no_adapter" | "not_discardable";
@@ -165,6 +170,17 @@ export class RunManager {
             token: approvals.registerRun({ run, project: project.id, task: id }),
           }),
           unregister: (run) => approvals.endRun(run),
+          requestPermission: async ({ run, task: id, tool, input, tool_use_id }) => {
+            if (!approvals.isRegistered(run)) {
+              return { behavior: "deny", message: "The run has ended." };
+            }
+            const { decision } = await approvals.request(
+              { run, project: project.id, task: id },
+              { tool_name: tool, input, ...(tool_use_id ? { tool_use_id } : {}) },
+              this.#options.permissionWaitMs ?? PERMISSION_WAIT_MS,
+            );
+            return decision;
+          },
         },
         ...(this.#options.git ? { git: this.#options.git } : {}),
         ...(this.#options.now ? { now: this.#options.now } : {}),

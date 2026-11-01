@@ -16,6 +16,7 @@ import {
   type AgentAdapter,
   EventQueue,
   gitEnv,
+  type PermissionDecision,
   type RunEvent,
   type RunExit,
   type RunSpec,
@@ -43,9 +44,11 @@ const konsora = (spec: RunSpec, ...args: string[]) =>
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-type Behaviour = "finish" | "hang" | "ask" | "noop";
+type Behaviour = "finish" | "hang" | "ask" | "noop" | "permission";
 let behaviour: Behaviour = "finish";
 const seen: RunSpec[] = [];
+/** What the fake was told about its approval requests ("permission" behaviour). */
+const decisions: ({ id: string } & PermissionDecision)[] = [];
 
 /** A fake Claude: "finish" edits a file and finishes; "hang" never ends until killed. */
 const fake: AgentAdapter = {
@@ -70,6 +73,17 @@ const fake: AgentAdapter = {
     const mode = behaviour;
     void (async () => {
       queue.push({ t: "started", session: "s-1", model: "fake" });
+      if (mode === "permission") {
+        // Like Codex: it asks through its own protocol and waits for the decision.
+        queue.push({
+          t: "permission",
+          id: "codex-1",
+          tool: "shell",
+          detail: "git push",
+          input: { command: "git push", cwd: spec.cwd },
+        });
+        return;
+      }
       if (mode === "noop") {
         konsora(spec, "finish", "BE-01", "--summary", "Checked: nothing to change.");
       }
@@ -94,6 +108,13 @@ const fake: AgentAdapter = {
       },
       endInput: () => {
         if (mode !== "hang") end({ code: 0, signal: null });
+      },
+      answerPermission: (id, decision) => {
+        decisions.push({ id, ...decision });
+        if (decision.behavior !== "allow") return;
+        queue.push({ t: "tool", phase: "end", name: "shell", summary: "pushed", ok: true });
+        konsora(spec, "finish", "BE-01", "--summary", "Pushed after approval.");
+        queue.push({ t: "turn_end", ok: true });
       },
       interrupt: async () => end({ code: null, signal: "SIGINT" }),
       kill: async () => end({ code: null, signal: "SIGKILL" }),
@@ -163,6 +184,7 @@ async function taskState(id: string): Promise<string | undefined> {
 beforeEach(async () => {
   behaviour = "finish";
   seen.length = 0;
+  decisions.length = 0;
   data = realpathSync(mkdtempSync(join(tmpdir(), "konsora-runs-data-")));
   root = realpathSync(mkdtempSync(join(tmpdir(), "konsora-runs-proj-")));
   git(root, "init", "-q", "-b", "main");
@@ -499,6 +521,73 @@ describe("answers and approvals", () => {
     await asked;
     expect(await until("running")).toBe("running");
     await api(`/projects/${projectId}/runs/${run.id}/cancel`, { method: "POST" });
+  });
+});
+
+describe("approvals asked through the agent's protocol (Codex)", () => {
+  type Pending = { id: string; run: string; tool: string; input: Record<string, unknown> };
+  const pendingFor = async (run: string) => {
+    const deadline = Date.now() + 3000;
+    for (;;) {
+      const { body } = await api<{ approvals: Pending[] }>("/approvals");
+      const mine = body.approvals.filter((a) => a.run === run);
+      if (mine.length > 0 || Date.now() > deadline) return mine;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  };
+  const stateOf = async (run: string) =>
+    (await api<{ run: Run }>(`/projects/${projectId}/runs/${run}`)).body.run.state;
+
+  it("shows the request in GET /api/approvals with the run waiting, and delivers the decision", async () => {
+    behaviour = "permission";
+    const run = await launch();
+    const [pending] = await pendingFor(run.id);
+    expect(pending).toMatchObject({ tool: "shell", input: { command: "git push" } });
+    expect(await stateOf(run.id)).toBe("waiting_approval");
+
+    const res = await api(`/runs/${run.id}/permissions/${pending?.id}`, {
+      method: "POST",
+      body: JSON.stringify({ decision: "allow" }),
+    });
+    expect(res.status).toBe(200);
+    const done = await settled(run.id);
+    expect(decisions).toEqual([{ id: "codex-1", behavior: "allow" }]);
+    expect(done.state).toBe("succeeded");
+    const events = await api<{ events: { t: string; state?: string }[] }>(
+      `/projects/${projectId}/runs/${run.id}/events`,
+    );
+    expect(events.body.events.map((e) => e.t)).toContain("permission_decision");
+  });
+
+  it("passes a denial back to the agent and the run goes back to running", async () => {
+    behaviour = "permission";
+    const run = await launch();
+    const [pending] = await pendingFor(run.id);
+    await api(`/runs/${run.id}/permissions/${pending?.id}`, {
+      method: "POST",
+      body: JSON.stringify({ decision: "deny", message: "Not now." }),
+    });
+    const deadline = Date.now() + 3000;
+    while (decisions.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(decisions).toEqual([{ id: "codex-1", behavior: "deny", message: "Not now." }]);
+    const until = Date.now() + 3000;
+    while ((await stateOf(run.id)) !== "running" && Date.now() < until) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(await stateOf(run.id)).toBe("running");
+    await api(`/projects/${projectId}/runs/${run.id}/cancel`, { method: "POST" });
+  });
+
+  it("denies a pending request when the run is cancelled", async () => {
+    behaviour = "permission";
+    const run = await launch();
+    expect(await pendingFor(run.id)).toHaveLength(1);
+    await api(`/projects/${projectId}/runs/${run.id}/cancel`, { method: "POST" });
+    expect((await settled(run.id)).state).toBe("cancelled");
+    expect(decisions).toEqual([{ id: "codex-1", behavior: "deny", message: "The run has ended." }]);
+    expect((await api<{ approvals: Pending[] }>("/approvals")).body.approvals).toEqual([]);
   });
 });
 

@@ -38,7 +38,18 @@ export type RunEvent =
       ok?: boolean;
     }
   | { t: "file"; path: string; change: "add" | "modify" | "delete" }
-  | { t: "permission"; id: string; tool: string; detail: string }
+  /**
+   * The agent waits for the human's decision on `id` (adapters whose provider asks through its
+   * own protocol, like Codex; Claude asks through the MCP `permission` tool instead).
+   */
+  | {
+      t: "permission";
+      id: string;
+      tool: string;
+      detail: string;
+      /** What it wants to do, as the approval shows it (command, cwd, reason, paths…). */
+      input?: Record<string, unknown>;
+    }
   | {
       t: "usage";
       /** Every input token, cache included. */
@@ -87,6 +98,8 @@ export type RunIO = {
 
 export type RunExit = { code: number | null; signal: string | null };
 
+export type PermissionDecision = { behavior: "allow" | "deny"; message?: string };
+
 export interface RunHandle {
   /** Normalized events; always ends with exactly one `finished`. */
   readonly events: AsyncIterable<RunEvent>;
@@ -102,6 +115,11 @@ export interface RunHandle {
   kill(): Promise<void>;
   /** The provider's session id once known, to resume later. */
   sessionId(): string | undefined;
+  /**
+   * The human's decision on a `permission` event of this run. Only adapters that emit
+   * `permission` have it; unknown or already answered ids are ignored.
+   */
+  answerPermission?(id: string, decision: PermissionDecision): void;
 }
 
 export type DetectResult = {

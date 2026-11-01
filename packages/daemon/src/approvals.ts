@@ -76,6 +76,11 @@ export class Approvals {
       if (waiter.approval.run === run) this.finish(waiter, "expired", "The run has ended.");
   }
 
+  /** Whether `run` is registered (it has not ended). */
+  isRegistered(run: string): boolean {
+    return this.runs.has(run);
+  }
+
   /** The run that `token` belongs to, if it is the token of `run`. */
   authenticate(run: string, token: string): RunInfo | undefined {
     const info = this.runs.get(run);

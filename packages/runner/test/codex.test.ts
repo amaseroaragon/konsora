@@ -7,6 +7,8 @@ import type { RunEvent, RunHandle, RunSpec } from "../src/adapter.ts";
 import {
   CODEX_APPROVAL_POLICY,
   CODEX_SANDBOX,
+  codexDecision,
+  codexPermission,
   codexThreadParams,
   createCodexAdapter,
 } from "../src/codex/adapter.ts";
@@ -74,6 +76,7 @@ function adapter(name: string, env: Record<string, string> = {}) {
 async function collect(
   handle: RunHandle,
   onEvent: (event: RunEvent, handle: RunHandle) => void = (event, h) => {
+    if (event.t === "permission") h.answerPermission?.(event.id, { behavior: "allow" });
     if (event.t === "turn_end") h.endInput();
   },
 ) {
@@ -89,10 +92,15 @@ const read = (file: string) => JSON.parse(readFileSync(file, "utf8")) as Dump;
 
 describe("codex app-server recordings (codex-cli 0.166.0)", () => {
   it("normalizes a real two-turn session with commands and approvals", async () => {
-    const { adapter: codex } = adapter("success");
+    const { adapter: codex, dumpFile } = adapter("success");
     const handle = codex.start(spec);
     let turns = 0;
     const { events, exit } = await collect(handle, (event, h) => {
+      if (event.t === "permission") {
+        // As in the recording: the file commands are allowed, the network one is not.
+        const allow = !event.detail.startsWith("curl");
+        h.answerPermission?.(event.id, allow ? { behavior: "allow" } : { behavior: "deny" });
+      }
       if (event.t !== "turn_end") return;
       if (++turns === 1) h.send("Reply with just the word: done");
       else h.endInput();
@@ -101,8 +109,13 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
     expect(handle.sessionId()).toBe("01a19774-906d-7483-8718-645c81a1df62");
     const final =
       "I read `notes.txt` (“hello”), created `hello.txt` with `hi`, and added `bye` to `notes.txt`; the curl request was rejected.";
-    const denied = (what: string) =>
-      `Codex asked to run \`${what}\` outside its sandbox; Konsora denied it because it cannot ask you about Codex approvals yet`;
+    const permission = (id: string, command: string) => ({
+      t: "permission",
+      id,
+      tool: "shell",
+      detail: command,
+      input: expect.objectContaining({ command, cwd: dir, reason: expect.any(String) }),
+    });
     const python =
       "python3 -c \"from pathlib import Path; Path('hello.txt').write_text('hi'); p=Path('notes.txt'); p.write_text(p.read_text()+'\\nbye')\"";
     expect(events).toEqual([
@@ -136,7 +149,7 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
         name: "shell",
         summary: "cat notes.txt",
       },
-      { t: "error", message: denied("cat notes.txt"), retryable: false },
+      permission("codex-1", "cat notes.txt"),
       {
         t: "tool",
         phase: "end",
@@ -146,7 +159,7 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
         ok: true,
       },
       expect.objectContaining({ t: "tool", phase: "start", name: "shell", summary: python }),
-      expect.objectContaining({ t: "error", message: denied(python) }),
+      permission("codex-2", python),
       expect.objectContaining({
         t: "tool",
         phase: "end",
@@ -159,7 +172,7 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
         phase: "start",
         summary: "curl -sI https://example.com",
       }),
-      expect.objectContaining({ t: "error", message: denied("curl -sI https://example.com") }),
+      permission("codex-3", "curl -sI https://example.com"),
       expect.objectContaining({ t: "tool", phase: "end", summary: "declined", ok: false }),
       { t: "message", text: final, final: true },
       expect.objectContaining({ t: "usage", input_tokens: expect.any(Number) }),
@@ -169,12 +182,20 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
       { t: "turn_end", ok: true },
       { t: "finished", ok: true, summary: "done" },
     ]);
+    // The human's decisions went back as the replies to Codex's requests.
+    const replies = read(dumpFile).received.filter((m) => m.method === undefined && "result" in m);
+    expect(replies.map((m) => m.result)).toEqual([
+      { decision: "accept" },
+      { decision: "accept" },
+      { decision: "decline" },
+    ]);
   });
 
   it("splits the thread's usage by turn, with the cache and reasoning apart", async () => {
     const { adapter: codex } = adapter("success");
     let turns = 0;
     const { events } = await collect(codex.start(spec), (event, h) => {
+      if (event.t === "permission") h.answerPermission?.(event.id, { behavior: "allow" });
       if (event.t !== "turn_end") return;
       if (++turns === 1) h.send("again");
       else h.endInput();
@@ -222,13 +243,17 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
         summary: "a.txt, notes.txt",
       }),
     );
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        t: "error",
-        message:
-          "Codex asked to change files outside its sandbox; Konsora denied it because it cannot ask you about Codex approvals yet",
-      }),
-    );
+    expect(events).toContainEqual({
+      t: "permission",
+      id: "codex-1",
+      tool: "apply_patch",
+      detail: "a.txt, notes.txt",
+      input: {
+        path: "a.txt",
+        paths: ["a.txt", "notes.txt"],
+        reason: "command failed; retry without sandbox?",
+      },
+    });
     expect(events.at(-1)).toEqual({
       t: "finished",
       ok: true,
@@ -331,6 +356,39 @@ describe("what Konsora sends to codex", () => {
   });
 });
 
+describe("approval replies", () => {
+  it("uses each method's decision format", () => {
+    const v2 = "item/commandExecution/requestApproval";
+    expect(codexDecision(v2, { behavior: "allow" })).toEqual({ decision: "accept" });
+    expect(codexDecision("item/fileChange/requestApproval", { behavior: "deny" })).toEqual({
+      decision: "decline",
+    });
+    expect(codexDecision("execCommandApproval", { behavior: "allow" })).toEqual({
+      decision: "approved",
+    });
+    expect(codexDecision("applyPatchApproval", { behavior: "deny", message: "No." })).toEqual({
+      decision: { denied: { rejection: "No." } },
+    });
+  });
+
+  it("shows the legacy requests' command and files", () => {
+    expect(
+      codexPermission("execCommandApproval", { command: ["git", "push"], cwd: "/w" }, () => []),
+    ).toEqual({ tool: "shell", detail: "git push", input: { command: "git push", cwd: "/w" } });
+    expect(
+      codexPermission(
+        "applyPatchApproval",
+        { callId: "c1", fileChanges: { "/w/a.ts": {} } },
+        () => [],
+      ),
+    ).toEqual({
+      tool: "apply_patch",
+      detail: "/w/a.ts",
+      input: { path: "/w/a.ts", paths: ["/w/a.ts"] },
+    });
+  });
+});
+
 describe("models()", () => {
   it("lists the visible models with the efforts from model/list", async () => {
     const { adapter: codex } = adapter("models", { FAKE_CODEX_SKIP: "" });
@@ -418,13 +476,19 @@ describe("failures", () => {
     onlyOneFinished(events);
   });
 
-  it("kill() stops a session that never ends", async () => {
-    const { adapter: codex } = adapter("patch");
+  it("kill() stops a session that waits for an approval, and a late answer is ignored", async () => {
+    const { adapter: codex, dumpFile } = adapter("patch");
     const handle = codex.start(spec);
+    let permission = "";
     const { events, exit } = await collect(handle, (event, h) => {
-      if (event.t === "turn_end") void h.kill(); // instead of endInput
+      if (event.t === "permission") {
+        permission = event.id;
+        void h.kill(); // nobody answers
+      }
     });
     expect(exit.signal).toBe("SIGTERM");
     onlyOneFinished(events);
+    handle.answerPermission?.(permission, { behavior: "allow" });
+    expect(read(dumpFile).received.filter((m) => m.method === undefined)).toEqual([]);
   });
 });

@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   type AgentAdapter,
   EventQueue,
+  type PermissionDecision,
   type RunEvent,
   type RunExit,
   type RunHandle,
@@ -194,6 +195,88 @@ afterEach(() => {
 });
 
 describe("startRun", () => {
+  /** A fake Codex: it asks to run `git push`, waits for the decision, then finishes. */
+  function askingAdapter(decisions: PermissionDecision[]): AgentAdapter {
+    let decide: (decision: PermissionDecision) => void = () => undefined;
+    const base = fakeAdapter(async (spec, emit) => {
+      emit({ t: "started", session: "t-1", model: "fake" });
+      emit({ t: "tool", phase: "start", id: "item-1", name: "shell", summary: "git push" });
+      emit({
+        t: "permission",
+        id: "codex-1",
+        tool: "shell",
+        detail: "git push",
+        input: { command: "git push", cwd: spec.cwd },
+      });
+      const decision = await new Promise<PermissionDecision>((resolve) => {
+        decide = resolve;
+      });
+      decisions.push(decision);
+      emit({
+        t: "tool",
+        phase: "end",
+        id: "item-1",
+        name: "shell",
+        summary: decision.behavior,
+        ok: decision.behavior === "allow",
+      });
+      konsora(spec, "finish", "BE-01", "--summary", "Asked first.");
+    });
+    return {
+      ...base,
+      start(spec, io) {
+        const handle = base.start(spec, io);
+        return {
+          ...handle,
+          answerPermission: (id, decision) => {
+            if (id === "codex-1") decide(decision);
+          },
+        };
+      },
+    };
+  }
+
+  it("hands the agent's own approval requests to the daemon and its decision back", async () => {
+    const decisions: PermissionDecision[] = [];
+    const asked: unknown[] = [];
+    const registry: RunRegistry = {
+      register: async () => ({ url: "http://127.0.0.1:9999", token: "run-token" }),
+      unregister: () => undefined,
+      requestPermission: async (request) => {
+        asked.push(request);
+        return { behavior: "allow" };
+      },
+    };
+    const session = await startRun(options(askingAdapter(decisions), { registry }), {
+      task: "BE-01",
+    });
+    const run = await session.done;
+    expect(asked).toEqual([
+      {
+        run: run.id,
+        task: "BE-01",
+        tool: "shell",
+        input: { command: "git push", cwd: run.worktree },
+        tool_use_id: "codex-1",
+      },
+    ]);
+    expect(decisions).toEqual([{ behavior: "allow" }]);
+    expect(run.state).toBe("succeeded");
+    const events = (await store.readEvents(run.id)) as Record<string, unknown>[];
+    expect(events).toContainEqual(
+      expect.objectContaining({ t: "permission_decision", id: "codex-1", behavior: "allow" }),
+    );
+  });
+
+  it("denies the agent's approval requests when no daemon can ask the human", async () => {
+    const decisions: PermissionDecision[] = [];
+    const session = await startRun(options(askingAdapter(decisions)), { task: "BE-01" });
+    await session.done;
+    expect(decisions).toEqual([
+      { behavior: "deny", message: "Nobody can approve it: the run has no daemon." },
+    ]);
+  });
+
   it("takes a task from ready to review when the agent edits files and calls finish", async () => {
     const seen: RunSpec[] = [];
     const registered: string[] = [];

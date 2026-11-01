@@ -11,8 +11,9 @@
  * - The run's MCP variables (with the run token) travel only inside `config`, over stdin; they are
  *   never written to disk nor put in the child's environment, which is the user's minus every
  *   `KONSORA_*` variable.
- * - The server's approval requests are denied for now, with an `error` event that says so: the
- *   human's approvals arrive with the daemon's support for them.
+ * - The server's approval requests (commands and file changes outside the sandbox) become
+ *   `permission` events; `answerPermission` replies with the human's decision. If the process
+ *   ends first, nothing is sent. Other requests are declined.
  */
 import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import { createInterface } from "node:readline";
@@ -21,6 +22,7 @@ import {
   type AgentAdapter,
   EventQueue,
   type ModelInfo,
+  type PermissionDecision,
   type RunEvent,
   type RunExit,
   type RunHandle,
@@ -310,15 +312,70 @@ async function listCodexModels(
   }
 }
 
-/** A human-readable line for an approval request Konsora denied. */
-function deniedApproval(method: string, params: Json): string {
-  const command = typeof params.command === "string" ? shellCommand(params.command) : undefined;
-  const what = command
-    ? `to run \`${clip(command)}\``
-    : method.includes("fileChange") || method === "applyPatchApproval"
-      ? "to change files"
-      : "for a permission";
-  return `Codex asked ${what} outside its sandbox; Konsora denied it because it cannot ask you about Codex approvals yet`;
+const APPROVALS = new Set([
+  "item/commandExecution/requestApproval",
+  "item/fileChange/requestApproval",
+  "execCommandApproval",
+  "applyPatchApproval",
+]);
+
+/** What an approval request asks for, as the `permission` event shows it. */
+export function codexPermission(
+  method: string,
+  params: Json,
+  filePaths: (itemId: string) => string[],
+): { tool: string; detail: string; input: Record<string, unknown> } {
+  const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
+  const reason = text(params.reason);
+  const raw = params.command;
+  const command = Array.isArray(raw)
+    ? raw.filter((part): part is string => typeof part === "string").join(" ")
+    : text(raw);
+  if (method === "item/commandExecution/requestApproval" || method === "execCommandApproval") {
+    const shown = command ? shellCommand(command) : undefined;
+    const cwd = text(params.cwd);
+    return {
+      tool: "shell",
+      detail: shown ? clip(shown) : (reason ?? "Run a command outside the sandbox"),
+      input: {
+        ...(shown ? { command: shown } : {}),
+        ...(cwd ? { cwd } : {}),
+        ...(reason ? { reason } : {}),
+      },
+    };
+  }
+  const itemId = text(params.itemId) ?? text(params.callId);
+  const started = itemId ? filePaths(itemId) : [];
+  const paths =
+    started.length > 0
+      ? started
+      : isObject(params.fileChanges)
+        ? Object.keys(params.fileChanges)
+        : [];
+  const grantRoot = text(params.grantRoot);
+  return {
+    tool: "apply_patch",
+    detail:
+      paths.length > 0 ? clip(paths.join(", ")) : (reason ?? "Change files outside the sandbox"),
+    input: {
+      ...(paths.length > 0 ? { path: paths[0], paths } : {}),
+      ...(reason ? { reason } : {}),
+      ...(grantRoot ? { grant_root: grantRoot } : {}),
+    },
+  };
+}
+
+/** The reply to an approval request, in the format of its method. */
+export function codexDecision(method: string, decision: PermissionDecision): unknown {
+  const allow = decision.behavior === "allow";
+  if (method === "execCommandApproval" || method === "applyPatchApproval") {
+    return {
+      decision: allow
+        ? "approved"
+        : { denied: { rejection: decision.message ?? "Denied by the human" } },
+    };
+  }
+  return { decision: allow ? "accept" : "decline" };
 }
 
 function startCodex(
@@ -346,6 +403,9 @@ function startCodex(
   let ready = false;
   /** A turn was started and has not completed (its id may not be known yet). */
   let turnActive = false;
+  /** Approval requests waiting for the human: permission id → its JSON-RPC request. */
+  const approvals = new Map<string, { rpcId: RequestId; method: string }>();
+  let approvalSeq = 0;
 
   const push = (events: RunEvent[]) => {
     for (const event of events) queue.push(event);
@@ -364,6 +424,7 @@ function startCodex(
     if (closed) return;
     closed = true;
     peer.close("Codex exited");
+    approvals.clear();
     if (failure) queue.push({ t: "error", message: failure, retryable: false });
     push(normalizer.end(exit, stderrTail));
     queue.close();
@@ -398,19 +459,14 @@ function startCodex(
   };
 
   const onServerRequest = (id: RequestId, method: string, params: Json) => {
+    if (APPROVALS.has(method)) {
+      const permission = `codex-${++approvalSeq}`;
+      approvals.set(permission, { rpcId: id, method });
+      const shown = codexPermission(method, params, (item) => normalizer.filePaths(item));
+      queue.push({ t: "permission", id: permission, ...shown });
+      return;
+    }
     switch (method) {
-      case "item/commandExecution/requestApproval":
-      case "item/fileChange/requestApproval":
-        queue.push({ t: "error", message: deniedApproval(method, params), retryable: false });
-        peer.respond(id, { decision: "decline" });
-        return;
-      case "execCommandApproval":
-      case "applyPatchApproval":
-        queue.push({ t: "error", message: deniedApproval(method, params), retryable: false });
-        peer.respond(id, {
-          decision: { denied: { rejection: "Konsora cannot approve this yet" } },
-        });
-        return;
       case "mcpServer/elicitation/request":
         peer.respond(id, { action: "decline", content: null, _meta: null });
         return;
@@ -442,6 +498,11 @@ function startCodex(
     if ("id" in message && (typeof message.id === "number" || typeof message.id === "string")) {
       onServerRequest(message.id, method, params);
       return;
+    }
+    if (method === "serverRequest/resolved") {
+      // Codex settled a request on its own (e.g. the turn was interrupted): nothing to answer.
+      for (const [permission, request] of approvals)
+        if (request.rpcId === params.requestId) approvals.delete(permission);
     }
     push(normalizer.notification({ method, params }));
     if (method === "turn/completed") afterTurn();
@@ -546,6 +607,12 @@ function startCodex(
         await exited;
       },
       sessionId: () => normalizer.thread,
+      answerPermission: (id, decision) => {
+        const request = approvals.get(id);
+        if (!request || closed) return;
+        approvals.delete(id);
+        peer.respond(request.rpcId, codexDecision(request.method, decision));
+      },
     };
   }
 }

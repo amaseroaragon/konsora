@@ -35,7 +35,13 @@ import {
   taskHash,
 } from "@konsora/core";
 import { mutate, readTasks } from "@konsora/core/store";
-import type { AgentAdapter, McpServerSpec, RunEvent, RunHandle } from "./adapter.ts";
+import type {
+  AgentAdapter,
+  McpServerSpec,
+  PermissionDecision,
+  RunEvent,
+  RunHandle,
+} from "./adapter.ts";
 import { type Git, systemGit } from "./git.ts";
 import { RunStore } from "./run-store.ts";
 import { UsageTally } from "./usage.ts";
@@ -47,6 +53,18 @@ export interface RunRegistry {
   register(info: { run: RunId; task: string }): Promise<{ url: string; token: string }>;
   /** Forgets the run; its pending approvals are denied. */
   unregister(run: RunId): void;
+  /**
+   * Records an approval the agent asked for through its own protocol (Codex) and resolves with
+   * the human's decision: deny if the run was unregistered, it ran out of time or it was
+   * abandoned. Never rejects.
+   */
+  requestPermission?(request: {
+    run: RunId;
+    task: string;
+    tool: string;
+    input: Record<string, unknown>;
+    tool_use_id?: string;
+  }): Promise<PermissionDecision>;
 }
 
 export type SupervisorOptions = {
@@ -341,6 +359,7 @@ class Supervision {
         });
       } else if (event.t === "permission") {
         await this.setAwaitingApproval(true);
+        this.#askPermission(handle, event);
       } else if (event.t === "tool" && event.phase === "end") {
         await this.setAwaitingApproval(false);
       } else if (event.t === "usage") {
@@ -429,6 +448,33 @@ class Supervision {
 
   #log(event: Record<string, unknown>): Promise<void> {
     return this.#store.appendEvent(this.#id, { at: this.#now(), ...event });
+  }
+
+  /** Hands an approval the agent asked for to the daemon, and its decision back to the agent. */
+  #askPermission(handle: RunHandle, event: Extract<RunEvent, { t: "permission" }>): void {
+    if (!handle.answerPermission) return;
+    const answer = (decision: PermissionDecision) => {
+      void this.#log({ t: "permission_decision", id: event.id, behavior: decision.behavior });
+      handle.answerPermission?.(event.id, decision);
+    };
+    const registry = this.#options.registry;
+    if (this.#cancelled) {
+      answer({ behavior: "deny", message: "The run was cancelled." });
+      return;
+    }
+    if (!registry?.requestPermission) {
+      answer({ behavior: "deny", message: "Nobody can approve it: the run has no daemon." });
+      return;
+    }
+    registry
+      .requestPermission({
+        run: this.#id,
+        task: this.#task,
+        tool: event.tool,
+        input: event.input ?? { detail: event.detail },
+        tool_use_id: event.id,
+      })
+      .then(answer, () => answer({ behavior: "deny", message: "The approval failed." }));
   }
 
   setAwaitingApproval(waiting: boolean): Promise<void> {

@@ -105,7 +105,7 @@ interface RunHandle {
   exited: Promise<RunExit>;                        // {code, signal} del proceso
   send(text: string): void;                        // otro mensaje del usuario en la misma sesión (respuestas a `ask`)
   endInput(): void;                                // cierra la entrada: el agente termina tras el turno actual
-  answerPermission?(id: string, decision: "allow" | "deny", note?: string): void; // Codex (M7)
+  answerPermission?(id: string, decision: { behavior: "allow" | "deny"; message?: string }): void; // Codex
   interrupt(): Promise<void>;                      // termina el turno de forma ordenada
   kill(): Promise<void>;                           // SIGTERM → 5 s → SIGKILL al grupo de procesos
   sessionId(): string | undefined;                 // para reanudar
@@ -115,7 +115,7 @@ type RunEvent =
   | { t: "message"; text: string; final: boolean }
   | { t: "tool"; phase: "start" | "end"; name: string; summary: string; ok?: boolean }
   | { t: "file"; path: string; change: "add" | "modify" | "delete" }
-  | { t: "permission"; id: string; tool: string; detail: string }
+  | { t: "permission"; id: string; tool: string; detail: string; input?: Record<string, unknown> }  // Codex; respuesta con answerPermission
   | { t: "usage"; input_tokens?: number; output_tokens?: number;          // entrada con la caché incluida
       cache_read_tokens?: number; cache_write_tokens?: number;            // parte de la entrada
       reasoning_tokens?: number; cost_usd?: number; rate_limits?: RateLimits }
@@ -174,7 +174,7 @@ El adaptador (`packages/runner/src/codex/adapter.ts`), comprobado con codex-cli 
 - **Uso**: `thread/tokenUsage/updated` da los totales acumulados del hilo (`inputTokens`, con `cachedInputTokens` y `cacheWriteInputTokens` incluidos, y `outputTokens` con `reasoningOutputTokens` incluidos). El `usage` de cada turno es lo que han crecido desde el turno anterior. **No da coste.**
 - **Rate limits**: `account/rateLimits/updated` llega tras cada petición al modelo, con `primary` y `secondary` (`usedPercent`, `windowDurationMins`, `resetsAt` en segundos). Se nombran por su duración (300 min → `five_hour`, 10080 → `seven_day`, otra → `window_<min>m`) y solo se emite un evento cuando cambian (`resetsAt` varía un segundo entre envíos). El estado es `rejected` si viene `rateLimitReachedType`.
 - `models()` abre otro `app-server`, hace `initialize` y `model/list` (paginado) y devuelve los modelos no ocultos con sus `supportedReasoningEfforts`. Codex admite esfuerzos que Konsora no tiene (`ultra`).
-- Las solicitudes de aprobación del servidor (`item/commandExecution/requestApproval`, `item/fileChange/requestApproval` y las antiguas `execCommandApproval`/`applyPatchApproval`) se **deniegan** por ahora, con un `error` que lo explica, hasta que el daemon las lleve a la UI (entonces → `permission`, y la respuesta del humano vuelve como resultado del JSON-RPC). Las elicitaciones MCP se rechazan, y cualquier otra petición del servidor recibe el error JSON-RPC -32601.
+- **Aprobaciones**: las solicitudes del servidor (`item/commandExecution/requestApproval`, `item/fileChange/requestApproval` y las antiguas `execCommandApproval`/`applyPatchApproval`) se convierten en `permission` (`shell` con `command`, `cwd` y `reason`, o `apply_patch` con `path`, `paths` y `reason`), con un id `codex-<n>`. El supervisor las pasa a `RunRegistry.requestPermission`, que en el daemon crea la aprobación pendiente de `Approvals`, la misma que usa el MCP de Claude: aparece en `GET /api/approvals` y en la UI, y el run pasa a `waiting_approval`. La decisión vuelve con `RunHandle.answerPermission` como resultado del JSON-RPC (`accept`/`decline`, o `approved`/`denied` en las antiguas) y queda en `events.jsonl` como `permission_decision`. Se deniega si el run se cancela o termina, si vence el plazo (300 s) o si no hay daemon. Si Codex da la petición por resuelta (`serverRequest/resolved`), ya no se responde. Las elicitaciones MCP se rechazan, y cualquier otra petición del servidor recibe el error JSON-RPC -32601.
 - **Límites conocidos**:
   - A diferencia de `--strict-mcp-config` en Claude, Codex carga también los servidores MCP del usuario (`~/.codex/config.toml`) además del de Konsora.
   - En Ubuntu 24.04, `kernel.apparmor_restrict_unprivileged_userns = 1` impide que bubblewrap cree user namespaces. Entonces el sandbox de Codex no puede ejecutar nada (`configWarning` al arrancar) y Codex pide aprobación para salir del sandbox hasta para un `cat`. La solución es del sistema, nunca `danger-full-access`: Codex ejecuta el `/usr/bin/bwrap` del sistema (comprobado con `strace`), así que basta un perfil `/etc/apparmor.d/bwrap` como el `lxc-usernsexec` de Ubuntu (`profile bwrap /usr/bin/bwrap flags=(unconfined) { userns, }`), cargado con `sudo apparmor_parser -r`. Se comprueba sin gastar cuota con `codex sandbox -c 'sandbox_mode="workspace-write"' -- <comando>`: escribe en el directorio actual y no fuera, y sin red.
