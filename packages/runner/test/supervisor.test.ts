@@ -424,6 +424,29 @@ describe("startRun", () => {
     });
   });
 
+  it("does not lose an answer written before the agent's turn ends", async () => {
+    const answers: string[] = [];
+    const adapter = fakeAdapter(
+      async (spec) => {
+        konsora(spec, "ask", "BE-01", "Which TTL?");
+        // The human answers right away, before the runner sees this turn end.
+        await human({ op: "answer", task: "BE-01", text: "Five." });
+      },
+      {
+        onMessage: (spec) => {
+          answers.push(spec.prompt);
+          konsora(spec, "finish", "BE-01", "--summary", "Five it is.");
+        },
+      },
+    );
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    await until(async () => (await taskIn("BE-01")).notes?.at(-1)?.kind === "answer");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await session.deliverAnswer();
+    expect((await session.done).state).toBe("succeeded");
+    expect(answers[0]).toContain("> Five.");
+  });
+
   it("refuses to deliver when there is no answer", async () => {
     const adapter = fakeAdapter((spec) => {
       konsora(spec, "ask", "BE-01", "Q?");

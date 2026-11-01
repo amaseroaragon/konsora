@@ -26,3 +26,16 @@ export function logDir(env: NodeJS.ProcessEnv = process.env): string {
   const base = env.XDG_STATE_HOME || join(homedir(), ".local", "state");
   return join(base, "konsora", "logs");
 }
+
+/**
+ * How runs launch Konsora's MCP server: this checkout's CLI (`packages/cli/src/bin.ts mcp`) with
+ * the Node running the daemon. `KONSORA_MCP_BIN` points to another `bin.ts`.
+ */
+export function mcpCommand(env: NodeJS.ProcessEnv = process.env): {
+  command: string;
+  args: string[];
+} {
+  const bin =
+    env.KONSORA_MCP_BIN || fileURLToPath(new URL("../../cli/src/bin.ts", import.meta.url));
+  return { command: process.execPath, args: [bin, "mcp"] };
+}

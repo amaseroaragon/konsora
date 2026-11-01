@@ -14,8 +14,9 @@ import { Approvals } from "./approvals.ts";
 import { EventHub } from "./events.ts";
 import { ensurePrivateDir, readJson, writePrivateFile } from "./files.ts";
 import { createOversights } from "./oversight.ts";
-import { DAEMON_FILE, dataDir as defaultDataDir } from "./paths.ts";
+import { DAEMON_FILE, dataDir as defaultDataDir, mcpCommand } from "./paths.ts";
 import { Registry } from "./registry.ts";
+import { RunManager, type RunManagerOptions } from "./runs.ts";
 
 export type DaemonInfo = { url: string; token: string; pid: number; started_at: string };
 
@@ -27,12 +28,19 @@ export type StartOptions = {
   extraOrigins?: string[];
   /** Folder with the built web UI to serve outside `/api`. */
   webDir?: string;
+  /** Agent adapters by provider (tests pass fakes); default: the installed Claude Code. */
+  adapters?: RunManagerOptions["adapters"];
+  /** How runs launch `konsora mcp`; default: this checkout's CLI. */
+  mcp?: RunManagerOptions["mcp"];
+  /** Passed to the run supervisor (tests shorten it). */
+  interruptGraceMs?: number;
 };
 
 export type RunningDaemon = DaemonInfo & {
   dataDir: string;
   /** Runs register here to get the token their MCP uses to ask for permissions (M6). */
   approvals: Approvals;
+  runs: RunManager;
   close: () => Promise<void>;
 };
 
@@ -77,12 +85,34 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const oversight = createOversights(dir);
   const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
   let hub: EventHub | undefined;
-  const approvals = new Approvals({ onEvent: (event) => hub?.publish(event.project, event) });
+  let runs: RunManager | undefined;
+  const approvals = new Approvals({
+    onEvent: (event) => {
+      hub?.publish(event.project, event);
+      runs?.onApproval(event);
+    },
+  });
+  const url = `http://127.0.0.1:${port}`;
+  runs = new RunManager({
+    registry,
+    approvals,
+    dataDir: dir,
+    daemonUrl: () => url,
+    mcp: options.mcp ?? mcpCommand(),
+    publish: (project, payload) => hub?.publish(project, payload),
+    ...(options.adapters ? { adapters: options.adapters } : {}),
+    ...(options.interruptGraceMs !== undefined
+      ? { interruptGraceMs: options.interruptGraceMs }
+      : {}),
+  });
+  // Runs that were alive when the last daemon stopped: interrupted, never resumed on their own.
+  await runs.recover();
   app = createApp({
     ...auth,
     registry,
     oversight,
     approvals,
+    runs,
     ...(options.webDir ? { webDir: options.webDir } : {}),
   });
   const events = new EventHub({ ...auth, registry, oversight });
@@ -90,7 +120,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   server.on("upgrade", events.handleUpgrade);
 
   const info: DaemonInfo = {
-    url: `http://127.0.0.1:${port}`,
+    url,
     token,
     pid: process.pid,
     started_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
@@ -101,6 +131,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     ...info,
     dataDir: dir,
     approvals,
+    runs,
     close: async () => {
       approvals.close();
       events.close();

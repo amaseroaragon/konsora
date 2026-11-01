@@ -26,6 +26,7 @@ import {
   indexTasks,
   isReady,
   isWaiting,
+  type Note,
   newRunId,
   type Run,
   type RunId,
@@ -264,6 +265,8 @@ class Supervision {
   /** Wakes a run that waits, without a process, for the human's answer. */
   #wake: (() => void) | null = null;
   #cancelled = false;
+  /** Ids of the answer notes already handed to the agent. */
+  readonly #delivered = new Set<string>();
   readonly #release: () => void;
   #done: Promise<Run> | null = null;
 
@@ -309,7 +312,7 @@ class Supervision {
       // The agent's process is gone while its question is still open: wait for the answer and
       // resume the same session with it.
       const task = await this.#readTask();
-      if (!this.#cancelled && task?.state === "doing" && isWaiting(task) && this.#session) {
+      if (!this.#cancelled && task && this.#expectsAnswer(task) && this.#session) {
         await this.#log({ t: "waiting_answer" });
         const answer = await this.#nextAnswer();
         if (answer === null) return this.#serial(() => this.#close(exit, finished));
@@ -362,9 +365,11 @@ class Supervision {
   async deliverAnswer(): Promise<"stdin" | "resume"> {
     const task = await this.#readTask();
     const message = task ? buildAnswerMessage(task) : null;
-    if (!message) {
+    const note = task ? latestAnswer(task) : undefined;
+    if (!message || !note) {
       throw new RunError("no_answer", `${this.#task} has no answer to deliver`);
     }
+    this.#delivered.add(note.id);
     if (this.#handle) {
       this.#handle.send(message);
       await this.#log({ t: "answer", delivery: "stdin", text: message });
@@ -415,6 +420,17 @@ class Supervision {
     return this.run();
   }
 
+  /**
+   * The agent waits for the human: its question is open, or answered in the plan but not yet
+   * delivered (the daemon delivers right after writing the answer, which can race a turn's end).
+   */
+  #expectsAnswer(task: Task): boolean {
+    if (task.state !== "doing") return false;
+    if (isWaiting(task)) return true;
+    const answer = latestAnswer(task);
+    return answer !== undefined && !this.#delivered.has(answer.id);
+  }
+
   #log(event: Record<string, unknown>): Promise<void> {
     return this.#store.appendEvent(this.#id, { at: this.#now(), ...event });
   }
@@ -430,7 +446,7 @@ class Supervision {
   async #afterTurn(handle: RunHandle): Promise<void> {
     if (this.#pendingAnswer !== null && !this.#cancelled) return;
     const task = await this.#readTask();
-    if (task?.state === "doing" && isWaiting(task)) return;
+    if (task && this.#expectsAnswer(task)) return;
     handle.endInput();
   }
 
@@ -585,4 +601,15 @@ class Supervision {
     this.#chain = next.catch(() => undefined);
     return next;
   }
+}
+
+/** The latest `answer` note, if no question came after it. */
+function latestAnswer(task: Task): Note | undefined {
+  const notes = task.notes ?? [];
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const note = notes[i] as Note;
+    if (note.kind === "question") return undefined;
+    if (note.kind === "answer") return note;
+  }
+  return undefined;
 }

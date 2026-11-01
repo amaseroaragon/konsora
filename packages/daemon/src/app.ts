@@ -3,22 +3,27 @@
  * outside `/api`, the built web UI (UI-01).
  */
 import {
+  AgentSpecSchema,
+  applyOp,
   dependentsOf,
   deriveFlags,
   indexTasks,
   parseOp,
   type Task,
+  TaskIdSchema,
   type TasksDocument,
   taskHash,
   topoOrder,
 } from "@konsora/core";
 import { mutate, readTasks } from "@konsora/core/store";
+import { IntegrationError, RunError, RunStoreError, WorktreeError } from "@konsora/runner";
 import { Hono } from "hono";
 import { z } from "zod";
 import { Approvals } from "./approvals.ts";
 import { type AuthConfig, allowedHosts, guard } from "./auth.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
+import { type RunManager, RunManagerError } from "./runs.ts";
 import { site } from "./site.ts";
 
 export const VERSION = "0.0.0";
@@ -31,6 +36,32 @@ export type AppOptions = AuthConfig & {
   webDir?: string;
   /** Pending permission approvals of runs (MCP-04). */
   approvals?: Approvals;
+  /** Runs (DMN-04); without it the run routes answer 404. */
+  runs?: RunManager;
+};
+
+const RunBody = z.strictObject({
+  task: z
+    .string()
+    .transform((id) => id.toUpperCase())
+    .pipe(TaskIdSchema),
+  agent: AgentSpecSchema.optional(),
+});
+
+/** HTTP status for the runner's errors (the body carries code and message). */
+const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
+  not_found: 404,
+  not_ready: 409,
+  no_agent: 422,
+  wrong_provider: 422,
+  invalid_plan: 409,
+  launch_failed: 409,
+  no_answer: 409,
+  invalid_id: 404,
+  active_run: 409,
+  not_active: 409,
+  no_adapter: 422,
+  lock_timeout: 503,
 };
 
 /** Every task as the UI needs it: stored fields, derived flags and the hash for `expect`. */
@@ -96,6 +127,17 @@ export function createApp(options: AppOptions): Hono {
   const approvals = options.approvals ?? new Approvals();
 
   app.onError((error, c) => {
+    if (
+      error instanceof RunError ||
+      error instanceof RunStoreError ||
+      error instanceof RunManagerError ||
+      error instanceof WorktreeError
+    ) {
+      return c.json(
+        { error: { code: error.code, message: error.message } },
+        RUN_STATUS[error.code] ?? 409,
+      );
+    }
     if (error instanceof RegistryError) {
       return c.json(
         { error: { code: error.code, message: error.message } },
@@ -221,6 +263,51 @@ export function createApp(options: AppOptions): Hono {
     }
     const watch = oversight(project.id);
     await watch.check(before.document, before.hash, at);
+
+    // Accepting work done by a run integrates it first (one squash commit on the base branch);
+    // the task only becomes done once that succeeded.
+    let integrated: { run: string; commit: string } | undefined;
+    const runs = options.runs;
+    if (parsed.op.op === "accept" && runs) {
+      const run = await runs.integrable(project, parsed.op.task);
+      if (run) {
+        const dry = applyOp(before.document, parsed.op, { actor: "human", at });
+        if (!dry.ok) return c.json({ error: dry.error }, OP_STATUS[dry.error.code] ?? 409);
+        let outcome: Awaited<ReturnType<RunManager["integrate"]>>;
+        try {
+          outcome = await runs.integrate(project, run);
+        } catch (error) {
+          if (error instanceof IntegrationError) {
+            return c.json(
+              {
+                error: {
+                  code: `integration_${error.code}`,
+                  message: error.message,
+                  ...(error.files.length ? { files: error.files } : {}),
+                },
+              },
+              409,
+            );
+          }
+          throw error;
+        }
+        if (outcome.status === "conflict") {
+          return c.json(
+            {
+              error: {
+                code: "integration_conflict",
+                message: `The work of run ${run.id} conflicts with ${before.document.project.base_branch}; ${parsed.op.task} stays in review`,
+                run: run.id,
+                files: outcome.files,
+              },
+            },
+            409,
+          );
+        }
+        integrated = { run: run.id, commit: outcome.commit };
+      }
+    }
+
     const result = await mutate(project.path, parsed.op, { actor: "human", at });
     if (!result.ok) {
       if (result.source === "store") {
@@ -254,9 +341,14 @@ export function createApp(options: AppOptions): Hono {
     });
     await watch.log(entries);
     await watch.trust(result.document, result.hash, at);
+    if (parsed.op.op === "answer" && runs) {
+      // The run waiting for this answer gets it now (its open input, or a resumed session).
+      await runs.deliverAnswer(project, parsed.op.task).catch(() => false);
+    }
     const affected = new Set([...result.created, ...result.changed]);
     return c.json({
       ok: true,
+      ...(integrated ? { integrated } : {}),
       hash: result.hash,
       created: result.created,
       changed: result.changed,
@@ -337,6 +429,57 @@ export function createApp(options: AppOptions): Hono {
       hash: result.hash,
       task: taskViews(result.document).find((t) => t.id === task) ?? null,
     });
+  });
+
+  // ── Runs (DMN-04) ──────────────────────────────────────────────────────────
+
+  const runsOf = () => {
+    if (!options.runs)
+      throw new RunManagerError("not_found", "Runs are not available in this daemon");
+    return options.runs;
+  };
+
+  /** Launch a run of one task. Only the human calls this, and only for what they selected. */
+  api.post("/projects/:id/runs", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const body = RunBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success)
+      return c.json(
+        { error: { code: "bad_request", message: "Send {task, agent?} as JSON" } },
+        400,
+      );
+    const run = await runsOf().start(project, {
+      task: body.data.task,
+      ...(body.data.agent ? { agent: body.data.agent } : {}),
+    });
+    return c.json({ run }, 201);
+  });
+
+  api.get("/projects/:id/runs", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const task = c.req.query("task")?.toUpperCase();
+    return c.json({ runs: await runsOf().list(project, task) });
+  });
+
+  api.get("/projects/:id/runs/:runId", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ run: await runsOf().get(project, c.req.param("runId")) });
+  });
+
+  api.get("/projects/:id/runs/:runId/events", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ events: await runsOf().events(project, c.req.param("runId")) });
+  });
+
+  /** The run's `diff.patch` (base..head, without `.konsora/`), or null before it closes. */
+  api.get("/projects/:id/runs/:runId/diff", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ diff: await runsOf().diff(project, c.req.param("runId")) });
+  });
+
+  api.post("/projects/:id/runs/:runId/cancel", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ run: await runsOf().cancel(project, c.req.param("runId")) });
   });
 
   /** Pending permission approvals of every run, for the human. */
