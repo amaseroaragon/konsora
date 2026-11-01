@@ -2771,7 +2771,7 @@
     {
       "id": "RUN-14",
       "title": "Aprobaciones de Codex en el daemon y la UI",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-13"
@@ -2803,7 +2803,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T14:42:32Z",
+      "updated_at": "2026-11-01T14:45:09Z",
       "notes": [
         {
           "id": "n1",
@@ -2824,7 +2824,7 @@
     {
       "id": "RUN-15",
       "title": "Plan B de Codex con codex exec --json",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-13"
@@ -2852,7 +2852,23 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:58:11Z"
+      "updated_at": "2026-11-01T14:53:00Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T14:42:55Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Investigar codex exec --json y grabar una sesión, normalizarla a RunEvent, elegir el modo en detect() (app-server ausente o handshake fallido → exec), guardarlo en run.json y avisar en la UI."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T14:53:00Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "El adaptador de Codex sondea codex app-server una vez por instancia, con un initialize cuya respuesta tiene que encajar con los tipos generados. Si app-server falta, falla o no encaja, usa codex exec --json, con el mismo sandbox workspace-write y el MCP en modo run. detect() devuelve transport y un warning con el motivo. Una versión distinta, por sí sola, no fuerza exec (solo avisa). ac1: tres grabaciones reales de exec --json (éxito con comando, apply_patch y curl bloqueado; modelo inexistente; resume) se normalizan a RunEvent en codex-exec.test.ts, sin gastar cuota. ac2: con el codex falso sin app-server, o con un initialize incompatible, el adaptador elige exec (codex-exec.test.ts), y el supervisor guarda transport: exec en run.json (supervisor.test.ts con el adaptador real). ac3: npm run check pasa (737 tests). Decisiones: el prompt va por stdin y el MCP de exec no recibe ni KONSORA_RUN_TOKEN ni KONSORA_DAEMON_URL, porque argv es visible para otros usuarios locales y Codex no usa la herramienta permission. Las respuestas sí funcionan: con acceptsInput false, el supervisor no escribe en un stdin cerrado, sino que espera a que acabe el proceso y reanuda con codex exec resume (test). Por eso el aviso de la UI dice que no hay aprobaciones ni rate limits y que una respuesta reanuda la sesión, en lugar de que no admite respuestas. core gana RunTransportSchema y transportLimits, y la sección del run avisa cuando transport es exec (test)."
+        }
+      ]
     },
     {
       "id": "RUN-16",
