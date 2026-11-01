@@ -5,9 +5,15 @@ description: Plan and track work in this project's Konsora board (.konsora/tasks
 
 # Konsora protocol
 
-This project keeps its plan in `.konsora/tasks.json`. You read and change it **only through the `konsora` command**: never edit that file by hand (Konsora detects and flags hand edits). Pass `--as <your-name>` on every write (e.g. `--as claude`), or set `KONSORA_AGENT`.
+This project keeps its plan in `.konsora/tasks.json`. You read and change it **only through the `konsora` command or its MCP tools**: never edit that file by hand (Konsora detects and flags hand edits). Pass `--as <your-name>` on every write (e.g. `--as claude`), or set `KONSORA_AGENT`.
 
 Run each `konsora` command on its own, not chained with `&&`, `;` or pipes: permission rules such as `Bash(konsora *)` only match single commands. A heredoc on one `konsora batch` command is fine.
+
+## MCP tools
+
+If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `withdraw`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`. Without the server, use the `konsora` command as described below. The human connects the server with `konsora mcp --print-config claude` (or `codex`).
+
+Inside a Konsora run (the server's instructions say so), the task is already started: use only `note`, `ask` and `finish` on the run's task, or `propose` follow-ups. Everything else is refused as out of scope.
 
 ## Roles
 

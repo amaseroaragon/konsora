@@ -15,7 +15,7 @@ export const AGENTS_SNIPPET = `
 ${MARKER}
 ## Konsora
 
-This project's plan lives in \`.konsora/tasks.json\`. Follow the Konsora protocol in \`${SKILL_PATH}\`: read and change the plan only with the \`konsora\` command (never edit the file by hand), pass \`--as <your-name>\` on writes, and remember that agents propose, start, note, ask and finish while only the human approves and accepts.
+This project's plan lives in \`.konsora/tasks.json\`. Follow the Konsora protocol in \`${SKILL_PATH}\`: read and change the plan only with the \`konsora\` command or its MCP tools (never edit the file by hand), pass \`--as <your-name>\` on writes, and remember that agents propose, start, note, ask and finish while only the human approves and accepts. If this session has Konsora's MCP server (tools such as \`mcp__konsora__status\`), prefer its tools over the shell commands: same operations and rules, and writes are signed for you. Inside a Konsora run, use only its \`note\`, \`ask\` and \`finish\` tools on the run's task (or \`propose\` follow-ups). The human connects the server with \`konsora mcp --print-config codex\`.
 `;
 
 export function skillText(): Promise<string> {

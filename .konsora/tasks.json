@@ -1644,7 +1644,7 @@
     {
       "id": "MCP-05",
       "title": "Configuración del MCP para Claude Code y Codex",
-      "state": "todo",
+      "state": "review",
       "group": "MCP",
       "deps": [
         "MCP-02"
@@ -1676,7 +1676,23 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:08:09Z"
+      "updated_at": "2026-11-01T10:30:05Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T10:27:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "konsora mcp --print-config claude|codex imprime el fragmento (.mcp.json o config.toml) que apunta al binario del proyecto; no escribe nada. Actualizar la skill (assets/SKILL.md y .claude/skills/konsora) y el snippet de AGENTS.md para explicar las herramientas MCP. Tests: JSON y TOML válidos, que no se escribe en el HOME ni en el proyecto, y contenido de la skill y el snippet."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T10:30:05Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`konsora mcp --print-config claude|codex` (src/mcp-config.ts) imprime en stdout el fragmento listo para pegar: `.mcp.json` (mcpServers.konsora, tipo stdio) para Claude Code y `[mcp_servers.konsora]` de config.toml para Codex. En stderr dice dónde pegarlo. Apunta al bin.ts de este checkout con la ruta absoluta del Node actual, `mcp --root <proyecto>` y env KONSORA_AGENT=claude|codex para la atribución. Sin plan da un error con pista, y un agente desconocido es un error de uso. La skill (assets/SKILL.md y la copia del repo en .claude/skills/konsora) gana una sección 'MCP tools': cuándo preferir las herramientas a la CLI, la lista de lectura y escritura, cómo conectarlas y las reglas del modo run. El snippet de AGENTS.md dice lo mismo en corto.\n- ac1: test/mcp-config.test.ts parsea la salida con JSON.parse y con smol-toml, y comprueba command, args y env. Comprueba también que el bin existe y que el comando impreso arranca un servidor real que responde a status. Un caso con comillas, barras y saltos de línea en la ruta sigue dando un TOML válido.\n- ac2: con un HOME temporal se ejecutan init --agents-md, skill --agents-md y print-config para los dos agentes. HOME queda vacío (sin ~/.claude ni ~/.codex) y el proyecto solo contiene la skill, .konsora/ y AGENTS.md, sin .mcp.json ni .codex/. Konsora no tiene ninguna opción que escriba esa configuración: solo se imprime.\n- ac3: tests de contenido de la skill y del snippet de AGENTS.md (mencionan mcp__konsora__status, --print-config y el modo run), y un test que asegura que la skill de este repo coincide con la que instala Konsora.\n- ac4: npm run check pasa (36 archivos, 547 tests). La única advertencia de Biome ya existía.\nDependencia nueva: smol-toml 1.9.0 como devDependency de la CLI, solo para validar el TOML en el test. No tiene dependencias y la alternativa era un parser hecho a mano.\nLimitación: la ruta absoluta de Node (por ejemplo, la de nvm) deja de valer si se cambia de versión de Node; basta con volver a imprimir el fragmento."
+        }
+      ]
     },
     {
       "id": "MCP-06",

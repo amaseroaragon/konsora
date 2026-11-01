@@ -9,6 +9,7 @@ import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
 import { issuesText, STATES, showText, statusText, type TaskView, taskTable } from "./format.ts";
 import { serveStdio } from "./mcp.ts";
+import { CONFIG_TARGETS, type ConfigTarget, configHint, configSnippet } from "./mcp-config.ts";
 import { registerMigrate } from "./migrate.ts";
 import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
@@ -199,7 +200,19 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   program
     .command("mcp")
     .description("run the Konsora MCP server over stdio (read and agent tools, for agent sessions)")
-    .action(async () => {
+    .addOption(
+      new Option(
+        "--print-config <agent>",
+        "print the snippet that connects this project's server to an agent (writes nothing)",
+      ).choices(CONFIG_TARGETS),
+    )
+    .action(async (opts: { printConfig?: ConfigTarget }) => {
+      if (opts.printConfig) {
+        const dir = locate(io, root());
+        io.stdout(configSnippet(opts.printConfig, dir));
+        io.stderr(configHint(opts.printConfig));
+        return;
+      }
       await serveStdio(io, root());
     });
 
