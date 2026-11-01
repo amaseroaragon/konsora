@@ -1,4 +1,5 @@
 /** Helpers shared by the CLI commands: I/O, errors, plan discovery and loading. */
+import type { Readable, Writable } from "node:stream";
 import type { TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError, tasksPath } from "@konsora/core/store";
 import { issuesText } from "./format.ts";
@@ -13,6 +14,8 @@ export type Io = {
   readStdin?: () => Promise<string>;
   /** Injected clock for reproducible output in tests. */
   now?: () => Date;
+  /** Streams for `konsora mcp` (default: the process's stdin and stdout). */
+  stdio?: { stdin: Readable; stdout: Writable };
 };
 
 export const EXIT = { ok: 0, failure: 1, usage: 2 } as const;

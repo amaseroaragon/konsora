@@ -5,18 +5,12 @@
 import { execFileSync } from "node:child_process";
 import { basename, relative, resolve } from "node:path";
 import { GroupIdSchema, type TaskState, type TasksDocument } from "@konsora/core";
-import { initTasks, readTasks, tasksPath } from "@konsora/core/store";
+import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
-import {
-  issuesText,
-  STATES,
-  showText,
-  statusText,
-  type TaskView,
-  taskTable,
-  views,
-} from "./format.ts";
+import { issuesText, STATES, showText, statusText, type TaskView, taskTable } from "./format.ts";
+import { serveStdio } from "./mcp.ts";
 import { registerMigrate } from "./migrate.ts";
+import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
 import { registerUi } from "./ui.ts";
@@ -130,22 +124,8 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .option("--json", "machine-readable output")
     .action(async (opts: { json?: boolean }) => {
       const { root: dir, doc } = await load(io, root());
-      const list = views(doc);
       if (opts.json) {
-        const byState = Object.fromEntries(
-          STATES.map((s) => [s, list.filter((t) => t.state === s).length]),
-        );
-        json(io, {
-          project: doc.project,
-          groups: doc.groups,
-          tasks: list.length,
-          byState,
-          ready: list.filter((t) => t.ready).map((t) => t.id),
-          blocked: list.filter((t) => t.blocked).map((t) => t.id),
-          waiting: list.filter((t) => t.waiting).map((t) => t.id),
-          review: list.filter((t) => t.state === "review").map((t) => t.id),
-          proposed: list.filter((t) => t.state === "proposed").map((t) => t.id),
-        });
+        json(io, statusData(doc));
       } else {
         io.stdout(statusText(doc, relative(io.cwd, tasksPath(dir)) || tasksPath(dir)));
       }
@@ -171,34 +151,19 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           json?: boolean;
         }) => {
           const { doc } = await load(io, root());
-          if (opts.group && !doc.groups.some((g) => g.id === opts.group)) {
-            throw new CliError(
-              `Unknown group "${opts.group}".`,
-              `Groups: ${doc.groups.map((g) => g.id).join(", ")}.`,
-              EXIT.usage,
-            );
-          }
-          const list = views(doc).filter(
-            (t) =>
-              preset(t) &&
-              (!opts.state || t.state === opts.state) &&
-              (!opts.group || t.group === opts.group) &&
-              (!opts.ready || t.ready) &&
-              (!opts.blocked || t.blocked) &&
-              (!opts.waiting || t.waiting),
-          );
+          const list = listData(doc, opts, preset);
           if (opts.json) json(io, list);
           else io.stdout(taskTable(list));
         },
       );
 
-  listCommand("list", "list tasks in dependency order", () => true);
+  listCommand("list", "list tasks in dependency order", LIST_PRESETS.list);
   listCommand(
     "ready",
     "tasks an agent can start now (todo with every dependency done)",
-    (t) => t.ready,
+    LIST_PRESETS.ready,
   );
-  listCommand("blocked", "todo tasks waiting on unfinished dependencies", (t) => t.blocked);
+  listCommand("blocked", "todo tasks waiting on unfinished dependencies", LIST_PRESETS.blocked);
 
   program
     .command("show")
@@ -207,9 +172,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .option("--json", "machine-readable output")
     .action(async (id: string, opts: { json?: boolean }) => {
       const { doc } = await load(io, root());
-      const view = views(doc).find((t) => t.id === id.toUpperCase());
-      if (!view)
-        throw new CliError(`Task ${id} does not exist.`, "Use `konsora list` to see task ids.");
+      const view = showData(doc, id);
       if (opts.json) json(io, view);
       else io.stdout(showText(doc, view));
     });
@@ -220,22 +183,24 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .option("--json", "machine-readable output")
     .action(async (opts: { json?: boolean }) => {
       const dir = locate(io, root());
-      const result = await readTasks(dir);
-      if (result.ok) {
-        if (opts.json)
-          json(io, { ok: true, tasks: result.document.tasks.length, hash: result.hash });
-        else
-          io.stdout(
-            `OK · ${result.document.tasks.length} tasks in ${result.document.groups.length} groups · ${result.hash.slice(0, 19)}\n`,
-          );
-        return;
-      }
-      if (opts.json) json(io, { ok: false, error: result.error });
+      const result = await checkData(dir);
+      if (opts.json) json(io, result);
+      else if (result.ok)
+        io.stdout(
+          `OK · ${result.tasks} tasks in ${result.groups} groups · ${result.hash.slice(0, 19)}\n`,
+        );
       else
         io.stderr(
           `Invalid plan (${tasksPath(dir)}):\n${issuesText(result.error.issues ?? [{ path: "", code: result.error.code, message: result.error.message }])}`,
         );
-      throw new CliError("", undefined, EXIT.failure);
+      if (!result.ok) throw new CliError("", undefined, EXIT.failure);
+    });
+
+  program
+    .command("mcp")
+    .description("run the Konsora MCP server over stdio (read tools; for agent sessions)")
+    .action(async () => {
+      await serveStdio(io, root());
     });
 
   registerWriteCommands(program, io, root);

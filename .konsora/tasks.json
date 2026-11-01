@@ -1435,7 +1435,7 @@
     {
       "id": "MCP-01",
       "title": "Servidor konsora mcp (stdio) con las herramientas de lectura",
-      "state": "proposed",
+      "state": "review",
       "group": "MCP",
       "rank": "zi",
       "desc": "Añade el comando `konsora mcp`, un servidor MCP por stdio hecho con `@modelcontextprotocol/sdk` (ya está en la tabla de dependencias de arquitectura.md). Expone como herramientas las mismas lecturas que la CLI: `status`, `list` (con filtros de estado, grupo, ready y blocked), `show`, `ready`, `blocked` y `check`. Devuelven el mismo JSON que `--json`, porque comparten código con la CLI y no duplican reglas. El proyecto se resuelve igual que en la CLI (`--root`, `KONSORA_ROOT`, carpeta más cercana con `.konsora/`). Arrancar el servidor no escribe nada, y los errores van en inglés y son accionables.",
@@ -1464,12 +1464,28 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:57:32Z"
+      "updated_at": "2026-11-01T10:12:37Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T10:09:03Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Extraer las lecturas de la CLI a funciones puras que devuelven el JSON de --json; añadir src/mcp.ts con @modelcontextprotocol/sdk (McpServer + StdioServerTransport) que registra status, list, show, ready, blocked y check sobre esas funciones; comando konsora mcp; tests con InMemoryTransport (paridad con la CLI, sin escrituras, errores de herramienta)."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T10:12:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Nuevo comando `konsora mcp`: servidor MCP por stdio con @modelcontextprotocol/sdk 1.32.1 (fijado; ya estaba en la tabla de arquitectura.md). Las lecturas de la CLI se extrajeron a packages/cli/src/read.ts (statusData, listData, showData, checkData) y tanto la CLI con --json como las herramientas MCP status, list, ready, blocked, show y check las usan, así que no se duplican reglas. Todas las herramientas se marcan readOnlyHint. El proyecto se resuelve en cada llamada como en la CLI (--root, KONSORA_ROOT, carpeta más cercana con .konsora/). Al cerrarse stdin, el servidor responde primero a las peticiones ya recibidas y luego sale con código 0.\n- ac1: test/mcp.test.ts conecta un Client del SDK con InMemoryTransport, lista las 6 herramientas y compara cada lectura (también con los filtros state, group, ready, blocked y waiting, y show en minúsculas) con la salida de la CLI con --json. Otro test usa StdioClientTransport sobre el binario real.\n- ac2: un test toma una instantánea (contenido y mtime) de todos los archivos del repo temporal, arranca el servidor, llama a todas las herramientas y comprueba que no cambia nada.\n- ac3: sin .konsora/ y con un tasks.json inválido, las herramientas devuelven isError con 'Error: …' y 'Hint: …', y el servidor sigue respondiendo (tras crear el plan, status funciona). check devuelve el mismo JSON {ok:false,error} que la CLI. Una tarea o un grupo desconocidos y un estado inválido también son errores de herramienta.\n- ac4: npm run check pasa (biome, tsc y vitest: 31 archivos, 510 tests).\nCambio menor: `konsora check --json` ahora incluye también `groups` (el número de grupos), que es un campo añadido."
+        }
+      ]
     },
     {
       "id": "MCP-02",
       "title": "Herramientas de escritura de agente en el MCP",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "deps": [
         "MCP-01"
@@ -1501,12 +1517,12 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:57:32Z"
+      "updated_at": "2026-11-01T10:07:51Z"
     },
     {
       "id": "MCP-03",
       "title": "Modo run del MCP limitado a su tarea",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "deps": [
         "MCP-02"
@@ -1538,12 +1554,12 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:57:32Z"
+      "updated_at": "2026-11-01T10:08:00Z"
     },
     {
       "id": "MCP-04",
       "title": "Herramienta permission del MCP para las aprobaciones de Claude",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "deps": [
         "MCP-03"
@@ -1575,12 +1591,12 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:57:32Z"
+      "updated_at": "2026-11-01T10:08:14Z"
     },
     {
       "id": "MCP-05",
       "title": "Configuración del MCP para Claude Code y Codex",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "deps": [
         "MCP-02"
@@ -1612,12 +1628,12 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:57:32Z"
+      "updated_at": "2026-11-01T10:08:09Z"
     },
     {
       "id": "MCP-06",
       "title": "Verificación con sesiones reales de Claude Code y Codex",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "deps": [
         "MCP-03",
@@ -1650,7 +1666,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:57:32Z"
+      "updated_at": "2026-11-01T10:08:23Z"
     }
   ]
 }
