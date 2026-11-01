@@ -37,14 +37,19 @@
     {
       "id": "MCP",
       "name": "Servidor MCP"
+    },
+    {
+      "id": "RUN",
+      "name": "Runner"
     }
   ],
   "seq": {
     "CORE": 6,
     "CLI": 4,
-    "DMN": 3,
-    "UI": 9,
-    "MCP": 6
+    "DMN": 4,
+    "UI": 12,
+    "MCP": 6,
+    "RUN": 9
   },
   "tasks": [
     {
@@ -880,6 +885,46 @@
       ]
     },
     {
+      "id": "DMN-04",
+      "title": "API y eventos de runs en el daemon",
+      "state": "proposed",
+      "group": "DMN",
+      "deps": [
+        "RUN-05",
+        "RUN-06",
+        "RUN-07",
+        "RUN-08"
+      ],
+      "rank": "zzzv",
+      "desc": "El daemon supervisa el runner. `POST /api/projects/:id/runs` `{task, agent?}` lanza un run (solo el humano y solo sobre lo que selecciona). También `GET /runs`, `GET /runs/:id`, `GET /runs/:id/diff` y `POST /runs/:id/cancel`. Por WS se emiten `run.event` y `run.state` a los suscriptores del proyecto. La op `accept` de una tarea con un run integra antes de marcar `done`: si hay conflicto, devuelve 409 y la tarea sigue en review. Al arrancar se marcan los runs interrumpidos.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Lanzar, listar, leer, ver el diff y cancelar un run por HTTP con un adaptador falso; sin token o con Origin ajeno, 403 (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los eventos del run llegan por WS en orden a los suscriptores del proyecto (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "accept integra y deja exactamente un commit; con conflicto, 409 y la tarea en review (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
       "id": "UI-01",
       "title": "Base de la app web, i18n y `konsora ui`",
       "state": "done",
@@ -1433,6 +1478,109 @@
       ]
     },
     {
+      "id": "UI-10",
+      "title": "Botón Ejecutar y log del run en vivo",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-04"
+      ],
+      "rank": "zzzx",
+      "desc": "Activa en la barra de selección y en el panel de tarea el botón Ejecutar (con Claude y el perfil default; el selector llega en M7). Añade la vista del run: estado, log en vivo de mensajes y herramientas, archivos tocados, uso y botón Cancelar. Los textos pasan por i18n en español.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Ejecutar una tarea ready lanza el run y su log se actualiza en vivo sin recargar (test de componente con eventos simulados)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cancelar desde la vista deja el run cancelled y la tarea en todo en la UI (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Ejecutar no está disponible en tareas no ready ni en modo solo lectura (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "UI-11",
+      "title": "Aprobaciones de permisos en la UI",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-04"
+      ],
+      "rank": "zzzy",
+      "desc": "Muestra las aprobaciones pendientes (`permission.requested`, `GET /api/approvals`) en la vista del run y como aviso global, con la herramienta y su entrada legibles, y los botones Permitir y Denegar (este con motivo opcional). Usa los endpoints de MCP-04.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una aprobación pendiente aparece en vivo y Permitir o Denegar envían la decisión y la retiran de la lista (test de componente)"
+        },
+        {
+          "id": "ac2",
+          "text": "La entrada de la herramienta se muestra escapada y truncada de forma segura (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "UI-12",
+      "title": "Vista de revisión con diff",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-04"
+      ],
+      "rank": "zzzz",
+      "desc": "Para una tarea en review con un run: diff por fichero (`diff.patch`), resumen del agente y del run (modelo, duración, uso) y las acciones Aceptar (integra) y Devolver con feedback. Un conflicto de integración se muestra con su explicación y la tarea sigue en review.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El diff se muestra por fichero con añadidos y borrados a partir de un patch de ejemplo (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Aceptar llama a la op accept y refleja el commit integrado; un 409 de conflicto se explica sin cambiar el estado (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
       "id": "MCP-01",
       "title": "Servidor konsora mcp (stdio) con las herramientas de lectura",
       "state": "done",
@@ -1754,6 +1902,328 @@
           "text": "Verificación real de M5 sobre un proyecto de prueba desechable. El detalle (pasos, versiones, costes y observaciones) está en la nota anterior.\n- ac1: una sesión de Claude Code 2.1.316 (sonnet) con el MCP configurado a partir de `konsora mcp --print-config claude` hizo ready, start, note y finish de DEMO-01 solo con herramientas MCP. DEMO-01 está en review con las notas de agent:claude en tasks.json y en el tablero (GET /board del daemon, sin cambios externos marcados).\n- ac2: lo mismo con codex-cli 0.166.0 (`codex exec` con el fragmento de `--print-config codex` pasado con -c, sin tocar ~/.codex) sobre DEMO-02, con las notas de agent:codex.\n- ac3: los pasos, las versiones y lo observado están en la nota de esta tarea.\n- ac4: lo cubre el test de MCP-03. Además se comprobó en real: en modo run, note sobre otra tarea devolvió out_of_scope. La herramienta permission de MCP-04 llevó un Write de Claude hasta el daemon, el humano lo permitió por HTTP y Claude escribió el archivo. Las notas se escribieron en el checkout principal con el id del run.\nNo hay cambios de código en esta tarea. Coste total aproximado: 0,18 $ de Claude y una sesión corta de Codex."
         }
       ]
+    },
+    {
+      "id": "RUN-01",
+      "title": "Modelo y almacén de runs",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzi",
+      "desc": "Define en `core` el esquema zod de `run.json` (§6 de esquema-tareas.md) y la máquina de estados del run: `queued → starting → running ⇄ waiting_approval → checking → succeeded | failed | cancelled | interrupted`, con `integration.state` `pending → merged | conflict | discarded`. Las transiciones inválidas se rechazan con un error tipado. En `packages/runner` va el almacén de `.konsora/runs/<run-id>/`: `run.json` escrito de forma atómica, `events.jsonl` y `raw.jsonl` solo por añadido (`raw.jsonl` rotado a 20 MB), e id `r-` + ULID. También expone qué run activo tiene cada tarea (como mucho uno).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El esquema valida el ejemplo de esquema-tareas.md §6 y rechaza estados o transiciones inválidos (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "run.json se reescribe de forma atómica y events.jsonl conserva todas las líneas con escrituras concurrentes (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Los ids de run son ordenables por tiempo y una tarea no puede tener dos runs activos (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-02",
+      "title": "Worktree y rama por run",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-01"
+      ],
+      "rank": "zzr",
+      "desc": "Prepara cada run: comprueba que la tarea está `ready` y sin otro run activo, fija `base_commit` = HEAD de `project.base_branch` y ejecuta `git worktree add -b konsora/<task>/<short> <worktree> <base_commit>`, con el worktree en `~/.local/share/konsora/worktrees/<project-id>/` y `umask 077`. También hace la limpieza (borrar el worktree y la rama) y detecta worktrees huérfanos. Git se usa a través de una interfaz sustituible en tests.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Sobre un repo temporal se crea el worktree en la ruta y la rama esperadas a partir de base_commit, sin tocar el checkout principal (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Una tarea no ready, o con un run activo, se rechaza con un error accionable (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La limpieza elimina el worktree y la rama, y es idempotente (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-03",
+      "title": "Prompt de run explícito y auditable",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-01"
+      ],
+      "rank": "zzv",
+      "desc": "Construye el prompt de un run a partir de la tarea: título, `desc`, criterios, notas de `feedback` y `answer`, resúmenes de las dependencias e instrucciones de protocolo (usar las herramientas MCP `note`, `ask` y `finish` de Konsora, hacer commits en la rama y no tocar `.konsora/`). Es una función pura y determinista de `core` o `runner`, y el resultado se guarda en `run.json`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El prompt incluye cada parte de la tarea y las instrucciones de protocolo (test con snapshot)"
+        },
+        {
+          "id": "ac2",
+          "text": "Las notas de feedback y answer y los resúmenes de las dependencias aparecen; las notas ordinarias, no (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "El prompt usado queda guardado en run.json (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-04",
+      "title": "Adaptador de Claude Code (stream-json)",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-01"
+      ],
+      "rank": "zzx",
+      "desc": "Interfaz `AgentAdapter` y `RunHandle` (§5 de arquitectura.md) y su adaptador para Claude. `detect()` comprueba la instalación y la versión. `start()` lanza `claude -p --output-format stream-json --input-format stream-json --verbose` con modelo, esfuerzo, el perfil de permisos `default` (`acceptEdits` + `--allowedTools`), `--mcp-config` de konsora en modo run y `--permission-prompt-tool mcp__konsora__permission`. Nunca usa flags `--dangerously-*` ni `--bare`. El prompt va por stdin, que queda abierto. El entorno del hijo es el del usuario sin las variables `KONSORA_*` (las del MCP van solo en su configuración, en un archivo privado fuera del proyecto). La salida se normaliza a `RunEvent` (`started`, `message`, `tool`, `file`, `usage`, `error`, `finished`) y se conserva el `session_id`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Grabaciones reales de stream-json (guardadas como fixtures) se normalizan a la secuencia de RunEvent esperada, sin gastar cuota (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los argumentos generados nunca contienen --dangerously-* ni --bare e incluyen --permission-prompt-tool, y el entorno del hijo no contiene KONSORA_DAEMON_TOKEN ni el token humano (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Una salida malformada o un proceso que muere producen un evento error y finished con ok false, sin excepción sin capturar (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-05",
+      "title": "Ciclo de vida de un run",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-02",
+        "RUN-03",
+        "RUN-04"
+      ],
+      "rank": "zzy",
+      "desc": "El supervisor que lleva un run de principio a fin (§5, ciclo de vida). Prepara el worktree, registra el run en el daemon (token de permisos), pasa la tarea a `doing` como `konsora`, lanza el adaptador y escribe los eventos en `events.jsonl` y `raw.jsonl` mientras actualiza el estado en `run.json` (incluido `waiting_approval`). Cuando el agente llama a `finish` o el proceso termina, cierra el run: hace commit como `wip` de lo que quede, calcula `diff.patch` = `base_commit..HEAD` sin `.konsora/` y guarda `head_commit`, el uso y `exit`. Si termina sin `finish`, el run queda `failed` y la tarea vuelve a `todo` con una nota del runner. El worktree se conserva hasta integrar o descartar. Se prueba con un adaptador falso.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con un adaptador falso que edita archivos y llama a finish: tarea en review, run succeeded, diff.patch con los cambios y sin .konsora/, y events.jsonl completo (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Un agente que termina sin finish deja el run failed y la tarea en todo con una nota del runner, y su diff se conserva (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Las notas que escribe el agente durante el run van al checkout principal con el id del run (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-06",
+      "title": "Entregar al agente las respuestas del humano",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-05"
+      ],
+      "rank": "zzz",
+      "desc": "Cuando el agente de un run hace `ask` y el humano responde (op `answer`), el runner envía la respuesta al mismo proceso como un mensaje `user` de stream-json por el stdin que sigue abierto. Si el proceso ya terminó, la reanuda con `--resume <session_id>`. La respuesta y su entrega quedan en `events.jsonl`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con un adaptador falso, una respuesta del humano llega al proceso en curso como mensaje user y el run sigue (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Si el proceso ya terminó, se relanza con --resume y el session_id guardado (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-07",
+      "title": "Cancelar runs y marcar los interrumpidos",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-05"
+      ],
+      "rank": "zzzi",
+      "desc": "Cancelar un run envía SIGINT (termina el turno y conserva la sesión). Si no responde, `kill()` hace SIGTERM, espera 5 s y manda SIGKILL al grupo de procesos. El run pasa a `cancelled`, la tarea vuelve a `todo` con una nota del runner y sus aprobaciones pendientes se deniegan. Al arrancar, el daemon marca como `interrupted` los runs que estaban vivos, sin reanudarlos ni lanzar nada.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cancelar a mitad deja la tarea en todo y el run en cancelled, sin procesos huérfanos (test con un proceso real que ignora SIGINT)"
+        },
+        {
+          "id": "ac2",
+          "text": "Tras reiniciar, un run que estaba running queda interrupted y no se relanza (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-08",
+      "title": "Integración squash al aceptar",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-02"
+      ],
+      "rank": "zzzr",
+      "desc": "Al aceptar una tarea con un run, se integra `base_commit..HEAD` como un único commit sobre `project.base_branch`: mensaje `<task-id>: <title>`, la `summary` como cuerpo y los trailers `Konsora-Task:` y `Konsora-Run:`. Si la rama base está en el checkout principal, se usa `git merge --squash` (se rechaza si hay cambios sin commitear en ficheros que toca el diff, y se dejan intactos los demás). Si no lo está, `merge-tree --write-tree` + `commit-tree` + `update-ref`. Un conflicto deja `integration.state = conflict` y la tarea en `review`. Si sale bien, se borran el worktree y la rama y se conserva el run. Nunca push ni force.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Al integrar queda exactamente un commit nuevo en la rama base con el mensaje y los trailers, y se borran el worktree y la rama (test sobre un repo temporal)"
+        },
+        {
+          "id": "ac2",
+          "text": "Funciona con la rama base en el checkout y fuera de él; los cambios locales ajenos al diff se conservan (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Un conflicto deja integration conflict, la tarea en review y la rama base sin tocar (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
+    },
+    {
+      "id": "RUN-09",
+      "title": "Verificación de M6 con el claude real",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "UI-10",
+        "UI-11",
+        "UI-12"
+      ],
+      "rank": "zzzzi",
+      "desc": "Cierra el hito con el criterio del roadmap sobre un repo fixture (no el de Konsora): se ejecuta una tarea con el `claude` real desde la UI, el log llega en vivo, la revisión muestra el diff y, al aceptar, queda exactamente un commit nuevo en main con los trailers, y se borran el worktree y la rama. Cancelar a mitad deja la tarea en todo y el run cancelled. Gasta cuota del usuario: se hace solo cuando el humano lo autorice, y los pasos y resultados quedan anotados.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run real de principio a fin cumple el criterio de M6 del roadmap"
+        },
+        {
+          "id": "ac2",
+          "text": "Cancelar a mitad deja la tarea en todo y el run cancelled"
+        },
+        {
+          "id": "ac3",
+          "text": "Los pasos, las versiones y lo observado quedan anotados en la tarea"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T10:40:37Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T10:40:37Z"
     }
   ]
 }
