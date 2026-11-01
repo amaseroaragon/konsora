@@ -46,10 +46,10 @@
   "seq": {
     "CORE": 6,
     "CLI": 4,
-    "DMN": 4,
-    "UI": 12,
+    "DMN": 5,
+    "UI": 14,
     "MCP": 6,
-    "RUN": 10
+    "RUN": 16
   },
   "tasks": [
     {
@@ -941,6 +941,39 @@
       ]
     },
     {
+      "id": "DMN-05",
+      "title": "Catálogo de agentes y validación al lanzar",
+      "state": "proposed",
+      "group": "DMN",
+      "deps": [
+        "RUN-13"
+      ],
+      "rank": "zzzzzr",
+      "desc": "`GET /api/agents` devuelve, por proveedor, si está instalado y su versión (`detect()`), sus modelos con los esfuerzos que admite cada uno (`models()`) y sus perfiles de permisos. Se cachea con un tiempo corto. Al lanzar un run, el agente pedido (proveedor, modelo, esfuerzo y perfil) se valida contra ese catálogo, con un 422 accionable si el adaptador no lo declara o el proveedor no está instalado.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "GET /api/agents lista Claude y Codex con versión, modelos, esfuerzos y perfiles, a partir de adaptadores falsos (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Lanzar con un modelo, esfuerzo o perfil que el adaptador no declara, o con un proveedor no instalado, devuelve 422 con el motivo y no crea run (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
       "id": "UI-01",
       "title": "Base de la app web, i18n y `konsora ui`",
       "state": "done",
@@ -1643,6 +1676,77 @@
           "text": "Vista de revisión en packages/web/src/shell/ReviewSection.tsx y review-model.ts (puro); textos en es.ts.\n\n- ac1: parsePatch divide un diff.patch de ejemplo por fichero (modificado, nuevo, borrado, binario y renombrado) con sus líneas añadidas y borradas, hunks y totales, y DiffView lo pinta por fichero con +N −M y el tipo de cada línea (tests). En el panel de una tarea en review con un run succeeded aparecen «5 archivos · +5 −3», el diff por fichero, el resumen del agente (markdown seguro) y los datos del run: modelo, duración, tokens y coste (test).\n- ac2: Aceptar envía la op accept con el hash de la tarea, y si el daemon integró, el aviso dice «BE-01 aceptada e integrada en un commit (9ab1c3e)» (test). Un 409 integration_conflict se explica en español con sus ficheros, en un aviso dentro del panel y en un toast, y la tarea sigue en revisión porque aceptar no es optimista (test). También se explican los demás rechazos de integración (cambios locales en ficheros del run, rama base movida o abierta en otro worktree, sin cambios, cambios en .konsora/). Mientras el run siga en integration conflict, el panel mantiene un aviso con qué hacer.\n- ac3: npm run check pasa (674 tests) y vite build compila.\n\nMás: el cliente HTTP conserva files de los errores del daemon. Devolver con feedback usa la acción que ya existía.\nNo lo he probado en un navegador real; la verificación de punta a punta con el claude real es RUN-09."
         }
       ]
+    },
+    {
+      "id": "UI-13",
+      "title": "Selector de agente por tarea y en la barra de selección",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-05"
+      ],
+      "rank": "zzzzzv",
+      "desc": "Sustituye el agente por defecto fijo de UI-10 (Claude sonnet) por un selector de proveedor, modelo, esfuerzo y perfil, alimentado por `GET /api/agents`, en Ejecutar del panel y de la barra de selección. Parte del agente de la tarea o de `project.defaults`. Solo ofrece modelos y esfuerzos que el adaptador declara, y marca los proveedores no instalados. En el editor de la tarea se puede guardar el agente de la tarea (op edit, solo el humano). Textos por i18n.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El selector solo ofrece los modelos y esfuerzos que declara cada adaptador y parte del agente de la tarea o del proyecto (test de componente)"
+        },
+        {
+          "id": "ac2",
+          "text": "Lanzar envía el agente elegido, y guardar en la tarea usa la op edit (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Un proveedor no instalado aparece deshabilitado con el motivo (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
+      "id": "UI-14",
+      "title": "Uso y rate limits visibles en la UI",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "RUN-11",
+        "RUN-13"
+      ],
+      "rank": "zzzzzx",
+      "desc": "Tras cada run, la sección del run muestra el uso de tokens (con la caché aparte si se conoce) y el coste, o deja claro que el proveedor no lo da. En la página del proyecto se muestran los últimos rate limits conocidos de cada proveedor (estado, ventana, utilización y cuándo se reinician), a partir de los eventos usage.rate_limits.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run con uso lo muestra desglosado, y uno sin uso dice que el proveedor no lo da (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los últimos rate limits de Claude y Codex se muestran con su ventana, utilización y reinicio (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
     },
     {
       "id": "MCP-01",
@@ -2496,6 +2600,217 @@
           "text": "Descartar runs y ver worktrees huérfanos: daemon (packages/daemon/src/runs.ts y app.ts) y web (shell/RunSection.tsx, OlderRuns.tsx, Orphans.tsx, api/runs.ts).\n\n- ac1: POST /projects/:id/runs/:run/discard sobre un run cancelado, fallido o terminado sin integrar borra su worktree y su rama y deja integration discarded; el run y su diff.patch se conservan (test del daemon con un run cancelado). Primero borra el worktree (idempotente), así que si falla se puede repetir.\n- ac2: descartar un run activo («cancel it before discarding it»), ya integrado o ya descartado («already merged/discarded») devuelve 409 not_discardable (tests).\n- ac3: la UI ofrece «Descartar run» solo en runs terminados sin integrar (también tras devolver la tarea, y con integración en conflicto), nunca en activos, integrados, descartados ni en modo solo lectura; tras descartar muestra la etiqueta «Descartado» y quita el botón (tests).\n- ac4: npm run check pasa (685 tests) y vite build compila.\n\nAdemás:\n- GET /projects/:id/worktrees/orphans lista los huérfanos de findOrphanWorktrees sin borrar nada, y la página del proyecto los muestra en un aviso con el nombre de la carpeta y la rama, nunca la ruta privada (tests).\n- El panel solo mostraba el último run de cada tarea, así que un run anterior cancelado (como el primero de DEMO-02) no se podía descartar desde la UI ni contaba como huérfano. Ahora el panel lista los «Runs anteriores con worktree», cada uno con su Descartar (test).\n- Prueba en la UI real, sin gastar cuota: con el repo de prueba de RUN-09 y Chrome headless descarté los dos runs cancelados de DEMO-02. Se borraron sus worktrees y ramas, sus run.json y diff.patch siguen ahí, y solo queda el de DEMO-04, que está en revisión.\nDocumentado en arquitectura.md."
         }
       ]
+    },
+    {
+      "id": "RUN-11",
+      "title": "Uso y rate limits de Claude",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzv",
+      "desc": "Investiga y aprovecha lo que da la salida stream-json de Claude Code (lo pide el roadmap de M7). En las grabaciones de RUN-04 hay `result.usage` (entrada, caché creada y leída, salida, razonamiento), `result.modelUsage` (contextWindow, costUSD) y `rate_limit_event` (estado, ventana, `resetsAt`, `utilization` por ventana de 5 h y 7 días). Amplía `RunEvent.usage` y `run.json` con lo que sea fiable (por ejemplo, tokens de caché aparte y la utilización de cada ventana), sin romper los runs existentes, y documenta en arquitectura.md qué da Claude y qué no.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Las grabaciones reales se normalizan con el uso desglosado (entrada, caché, salida) y los rate limits por ventana con su utilización y reinicio (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "run.json guarda el uso ampliado y los run.json antiguos siguen siendo válidos (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "arquitectura.md documenta qué expone Claude Code sobre uso y límites, y qué no"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
+      "id": "RUN-12",
+      "title": "Tipos del protocolo de codex app-server y comprobación de versión",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzx",
+      "desc": "Genera los tipos con `codex app-server generate-ts` para la versión instalada (codex-cli 0.166.0) y guárdalos en `packages/runner/src/codex/protocol/` con un script reproducible (`npm run codex:types`). La salida son unos 760 archivos (3,2 MB) con `import type` sin extensión, que no encajan con `nodenext` + `allowImportingTsExtensions`: decide si se guarda todo o solo lo que usa el adaptador, y cómo se adaptan las extensiones (el script lo hace solo). Biome no formatea esa carpeta. `detect()` del adaptador compara la versión instalada con la de los tipos y avisa si no coinciden, sin bloquear.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "npm run codex:types regenera la carpeta de forma determinista y el resultado compila con tsc estricto"
+        },
+        {
+          "id": "ac2",
+          "text": "detect() informa de la versión instalada, de la de los tipos y de si coinciden (test con un codex falso)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
+      "id": "RUN-13",
+      "title": "Adaptador de Codex (app-server)",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-12"
+      ],
+      "rank": "zzzzy",
+      "desc": "`AgentAdapter` para Codex sobre `codex app-server` por stdio (JSON-RPC sin cabecera, NDJSON), según §5 de arquitectura.md. Flujo: `initialize` (clientInfo konsora) → `thread/start` con cwd en el worktree, sandbox workspace-write, approvalPolicy on-request y el MCP de Konsora en modo run (vía `config`, con las variables del run solo ahí) → `turn/start` con el prompt. Las notificaciones `item/*`, `turn/completed`, el uso y los rate limits se normalizan a `RunEvent` (incluido `turn_end`). `send()` lanza otro turno en el mismo hilo, `interrupt()` usa `turn/interrupt`, y `resume` reabre el hilo guardado. El entorno del hijo no lleva `KONSORA_*`. Nunca usa `--dangerously-bypass-approvals-and-sandbox` ni sandbox `danger-full-access`. `models()` sale de `model/list` (modelos y niveles de razonamiento).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Grabaciones reales de app-server (guardadas como fixtures) se normalizan a la secuencia de RunEvent esperada, sin gastar cuota (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los parámetros enviados nunca usan bypass de aprobaciones ni sandbox de acceso total, y el entorno del hijo no contiene KONSORA_DAEMON_TOKEN ni el token humano (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "models() devuelve los modelos y esfuerzos que publica model/list (test con grabación)"
+        },
+        {
+          "id": "ac4",
+          "text": "Una salida malformada o un proceso que muere producen error y un único finished con ok false, sin excepción sin capturar (test)"
+        },
+        {
+          "id": "ac5",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
+      "id": "RUN-14",
+      "title": "Aprobaciones de Codex en el daemon y la UI",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-13"
+      ],
+      "rank": "zzzzz",
+      "desc": "Codex pide permisos como peticiones del servidor (`CommandExecutionRequestApproval`, `FileChangeRequestApproval`), no por la herramienta MCP `permission`. El adaptador las convierte en el evento `permission` y responde con `answerPermission`. El supervisor las registra en el daemon (se amplía `RunRegistry` para crear la aprobación pendiente y esperar la decisión) para que aparezcan en la UI de UI-11 como las de Claude, con el run en `waiting_approval`. Si el run termina, se cancela o vence el plazo, la respuesta es denegar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con un adaptador falso, una petición de aprobación de Codex aparece en GET /api/approvals y el run pasa a waiting_approval (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Permitir o denegar desde la API llega al adaptador como respuesta a la petición, y el run vuelve a running (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Si el run se cancela con una aprobación pendiente, se deniega (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
+      "id": "RUN-15",
+      "title": "Plan B de Codex con codex exec --json",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-13"
+      ],
+      "rank": "zzzzzi",
+      "desc": "Si `codex app-server` no está disponible o su protocolo no encaja con los tipos generados, el adaptador usa `codex exec --json -C <worktree> -s workspace-write` con el mismo prompt y el MCP en modo run, con menos control: sin respuestas interactivas ni rate limits, y sin aprobaciones (lo que el sandbox no permite falla). Se elige en `detect()` y queda indicado en el run. La UI avisa de que ese run no admite aprobaciones ni respuestas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una grabación real de exec --json se normaliza a RunEvent, sin gastar cuota (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Con app-server ausente o incompatible, el adaptador elige exec y lo indica en run.json (test con codex falso)"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
+    },
+    {
+      "id": "RUN-16",
+      "title": "Verificación de M7 con el codex real",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-14",
+        "RUN-15",
+        "UI-13",
+        "UI-14"
+      ],
+      "rank": "zzzzzy",
+      "desc": "Cierra el hito con el criterio del roadmap sobre un repo fixture (no el de Konsora), como RUN-09: la misma tarea fixture termina con Codex de principio a fin desde la UI (selector, log en vivo, una aprobación, revisión con diff, aceptar con un commit y trailers, sin worktree ni rama). El selector solo ofrece lo que declara cada adaptador, y tras cada run la UI muestra el uso o deja claro que el proveedor no lo da. Gasta cuota del usuario: se hace solo cuando el humano lo autorice, y los pasos y resultados quedan anotados.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run real de Codex de principio a fin cumple el criterio de M7 del roadmap"
+        },
+        {
+          "id": "ac2",
+          "text": "El selector solo ofrece modelos y niveles declarados, y el uso se muestra o se explica su ausencia, con Claude y con Codex"
+        },
+        {
+          "id": "ac3",
+          "text": "Los pasos, las versiones y lo observado quedan anotados en la tarea"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-01T13:55:22Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:55:22Z"
     }
   ]
 }
