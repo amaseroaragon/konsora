@@ -33,6 +33,7 @@ import {
   RunStore,
   RunStoreError,
   recoverRuns,
+  removeWorktree,
   startRun,
 } from "@konsora/runner";
 import type { ApprovalEvent, Approvals } from "./approvals.ts";
@@ -259,6 +260,25 @@ export class RunManager {
       store: this.store(project),
       ...(this.#options.git ? { git: this.#options.git } : {}),
     });
+  }
+
+  /**
+   * Closes a finished run without integrating it (its work was not kept, or there was none):
+   * `integration = discarded`, and its worktree and branch are removed. The run is kept.
+   */
+  async discard(project: Project, run: Run): Promise<Run> {
+    const store = this.store(project);
+    const discarded = await store.integrate(run.id, "discarded");
+    if (run.worktree && run.branch) {
+      await removeWorktree({
+        root: project.path,
+        worktreesDir: this.worktreesDir(project),
+        worktree: run.worktree,
+        branch: run.branch,
+        ...(this.#options.git ? { git: this.#options.git } : {}),
+      });
+    }
+    return discarded;
   }
 
   /** Pending approvals move their run to `waiting_approval`, and back when none is left. */

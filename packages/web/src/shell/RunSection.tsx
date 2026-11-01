@@ -2,10 +2,11 @@ import { isActiveRunState, type Run } from "@konsora/core";
 import { useEffect, useState } from "react";
 import { useApprovals } from "../api/approvals.ts";
 import { ApiError } from "../api/client.ts";
-import { useCancelRun, useRunEvents } from "../api/runs.ts";
+import { useCancelRun, useRunDiff, useRunEvents } from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
 import { Button, RunLog, useToast } from "../ui/index.ts";
 import { RunApprovals } from "./Approvals.tsx";
+import { patchFiles } from "./review-model.ts";
 import {
   formatSeconds,
   formatTokens,
@@ -51,7 +52,9 @@ export function RunSection({
   const now = useNow(active);
   const seconds = runSeconds(run, now);
   const usage = runUsage(run, events);
-  const files = touchedFiles(events);
+  // Live: the agent's file events. Closed: its diff, which also covers changes made through Bash.
+  const diff = useRunDiff(projectId, run.id, !active).data;
+  const files = !active && typeof diff === "string" ? patchFiles(diff) : touchedFiles(events);
   const rows = logRows(events);
   const approvals = (useApprovals().data ?? []).filter((a) => a.run === run.id);
   return (
@@ -92,7 +95,7 @@ export function RunSection({
       <div>
         <div className="k-label">{t("run.files")}</div>
         {files.length === 0 ? (
-          <p className="s-muted">{t("run.files.none")}</p>
+          <p className="s-muted">{t(active ? "run.files.none" : "run.files.none.closed")}</p>
         ) : (
           <ul className="b-run__files">
             {files.map((file) => (

@@ -73,14 +73,34 @@ export function diffTotals(files: readonly DiffFile[]): { added: number; removed
 }
 
 /** What the daemon answers to `accept` when it integrated a run first. */
-export type AcceptResult = { integrated?: { run: string; commit: string } };
+export type AcceptResult = {
+  integrated?: { run: string; commit: string };
+  /** The run changed nothing: accepted without a commit, its worktree removed. */
+  discarded?: string;
+};
 
 /** The toast after accepting: with the integration commit when there was a run. */
 export function acceptText(id: string, result: AcceptResult | undefined): string {
   const commit = result?.integrated?.commit;
-  return commit
-    ? t("review.integrated", { id, sha: commit.slice(0, 7) })
-    : t("move.done.accept", { id });
+  if (commit) return t("review.integrated", { id, sha: commit.slice(0, 7) });
+  if (result?.discarded) return t("review.accepted.nochanges", { id });
+  return t("move.done.accept", { id });
+}
+
+/** Files a closed run changed, from its `diff.patch` (whatever tool the agent used). */
+export function patchFiles(patch: string): { path: string; change: "add" | "modify" | "delete" }[] {
+  const files: { path: string; change: "add" | "modify" | "delete" }[] = [];
+  let current: { path: string; change: "add" | "modify" | "delete" } | null = null;
+  for (const line of patch.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      current = { path: / b\/(.*)$/.exec(line)?.[1] ?? line.slice(11), change: "modify" };
+      files.push(current);
+    } else if (current && line.startsWith("new file mode")) current.change = "add";
+    else if (current && line.startsWith("deleted file mode")) current.change = "delete";
+    else if (current && line.startsWith("rename to "))
+      current.path = line.slice("rename to ".length);
+  }
+  return files;
 }
 
 /**

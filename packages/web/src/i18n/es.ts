@@ -79,6 +79,7 @@ export const es = {
   "run.cost": "Coste",
   "run.files": "Archivos tocados",
   "run.files.none": "Todavía no ha tocado archivos.",
+  "run.files.none.closed": "El run no cambió archivos.",
   "run.file.add": "nuevo",
   "run.file.modify": "modificado",
   "run.file.delete": "eliminado",
@@ -149,6 +150,7 @@ export const es = {
   "review.diff.none": "El run no cambió ningún archivo.",
   "review.binary": "Archivo binario",
   "review.integrated": "{id} aceptada e integrada en un commit ({sha}).",
+  "review.accepted.nochanges": "{id} aceptada: su run no cambió archivos, así que no hay commit.",
   "review.conflict.persist":
     "La última integración chocó con la rama base. Pide al agente que actualice su rama o resuélvelo a mano en ella, y vuelve a aceptar.",
   "review.error.conflict":

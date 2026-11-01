@@ -267,17 +267,23 @@ export function createApp(options: AppOptions): Hono {
     // Accepting work done by a run integrates it first (one squash commit on the base branch);
     // the task only becomes done once that succeeded.
     let integrated: { run: string; commit: string } | undefined;
+    let discarded: string | undefined;
     const runs = options.runs;
     if (parsed.op.op === "accept" && runs) {
       const run = await runs.integrable(project, parsed.op.task);
       if (run) {
         const dry = applyOp(before.document, parsed.op, { actor: "human", at });
         if (!dry.ok) return c.json({ error: dry.error }, OP_STATUS[dry.error.code] ?? 409);
-        let outcome: Awaited<ReturnType<RunManager["integrate"]>>;
+        let outcome: Awaited<ReturnType<RunManager["integrate"]>> | null;
         try {
           outcome = await runs.integrate(project, run);
         } catch (error) {
-          if (error instanceof IntegrationError) {
+          // A run that changed nothing (a check, an investigation) is accepted without a commit.
+          if (error instanceof IntegrationError && error.code === "nothing_to_integrate") {
+            await runs.discard(project, run);
+            discarded = run.id;
+            outcome = null;
+          } else if (error instanceof IntegrationError) {
             return c.json(
               {
                 error: {
@@ -288,10 +294,11 @@ export function createApp(options: AppOptions): Hono {
               },
               409,
             );
+          } else {
+            throw error;
           }
-          throw error;
         }
-        if (outcome.status === "conflict") {
+        if (outcome?.status === "conflict") {
           return c.json(
             {
               error: {
@@ -304,7 +311,7 @@ export function createApp(options: AppOptions): Hono {
             409,
           );
         }
-        integrated = { run: run.id, commit: outcome.commit };
+        if (outcome) integrated = { run: run.id, commit: outcome.commit };
       }
     }
 
@@ -349,6 +356,7 @@ export function createApp(options: AppOptions): Hono {
     return c.json({
       ok: true,
       ...(integrated ? { integrated } : {}),
+      ...(discarded ? { discarded } : {}),
       hash: result.hash,
       created: result.created,
       changed: result.changed,

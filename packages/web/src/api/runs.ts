@@ -105,10 +105,11 @@ export function applyRunMessage(
 export const runDiffKey = (project: string, run: string) => ["runs", project, run, "diff"] as const;
 
 /** The run's `diff.patch` (null until it closes). */
-export function useRunDiff(project: string, run: string) {
+export function useRunDiff(project: string, run: string, enabled = true) {
   const api = useApi();
   return useQuery({
     queryKey: runDiffKey(project, run),
+    enabled,
     queryFn: async () =>
       (await api.get<{ diff: string | null }>(`${base(project)}/${encodeURIComponent(run)}/diff`))
         .diff,

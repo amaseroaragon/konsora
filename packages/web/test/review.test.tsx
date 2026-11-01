@@ -11,6 +11,7 @@ import {
   diffTotals,
   integrationErrorText,
   parsePatch,
+  patchFiles,
 } from "../src/shell/review-model.ts";
 import { TaskPanel } from "../src/shell/TaskPanel.tsx";
 import { DiffView, ToastProvider } from "../src/ui/index.ts";
@@ -178,6 +179,21 @@ describe("review panel (UI-12)", () => {
     expect(out).toContain(">Devolver<");
   });
 
+  it("lists the files a closed run changed from its diff, whatever tool made them", () => {
+    expect(patchFiles(PATCH)).toEqual([
+      { path: "src/app.ts", change: "modify" },
+      { path: "src/cache.ts", change: "add" },
+      { path: "old.txt", change: "delete" },
+      { path: "logo.png", change: "add" },
+      { path: "b.txt", change: "modify" },
+    ]);
+    // No file events in the log (the agent used Bash), yet the files are listed.
+    const out = panel(run());
+    expect(out).toMatch(/src\/cache\.ts<\/span> <span class="s-muted">nuevo/);
+    expect(out).toMatch(/old\.txt<\/span> <span class="s-muted">eliminado/);
+    expect(out).not.toContain("Todavía no ha tocado archivos.");
+  });
+
   it("keeps explaining a failed integration while the run is in conflict", () => {
     expect(panel(run({ integration: { state: "conflict" } }))).toContain(
       "La última integración chocó con la rama base.",
@@ -208,6 +224,9 @@ describe("accepting (UI-12 ac2)", () => {
       "BE-01 aceptada e integrada en un commit (9ab1c3e).",
     );
     expect(acceptText("BE-02", {})).toBe("BE-02 aceptada: pasa a Hecho.");
+    expect(acceptText("BE-03", { discarded: runId })).toBe(
+      "BE-03 aceptada: su run no cambió archivos, así que no hay commit.",
+    );
   });
 
   it("explains a 409 conflict with its files, without changing the task", async () => {

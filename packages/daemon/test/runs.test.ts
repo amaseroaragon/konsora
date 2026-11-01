@@ -36,7 +36,7 @@ const konsora = (spec: RunSpec, ...args: string[]) =>
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-type Behaviour = "finish" | "hang" | "ask";
+type Behaviour = "finish" | "hang" | "ask" | "noop";
 let behaviour: Behaviour = "finish";
 const seen: RunSpec[] = [];
 
@@ -63,6 +63,9 @@ const fake: AgentAdapter = {
     const mode = behaviour;
     void (async () => {
       queue.push({ t: "started", session: "s-1", model: "fake" });
+      if (mode === "noop") {
+        konsora(spec, "finish", "BE-01", "--summary", "Checked: nothing to change.");
+      }
       if (mode === "finish") {
         writeFileSync(join(spec.cwd, "app.txt"), "from the agent\n");
         queue.push({ t: "file", path: "app.txt", change: "modify" });
@@ -336,6 +339,25 @@ describe("accept integrates the run", () => {
     expect(await taskState("BE-01")).toBe("done");
     const after = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}`);
     expect(after.body.run.integration).toEqual({ state: "merged" });
+  });
+
+  it("accepts a run that changed nothing without a commit, discarding its worktree", async () => {
+    behaviour = "noop";
+    const run = await settled((await launch()).id);
+    expect(run.state).toBe("succeeded");
+    const before = git(root, "rev-parse", "main");
+    const res = await api<{ ok: boolean; discarded: string; integrated?: unknown }>(
+      `/projects/${projectId}/ops`,
+      { method: "POST", body: JSON.stringify({ op: "accept", task: "BE-01" }) },
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.discarded).toBe(run.id);
+    expect(res.body.integrated).toBeUndefined();
+    expect(git(root, "rev-parse", "main")).toBe(before);
+    expect(await taskState("BE-01")).toBe("done");
+    expect(git(root, "branch", "--list", "konsora/*")).toBe("");
+    const after = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}`);
+    expect(after.body.run.integration).toEqual({ state: "discarded" });
   });
 
   it("answers 409 on a conflict and keeps the task in review", async () => {
