@@ -1320,7 +1320,7 @@
     {
       "id": "UI-08",
       "title": "Descripción y notas en markdown seguro en el panel de tarea",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "UI-03"
@@ -1352,7 +1352,7 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:46:52Z",
+      "updated_at": "2026-11-01T09:48:43Z",
       "notes": [
         {
           "id": "n1",
@@ -1373,7 +1373,7 @@
     {
       "id": "UI-09",
       "title": "Edición del trabajo aprobado desde el panel de tarea (solo el humano)",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "UI-08"
@@ -1409,7 +1409,23 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:09:38Z"
+      "updated_at": "2026-11-01T09:55:21Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T09:49:29Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: formulario de edición en el panel (título, descripción, criterios, etiquetas, grupo) que envía una sola operación edit con el hash de la tarea, y añadir/quitar dependencias con depend/undepend. Ante un conflicto, se muestra la versión actual y se conserva el borrador. Errores traducidos al español por código. Sin edición en modo solo lectura. Tests del daemon (registro de aprobaciones, ciclo sin cambios en el archivo) y de la web (modelo del borrador y conflicto)."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T09:55:21Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Desde el panel, el humano puede editar el título, la descripción, los criterios, las etiquetas y el grupo («Editar»), y añadir o quitar dependencias. Cada guardado envía una sola operación edit con solo los campos cambiados y el hash de la versión de partida; las dependencias se cambian con depend y undepend. ac1: test del daemon: edit, depend y undepend escriben tasks.json, quedan en approvals.jsonl como acciones del humano y no generan avisos de cambio externo. ac2: un ciclo se explica en español antes de enviarlo, y el daemon lo rechaza con 422 sin tocar el archivo ni el registro (tests; en Chrome, WEB-01 → OPS-02 quedó rechazado y el archivo no cambió). ac3: si la tarea cambia mientras la editas no se guarda nada: se muestra lo que cambió fuera y se conserva el borrador. «Seguir con mi borrador» lo pasa a la versión actual sin deshacer los cambios ajenos (tests del modelo, del editor y del daemon con 409; en Chrome, una nota de agente durante la edición mostró el aviso y al seguir se guardó el borrador sin perder la nota). ac4: con el plan inválido no hay botón Editar ni formularios (test y Chrome). ac5: npm run check pasa (501 tests). Commit c7a3ee9."
+        }
+      ]
     }
   ]
 }
