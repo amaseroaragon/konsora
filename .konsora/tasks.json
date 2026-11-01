@@ -2771,7 +2771,7 @@
     {
       "id": "RUN-14",
       "title": "Aprobaciones de Codex en el daemon y la UI",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-13"
@@ -2803,7 +2803,23 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:58:08Z"
+      "updated_at": "2026-11-01T14:42:32Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T14:35:05Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir answerPermission al RunHandle, que Codex responda a sus peticiones de aprobación con la decisión, ampliar RunRegistry para registrar la aprobación en el daemon y esperarla, y denegar al cancelar, terminar o vencer el plazo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T14:42:32Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Las peticiones de aprobación de Codex llegan al humano. El adaptador las convierte en un evento permission (shell con command/cwd/reason, o apply_patch con path/paths/reason) y responde con RunHandle.answerPermission, en el formato de cada método: accept/decline, o approved/denied en las antiguas. RunRegistry gana requestPermission: el daemon crea la aprobación pendiente en Approvals, la misma que usa el MCP de Claude. El supervisor devuelve la decisión al adaptador y la registra en events.jsonl como permission_decision. ac1: con un adaptador falso al estilo Codex, la petición aparece en GET /api/approvals con su tool e input y el run pasa a waiting_approval (daemon/test/runs.test.ts). ac2: permitir o denegar desde POST /api/runs/:run/permissions/:id llega al adaptador como respuesta, el run vuelve a running y, si se permite, termina en succeeded (tests). En el adaptador real, codex.test.ts comprueba con la grabación que las respuestas JSON-RPC son accept, accept y decline. ac3: al cancelar con una aprobación pendiente, se deniega (The run has ended.) y GET /api/approvals queda vacío (test). También se deniega sin daemon, al vencer el plazo (300 s) o si el run ya terminó, y una respuesta tardía tras kill() se ignora (tests). ac4: npm run check pasa (724 tests). La UI no necesitaba cambios: el panel de aprobaciones es genérico, resume por command o path, y el log ya mostraba permission. Documentado en arquitectura.md §Codex."
+        }
+      ]
     },
     {
       "id": "RUN-15",
