@@ -162,10 +162,33 @@ export const RunExitSchema = z.strictObject({
   signal: z.string().min(1).max(20).nullable(),
 });
 
+/**
+ * One rate-limit window of the provider's account (e.g. Claude's `five_hour` or `seven_day`), as
+ * last reported during the run. It describes the account, not the run.
+ */
+export const RateLimitWindowSchema = z.strictObject({
+  window: z.string().regex(/^[a-z0-9_]{1,40}$/, "Rate-limit window must be a lowercase slug"),
+  /** The provider's status for the window, e.g. "allowed", "allowed_warning", "rejected". */
+  status: z.string().min(1).max(40).optional(),
+  /** Fraction of the window already used (0.68 = 68 %). */
+  utilization: z.number().min(0).max(100).optional(),
+  resets_at: TimestampSchema.optional(),
+});
+
+/**
+ * The run's usage. `input_tokens` is every input token, cache included (as before the breakdown);
+ * `cache_read_tokens` and `cache_write_tokens` are the part of it served from or written to the
+ * prompt cache, and `reasoning_tokens` the part of `output_tokens` spent thinking. The breakdown
+ * and `rate_limits` are present only when the provider reports them.
+ */
 export const RunUsageSchema = z.strictObject({
   input_tokens: z.int().min(0),
   output_tokens: z.int().min(0),
   cost_usd: z.number().min(0).nullable(),
+  cache_read_tokens: z.int().min(0).optional(),
+  cache_write_tokens: z.int().min(0).optional(),
+  reasoning_tokens: z.int().min(0).optional(),
+  rate_limits: z.array(RateLimitWindowSchema).max(10).optional(),
 });
 
 export const RunCheckResultSchema = z.strictObject({
@@ -214,6 +237,8 @@ export const RunSchema = z
   });
 
 export type Run = z.infer<typeof RunSchema>;
+export type RunUsage = z.infer<typeof RunUsageSchema>;
+export type RateLimitWindow = z.infer<typeof RateLimitWindowSchema>;
 
 // ── Transitions ──────────────────────────────────────────────────────────────
 

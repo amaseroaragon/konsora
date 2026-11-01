@@ -80,7 +80,15 @@ describe("recorded stream-json (Claude Code 2.1.316)", () => {
       },
       {
         t: "usage",
-        rate_limits: { status: "allowed", window: "five_hour", resets_at: 1793539200 },
+        rate_limits: {
+          status: "allowed",
+          window: "five_hour",
+          resets_at: 1793539200,
+          windows: [
+            { window: "five_hour", status: "allowed", utilization: 0.68, resets_at: 1793539200 },
+            { window: "seven_day", status: "allowed", utilization: 0.25, resets_at: 1794045600 },
+          ],
+        },
       },
       {
         t: "tool",
@@ -137,7 +145,15 @@ describe("recorded stream-json (Claude Code 2.1.316)", () => {
         ok: false,
       }),
       { t: "message", text: final, final: true },
-      { t: "usage", input_tokens: 80772, output_tokens: 765, cost_usd: 0.00514598 },
+      {
+        t: "usage",
+        input_tokens: 80772,
+        output_tokens: 765,
+        cache_read_tokens: 59948,
+        cache_write_tokens: 20816,
+        reasoning_tokens: 131,
+        cost_usd: 0.00514598,
+      },
       { t: "turn_end", ok: true },
       { t: "finished", ok: true, summary: final },
     ]);
@@ -158,7 +174,15 @@ describe("recorded stream-json (Claude Code 2.1.316)", () => {
         model: "claude-nonexistent-9",
       },
       { t: "error", message: apiError, retryable: false },
-      { t: "usage", input_tokens: 0, output_tokens: 0, cost_usd: 0 },
+      {
+        t: "usage",
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        reasoning_tokens: 0,
+        cost_usd: 0,
+      },
       { t: "turn_end", ok: false },
       {
         t: "error",

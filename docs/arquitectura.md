@@ -116,10 +116,18 @@ type RunEvent =
   | { t: "tool"; phase: "start" | "end"; name: string; summary: string; ok?: boolean }
   | { t: "file"; path: string; change: "add" | "modify" | "delete" }
   | { t: "permission"; id: string; tool: string; detail: string }
-  | { t: "usage"; input_tokens?: number; output_tokens?: number; cost_usd?: number; rate_limits?: RateLimits }
+  | { t: "usage"; input_tokens?: number; output_tokens?: number;          // entrada con la caché incluida
+      cache_read_tokens?: number; cache_write_tokens?: number;            // parte de la entrada
+      reasoning_tokens?: number; cost_usd?: number; rate_limits?: RateLimits }
   | { t: "error"; message: string; retryable: boolean }
   | { t: "finished"; ok: boolean; summary?: string };
+type RateLimits = {
+  status: string; window?: string; resets_at?: number;                   // la ventana que limita ahora
+  windows?: { window: string; status?: string; utilization?: number; resets_at?: number }[];
+}
 ```
+
+El supervisor suma los `usage` de todos los turnos en el `usage` de `run.json` (el desglose solo aparece si el proveedor lo dio) y guarda en `usage.rate_limits` la última foto de cada ventana, con el reinicio como fecha UTC. Los rate limits describen la cuenta, no el run.
 
 ### Claude Code
 
@@ -136,6 +144,12 @@ claude -p --output-format stream-json --input-format stream-json --verbose
 - Desde stdin se envía el prompt del run como mensaje `user` en stream-json. Mantener stdin abierto permite enviar respuestas a `ask` en el mismo proceso.
 - `claude` sigue vivo mientras stdin esté abierto, aunque el turno haya terminado (comprobado con 2.1.316), así que el runner cierra la entrada (`endInput`) cuando ya no espera más turnos.
 - `system/init` → `started`; `assistant` → `message`/`tool` (el último texto antes de `result` va con `final: true`); `user` con `tool_result` → `tool` de fin y `file` para Write/Edit; `rate_limit_event` → `usage.rate_limits`; `result` → `usage` (más `error` si el turno falló). `finished` se emite al salir el proceso: `ok` exige salida 0, un último `result` correcto y ninguna línea malformada. Las grabaciones reales de `packages/runner/test/fixtures/claude/` fijan este mapeo.
+- **Uso y límites** (comprobado con 2.1.316, en las grabaciones de `fixtures/claude/`):
+  - `result.usage` da, por turno, `input_tokens` (sin caché), `cache_read_input_tokens`, `cache_creation_input_tokens` (con el detalle de 5 min y 1 h), `output_tokens` y `output_tokens_details.thinking_tokens`. Konsora guarda la entrada total (las tres sumadas), la caché leída y escrita aparte, la salida y el razonamiento.
+  - `result.total_cost_usd` es el coste a precio de lista (`costBasis: "list"`): con suscripción es una estimación, no lo que se cobra. Se guarda como `cost_usd`.
+  - `rate_limit_event.rate_limit_info` da el estado y el reinicio de la ventana que limita ahora (`rateLimitType`, `resetsAt` en segundos Unix) y, en `unifiedWindows`, cada ventana (`five_hour`, `seven_day`) con su `utilization` (fracción usada), `status` y `resetsAt`. Solo llega cuando Claude Code lo emite (no en cada turno ni si falla antes de llamar a la API).
+  - **No se guarda**: `modelUsage` (repite lo mismo por modelo, con `contextWindow` y `maxOutputTokens`, que son datos del modelo y no del run), `iterations`, `server_tool_use`, `service_tier`, `inference_geo` ni los campos de *overage* (`overageStatus`, `isUsingOverage`), que dependen del plan y de la organización.
+  - **No lo da**: el saldo ni el límite absoluto de tokens de cada ventana (solo la fracción), el uso de otras sesiones por separado, ni el coste real facturado.
 - La configuración MCP (que lleva el token del run) es un archivo 0600 en una carpeta privada del run fuera del proyecto, y se borra al terminar. Con `--strict-mcp-config` el agente solo carga el MCP de Konsora en modo run, no otros servidores del usuario o del proyecto (como un `konsora` en modo manual en `.mcp.json`).
 - El perfil `default` es `acceptEdits` y `--allowedTools` con `Read`, `Glob`, `Grep`, `Edit`, `Write`, `NotebookEdit`, `TodoWrite`, `mcp__konsora`, `npm run/test/ci`, `git status/diff/log/add/commit` y los comandos exactos de `checks` (salvo los que contienen `,`, `(` o `)`, que no caben en una regla y piden permiso).
 - Las aprobaciones que no cubre `--allowedTools` llegan a la herramienta MCP `permission` de Konsora, que las reenvía al daemon → UI → el humano decide.

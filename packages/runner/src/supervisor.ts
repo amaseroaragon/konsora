@@ -38,6 +38,7 @@ import { mutate, readTasks } from "@konsora/core/store";
 import type { AgentAdapter, McpServerSpec, RunEvent, RunHandle } from "./adapter.ts";
 import { type Git, systemGit } from "./git.ts";
 import { RunStore } from "./run-store.ts";
+import { UsageTally } from "./usage.ts";
 import { prepareWorktree, WorktreeError } from "./worktree.ts";
 
 /** Where the daemon registers runs for permission approvals (`Approvals.registerRun`). */
@@ -255,7 +256,7 @@ class Supervision {
   readonly #now: () => string;
   #state: RunState;
   #session: string | undefined;
-  #usage = { input_tokens: 0, output_tokens: 0, cost: 0, priced: false };
+  readonly #usage = new UsageTally();
   /** Serializes `run.json` updates coming from events and from the daemon. */
   #chain: Promise<unknown> = Promise.resolve();
   /** The agent's process, while it is alive. */
@@ -343,12 +344,7 @@ class Supervision {
       } else if (event.t === "tool" && event.phase === "end") {
         await this.setAwaitingApproval(false);
       } else if (event.t === "usage") {
-        this.#usage.input_tokens += event.input_tokens ?? 0;
-        this.#usage.output_tokens += event.output_tokens ?? 0;
-        if (event.cost_usd !== undefined) {
-          this.#usage.cost += event.cost_usd;
-          this.#usage.priced = true;
-        }
+        this.#usage.add(event);
       } else if (event.t === "turn_end") {
         await this.#afterTurn(handle);
       } else if (event.t === "finished") {
@@ -478,11 +474,7 @@ class Supervision {
     const fields = {
       finished_at: this.#now(),
       exit,
-      usage: {
-        input_tokens: this.#usage.input_tokens,
-        output_tokens: this.#usage.output_tokens,
-        cost_usd: this.#usage.priced ? Math.round(this.#usage.cost * 1e6) / 1e6 : null,
-      },
+      usage: this.#usage.toRunUsage(),
       checks: [],
       ...(head ? { head_commit: head } : {}),
       ...(summary

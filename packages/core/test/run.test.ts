@@ -46,8 +46,61 @@ describe("RunSchema", () => {
     expect(RunSchema.safeParse(base).success).toBe(true);
   });
 
+  it("keeps accepting the usage written before the breakdown", () => {
+    const old = { input_tokens: 41200, output_tokens: 5300, cost_usd: null };
+    expect(RunSchema.safeParse({ ...base, state: "succeeded", usage: old }).success).toBe(true);
+  });
+
+  it("accepts the usage breakdown and the rate-limit windows", () => {
+    const usage = {
+      input_tokens: 80772,
+      output_tokens: 765,
+      cost_usd: 0.005146,
+      cache_read_tokens: 59948,
+      cache_write_tokens: 20816,
+      reasoning_tokens: 131,
+      rate_limits: [
+        {
+          window: "five_hour",
+          status: "allowed",
+          utilization: 0.68,
+          resets_at: "2026-11-01T13:20:00Z",
+        },
+        { window: "seven_day" },
+      ],
+    };
+    const parsed = RunSchema.safeParse({ ...base, state: "succeeded", usage });
+    expect(parsed.error?.issues ?? []).toEqual([]);
+  });
+
   it.each([
     ["an unknown state", { state: "paused" }],
+    [
+      "a rate-limit window with a bad name",
+      {
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: null,
+          rate_limits: [{ window: "Five Hour" }],
+        },
+      },
+    ],
+    [
+      "a rate-limit reset that is not a UTC timestamp",
+      {
+        usage: {
+          input_tokens: 0,
+          output_tokens: 0,
+          cost_usd: null,
+          rate_limits: [{ window: "five_hour", resets_at: 1793539200 }],
+        },
+      },
+    ],
+    [
+      "negative cache tokens",
+      { usage: { input_tokens: 0, output_tokens: 0, cost_usd: null, cache_read_tokens: -1 } },
+    ],
     ["an unknown integration state", { state: "succeeded", integration: { state: "rebased" } }],
     [
       "integration on a run that has not finished",

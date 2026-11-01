@@ -217,7 +217,26 @@ describe("startRun", () => {
         emit({ t: "file", path: "readme.txt", change: "modify" });
         konsora(spec, "note", "BE-01", "Half way there.");
         konsora(spec, "finish", "BE-01", "--summary", "Added feature.txt and updated the readme.");
-        emit({ t: "usage", input_tokens: 100, output_tokens: 20, cost_usd: 0.25 });
+        emit({
+          t: "usage",
+          rate_limits: {
+            status: "allowed",
+            window: "five_hour",
+            resets_at: 1793539200,
+            windows: [
+              { window: "five_hour", status: "allowed", utilization: 0.5, resets_at: 1793539200 },
+            ],
+          },
+        });
+        emit({
+          t: "usage",
+          input_tokens: 100,
+          output_tokens: 20,
+          cache_read_tokens: 60,
+          cache_write_tokens: 30,
+          cost_usd: 0.25,
+        });
+        emit({ t: "usage", rate_limits: { status: "allowed_warning", window: "five_hour" } });
         emit({ t: "message", text: "Done.", final: true });
       },
       { seen },
@@ -232,7 +251,22 @@ describe("startRun", () => {
       task: "BE-01",
       session_id: "s-1",
       exit: { code: 0, signal: null },
-      usage: { input_tokens: 100, output_tokens: 20, cost_usd: 0.25 },
+      usage: {
+        input_tokens: 100,
+        output_tokens: 20,
+        cost_usd: 0.25,
+        cache_read_tokens: 60,
+        cache_write_tokens: 30,
+        // The last snapshot of each window, keeping what the newer one does not repeat.
+        rate_limits: [
+          {
+            window: "five_hour",
+            status: "allowed_warning",
+            utilization: 0.5,
+            resets_at: "2026-11-01T13:20:00Z",
+          },
+        ],
+      },
       summary: "Added feature.txt and updated the readme.",
       checks: [],
     });
@@ -259,6 +293,8 @@ describe("startRun", () => {
       "started",
       "file",
       "usage",
+      "usage",
+      "usage",
       "message",
       "turn_end",
       "finished",
@@ -268,7 +304,7 @@ describe("startRun", () => {
       readFileSync(join(store.runDir(run.id), "raw.jsonl"), "utf8")
         .trim()
         .split("\n"),
-    ).toHaveLength(6);
+    ).toHaveLength(8);
 
     // The agent got the run-mode MCP with the daemon's token; the run was unregistered.
     expect(seen[0]?.mcp.env).toEqual({

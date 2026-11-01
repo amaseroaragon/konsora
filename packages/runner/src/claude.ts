@@ -23,6 +23,7 @@ import {
   type DetectResult,
   EventQueue,
   type ModelInfo,
+  type RateLimitWindow,
   type RunEvent,
   type RunExit,
   type RunHandle,
@@ -326,6 +327,20 @@ export class ClaudeNormalizer {
     if (!info || !status) return [];
     const window = str(info.rateLimitType);
     const resets = num(info.resetsAt);
+    const windows: RateLimitWindow[] = [];
+    const unified = isObject(info.unifiedWindows) ? info.unifiedWindows : {};
+    for (const [name, raw] of Object.entries(unified)) {
+      if (!isObject(raw) || !/^[a-z0-9_]{1,40}$/.test(name)) continue;
+      const windowStatus = str(raw.status);
+      const utilization = num(raw.utilization);
+      const windowResets = num(raw.resetsAt);
+      windows.push({
+        window: name,
+        ...(windowStatus ? { status: windowStatus } : {}),
+        ...(utilization !== undefined && utilization >= 0 ? { utilization } : {}),
+        ...(windowResets !== undefined ? { resets_at: windowResets } : {}),
+      });
+    }
     return [
       ...this.#flush(false),
       {
@@ -334,6 +349,7 @@ export class ClaudeNormalizer {
           status,
           ...(window ? { window } : {}),
           ...(resets !== undefined ? { resets_at: resets } : {}),
+          ...(windows.length > 0 ? { windows } : {}),
         },
       },
     ];
@@ -349,11 +365,18 @@ export class ClaudeNormalizer {
       .map((key) => num(usage[key]) ?? 0)
       .reduce((a, b) => a + b, 0);
     const output = num(usage.output_tokens);
+    const cacheRead = num(usage.cache_read_input_tokens);
+    const cacheWrite = num(usage.cache_creation_input_tokens);
+    const details = isObject(usage.output_tokens_details) ? usage.output_tokens_details : {};
+    const reasoning = num(details.thinking_tokens);
     const cost = num(value.total_cost_usd);
     events.push({
       t: "usage",
       input_tokens: input,
       ...(output !== undefined ? { output_tokens: output } : {}),
+      ...(cacheRead !== undefined ? { cache_read_tokens: cacheRead } : {}),
+      ...(cacheWrite !== undefined ? { cache_write_tokens: cacheWrite } : {}),
+      ...(reasoning !== undefined ? { reasoning_tokens: reasoning } : {}),
       ...(cost !== undefined ? { cost_usd: cost } : {}),
     });
     const message = text || `Claude Code turn ended with ${str(value.subtype) ?? "an error"}`;

@@ -4,12 +4,25 @@
  */
 import type { AgentSpec, Check, Provider } from "@konsora/core";
 
+export type RateLimitWindow = {
+  /** e.g. "five_hour", "seven_day". */
+  window: string;
+  status?: string;
+  /** Fraction of the window already used (0.68 = 68 %). */
+  utilization?: number;
+  /** Unix seconds. */
+  resets_at?: number;
+};
+
 export type RateLimits = {
+  /** The overall status, from the window that limits the account now. */
   status: string;
-  /** e.g. "five_hour". */
+  /** The window `status` refers to, e.g. "five_hour". */
   window?: string;
   /** Unix seconds. */
   resets_at?: number;
+  /** Every window the provider reported, with its own utilization and reset. */
+  windows?: RateLimitWindow[];
 };
 
 export type RunEvent =
@@ -28,8 +41,15 @@ export type RunEvent =
   | { t: "permission"; id: string; tool: string; detail: string }
   | {
       t: "usage";
+      /** Every input token, cache included. */
       input_tokens?: number;
       output_tokens?: number;
+      /** Part of `input_tokens` read from the prompt cache. */
+      cache_read_tokens?: number;
+      /** Part of `input_tokens` written to the prompt cache. */
+      cache_write_tokens?: number;
+      /** Part of `output_tokens` spent reasoning. */
+      reasoning_tokens?: number;
       cost_usd?: number;
       rate_limits?: RateLimits;
     }
