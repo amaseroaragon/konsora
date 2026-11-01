@@ -33,13 +33,18 @@
     {
       "id": "UI",
       "name": "Interfaz web"
+    },
+    {
+      "id": "MCP",
+      "name": "Servidor MCP"
     }
   ],
   "seq": {
     "CORE": 6,
     "CLI": 4,
     "DMN": 3,
-    "UI": 9
+    "UI": 9,
+    "MCP": 6
   },
   "tasks": [
     {
@@ -1426,6 +1431,226 @@
           "text": "Desde el panel, el humano puede editar el título, la descripción, los criterios, las etiquetas y el grupo («Editar»), y añadir o quitar dependencias. Cada guardado envía una sola operación edit con solo los campos cambiados y el hash de la versión de partida; las dependencias se cambian con depend y undepend. ac1: test del daemon: edit, depend y undepend escriben tasks.json, quedan en approvals.jsonl como acciones del humano y no generan avisos de cambio externo. ac2: un ciclo se explica en español antes de enviarlo, y el daemon lo rechaza con 422 sin tocar el archivo ni el registro (tests; en Chrome, WEB-01 → OPS-02 quedó rechazado y el archivo no cambió). ac3: si la tarea cambia mientras la editas no se guarda nada: se muestra lo que cambió fuera y se conserva el borrador. «Seguir con mi borrador» lo pasa a la versión actual sin deshacer los cambios ajenos (tests del modelo, del editor y del daemon con 409; en Chrome, una nota de agente durante la edición mostró el aviso y al seguir se guardó el borrador sin perder la nota). ac4: con el plan inválido no hay botón Editar ni formularios (test y Chrome). ac5: npm run check pasa (501 tests). Commit c7a3ee9."
         }
       ]
+    },
+    {
+      "id": "MCP-01",
+      "title": "Servidor konsora mcp (stdio) con las herramientas de lectura",
+      "state": "proposed",
+      "group": "MCP",
+      "rank": "zi",
+      "desc": "Añade el comando `konsora mcp`, un servidor MCP por stdio hecho con `@modelcontextprotocol/sdk` (ya está en la tabla de dependencias de arquitectura.md). Expone como herramientas las mismas lecturas que la CLI: `status`, `list` (con filtros de estado, grupo, ready y blocked), `show`, `ready`, `blocked` y `check`. Devuelven el mismo JSON que `--json`, porque comparten código con la CLI y no duplican reglas. El proyecto se resuelve igual que en la CLI (`--root`, `KONSORA_ROOT`, carpeta más cercana con `.konsora/`). Arrancar el servidor no escribe nada, y los errores van en inglés y son accionables.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un cliente del SDK conectado por stdio (o con transporte en memoria) lista las herramientas y cada lectura devuelve lo mismo que el comando de la CLI con --json (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Arrancar el servidor y leer no modifica ningún archivo del proyecto (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Un plan inválido o inexistente devuelve un error de herramienta con un mensaje accionable, sin que el servidor caiga (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m5"
+      ],
+      "created": {
+        "at": "2026-11-01T09:57:32Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T09:57:32Z"
+    },
+    {
+      "id": "MCP-02",
+      "title": "Herramientas de escritura de agente en el MCP",
+      "state": "proposed",
+      "group": "MCP",
+      "deps": [
+        "MCP-01"
+      ],
+      "rank": "zr",
+      "desc": "Añade al MCP las mismas operaciones de agente que la CLI: `propose`, `batch`, `edit`, `withdraw` y `undepend` (solo sobre propuestas), `depend`, `start`, `pause`, `note`, `ask` y `finish` con resumen. Pasan por las operaciones semánticas de core, con lock y escritura atómica. El actor es `agent:<nombre>`, tomado de `KONSORA_AGENT` o del nombre del cliente MCP. Las transiciones humanas (aprobar, aceptar, devolver, reabrir, editar trabajo aprobado) no existen como herramientas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada herramienta produce en tasks.json el mismo resultado que el comando equivalente de la CLI (test sobre un repo temporal)"
+        },
+        {
+          "id": "ac2",
+          "text": "La lista de herramientas no incluye ninguna transición humana, y un intento de cambiar trabajo aprobado devuelve forbidden con una pista (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Las notas y propuestas quedan atribuidas a agent:<nombre> (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m5"
+      ],
+      "created": {
+        "at": "2026-11-01T09:57:32Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T09:57:32Z"
+    },
+    {
+      "id": "MCP-03",
+      "title": "Modo run del MCP limitado a su tarea",
+      "state": "proposed",
+      "group": "MCP",
+      "deps": [
+        "MCP-02"
+      ],
+      "rank": "zv",
+      "desc": "Con `KONSORA_PROJECT`, `KONSORA_RUN` y `KONSORA_TASK` (los nombres de arquitectura.md; hoy la CLI lee `KONSORA_RUN_TASK`, así que se unifican aceptando ambos), el MCP entra en modo run. Las escrituras se limitan a la tarea del run (`note`, `ask`, `finish`) y a proponer subtareas como `proposed`. Todo se escribe en el tasks.json del checkout principal, no en la copia del worktree, y las notas llevan el id del run.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "En modo run, escribir sobre otra tarea devuelve out_of_scope con un mensaje accionable y el archivo no cambia (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Las escrituras van al tasks.json de KONSORA_PROJECT aunque el proceso arranque dentro de otra carpeta, como un worktree (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Las notas creadas en modo run llevan el id del run (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m5"
+      ],
+      "created": {
+        "at": "2026-11-01T09:57:32Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T09:57:32Z"
+    },
+    {
+      "id": "MCP-04",
+      "title": "Herramienta permission del MCP para las aprobaciones de Claude",
+      "state": "proposed",
+      "group": "MCP",
+      "deps": [
+        "MCP-03"
+      ],
+      "rank": "zx",
+      "desc": "En modo run, el MCP añade la herramienta `permission` con el contrato de `--permission-prompt-tool` de Claude Code: recibe la herramienta y su entrada, y responde `allow` o `deny`. La petición se reenvía al daemon, que la guarda como aprobación pendiente del run, emite un evento por WebSocket y espera la decisión del humano. Si no hay daemon, no hay decisión a tiempo o algo falla, la respuesta es `deny` con un motivo: nunca se permite por defecto. La pantalla para decidir llega con los runs en M6; aquí se deja el endpoint y el evento.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con un daemon que permite o deniega, la herramienta devuelve exactamente esa decisión (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Sin daemon, con un token inválido o al vencer el tiempo de espera, la respuesta es deny con un motivo (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "El daemon solo acepta decisiones del humano, con token, y solo para aprobaciones pendientes de ese run (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m5"
+      ],
+      "created": {
+        "at": "2026-11-01T09:57:32Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T09:57:32Z"
+    },
+    {
+      "id": "MCP-05",
+      "title": "Configuración del MCP para Claude Code y Codex",
+      "state": "proposed",
+      "group": "MCP",
+      "deps": [
+        "MCP-02"
+      ],
+      "rank": "zy",
+      "desc": "Hace fácil conectar el MCP en una sesión manual. `konsora mcp --print-config claude|codex` imprime el fragmento de configuración listo para pegar (`.mcp.json` para Claude Code y `config.toml` para Codex). Nada se escribe sin una acción explícita, y nunca se toca la configuración global del usuario. La skill y el snippet de AGENTS.md explican cuándo usar las herramientas MCP en lugar de la CLI.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Los fragmentos impresos son JSON y TOML válidos y apuntan al binario de konsora del proyecto (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Ningún comando escribe en ~/.claude, ~/.codex ni en la configuración del proyecto sin una opción explícita (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La skill y el snippet de AGENTS.md mencionan las herramientas MCP (test de contenido)"
+        },
+        {
+          "id": "ac4",
+          "text": "Las comprobaciones del espacio de trabajo pasan (npm run check)"
+        }
+      ],
+      "labels": [
+        "m5"
+      ],
+      "created": {
+        "at": "2026-11-01T09:57:32Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T09:57:32Z"
+    },
+    {
+      "id": "MCP-06",
+      "title": "Verificación con sesiones reales de Claude Code y Codex",
+      "state": "proposed",
+      "group": "MCP",
+      "deps": [
+        "MCP-03",
+        "MCP-05"
+      ],
+      "rank": "zz",
+      "desc": "Cierra el hito con el criterio del roadmap: una sesión real de Claude Code y otra de Codex, cada una con el MCP configurado, listan las tareas ready, empiezan una, añaden una nota y la terminan con un resumen, sobre un proyecto de prueba (no el plan de Konsora). Usa los CLI oficiales con el login del usuario, así que gasta algo de su cuota: se hace solo cuando el humano lo autorice, y los pasos y resultados quedan anotados.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una sesión de Claude Code con el MCP lista ready, hace start, note y finish, y el resultado se ve en tasks.json y en el tablero"
+        },
+        {
+          "id": "ac2",
+          "text": "Lo mismo con una sesión de Codex"
+        },
+        {
+          "id": "ac3",
+          "text": "Los pasos, las versiones de los CLI y lo observado quedan anotados en la tarea"
+        },
+        {
+          "id": "ac4",
+          "text": "En modo run, una escritura sobre otra tarea falla con out_of_scope (cubierto por el test de MCP-03)"
+        }
+      ],
+      "labels": [
+        "m5"
+      ],
+      "created": {
+        "at": "2026-11-01T09:57:32Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T09:57:32Z"
     }
   ]
 }
