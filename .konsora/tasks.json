@@ -1157,7 +1157,7 @@
     {
       "id": "UI-05",
       "title": "Vista de grafo con disposición ELK coloreada por estado",
-      "state": "proposed",
+      "state": "review",
       "group": "UI",
       "deps": [
         "UI-03"
@@ -1193,12 +1193,28 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:10:22Z"
+      "updated_at": "2026-11-01T09:22:38Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T09:11:05Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: añadir @xyflow/react y elkjs a packages/web; vista Grafo junto a Tablero con estado de vista y tarea abierta en la URL; disposición ELK en un web worker; nodos coloreados con tokens de estado; reutilizar el panel de tarea y la suscripción board.*; test de contraste AA; medir 150 tareas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T09:22:38Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Vista Grafo junto al Tablero (@xyflow/react 12.12.0 + elkjs 0.12.0), con disposición ELK por capas en su propio web worker, que solo se recalcula si cambian tareas o dependencias. Los nodos se colorean por estado con NODE_COLORS (tokens de Plano), con las bloqueadas aparte y las etiquetas de esperando respuesta y cambio externo. Las aristas van de la dependencia a la tarea. Al hacer clic en un nodo se abre el mismo panel que en el tablero. La vista y la tarea abierta están en la URL (#/p/<id>?view=graph&task=ID). ac1: en Chrome headless, con un plan generado de 150 tareas y 229 aristas, el primer dibujo tarda 789 ms con la caché vacía y 608-722 ms con ella. ac2: un título editado directamente en tasks.json aparece en el grafo en 204 ms, sin recargar. ac3: test/graph.test.ts comprueba el contraste AA de cada tono (texto 4.5:1 y borde 3:1 sobre el lienzo) en modo claro y oscuro. ac4: recargar #/p/<id>?view=graph&task=API-01 mantiene el Grafo y el panel de API-01 (comprobado en Chrome y con tests de rutas). ac5: npm run check pasa (445 tests). Commit d2bbd22."
+        }
+      ]
     },
     {
       "id": "UI-06",
       "title": "Navegación con teclado en el grafo",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "UI-05"
@@ -1230,12 +1246,12 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:10:22Z"
+      "updated_at": "2026-11-01T09:09:10Z"
     },
     {
       "id": "UI-07",
       "title": "Selección de tareas y de subgrafos compartida entre grafo y tablero",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "UI-05"
@@ -1267,12 +1283,12 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:10:22Z"
+      "updated_at": "2026-11-01T09:09:23Z"
     },
     {
       "id": "UI-08",
       "title": "Descripción y notas en markdown seguro en el panel de tarea",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "UI-03"
@@ -1304,12 +1320,12 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:10:22Z"
+      "updated_at": "2026-11-01T09:09:31Z"
     },
     {
       "id": "UI-09",
       "title": "Edición del trabajo aprobado desde el panel de tarea (solo el humano)",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "UI-08"
@@ -1345,7 +1361,7 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-10-31T23:10:22Z"
+      "updated_at": "2026-11-01T09:09:38Z"
     }
   ]
 }
