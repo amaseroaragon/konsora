@@ -2385,7 +2385,7 @@
     {
       "id": "RUN-09",
       "title": "Verificación de M6 con el claude real",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "UI-10",
@@ -2415,7 +2415,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:42:07Z",
+      "updated_at": "2026-11-01T13:47:07Z",
       "notes": [
         {
           "id": "n1",
@@ -2450,7 +2450,7 @@
     {
       "id": "RUN-10",
       "title": "Descartar runs y limpiar sus worktrees",
-      "state": "proposed",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzr",
       "desc": "Hoy un run cancelado, fallido o devuelto conserva su worktree y su rama `konsora/…` para siempre: el diseño dice «hasta integrar o descartar», pero no existe la acción de descartar (lo vio RUN-09 con los dos runs cancelados de DEMO-02). Añadir `POST /projects/:id/runs/:run/discard` en el daemon (integration discarded + borrar worktree y rama con removeWorktree; el run se conserva) y el botón Descartar en la sección del run de la UI para runs terminados sin integrar. Al devolver una tarea (send-back), ofrecer descartar su run. Mostrar los worktrees huérfanos que detecta findOrphanWorktrees.",
@@ -2479,7 +2479,23 @@
         "at": "2026-11-01T13:41:54Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:41:54Z"
+      "updated_at": "2026-11-01T13:51:55Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T13:47:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Daemon: RunManager.discard comprueba que el run está terminado y sin integrar (si no, error not_discardable accionable), borra su worktree y su rama y deja integration discarded; el run y diff.patch se conservan. Rutas POST /projects/:id/runs/:run/discard y GET /projects/:id/worktrees/orphans (findOrphanWorktrees). UI: botón Descartar run en la sección del run solo para runs terminados sin integrar (también tras devolver la tarea), y aviso en el proyecto con los worktrees huérfanos."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T13:51:55Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Descartar runs y ver worktrees huérfanos: daemon (packages/daemon/src/runs.ts y app.ts) y web (shell/RunSection.tsx, OlderRuns.tsx, Orphans.tsx, api/runs.ts).\n\n- ac1: POST /projects/:id/runs/:run/discard sobre un run cancelado, fallido o terminado sin integrar borra su worktree y su rama y deja integration discarded; el run y su diff.patch se conservan (test del daemon con un run cancelado). Primero borra el worktree (idempotente), así que si falla se puede repetir.\n- ac2: descartar un run activo («cancel it before discarding it»), ya integrado o ya descartado («already merged/discarded») devuelve 409 not_discardable (tests).\n- ac3: la UI ofrece «Descartar run» solo en runs terminados sin integrar (también tras devolver la tarea, y con integración en conflicto), nunca en activos, integrados, descartados ni en modo solo lectura; tras descartar muestra la etiqueta «Descartado» y quita el botón (tests).\n- ac4: npm run check pasa (685 tests) y vite build compila.\n\nAdemás:\n- GET /projects/:id/worktrees/orphans lista los huérfanos de findOrphanWorktrees sin borrar nada, y la página del proyecto los muestra en un aviso con el nombre de la carpeta y la rama, nunca la ruta privada (tests).\n- El panel solo mostraba el último run de cada tarea, así que un run anterior cancelado (como el primero de DEMO-02) no se podía descartar desde la UI ni contaba como huérfano. Ahora el panel lista los «Runs anteriores con worktree», cada uno con su Descartar (test).\n- Prueba en la UI real, sin gastar cuota: con el repo de prueba de RUN-09 y Chrome headless descarté los dos runs cancelados de DEMO-02. Se borraron sus worktrees y ramas, sus run.json y diff.patch siguen ahí, y solo queda el de DEMO-04, que está en revisión.\nDocumentado en arquitectura.md."
+        }
+      ]
     }
   ]
 }
