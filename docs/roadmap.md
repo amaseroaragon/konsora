@@ -34,7 +34,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 `konsora mcp` (stdio), con las mismas operaciones de agente que la CLI, y modo run (`KONSORA_RUN`/`KONSORA_TASK`) con escritura limitada a su tarea. Herramienta `permission`.
 ✅ Una sesión real de Claude Code y otra de Codex, cada una con el MCP configurado, listan las tareas ready, empiezan una, añaden una nota y la terminan con un resumen. En modo run, intentar escribir en otra tarea devuelve un error (con test).
 
-## M6 — Primer runner: Claude
+## M6 — Primer runner: Claude ✔ (2026-11-01)
 
 🔧 `packages/runner`: interfaz `AgentAdapter`, adaptador de Claude (stream-json), worktree y rama por run, prompt de run explícito, `events.jsonl` y `run.json`, cancelación (SIGINT → SIGTERM), estado `interrupted` tras reiniciar, `diff.patch`, integración squash al aceptar. En la UI: botón Ejecutar, log en vivo, aprobaciones, vista de revisión con diff.
 ✅ En un repo fixture, se ejecuta una tarea con el `claude` real; el log llega en vivo a la UI; la revisión muestra el diff; al aceptar queda **exactamente un commit** nuevo en `main` con trailers `Konsora-Task`/`Konsora-Run`, y el worktree y la rama se borran. Cancelar a mitad deja la tarea en `todo` y el run en `cancelled`. Tests del adaptador con grabaciones, sin gastar cuota.
