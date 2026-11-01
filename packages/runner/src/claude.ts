@@ -30,6 +30,7 @@ import {
   type RunIO,
   type RunSpec,
 } from "./adapter.ts";
+import { agentEnv } from "./env.ts";
 import { readVersion } from "./version.ts";
 
 export const MCP_CONFIG_FILE = "claude-mcp.json";
@@ -109,11 +110,7 @@ export function claudeArgs(spec: RunSpec, mcpConfigPath: string): string[] {
 
 /** The user's environment without Konsora's own variables (tokens, run ids, roots). */
 export function claudeEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const clean: NodeJS.ProcessEnv = {};
-  for (const [key, value] of Object.entries(env)) {
-    if (!key.startsWith("KONSORA_")) clean[key] = value;
-  }
-  return clean;
+  return agentEnv(env);
 }
 
 export function claudeMcpConfig(spec: RunSpec): string {
