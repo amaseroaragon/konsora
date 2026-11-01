@@ -2604,7 +2604,7 @@
     {
       "id": "RUN-11",
       "title": "Uso y rate limits de Claude",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzv",
       "desc": "Investiga y aprovecha lo que da la salida stream-json de Claude Code (lo pide el roadmap de M7). En las grabaciones de RUN-04 hay `result.usage` (entrada, caché creada y leída, salida, razonamiento), `result.modelUsage` (contextWindow, costUSD) y `rate_limit_event` (estado, ventana, `resetsAt`, `utilization` por ventana de 5 h y 7 días). Amplía `RunEvent.usage` y `run.json` con lo que sea fiable (por ejemplo, tokens de caché aparte y la utilización de cada ventana), sin romper los runs existentes, y documenta en arquitectura.md qué da Claude y qué no.",
@@ -2633,7 +2633,23 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:57:58Z"
+      "updated_at": "2026-11-01T14:04:01Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T13:59:01Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Revisar grabaciones de RUN-04, ampliar RunEvent.usage y run.json con caché y rate limits por ventana (opcionales, compatibles), tests y documentar en arquitectura.md."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T14:04:01Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: el normalizador de Claude saca de result.usage la caché leída y escrita y los tokens de razonamiento, y de rate_limit_event cada ventana de unifiedWindows (five_hour, seven_day) con su utilización, estado y reinicio. Lo fijan claude.test.ts y usage.test.ts con las grabaciones reales. ac2: RunUsageSchema añade cache_read_tokens, cache_write_tokens, reasoning_tokens y rate_limits, todos opcionales (la última foto de cada ventana, con el reinicio en UTC). UsageTally suma los turnos para run.json (supervisor.test.ts). El run.json antiguo del ejemplo de esquema-tareas.md y uno sin desglose siguen siendo válidos (run.test.ts). input_tokens sigue siendo la entrada total, caché incluida. ac3: arquitectura.md documenta qué da Claude Code 2.1.316 (usage, total_cost_usd a precio de lista, ventanas con utilización) y qué no se guarda o no da (modelUsage/contextWindow, overage, límites absolutos, coste facturado). También se actualizó esquema-tareas.md §6. ac4: npm run check pasa (694 tests; Biome solo muestra un aviso que ya existía en daemon/test/events.test.ts). La web todavía no muestra el desglose: es UI-14."
+        }
+      ]
     },
     {
       "id": "RUN-12",
