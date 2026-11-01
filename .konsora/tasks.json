@@ -1435,7 +1435,7 @@
     {
       "id": "MCP-01",
       "title": "Servidor konsora mcp (stdio) con las herramientas de lectura",
-      "state": "review",
+      "state": "done",
       "group": "MCP",
       "rank": "zi",
       "desc": "Añade el comando `konsora mcp`, un servidor MCP por stdio hecho con `@modelcontextprotocol/sdk` (ya está en la tabla de dependencias de arquitectura.md). Expone como herramientas las mismas lecturas que la CLI: `status`, `list` (con filtros de estado, grupo, ready y blocked), `show`, `ready`, `blocked` y `check`. Devuelven el mismo JSON que `--json`, porque comparten código con la CLI y no duplican reglas. El proyecto se resuelve igual que en la CLI (`--root`, `KONSORA_ROOT`, carpeta más cercana con `.konsora/`). Arrancar el servidor no escribe nada, y los errores van en inglés y son accionables.",
@@ -1464,7 +1464,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:12:37Z",
+      "updated_at": "2026-11-01T10:14:05Z",
       "notes": [
         {
           "id": "n1",
@@ -1485,7 +1485,7 @@
     {
       "id": "MCP-02",
       "title": "Herramientas de escritura de agente en el MCP",
-      "state": "todo",
+      "state": "review",
       "group": "MCP",
       "deps": [
         "MCP-01"
@@ -1517,7 +1517,23 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:07:51Z"
+      "updated_at": "2026-11-01T10:17:30Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T10:14:37Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Extraer de write.ts la aplicación de operaciones (actor, contexto, mutate, JSON de resultado, errores con pista) y la construcción de batch/edit para compartirlas; registrar en el MCP propose, batch, edit, withdraw, undepend, depend, start, pause, note, ask y finish; actor desde KONSORA_AGENT o el nombre del cliente MCP; tests de paridad CLI↔MCP sobre repos temporales con reloj fijo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T10:17:30Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "El MCP tiene ahora las herramientas de agente propose, batch, edit, withdraw, depend, undepend, start, pause, note, ask y finish (packages/cli/src/mcp-write.ts). Comparten código con la CLI: de write.ts se extrajeron runOp (actor, contexto, mutate con lock y escritura atómica, errores del store), writeJson (el JSON de --json), opHint, batchOp y editOp, y la CLI usa esas mismas funciones. El actor sale de KONSORA_AGENT o, si no está, de la primera palabra del nombre del cliente MCP (claude-code → agent:claude, codex-mcp-client → agent:codex). human y konsora nunca se aceptan. Los rechazos devuelven isError con 'Error (<código>): …' y 'Hint: …'. Tras propose, batch, ask y finish se añade un texto con el siguiente paso (esperar la aprobación, parar y esperar la respuesta, parar para revisión, o hecho si es una cadena YOLO).\n- ac1: test/mcp-write.test.ts ejecuta la misma secuencia (propose, batch con grupo nuevo y deps por título, edit, depend, undepend, withdraw, start, note, ask, pause, start y finish) por la CLI en un repo temporal y por el MCP en otro, con reloj fijo. Tras cada paso, el JSON de respuesta y los bytes de tasks.json son idénticos.\n- ac2: la lista de herramientas no incluye approve, accept, send-back, reopen, answer, set-yolo, restore ni add-group. edit y undepend sobre una tarea aprobada devuelven forbidden con la pista, y el archivo no cambia.\n- ac3: las propuestas y notas quedan como agent:claude o agent:codex según el cliente, y KONSORA_AGENT tiene prioridad. Un cliente llamado Human o konsora queda como agent:unknown.\n- ac4: npm run check pasa (32 archivos, 516 tests). La única advertencia de Biome ya existía (daemon/test/events.test.ts).\nLimitación: las pistas de error son las de la CLI y nombran comandos (`konsora ready`, --summary), aunque sirven igual para las herramientas homónimas. El modo run (KONSORA_TASK/KONSORA_PROJECT) queda para MCP-03; por ahora el MCP respeta KONSORA_RUN_TASK igual que la CLI."
+        }
+      ]
     },
     {
       "id": "MCP-03",

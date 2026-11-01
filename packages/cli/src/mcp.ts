@@ -1,16 +1,18 @@
 /**
- * `konsora mcp`: the Konsora MCP server (MCP-01: read tools). Every tool returns the same JSON
- * the matching CLI command prints with `--json`, through the shared functions in read.ts.
- * The project is resolved on each call (like the CLI), so a missing or invalid plan is a tool
- * error and never stops the server. Nothing here writes to the project.
+ * `konsora mcp`: the Konsora MCP server. Every tool returns the same JSON the matching CLI
+ * command prints with `--json`, through the functions the CLI uses (read.ts, write.ts), so no
+ * rule is implemented twice. The project is resolved on each call (like the CLI), so a missing
+ * or invalid plan is a tool error and never stops the server. Starting the server and the read
+ * tools write nothing; the agent write tools (mcp-write.ts) go through core's semantic ops.
  */
 import { TaskStateSchema } from "@konsora/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { guarded, ok } from "./mcp-result.ts";
+import { registerWriteTools } from "./mcp-write.ts";
 import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
-import { CliError, type Io, load, locate, VERSION } from "./shared.ts";
+import { type Io, load, locate, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 
@@ -22,32 +24,16 @@ const listFilter = {
   waiting: z.boolean().optional().describe("only tasks waiting for an answer from the human"),
 };
 
-function ok(value: unknown): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
-}
-
-function failure(text: string): CallToolResult {
-  return { isError: true, content: [{ type: "text", text }] };
-}
-
-/** Runs a tool body and turns Konsora errors into actionable tool errors. */
-async function guarded(body: () => Promise<CallToolResult>): Promise<CallToolResult> {
-  try {
-    return await body();
-  } catch (error) {
-    if (error instanceof CliError)
-      return failure(`Error: ${error.message}${error.hint ? `\nHint: ${error.hint}` : ""}`);
-    return failure("Error: unexpected failure while reading the plan.");
-  }
-}
-
 export function createMcpServer(io: Io, root: string | undefined): McpServer {
   const server = new McpServer(
     { name: "konsora", version: VERSION },
     {
       instructions:
-        "Konsora keeps this project's plan in .konsora/tasks.json. Use these tools to see what " +
-        "needs attention (status), what you can start (ready) and the details of a task (show). " +
+        "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
+        "show. Plan by proposing tasks (propose, batch): a human approves them. Work one task at a " +
+        "time: start it, add notes as you go, ask when blocked on a decision (then stop and wait), " +
+        "and finish with a summary of how you met each acceptance criterion (then stop for review). " +
+        "Humans approve, accept and change approved work; there are no tools for that. " +
         "Never edit .konsora/tasks.json by hand.",
     },
   );
@@ -114,6 +100,7 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
       }),
   );
 
+  registerWriteTools(server, io, root);
   return server;
 }
 

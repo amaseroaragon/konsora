@@ -114,7 +114,8 @@ describe("konsora mcp: read tools", () => {
     seed();
     const { client, close } = await connect();
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual([
+    const reads = tools.filter((tool) => tool.annotations?.readOnlyHint);
+    expect(reads.map((tool) => tool.name).sort()).toEqual([
       "blocked",
       "check",
       "list",
@@ -122,7 +123,6 @@ describe("konsora mcp: read tools", () => {
       "show",
       "status",
     ]);
-    for (const tool of tools) expect(tool.annotations?.readOnlyHint).toBe(true);
     await close();
   });
 
@@ -239,7 +239,7 @@ describe("konsora mcp over stdio", () => {
     const client = new Client({ name: "test", version: "0.0.0" });
     await client.connect(transport);
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(6);
+    expect(tools.map((tool) => tool.name)).toContain("show");
     const result = (await client.callTool({ name: "show", arguments: { id: "BE-04" } })) as {
       content: { type: string; text: string }[];
     };

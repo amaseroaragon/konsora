@@ -93,7 +93,7 @@ const list = (value: string) =>
     .filter(Boolean);
 const collect = (value: string, previous: string[] = []) => [...previous, value];
 
-const BatchSchema = z.strictObject({
+export const BatchSchema = z.strictObject({
   groups: z.array(z.strictObject({ id: z.string(), name: z.string() })).optional(),
   tasks: z
     .array(
@@ -108,6 +108,112 @@ const BatchSchema = z.strictObject({
     )
     .min(1),
 });
+
+/** Turns the batch JSON (CLI stdin/file or MCP argument) into a `batch` op. */
+export function batchOp(value: unknown): Op {
+  const parsed = BatchSchema.safeParse(value);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    throw new CliError(
+      `Batch has the wrong shape at ${first?.path.join(".") || "(root)"}: ${first?.message}`,
+      "See `konsora batch --help` for the JSON format.",
+      EXIT.usage,
+    );
+  }
+  const batch = parsed.data;
+  return {
+    op: "batch",
+    ...(batch.groups ? { groups: batch.groups } : {}),
+    tasks: batch.tasks.map((t) => ({
+      title: t.title,
+      group: t.group,
+      ...(t.desc ? { desc: t.desc } : {}),
+      ...(t.acceptance ? { acceptance: t.acceptance } : {}),
+      ...(t.deps ? { deps: t.deps } : {}),
+      ...(t.labels ? { labels: t.labels } : {}),
+    })),
+  };
+}
+
+export type EditInput = {
+  title?: string | undefined;
+  desc?: string | undefined;
+  acceptance?: string[] | undefined;
+  labels?: string[] | undefined;
+  group?: string | undefined;
+};
+
+/** Builds an `edit` op for a proposal; the acceptance criteria are replaced as ac1, ac2, … */
+export function editOp(id: string, input: EditInput): Op {
+  const changes = {
+    ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.desc !== undefined ? { desc: input.desc } : {}),
+    ...(input.acceptance
+      ? { acceptance: input.acceptance.map((text, i) => ({ id: `ac${i + 1}`, text })) }
+      : {}),
+    ...(input.labels ? { labels: input.labels } : {}),
+    ...(input.group ? { group: input.group.toUpperCase() } : {}),
+  };
+  if (Object.keys(changes).length === 0)
+    throw new CliError(
+      "Nothing to change.",
+      "Pass --title, --desc, --criterion, --labels or --group.",
+      EXIT.usage,
+    );
+  return { op: "edit", task: id.toUpperCase(), changes };
+}
+
+export type WriteOutcome =
+  | { ok: true; document: TasksDocument; created: string[]; changed: string[] }
+  | { ok: false; error: OpError };
+
+/**
+ * Applies one agent op to the plan through the store (lock, validation, atomic write).
+ * Store problems (no plan, invalid plan) throw a CliError; refusals by the rules come back
+ * as `{ ok: false }` so each surface can report them its own way.
+ */
+export async function runOp(
+  io: Io,
+  explicitRoot: string | undefined,
+  op: Op,
+  actor: string,
+): Promise<WriteOutcome> {
+  const root = locate(io, explicitRoot);
+  const ctx: OpContext = { actor, at: timestamp(io) };
+  if (io.env.KONSORA_RUN_TASK) ctx.runTask = io.env.KONSORA_RUN_TASK;
+  if (io.env.KONSORA_RUN) ctx.run = io.env.KONSORA_RUN;
+  const result = await mutate(root, op, ctx);
+  if (result.ok)
+    return {
+      ok: true,
+      document: result.document,
+      created: result.created,
+      changed: result.changed,
+    };
+  if (result.source === "store") storeError(result.error, root);
+  return { ok: false, error: result.error as OpError };
+}
+
+/** The `--json` value for a successful write: ids plus every affected task with its hash. */
+export function writeJson(outcome: Extract<WriteOutcome, { ok: true }>) {
+  const affected = [
+    ...outcome.created,
+    ...outcome.changed.filter((id) => !outcome.created.includes(id)),
+  ];
+  return {
+    ok: true,
+    created: outcome.created,
+    changed: outcome.changed,
+    tasks: views(outcome.document)
+      .filter((t) => affected.includes(t.id))
+      .map((t) => ({ ...t, hash: taskHash(t) })),
+  };
+}
+
+/** The actionable hint for a rule refusal, if there is one. */
+export function opHint(error: OpError): string | undefined {
+  return HINTS[error.code];
+}
 
 export function registerWriteCommands(
   program: Command,
@@ -131,38 +237,16 @@ export function registerWriteCommands(
     opts: { as?: string; json?: boolean },
     describe: (doc: TasksDocument, created: string[]) => string,
   ) {
-    const root = locate(io, rootOption());
-    const ctx: OpContext = {
-      actor: agentActor(opts.as ?? io.env.KONSORA_AGENT),
-      at: timestamp(io),
-    };
-    if (io.env.KONSORA_RUN_TASK) ctx.runTask = io.env.KONSORA_RUN_TASK;
-    if (io.env.KONSORA_RUN) ctx.run = io.env.KONSORA_RUN;
-    const result = await mutate(root, op, ctx);
-    if (!result.ok) {
-      if (result.source === "store") storeError(result.error, root);
-      const opError = result.error as OpError;
+    const outcome = await runOp(io, rootOption(), op, agentActor(opts.as ?? io.env.KONSORA_AGENT));
+    if (!outcome.ok) {
       if (opts.json) {
-        json(io, { ok: false, error: opError });
+        json(io, { ok: false, error: outcome.error });
         throw new CliError("", undefined, EXIT.failure);
       }
-      throw new CliError(opError.message, HINTS[opError.code] ?? undefined);
+      throw new CliError(outcome.error.message, opHint(outcome.error));
     }
-    const affected = [
-      ...result.created,
-      ...result.changed.filter((id) => !result.created.includes(id)),
-    ];
-    const all = views(result.document);
-    if (opts.json) {
-      json(io, {
-        ok: true,
-        created: result.created,
-        changed: result.changed,
-        tasks: all.filter((t) => affected.includes(t.id)).map((t) => ({ ...t, hash: taskHash(t) })),
-      });
-    } else {
-      io.stdout(describe(result.document, result.created));
-    }
+    if (opts.json) json(io, writeJson(outcome));
+    else io.stdout(describe(outcome.document, outcome.created));
   }
 
   withAgent(program.command("propose"))
@@ -229,29 +313,8 @@ export function registerWriteCommands(
           EXIT.usage,
         );
       }
-      const parsed = BatchSchema.safeParse(value);
-      if (!parsed.success) {
-        const first = parsed.error.issues[0];
-        throw new CliError(
-          `Batch has the wrong shape at ${first?.path.join(".") || "(root)"}: ${first?.message}`,
-          "See `konsora batch --help` for the JSON format.",
-          EXIT.usage,
-        );
-      }
-      const batch = parsed.data;
       await apply(
-        {
-          op: "batch",
-          ...(batch.groups ? { groups: batch.groups } : {}),
-          tasks: batch.tasks.map((t) => ({
-            title: t.title,
-            group: t.group,
-            ...(t.desc ? { desc: t.desc } : {}),
-            ...(t.acceptance ? { acceptance: t.acceptance } : {}),
-            ...(t.deps ? { deps: t.deps } : {}),
-            ...(t.labels ? { labels: t.labels } : {}),
-          })),
-        },
+        batchOp(value),
         opts,
         (doc, created) =>
           `Proposed ${created.length} task(s):\n${created
@@ -281,23 +344,8 @@ export function registerWriteCommands(
           json?: boolean;
         },
       ) => {
-        const changes = {
-          ...(opts.title !== undefined ? { title: opts.title } : {}),
-          ...(opts.desc !== undefined ? { desc: opts.desc } : {}),
-          ...(opts.criterion
-            ? { acceptance: opts.criterion.map((text, i) => ({ id: `ac${i + 1}`, text })) }
-            : {}),
-          ...(opts.labels ? { labels: opts.labels } : {}),
-          ...(opts.group ? { group: opts.group.toUpperCase() } : {}),
-        };
-        if (Object.keys(changes).length === 0)
-          throw new CliError(
-            "Nothing to change.",
-            "Pass --title, --desc, --criterion, --labels or --group.",
-            EXIT.usage,
-          );
         await apply(
-          { op: "edit", task: id.toUpperCase(), changes },
+          editOp(id, { ...opts, acceptance: opts.criterion }),
           opts,
           () => `Updated ${id.toUpperCase()}.\n`,
         );

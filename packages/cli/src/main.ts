@@ -198,7 +198,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
 
   program
     .command("mcp")
-    .description("run the Konsora MCP server over stdio (read tools; for agent sessions)")
+    .description("run the Konsora MCP server over stdio (read and agent tools, for agent sessions)")
     .action(async () => {
       await serveStdio(io, root());
     });
