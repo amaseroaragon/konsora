@@ -943,7 +943,7 @@
     {
       "id": "DMN-05",
       "title": "Catálogo de agentes y validación al lanzar",
-      "state": "todo",
+      "state": "review",
       "group": "DMN",
       "deps": [
         "RUN-13"
@@ -971,7 +971,23 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:58:06Z"
+      "updated_at": "2026-11-01T14:57:31Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T14:53:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "GET /api/agents con detect, models y perfiles de cada adaptador (Claude y Codex), con caché corta; validar el agente pedido al lanzar con 422 accionable; registrar Codex en el daemon."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T14:57:31Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "GET /api/agents devuelve, por proveedor con adaptador: installed, version, expected_version/version_matches, warning, transport, los modelos con los esfuerzos de cada uno, open_models, los perfiles y models_error si no pudo listarlos. Lo sirve un AgentCatalog del daemon (detect() + models(), en caché 30 s y compartido entre peticiones concurrentes). El daemon tiene por defecto un adaptador de Claude y otro de Codex; si se le pasan adaptadores (tests), ese es el conjunto completo. Al lanzar, el agente que se va a usar (runAgentFor de core, el mismo que usa ahora el supervisor) se valida con checkAgent de core. ac1: test con un Claude y un Codex falsos que comprueba la respuesta completa (daemon/test/runs.test.ts), más tests de la caché y de un model/list fallido (daemon/test/agents.test.ts). ac2: un modelo no declarado, un esfuerzo que el modelo no admite, un perfil no implementado o un proveedor no instalado dan 422 invalid_agent con el motivo y lo disponible, sin crear run ni mover la tarea (4 casos), y un agente válido sí se lanza. ac3: npm run check pasa (750 tests). Decisiones: Claude Code tiene open_models, porque acepta ids completos (claude-opus-5-5) además de los alias, así que esos pasan sin validar el modelo. Si un proveedor no pudo listar sus modelos, el modelo no bloquea (lo dirá el propio proveedor). Los esfuerzos que se ofrecen como alternativa son solo los que Konsora puede pedir (no ultra)."
+        }
+      ]
     },
     {
       "id": "UI-01",
@@ -2824,7 +2840,7 @@
     {
       "id": "RUN-15",
       "title": "Plan B de Codex con codex exec --json",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-13"
@@ -2852,7 +2868,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T14:53:00Z",
+      "updated_at": "2026-11-01T14:53:10Z",
       "notes": [
         {
           "id": "n1",
