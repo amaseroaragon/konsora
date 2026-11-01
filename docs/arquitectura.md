@@ -100,8 +100,11 @@ interface AgentAdapter {
   start(spec: RunSpec, io: RunIO): RunHandle;      // spec: prompt, cwd, agent, permissions, mcp
 }
 interface RunHandle {
-  events: AsyncIterable<RunEvent>;                 // normalizados
-  answerPermission(id: string, decision: "allow" | "deny", note?: string): void;
+  events: AsyncIterable<RunEvent>;                 // normalizados; siempre acaba con un único `finished`
+  exited: Promise<RunExit>;                        // {code, signal} del proceso
+  send(text: string): void;                        // otro mensaje del usuario en la misma sesión (respuestas a `ask`)
+  endInput(): void;                                // cierra la entrada: el agente termina tras el turno actual
+  answerPermission?(id: string, decision: "allow" | "deny", note?: string): void; // Codex (M7)
   interrupt(): Promise<void>;                      // termina el turno de forma ordenada
   kill(): Promise<void>;                           // SIGTERM → 5 s → SIGKILL al grupo de procesos
   sessionId(): string | undefined;                 // para reanudar
@@ -125,12 +128,15 @@ Se hace un spawn directo del `claude` instalado por el usuario, sin el Agent SDK
 claude -p --output-format stream-json --input-format stream-json --verbose
        --model <m> --effort <e>
        --permission-mode acceptEdits --allowedTools <perfil>
-       --mcp-config <json konsora en modo run> --permission-prompt-tool mcp__konsora__permission
+       --strict-mcp-config --mcp-config <json konsora en modo run> --permission-prompt-tool mcp__konsora__permission
        [--resume <session_id>]
 ```
 
 - Desde stdin se envía el prompt del run como mensaje `user` en stream-json. Mantener stdin abierto permite enviar respuestas a `ask` en el mismo proceso.
-- `system/init` → `started`; `assistant`/`stream_event` → `message`/`tool`; `result` → `usage` + `finished` (coste estimado en el cliente, `session_id`).
+- `claude` sigue vivo mientras stdin esté abierto, aunque el turno haya terminado (comprobado con 2.1.316), así que el runner cierra la entrada (`endInput`) cuando ya no espera más turnos.
+- `system/init` → `started`; `assistant` → `message`/`tool` (el último texto antes de `result` va con `final: true`); `user` con `tool_result` → `tool` de fin y `file` para Write/Edit; `rate_limit_event` → `usage.rate_limits`; `result` → `usage` (más `error` si el turno falló). `finished` se emite al salir el proceso: `ok` exige salida 0, un último `result` correcto y ninguna línea malformada. Las grabaciones reales de `packages/runner/test/fixtures/claude/` fijan este mapeo.
+- La configuración MCP (que lleva el token del run) es un archivo 0600 en una carpeta privada del run fuera del proyecto, y se borra al terminar. Con `--strict-mcp-config` el agente solo carga el MCP de Konsora en modo run, no otros servidores del usuario o del proyecto (como un `konsora` en modo manual en `.mcp.json`).
+- El perfil `default` es `acceptEdits` y `--allowedTools` con `Read`, `Glob`, `Grep`, `Edit`, `Write`, `NotebookEdit`, `TodoWrite`, `mcp__konsora`, `npm run/test/ci`, `git status/diff/log/add/commit` y los comandos exactos de `checks` (salvo los que contienen `,`, `(` o `)`, que no caben en una regla y piden permiso).
 - Las aprobaciones que no cubre `--allowedTools` llegan a la herramienta MCP `permission` de Konsora, que las reenvía al daemon → UI → el humano decide.
 - Cancelar: SIGINT (termina el turno y se conserva la sesión) → si no responde, `kill()`.
 - **Sin `--bare`**: `--bare` no usa el login de la suscripción. En su lugar, el worktree es una copia del repo, así que los hooks y el MCP del proyecto son los mismos que el usuario ya ejecuta.
