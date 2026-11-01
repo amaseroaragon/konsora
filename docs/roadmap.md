@@ -24,7 +24,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 Daemon en loopback con token y validación de Host y Origin, registro de proyectos, endpoints de lectura y operaciones, WS `board.*`, registro de aprobaciones. `konsora ui`. UI web: lista de proyectos, tablero por estados con arrastrar y soltar validado, y acciones humanas (aprobar, aceptar, devolver con feedback, reabrir).
 ✅ Al editar `tasks.json` con un editor, la UI se actualiza en menos de 1 s sin recargar. Un archivo inválido muestra sus errores y bloquea la escritura. Una petición sin token, o con `Origin` ajeno, recibe 403 (con test). Poner `done` a mano en el archivo aparece como "cambio externo sin aprobar".
 
-## M4 — Grafo y detalle
+## M4 — Grafo y detalle ✔ (2026-11-01)
 
 🔧 Vista de grafo (`@xyflow/react` + ELK) coloreada por estado, con selección de subgrafo. Panel de detalle: markdown, criterios, línea de tiempo de notas, dependencias navegables y edición del trabajo aprobado (solo el humano).
 ✅ Un proyecto de 150 tareas se dibuja en menos de 1 s y es navegable con el teclado. Una selección en el grafo se conserva al pasar al tablero.
