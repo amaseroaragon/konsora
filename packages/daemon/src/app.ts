@@ -60,6 +60,7 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   invalid_id: 404,
   active_run: 409,
   not_active: 409,
+  not_discardable: 409,
   no_adapter: 422,
   lock_timeout: 503,
 };
@@ -488,6 +489,21 @@ export function createApp(options: AppOptions): Hono {
   api.post("/projects/:id/runs/:runId/cancel", async (c) => {
     const project = await registry.get(c.req.param("id"));
     return c.json({ run: await runsOf().cancel(project, c.req.param("runId")) });
+  });
+
+  /**
+   * The human discards a finished run whose work is not kept: its worktree and branch are
+   * removed and its integration becomes `discarded`; the run and its diff stay.
+   */
+  api.post("/projects/:id/runs/:runId/discard", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ run: await runsOf().discardById(project, c.req.param("runId")) });
+  });
+
+  /** Konsora worktrees and `konsora/` branches no run needs any more. Read-only. */
+  api.get("/projects/:id/worktrees/orphans", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ orphans: await runsOf().orphans(project) });
   });
 
   /** Pending permission approvals of every run, for the human. */

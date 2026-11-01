@@ -10,6 +10,7 @@ import { ApprovalNotice } from "./Approvals.tsx";
 import { Board } from "./Board.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
+import { Orphans } from "./Orphans.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { agentForRun, runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
@@ -169,6 +170,7 @@ export function ProjectView({
         </a>
       </div>
       <ApprovalNotice approvals={approvals} onOpen={open} />
+      <Orphans projectId={projectId} />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
       <div className="b-layout">
         <div

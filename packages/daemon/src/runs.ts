@@ -24,10 +24,12 @@ import { mutate, readTasks } from "@konsora/core/store";
 import {
   type AgentAdapter,
   createClaudeAdapter,
+  findOrphanWorktrees,
   type Git,
   type IntegrationResult,
   integrateRun,
   type McpServerSpec,
+  type OrphanWorktree,
   RunError,
   type RunSession,
   RunStore,
@@ -59,7 +61,7 @@ export type RunManagerOptions = {
 };
 
 export class RunManagerError extends Error {
-  readonly code: "not_found" | "not_active" | "no_adapter";
+  readonly code: "not_found" | "not_active" | "no_adapter" | "not_discardable";
   constructor(code: RunManagerError["code"], message: string) {
     super(message);
     this.name = "RunManagerError";
@@ -267,8 +269,20 @@ export class RunManager {
    * `integration = discarded`, and its worktree and branch are removed. The run is kept.
    */
   async discard(project: Project, run: Run): Promise<Run> {
-    const store = this.store(project);
-    const discarded = await store.integrate(run.id, "discarded");
+    if (isActiveRunState(run.state)) {
+      throw new RunManagerError(
+        "not_discardable",
+        `Run ${run.id} is ${run.state}; cancel it before discarding it`,
+      );
+    }
+    const state = run.integration?.state;
+    if (state === "merged" || state === "discarded") {
+      throw new RunManagerError(
+        "not_discardable",
+        `Run ${run.id} was already ${state}; there is nothing left to discard`,
+      );
+    }
+    // Worktree and branch first (idempotent): if that fails, the run can be discarded again.
     if (run.worktree && run.branch) {
       await removeWorktree({
         root: project.path,
@@ -278,7 +292,22 @@ export class RunManager {
         ...(this.#options.git ? { git: this.#options.git } : {}),
       });
     }
-    return discarded;
+    return this.store(project).integrate(run.id, "discarded");
+  }
+
+  /** Discards a run by id (the human's "Discard" on a finished, unintegrated run). */
+  async discardById(project: Project, id: string): Promise<Run> {
+    return this.discard(project, await this.get(project, id));
+  }
+
+  /** Konsora worktrees and branches no run needs any more (never deletes anything). */
+  async orphans(project: Project): Promise<OrphanWorktree[]> {
+    return findOrphanWorktrees({
+      root: project.path,
+      worktreesDir: this.worktreesDir(project),
+      store: this.store(project),
+      ...(this.#options.git ? { git: this.#options.git } : {}),
+    });
   }
 
   /** Pending approvals move their run to `waiting_approval`, and back when none is left. */

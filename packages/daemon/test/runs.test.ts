@@ -1,5 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -379,6 +386,73 @@ describe("accept integrates the run", () => {
     expect(await taskState("BE-01")).toBe("review");
     const after = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}`);
     expect(after.body.run.integration).toEqual({ state: "conflict" });
+  });
+});
+
+describe("discarding runs", () => {
+  it("discards a cancelled run: worktree and branch go, the run and its diff stay", async () => {
+    behaviour = "hang";
+    const run = await launch();
+    const cancelled = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}/cancel`, {
+      method: "POST",
+    });
+    const worktree = cancelled.body.run.worktree as string;
+    expect(existsSync(worktree)).toBe(true);
+    expect(git(root, "branch", "--list", "konsora/*")).not.toBe("");
+
+    const res = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}/discard`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.run).toMatchObject({ state: "cancelled", integration: { state: "discarded" } });
+    expect(existsSync(worktree)).toBe(false);
+    expect(git(root, "branch", "--list", "konsora/*")).toBe("");
+    const kept = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}`);
+    expect(kept.status).toBe(200);
+    const diff = await api<{ diff: string | null }>(`/projects/${projectId}/runs/${run.id}/diff`);
+    expect(diff.body.diff).not.toBeNull();
+
+    const again = await api<{ error: { code: string; message: string } }>(
+      `/projects/${projectId}/runs/${run.id}/discard`,
+      { method: "POST" },
+    );
+    expect(again.status).toBe(409);
+    expect(again.body.error).toMatchObject({ code: "not_discardable" });
+    expect(again.body.error.message).toMatch(/already discarded/);
+  });
+
+  it("refuses to discard an active or an integrated run", async () => {
+    behaviour = "hang";
+    const live = await launch();
+    const active = await api<{ error: { code: string; message: string } }>(
+      `/projects/${projectId}/runs/${live.id}/discard`,
+      { method: "POST" },
+    );
+    expect(active.status).toBe(409);
+    expect(active.body.error.message).toMatch(/cancel it before discarding/);
+    await api(`/projects/${projectId}/runs/${live.id}/cancel`, { method: "POST" });
+
+    behaviour = "finish";
+    const done = await settled((await launch()).id);
+    await api(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({ op: "accept", task: "BE-01" }),
+    });
+    const merged = await api<{ error: { code: string; message: string } }>(
+      `/projects/${projectId}/runs/${done.id}/discard`,
+      { method: "POST" },
+    );
+    expect(merged.status).toBe(409);
+    expect(merged.body.error.message).toMatch(/already merged/);
+  });
+
+  it("lists orphan worktrees and branches without deleting them", async () => {
+    git(root, "branch", "konsora/BE-09/ORPHAN", "main");
+    const res = await api<{ orphans: { branch?: string; reason: string }[] }>(
+      `/projects/${projectId}/worktrees/orphans`,
+    );
+    expect(res.body.orphans).toEqual([{ branch: "konsora/BE-09/ORPHAN", reason: "no_run" }]);
+    expect(git(root, "branch", "--list", "konsora/*")).toContain("konsora/BE-09/ORPHAN");
   });
 });
 

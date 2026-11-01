@@ -233,6 +233,8 @@ export function runErrorText(code: string, id: string, message: string): string 
       return t("run.error.no_agent", { id });
     case "not_active":
       return t("run.error.not_active");
+    case "not_discardable":
+      return t("run.error.not_discardable", { message });
     default:
       return t("run.error.other", { id, message });
   }
@@ -253,4 +255,21 @@ export function runnableSelection(
     const task = byId.get(id);
     return task !== undefined && canRun(task, { ...options, id });
   });
+}
+
+/** Discard is offered on a finished run whose work was neither integrated nor discarded. */
+export function canDiscard(run: Run): boolean {
+  const state = run.integration?.state;
+  return !isActiveRunState(run.state) && state !== "merged" && state !== "discarded";
+}
+
+/** The last path segment, to show a worktree folder without the user's private path. */
+export function folderName(path: string): string {
+  return path.split("/").filter(Boolean).at(-1) ?? path;
+}
+
+/** The task's earlier runs that still hold a worktree and branch (all but the latest), newest first. */
+export function olderDiscardable(runs: readonly Run[] | undefined, task: string): Run[] {
+  const mine = (runs ?? []).filter((run) => run.task === task);
+  return mine.slice(0, -1).filter(canDiscard).reverse();
 }

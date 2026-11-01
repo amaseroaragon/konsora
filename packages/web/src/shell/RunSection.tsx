@@ -2,12 +2,13 @@ import { isActiveRunState, type Run } from "@konsora/core";
 import { useEffect, useState } from "react";
 import { useApprovals } from "../api/approvals.ts";
 import { ApiError } from "../api/client.ts";
-import { useCancelRun, useRunDiff, useRunEvents } from "../api/runs.ts";
+import { useCancelRun, useDiscardRun, useRunDiff, useRunEvents } from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
 import { Button, RunLog, useToast } from "../ui/index.ts";
 import { RunApprovals } from "./Approvals.tsx";
 import { patchFiles } from "./review-model.ts";
 import {
+  canDiscard,
   formatSeconds,
   formatTokens,
   logRows,
@@ -48,6 +49,7 @@ export function RunSection({
   const active = isActiveRunState(run.state);
   const events = useRunEvents(projectId, run.id).data ?? [];
   const cancel = useCancelRun(projectId);
+  const discard = useDiscardRun(projectId);
   const toast = useToast();
   const now = useNow(active);
   const seconds = runSeconds(run, now);
@@ -65,6 +67,9 @@ export function RunSection({
         <span className={`a-run-state a-run-state--${run.state}`} role="status">
           {t(RUN_STATE_KEY[run.state])}
         </span>
+        {run.integration && (
+          <span className="a-chip k-mono">{t(`run.integration.${run.integration.state}`)}</span>
+        )}
       </div>
       <dl className="a-stats">
         <div>
@@ -115,6 +120,27 @@ export function RunSection({
           <RunLog events={rows} live={active} />
         )}
       </div>
+      {canDiscard(run) && !readOnly && (
+        <div className="a-actions">
+          <Button
+            variant="secondary"
+            busy={discard.isPending}
+            title={t("run.discard.hint")}
+            onClick={() =>
+              discard.mutate(run.id, {
+                onSuccess: () => toast.show(t("run.discarded", { id: run.task }), "info"),
+                onError: (error) => {
+                  if (error instanceof ApiError && error.unauthorized) return;
+                  const code = error instanceof ApiError ? error.code : "error";
+                  toast.show(runErrorText(code, run.task, error.message), "error");
+                },
+              })
+            }
+          >
+            {t("run.discard")}
+          </Button>
+        </div>
+      )}
       {active && !readOnly && (
         <div className="a-actions">
           <Button

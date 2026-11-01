@@ -553,3 +553,18 @@
   margin: var(--k-space-3) 0 0;
   padding-left: var(--k-space-6);
 }
+
+/* Orphan worktrees (RUN-10) */
+.b-orphans {
+  margin-bottom: var(--k-space-5);
+}
+.b-older__list {
+  margin: var(--k-space-3) 0 0;
+  padding-left: var(--k-space-6);
+}
+.b-older__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+}

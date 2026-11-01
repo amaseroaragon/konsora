@@ -14,10 +14,11 @@ import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { OlderRuns } from "./OlderRuns.tsx";
 import { ReviewSection } from "./ReviewSection.tsx";
 import { RunSection } from "./RunSection.tsx";
 import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
-import { agentForRun, canRun, latestRun, runErrorText } from "./run-model.ts";
+import { agentForRun, canRun, latestRun, olderDiscardable, runErrorText } from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
@@ -294,6 +295,11 @@ export function TaskPanel({
             )}
           </RunSection>
         )}
+        <OlderRuns
+          projectId={projectId}
+          runs={olderDiscardable(runs, task.id)}
+          readOnly={readOnly}
+        />
         {onSelectWithDeps && (
           <div className="a-actions">
             <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>

@@ -115,3 +115,41 @@ export function useRunDiff(project: string, run: string, enabled = true) {
         .diff,
   });
 }
+
+/** `POST /projects/:id/runs/:run/discard`: the human drops a finished run's work. */
+export async function discardRunRequest(api: Api, project: string, run: string): Promise<Run> {
+  return (await api.post<{ run: Run }>(`${base(project)}/${encodeURIComponent(run)}/discard`)).run;
+}
+
+export function useDiscardRun(project: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (run: string) => discardRunRequest(api, project, run),
+    onSuccess: (run) =>
+      client.setQueryData<Run[]>(runsKey(project), (runs) => upsertRun(runs, run)),
+    onSettled: () => client.invalidateQueries({ queryKey: runsKey(project) }),
+  });
+}
+
+export type OrphanWorktree = {
+  worktree?: string;
+  branch?: string;
+  reason: "no_run" | "run_closed" | "missing_dir" | "stray_dir";
+};
+
+export const orphansKey = (project: string) => ["runs", project, "orphans"] as const;
+
+/** Konsora worktrees and branches no run needs any more (refetched with the runs). */
+export function useOrphans(project: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: orphansKey(project),
+    queryFn: async () =>
+      (
+        await api.get<{ orphans: OrphanWorktree[] }>(
+          `/projects/${encodeURIComponent(project)}/worktrees/orphans`,
+        )
+      ).orphans,
+  });
+}
