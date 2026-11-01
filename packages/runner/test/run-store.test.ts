@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRunIdGenerator, type Run, type RunId } from "@konsora/core";
+import { buildRunPrompt, createRunIdGenerator, type Run, type RunId } from "@konsora/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   EVENTS_FILE,
@@ -59,6 +59,34 @@ afterEach(() => {
 });
 
 describe("run.json", () => {
+  it("keeps the exact prompt of the run in run.json", async () => {
+    const prompt = buildRunPrompt(
+      {
+        schema: "konsora/2",
+        project: { name: "P", base_branch: "main" },
+        groups: [{ id: "BE", name: "Backend" }],
+        seq: { BE: 2 },
+        tasks: [
+          {
+            id: "BE-02",
+            title: "Add forecast cache",
+            state: "todo",
+            group: "BE",
+            rank: "b",
+            desc: "Cache it.",
+            created: { at: "2026-11-02T10:00:00Z", by: "human" },
+            updated_at: "2026-11-02T10:00:00Z",
+          },
+        ],
+      },
+      "BE-02",
+    );
+    const run = await store.create(newRun("BE-02", { prompt }));
+    const text = readFileSync(join(store.runDir(run.id), RUN_FILE), "utf8");
+    expect(JSON.parse(text).prompt).toBe(prompt);
+    expect((await store.read(run.id)).prompt).toBe(prompt);
+  });
+
   it("creates a private run directory and reads the run back", async () => {
     const run = await store.create(newRun());
     expect(await store.read(run.id)).toEqual(run);

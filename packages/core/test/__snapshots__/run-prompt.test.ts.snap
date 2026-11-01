@@ -1,0 +1,57 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildRunPrompt > includes every part of the task and the protocol 1`] = `
+"You are working on task BE-02 of the project "tiempo", planned with Konsora.
+
+## Task BE-02: Add forecast cache
+
+Cache forecasts for 10 minutes so repeated requests do not hit upstream.
+
+## Acceptance criteria
+
+The task is done when every criterion holds:
+- ac1: A repeated request within 10 min does not hit upstream
+  Check: \`npm test -- cache\`
+- ac2: The cache age is logged
+
+## Project checks
+
+Konsora runs these in your worktree after you finish; make them pass:
+- test: \`npm test\`
+- lint: \`npm run lint\`
+
+## From the human
+
+Earlier feedback and answers on this task. Follow them:
+
+Question (2026-11-02T10:05:00Z):
+> Memory or Redis?
+Answer (2026-11-02T10:06:00Z):
+> Memory is enough for now.
+
+Feedback (2026-11-02T10:08:00Z):
+> The TTL must be configurable.
+> Use an env var.
+
+## Dependencies
+
+This task builds on these finished tasks:
+
+### BE-01: Forecast client (done)
+
+> Client in src/forecast.ts with retries.
+> Tested against fixtures.
+
+### BE-03: Settings (done)
+
+(no summary)
+
+## How to work
+
+- You are in a git worktree of your own, on the branch \`konsora/BE-02/01JC8Z3K2QX7\`, created from \`main\`. Work only on this task.
+- Commit your work on this branch in small commits. Never push, never switch branches and never rewrite the history of \`main\`.
+- Do not create, edit or delete anything under \`.konsora/\`: the plan changes only through Konsora's tools.
+- Use the Konsora MCP tools on BE-02: \`note\` to record meaningful progress, \`ask\` when you need a decision from the human (then stop and wait for the answer), and \`finish\` with a summary of what you did and how it meets each acceptance criterion when you are done.
+- You cannot approve tasks, accept work or mark anything done; the human reviews your result.
+"
+`;

@@ -222,6 +222,7 @@ checks.json     resultado de cada check
   "branch": "konsora/BE-02/01JC8Z",
   "base_commit": "3f2c9a1e5b7d4c6f8a0b2d4e6f8a1c3e5b7d9f0a",
   "head_commit": "9ab1c3e5f7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7",
+  "prompt": "You are working on task BE-02 of the project \"tiempo\", planned with Konsora.\n\n## Task BE-02: …",
   "session_id": "0199a8c2-6f1e-7b3a-9c4d-2e5f8a1b3c6d",
   "started_at": "2026-11-02T10:00:00Z", "finished_at": "2026-11-02T10:14:37Z",
   "exit": { "code": 0, "signal": null },
@@ -232,7 +233,7 @@ checks.json     resultado de cada check
 }
 ```
 
-Solo `id`, `task`, `task_hash`, `agent` y `state` son obligatorios; el resto se rellena según avanza el run. Las claves desconocidas se rechazan.
+Solo `id`, `task`, `task_hash`, `agent` y `state` son obligatorios; el resto se rellena según avanza el run. `prompt` es el texto exacto que recibió el agente: lo genera `buildRunPrompt` de `core` (título, `desc`, criterios con su check, checks del proyecto, notas `feedback` y `answer` con su pregunta, resúmenes de las dependencias e instrucciones de protocolo; las notas ordinarias no entran), de forma determinista. Las claves desconocidas se rechazan.
 
 Estados de un run (`core` rechaza cualquier otra transición con un error `invalid_transition`):
 

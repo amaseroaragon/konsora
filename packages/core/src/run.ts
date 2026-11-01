@@ -192,6 +192,8 @@ export const RunSchema = z
     branch: z.string().min(1).max(255).optional(),
     base_commit: CommitSchema.optional(),
     head_commit: CommitSchema.optional(),
+    /** The exact prompt sent to the agent (`buildRunPrompt`), kept for audit. */
+    prompt: z.string().min(1).max(1_000_000).optional(),
     session_id: z.string().min(1).max(200).optional(),
     started_at: TimestampSchema.optional(),
     finished_at: TimestampSchema.optional(),
