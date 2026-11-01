@@ -887,7 +887,7 @@
     {
       "id": "DMN-04",
       "title": "API y eventos de runs en el daemon",
-      "state": "proposed",
+      "state": "todo",
       "group": "DMN",
       "deps": [
         "RUN-05",
@@ -922,7 +922,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:38Z"
     },
     {
       "id": "UI-01",
@@ -1480,7 +1480,7 @@
     {
       "id": "UI-10",
       "title": "Botón Ejecutar y log del run en vivo",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1512,12 +1512,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:57Z"
     },
     {
       "id": "UI-11",
       "title": "Aprobaciones de permisos en la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1545,12 +1545,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:49Z"
     },
     {
       "id": "UI-12",
       "title": "Vista de revisión con diff",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1578,7 +1578,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:43Z"
     },
     {
       "id": "MCP-01",
@@ -1906,7 +1906,7 @@
     {
       "id": "RUN-01",
       "title": "Modelo y almacén de runs",
-      "state": "proposed",
+      "state": "review",
       "group": "RUN",
       "rank": "zzi",
       "desc": "Define en `core` el esquema zod de `run.json` (§6 de esquema-tareas.md) y la máquina de estados del run: `queued → starting → running ⇄ waiting_approval → checking → succeeded | failed | cancelled | interrupted`, con `integration.state` `pending → merged | conflict | discarded`. Las transiciones inválidas se rechazan con un error tipado. En `packages/runner` va el almacén de `.konsora/runs/<run-id>/`: `run.json` escrito de forma atómica, `events.jsonl` y `raw.jsonl` solo por añadido (`raw.jsonl` rotado a 20 MB), e id `r-` + ULID. También expone qué run activo tiene cada tarea (como mucho uno).",
@@ -1935,12 +1935,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:24:56Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:18:48Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Esquema zod de run.json y máquina de estados del run (y de integration.state) en core/src/run.ts, con transiciones tipadas; generador de ids r-+ULID. En runner/src/run-store.ts: almacén de .konsora/runs/<id>/ con run.json atómico, events.jsonl y raw.jsonl por añadido (raw rotado a 20 MB) y consulta del run activo de cada tarea. Tests en ambos paquetes."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:24:56Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Modelo de runs en core (packages/core/src/run.ts) y almacén en runner (packages/runner/src/run-store.ts).\n\n- ac1: RunSchema (zod, claves desconocidas rechazadas) valida el ejemplo de esquema-tareas.md §6, que el test lee del propio documento (lo convertí en un run.json real, sin «…»). transitionRun y transitionIntegration devuelven un error tipado invalid_transition; el test recorre todas las parejas de estados y comprueba que solo pasan las documentadas. Decisión: interrupted cuenta como activo (se puede reanudar → starting o descartar → cancelled), e integration solo existe en runs finales (pending solo si succeeded). Documentado en §6.\n- ac2: run.json se escribe con writeFileAtomically (temp + fsync + rename + fsync del dir, ahora exportado desde core/store) y bajo .konsora/runs/.lock (el lock O_EXCL de tasks.json, extraído como acquireFileLock). Tests: un lector concurrente nunca ve JSON parcial; 4 actualizaciones concurrentes desde dos RunStore no se pisan; 600 eventos añadidos a la vez desde dos RunStore y otro proceso Node se conservan todos (O_APPEND, una escritura por línea). raw.jsonl rota a raw.1.jsonl antes de pasar el límite (20 MB por defecto; test con 100 B).\n- ac3: ids r-+ULID monótonos (createRunIdGenerator/newRunId): ordenados incluso en el mismo milisegundo o con el reloj hacia atrás (test con 10.000 ids). create() exige estado queued y rechaza con active_run si la tarea ya tiene un run activo (incluido interrupted); 9 creaciones concurrentes de la misma tarea → gana una. activeRun(task)/activeRuns() exponen el run activo de cada tarea.\n- ac4: npm run check pasa (587 tests; el único aviso de Biome es previo, en daemon/test/events.test.ts).\n\nAdemás: directorios 0700 y archivos 0600 (guardan prompts), se rechazan .konsora/runs o el directorio del run como symlink, y los ids se validan antes de formar rutas. @konsora/runner pasa a depender de @konsora/core (workspace)."
+        }
+      ]
     },
     {
       "id": "RUN-02",
       "title": "Worktree y rama por run",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -1972,12 +1988,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:14:22Z"
     },
     {
       "id": "RUN-03",
       "title": "Prompt de run explícito y auditable",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -2009,12 +2025,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:14:49Z"
     },
     {
       "id": "RUN-04",
       "title": "Adaptador de Claude Code (stream-json)",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -2046,12 +2062,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:14:36Z"
     },
     {
       "id": "RUN-05",
       "title": "Ciclo de vida de un run",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-02",
@@ -2085,12 +2101,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:10Z"
     },
     {
       "id": "RUN-06",
       "title": "Entregar al agente las respuestas del humano",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-05"
@@ -2118,12 +2134,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:21Z"
     },
     {
       "id": "RUN-07",
       "title": "Cancelar runs y marcar los interrumpidos",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-05"
@@ -2151,12 +2167,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:27Z"
     },
     {
       "id": "RUN-08",
       "title": "Integración squash al aceptar",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-02"
@@ -2188,12 +2204,12 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:15:01Z"
     },
     {
       "id": "RUN-09",
       "title": "Verificación de M6 con el claude real",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "UI-10",
@@ -2223,7 +2239,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:40:37Z"
+      "updated_at": "2026-11-01T11:16:15Z"
     }
   ]
 }
