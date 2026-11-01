@@ -2115,7 +2115,7 @@
     {
       "id": "RUN-05",
       "title": "Ciclo de vida de un run",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-02",
@@ -2149,7 +2149,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:45:08Z",
+      "updated_at": "2026-11-01T11:51:23Z",
       "notes": [
         {
           "id": "n1",
@@ -2170,7 +2170,7 @@
     {
       "id": "RUN-06",
       "title": "Entregar al agente las respuestas del humano",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-05"
@@ -2198,12 +2198,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:21Z"
+      "updated_at": "2026-11-01T11:55:18Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:52:29Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "RunSession.deliverAnswer(): lee del plan la última respuesta (con su pregunta) y la envía como mensaje user por el stdin abierto; si el proceso ya terminó con la pregunta abierta, el run queda en espera (sin proceso) y la respuesta lo relanza con --resume <session_id>. El texto lo genera buildAnswerMessage en core (puro). Se registra en events.jsonl como evento answer con la vía de entrega."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:55:18Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "RunSession.deliverAnswer() en packages/runner/src/supervisor.ts y buildAnswerMessage en packages/core/src/run-prompt.ts.\n\n- ac1: con un adaptador falso, el agente pregunta con ask; el run sigue vivo en running con la entrada abierta. El humano responde (op answer) y deliverAnswer() envía por stdin un mensaje user con la pregunta y la respuesta; el agente continúa, llama a finish y el run termina succeeded. events.jsonl registra answer con delivery stdin (test).\n- ac2: si el proceso del agente termina con la pregunta abierta, el run ya no falla: registra waiting_answer y espera sin proceso. La respuesta relanza el adaptador con resume = el session_id guardado y la respuesta como prompt; el run termina succeeded y events.jsonl registra delivery resume con la sesión (test).\n- ac3: npm run check pasa (635 tests).\n\nMás: sin respuesta en el plan, deliverAnswer devuelve el error no_answer. Una respuesta tras la que el agente no continúa ni termina deja el run failed, como antes (test). buildAnswerMessage es pura y devuelve null si no hay respuesta o si hay una pregunta más nueva sin responder (tests).\nLímite: si el proceso termina con la pregunta abierta pero sin session_id (el proveedor no lo dio), no se puede reanudar y el run falla como en RUN-05.\nEl daemon debe llamar a deliverAnswer después de aplicar answer (DMN-04). Documentado en arquitectura.md §5."
+        }
+      ]
     },
     {
       "id": "RUN-07",
       "title": "Cancelar runs y marcar los interrumpidos",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-05"
@@ -2231,12 +2247,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:15:27Z"
+      "updated_at": "2026-11-01T11:57:36Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:55:37Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "RunSession.cancel(): da de baja el run en el daemon (deniega sus aprobaciones pendientes), envía SIGINT y cierra la entrada; si el proceso no sale en el plazo, kill() (SIGTERM al grupo, 5 s, SIGKILL). El run pasa a cancelled y la tarea vuelve a todo con una nota del runner; un run que esperaba respuesta sin proceso se cancela directamente. recoverRuns() en runner/src/recover.ts para el arranque del daemon: los runs vivos pasan a interrupted (y los queued a cancelled) sin lanzar nada. Test con el adaptador de Claude y un claude falso real que ignora SIGINT y deja un proceso nieto."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:57:36Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "RunSession.cancel() en packages/runner/src/supervisor.ts y recoverRuns() en packages/runner/src/recover.ts.\n\n- ac1: test con el adaptador real de Claude y un claude falso real (proceso Node) que ignora SIGINT, sigue vivo sin entrada y deja un proceso nieto en su grupo. cancel() da de baja el run en el daemon al instante (se deniegan sus aprobaciones), envía SIGINT y cierra la entrada; como no sale, kill() manda SIGTERM al grupo (con SIGKILL detrás si hiciera falta). El proceso y el nieto desaparecen, el run queda cancelled con exit SIGTERM, la tarea vuelve a todo con una nota de konsora enlazada al run, y events.jsonl registra cancel y cancelled. Cancelar dos veces no hace nada. Un run que espera respuesta sin proceso también se cancela (test).\n- ac2: recoverRuns marca interrupted los runs en starting, running, waiting_approval y checking, cancela los queued que quedaron a medias, no toca los finales ni el plan y no lanza nada. Los interrumpidos siguen ocupando su tarea hasta que el humano los reanude o descarte. Una segunda llamada no cambia nada (test).\n- ac3: npm run check pasa (638 tests).\n\nDecisiones: el plazo tras SIGINT es de 5 s (interruptGraceMs, configurable), igual que el de SIGTERM → SIGKILL del adaptador. Si el agente ya había llamado a finish cuando se cancela, el run termina succeeded y no se pierde ese trabajo. El trabajo de un run cancelado queda en su rama y en diff.patch.\nEl daemon debe llamar a recoverRuns al arrancar y exponer cancel (DMN-04). Documentado en arquitectura.md §5."
+        }
+      ]
     },
     {
       "id": "RUN-08",
       "title": "Integración squash al aceptar",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-02"
@@ -2268,7 +2300,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:49:45Z",
+      "updated_at": "2026-11-01T11:51:13Z",
       "notes": [
         {
           "id": "n1",
