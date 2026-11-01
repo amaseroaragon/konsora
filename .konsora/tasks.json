@@ -49,7 +49,7 @@
     "DMN": 4,
     "UI": 12,
     "MCP": 6,
-    "RUN": 9
+    "RUN": 10
   },
   "tasks": [
     {
@@ -1496,7 +1496,7 @@
     {
       "id": "UI-10",
       "title": "Botón Ejecutar y log del run en vivo",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1528,7 +1528,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:25:29Z",
+      "updated_at": "2026-11-01T13:30:32Z",
       "notes": [
         {
           "id": "n1",
@@ -1549,7 +1549,7 @@
     {
       "id": "UI-11",
       "title": "Aprobaciones de permisos en la UI",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1577,7 +1577,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:27:24Z",
+      "updated_at": "2026-11-01T13:30:34Z",
       "notes": [
         {
           "id": "n1",
@@ -1598,7 +1598,7 @@
     {
       "id": "UI-12",
       "title": "Vista de revisión con diff",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-04"
@@ -1626,7 +1626,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:29:50Z",
+      "updated_at": "2026-11-01T13:30:36Z",
       "notes": [
         {
           "id": "n1",
@@ -2385,7 +2385,7 @@
     {
       "id": "RUN-09",
       "title": "Verificación de M6 con el claude real",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "UI-10",
@@ -2415,7 +2415,71 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:16:15Z"
+      "updated_at": "2026-11-01T13:42:07Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T13:32:18Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Autorizado por el humano el 2026-11-01: modelo haiku, navegador automatizado. Como en esta sesión no están las herramientas de Claude in Chrome ni del navegador integrado, manejo un Google Chrome 146 headless con el protocolo DevTools desde un script en el scratchpad (sin dependencias nuevas). Repo de prueba desechable en el scratchpad con dos tareas aprobadas y project.defaults = claude haiku; daemon con data dir propio. Run 1: Ejecutar desde la UI → log en vivo → revisión con diff → Aceptar → un commit con trailers, sin worktree ni rama. Run 2: una tarea que pide un Bash fuera del perfil, queda esperando aprobación y la cancelo desde la UI."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T13:41:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Verificación real de M6 del 2026-11-01. Versiones: Claude Code 2.1.316 (modelo haiku → claude-haiku-5-5, effort low), Node 22.22.2, git 2.43.0, Google Chrome 146.0.7680.80 headless. Autorizado por el humano: haiku y navegador automatizado. Las herramientas de Claude in Chrome y del navegador integrado no estaban disponibles en la sesión, así que manejé Chrome headless con el protocolo DevTools desde un script del scratchpad: pulsar botones, leer el DOM y hacer capturas, que revisé. No añadí dependencias.\n\n**Montaje**: repo de prueba desechable en el scratchpad (git init, plan konsora/2 con DEMO-01 y DEMO-02 aprobadas y project.defaults = claude haiku low default), daemon de esta rama (packages/daemon/src/bin.ts) con KONSORA_DATA_DIR propio, proyecto vinculado por la API y la web compilada abierta con /#token=…&project=….\n\n**Run completo (ac1, DEMO-01: crear saludo.txt con «hola mundo»)**\n- Panel de DEMO-01 → «Ejecutar →». El log creció en vivo, sin recargar: 1 → 2 → 3 → 4 → 6 filas en sondeos de 2 s (inicio con claude-haiku-5-5, Bash, ToolSearch, mcp__konsora__finish, mensaje, fin).\n- Run r-01M6BN1ENRWY2TGZQQSMK4PWEP succeeded en 9 s, 92k/663 tokens y 0,006 $. El agente creó el archivo e hizo commit con un solo Bash compuesto (printf + git add + git commit) que no pidió permiso.\n- La tarea pasó sola a «En revisión», y la revisión mostró «1 archivos · +1 −0», el diff de saludo.txt (+hola mundo), el resumen del agente, el agente, la duración, los tokens y el coste.\n- «Aceptar» en la UI → aviso «DEMO-01 aceptada e integrada en un commit (551e4df)». En main hay exactamente un commit nuevo (1 → 2): «DEMO-01: Añadir saludo.txt», con el resumen como cuerpo y los trailers Konsora-Task: DEMO-01 y Konsora-Run: r-01M6BN1ENRWY2TGZQQSMK4PWEP. saludo.txt está en el checkout, git branch --list 'konsora/*' sale vacío, git worktree list solo muestra main y la carpeta de worktrees quedó vacía. La tarea pasó a Hecho.\n\n**Cancelar a mitad (ac2, DEMO-02: sleep 120 && echo listo)**\n- Claude Code bloqueó el primer «sleep 120 && …» y el agente lo relanzó en segundo plano, en otro grupo de procesos (bash 188490 y sleep 188491; claude era el 188357). El run se quedó en marcha esperando.\n- «Cancelar run» en la UI → el run quedó Cancelado (cancelled, exit 0: claude atendió el SIGINT) y la tarea volvió a «Por hacer», con el aviso correspondiente. claude se llevó también su Bash en segundo plano: no quedó ningún proceso claude ni sleep. events.jsonl termina en cancel, finished y cancelled.\n- Por un error mío de sincronización (pulsé Ejecutar antes de que se pintara la tarjeta de DEMO-03), lancé DEMO-02 una segunda vez. Lo cancelé igual, con el mismo resultado y sin procesos huérfanos.\n\n**Aprobación real desde la UI (UI-11, extra)**: ni sleep ni python3 --version piden permiso, porque Claude Code los considera de solo lectura. Con DEMO-04 («curl -sI https://example.com», que va a la red) el run pasó a «Esperando aprobación». Aparecieron el aviso global («Un agente espera tu aprobación: DEMO-04 Bash · curl -sI https://example.com») y la tarjeta con la entrada en JSON. «Permitir» retiró la tarjeta y el aviso, el curl devolvió HTTP/2 200 y el run terminó succeeded.\n\n**Errores encontrados y corregidos** (commit 4d552ad, con tests; vueltos a comprobar en la UI con el daemon reiniciado):\n1. Aceptar una tarea cuyo run no cambió nada (DEMO-03: python3 --version) daba 409 nothing_to_integrate, y nada permitía descartar el run, así que la tarea se quedaba atascada en revisión. Ahora se descarta la integración del run (borrando su worktree y su rama) y se acepta sin commit. Comprobado: «DEMO-03 aceptada: su run no cambió archivos, así que no hay commit», main sin commits nuevos y sin worktree ni rama de DEMO-03.\n2. «Archivos tocados» decía «Todavía no ha tocado archivos» cuando el agente creaba el archivo con Bash. Ahora, con el run cerrado, se listan los archivos de diff.patch. Comprobado: DEMO-01 muestra «saludo.txt nuevo».\n\n**Observaciones** (no bloquean M6):\n- Los runs cancelados o fallidos conservan su worktree y su rama (aquí, los dos de DEMO-02), porque no existe una acción de descartar en la API ni en la UI. Lo propongo como tarea aparte.\n- El perfil default deja pasar los comandos que Claude Code considera seguros (sleep, python3 --version, printf y escrituras dentro del worktree combinados con git add/commit). Las peticiones de red sí piden permiso.\n- Coste total aproximado: 0,02 $ (DEMO-01 0,006 $, DEMO-02 0,003 $ por run, DEMO-03 y DEMO-04 unos 0,005 $ cada uno)."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-01T13:41:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Corrección de costes, leídos de run.json: DEMO-01 0,005836 $; DEMO-02 0,003442 $ y 0,003423 $ (los dos runs cancelados); DEMO-03 0,002858 $; DEMO-04 0,003085 $. Total: 0,0186 $. Las grabaciones de RUN-04 costaron unos 0,015 $ más."
+        },
+        {
+          "id": "n4",
+          "at": "2026-11-01T13:42:07Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Verificación real de M6 sobre un repo de prueba desechable, manejando la UI con Chrome headless (protocolo DevTools) y Claude Code 2.1.316 con haiku, como autorizaste. Los pasos, las versiones, las capturas revisadas y los costes están en las notas.\n\n- ac1: desde la UI, Ejecutar sobre DEMO-01 lanzó un claude real; el log llegó en vivo sin recargar (de 1 a 6 filas); la tarea pasó sola a revisión con el diff (saludo.txt +1 −0), el resumen y el uso. Aceptar dejó exactamente un commit nuevo en main («DEMO-01: Añadir saludo.txt», con el resumen y los trailers Konsora-Task y Konsora-Run) y borró el worktree y la rama. La tarea quedó en Hecho.\n- ac2: Cancelar a mitad (DEMO-02, con un sleep en segundo plano) dejó el run cancelled y la tarea en Por hacer, sin procesos claude ni sleep vivos. Lo comprobé dos veces.\n- ac3: notas con versiones (Claude Code 2.1.316, Node 22.22.2, git 2.43.0, Chrome 146), pasos, observaciones y costes (0,0186 $ en total).\n\nExtra: una aprobación real (curl con DEMO-04) apareció en vivo en la UI con el aviso global y la tarjeta; Permitir la retiró y el run terminó.\nErrores encontrados y corregidos (commit 4d552ad, con tests y vueltos a comprobar en la UI): aceptar un run sin cambios daba 409 y dejaba la tarea atascada en revisión (ahora se acepta sin commit, descartando su worktree), y «Archivos tocados» no contaba los archivos creados con Bash (ahora sale del diff).\nPendiente, propuesto como RUN-10: descartar runs y limpiar los worktrees de los cancelados o fallidos, que hoy se quedan para siempre."
+        }
+      ]
+    },
+    {
+      "id": "RUN-10",
+      "title": "Descartar runs y limpiar sus worktrees",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzr",
+      "desc": "Hoy un run cancelado, fallido o devuelto conserva su worktree y su rama `konsora/…` para siempre: el diseño dice «hasta integrar o descartar», pero no existe la acción de descartar (lo vio RUN-09 con los dos runs cancelados de DEMO-02). Añadir `POST /projects/:id/runs/:run/discard` en el daemon (integration discarded + borrar worktree y rama con removeWorktree; el run se conserva) y el botón Descartar en la sección del run de la UI para runs terminados sin integrar. Al devolver una tarea (send-back), ofrecer descartar su run. Mostrar los worktrees huérfanos que detecta findOrphanWorktrees.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Descartar un run cancelado, fallido o terminado sin integrar deja integration discarded y borra su worktree y su rama; el run y su diff.patch se conservan (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Descartar un run activo o ya integrado se rechaza con un error accionable (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La UI ofrece Descartar solo en runs terminados sin integrar y refleja el resultado (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "npm run check pasa"
+        }
+      ],
+      "labels": [
+        "m6"
+      ],
+      "created": {
+        "at": "2026-11-01T13:41:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-01T13:41:54Z"
     }
   ]
 }
