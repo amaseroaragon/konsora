@@ -51,6 +51,15 @@ describe("discarding runs (RUN-10)", () => {
     expect(merged).toContain(">Integrado<");
   });
 
+  it("warns when the run went over codex exec (RUN-15)", () => {
+    const exec = section(
+      run({ agent: { provider: "codex", model: "gpt-6-luna" }, transport: "exec" }),
+    );
+    expect(exec).toContain("no admite aprobaciones");
+    expect(section(run({ transport: "app-server" }))).not.toContain("no admite aprobaciones");
+    expect(section(run())).not.toContain("no admite aprobaciones");
+  });
+
   it("posts the discard and reflects the result", async () => {
     const calls: { url: string; method: string }[] = [];
     const fetch = (async (url: string, init: RequestInit) => {

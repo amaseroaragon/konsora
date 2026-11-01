@@ -13,6 +13,7 @@ import {
   runIdTime,
   transitionIntegration,
   transitionRun,
+  transportLimits,
 } from "../src/run.ts";
 
 /** The `run.json` example of docs/esquema-tareas.md §6, read from the doc itself. */
@@ -44,6 +45,18 @@ describe("RunSchema", () => {
 
   it("accepts a freshly queued run with only the required fields", () => {
     expect(RunSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("records the transport, and what each one allows", () => {
+    expect(RunSchema.safeParse({ ...base, transport: "exec" }).success).toBe(true);
+    expect(RunSchema.safeParse({ ...base, transport: "ssh" }).success).toBe(false);
+    expect(transportLimits("exec")).toEqual({
+      approvals: false,
+      live_answers: false,
+      rate_limits: false,
+    });
+    expect(transportLimits("app-server").approvals).toBe(true);
+    expect(transportLimits(undefined).live_answers).toBe(true);
   });
 
   it("keeps accepting the usage written before the breakdown", () => {

@@ -23,6 +23,7 @@ import {
   type RunSpec,
 } from "../src/adapter.ts";
 import { createClaudeAdapter } from "../src/claude.ts";
+import { createCodexAdapter } from "../src/codex/adapter.ts";
 import { gitEnv } from "../src/git.ts";
 import { RunStore } from "../src/run-store.ts";
 import { RunError, type RunRegistry, type SupervisorOptions, startRun } from "../src/supervisor.ts";
@@ -541,6 +542,75 @@ describe("startRun", () => {
       delivery: "resume",
       session: "s-42",
     });
+  });
+
+  it("records in run.json that Codex ran over exec when app-server is missing", async () => {
+    const fakeCodex = fileURLToPath(new URL("./fixtures/fake-codex.ts", import.meta.url));
+    const adapter = createCodexAdapter({
+      command: process.execPath,
+      prefixArgs: [fakeCodex],
+      env: {
+        ...process.env,
+        FAKE_CODEX_MODE: "no-app-server",
+        FAKE_CODEX_EXEC_FIXTURE: fileURLToPath(
+          new URL("./fixtures/codex/exec-success.jsonl", import.meta.url),
+        ),
+      },
+      requestTimeoutMs: 3000,
+    });
+    const session = await startRun(options(adapter), {
+      task: "BE-01",
+      agent: { provider: "codex", model: "gpt-6-luna" },
+    });
+    const run = await session.done;
+    expect(run.transport).toBe("exec");
+    expect(run.session_id).toBe("01a19791-7d3b-7683-8a4b-57858917212a");
+    // The recording never calls finish, so the task goes back to todo.
+    expect(run.state).toBe("failed");
+  });
+
+  it("keeps an answer for a process that takes no input, and resumes once it has ended", async () => {
+    const seen: RunSpec[] = [];
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = fakeAdapter(
+      async (spec, emit) => {
+        if (spec.resume) {
+          konsora(spec, "finish", "BE-01", "--summary", "Resumed and done.");
+          return;
+        }
+        emit({ t: "started", session: "t-7", model: "fake", transport: "exec" });
+        konsora(spec, "ask", "BE-01", "Which TTL?");
+        await gate; // still alive when the answer arrives
+      },
+      { exit: { code: 0, signal: null }, seen },
+    );
+    const sent: string[] = [];
+    // Like `codex exec`: its input is closed; send() must not be used.
+    const adapter: AgentAdapter = {
+      ...base,
+      start(spec, io) {
+        const handle = base.start(spec, io);
+        return { ...handle, acceptsInput: false, send: (text) => void sent.push(text) };
+      },
+    };
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    const id = session.run.id;
+    await until(
+      async () => (await taskIn("BE-01")).notes?.some((n) => n.kind === "question") ?? false,
+    );
+    await human({ op: "answer", task: "BE-01", text: "Ten minutes." });
+    expect(await session.deliverAnswer()).toBe("resume");
+    release();
+    const run = await session.done;
+
+    expect(sent).toEqual([]);
+    expect(seen.map((s) => s.resume)).toEqual([undefined, "t-7"]);
+    expect(seen[1]?.prompt).toContain("> Ten minutes.");
+    expect(run).toMatchObject({ state: "succeeded", transport: "exec", session_id: "t-7" });
+    expect(await store.read(id)).toMatchObject({ transport: "exec" });
   });
 
   it("does not lose an answer written before the agent's turn ends", async () => {

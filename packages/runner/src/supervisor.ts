@@ -331,7 +331,9 @@ class Supervision {
       // The agent's process is gone while its question is still open: wait for the answer and
       // resume the same session with it.
       const task = await this.#readTask();
-      if (!this.#cancelled && task && this.#expectsAnswer(task) && this.#session) {
+      // An answer can also be pending already, if the process could not take it while alive.
+      const waiting = this.#pendingAnswer !== null || (task !== null && this.#expectsAnswer(task));
+      if (!this.#cancelled && waiting && this.#session) {
         await this.#log({ t: "waiting_answer" });
         const answer = await this.#nextAnswer();
         if (answer === null) return this.#serial(() => this.#close(exit, finished));
@@ -352,10 +354,12 @@ class Supervision {
       if (event.t === "started") {
         await this.#serial(async () => {
           if (this.#state === "starting") await this.#move("running");
-          if (event.session) {
-            this.#session = event.session;
-            await this.#store.update(this.#id, { session_id: event.session });
-          }
+          if (event.session) this.#session = event.session;
+          const fields = {
+            ...(event.session ? { session_id: event.session } : {}),
+            ...(event.transport ? { transport: event.transport } : {}),
+          };
+          if (Object.keys(fields).length > 0) await this.#store.update(this.#id, fields);
         });
       } else if (event.t === "permission") {
         await this.setAwaitingApproval(true);
@@ -385,7 +389,7 @@ class Supervision {
       throw new RunError("no_answer", `${this.#task} has no answer to deliver`);
     }
     this.#delivered.add(note.id);
-    if (this.#handle) {
+    if (this.#handle && this.#handle.acceptsInput !== false) {
       this.#handle.send(message);
       await this.#log({ t: "answer", delivery: "stdin", text: message });
       return "stdin";

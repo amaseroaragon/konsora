@@ -76,6 +76,8 @@ export const es = {
   "run.section": "Run",
   "run.id": "Run {id}",
   "run.agent": "Agente",
+  "run.transport.exec":
+    "Este run usa codex exec porque codex app-server no está disponible: no admite aprobaciones (lo que el sandbox no permite, falla) ni rate limits, y una respuesta tuya reanuda la sesión cuando el agente termina su turno.",
   "run.cost": "Coste",
   "run.files": "Archivos tocados",
   "run.files.none": "Todavía no ha tocado archivos.",

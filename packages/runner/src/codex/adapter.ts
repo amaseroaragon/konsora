@@ -31,8 +31,9 @@ import {
 } from "../adapter.ts";
 import { agentEnv } from "../env.ts";
 import { detectCodex } from "./detect.ts";
+import { startCodexExec } from "./exec.ts";
 import { CodexNormalizer, clip, shellCommand } from "./normalize.ts";
-import type { InitializeParams, v2 } from "./protocol/index.ts";
+import type { InitializeParams, InitializeResponse, v2 } from "./protocol/index.ts";
 
 const KILL_GRACE_MS = 5000;
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -198,27 +199,80 @@ export type CodexAdapterOptions = {
   killGraceMs?: number;
   /** How long setup requests (initialize, thread, model list) may take. Default 60 s. */
   requestTimeoutMs?: number;
+  /**
+   * `auto` (default) uses `app-server` when it answers `initialize` as expected, else `exec`.
+   * The first check is kept for the adapter's life.
+   */
+  transport?: "auto" | "app-server" | "exec";
 };
+
+type Choice = { transport: "app-server" } | { transport: "exec"; reason: string };
 
 export function createCodexAdapter(options: CodexAdapterOptions = {}): AgentAdapter {
   const command = options.command ?? "codex";
   const prefix = options.prefixArgs ?? [];
   const env = agentEnv(options.env ?? process.env);
   const timeout = options.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
+  const killGrace = options.killGraceMs ?? KILL_GRACE_MS;
+  let choice: Promise<Choice> | null = null;
+  const choose = (): Promise<Choice> => {
+    const forced = options.transport ?? "auto";
+    if (forced === "app-server") return Promise.resolve({ transport: "app-server" });
+    if (forced === "exec") return Promise.resolve({ transport: "exec", reason: "configured" });
+    choice ??= probeAppServer(command, prefix, env, timeout).then((probe) =>
+      probe.ok ? { transport: "app-server" } : { transport: "exec", reason: probe.reason },
+    );
+    return choice;
+  };
   return {
     id: "codex",
-    detect: () => detectCodex({ command, prefixArgs: prefix, env }),
+    detect: async () => {
+      const found = await detectCodex({ command, prefixArgs: prefix, env });
+      if (!found.installed) return found;
+      const chosen = await choose();
+      if (chosen.transport === "app-server") return { ...found, transport: "app-server" };
+      const fallback = `codex app-server is not usable (${chosen.reason}); runs use codex exec, without approvals or rate limits.`;
+      return {
+        ...found,
+        transport: "exec",
+        warning: found.warning ? `${found.warning} ${fallback}` : fallback,
+      };
+    },
     models: () => listCodexModels(command, prefix, env, timeout),
     start: (spec, io) =>
-      startCodex(
-        command,
-        prefix,
-        env,
-        spec,
-        io ?? {},
-        options.killGraceMs ?? KILL_GRACE_MS,
-        timeout,
+      deferredHandle(
+        choose().then((chosen) =>
+          chosen.transport === "exec"
+            ? startCodexExec(command, prefix, env, spec, io ?? {}, killGrace)
+            : startCodex(command, prefix, env, spec, io ?? {}, killGrace, timeout),
+        ),
       ),
+  };
+}
+
+/** A handle for one that is still being chosen: it forwards everything once it exists. */
+function deferredHandle(pending: Promise<RunHandle>): RunHandle {
+  let inner: RunHandle | null = null;
+  const ready = pending.then((handle) => {
+    inner = handle;
+    return handle;
+  });
+  return {
+    events: {
+      async *[Symbol.asyncIterator]() {
+        yield* (await ready).events;
+      },
+    },
+    exited: ready.then((handle) => handle.exited),
+    get acceptsInput() {
+      return inner?.acceptsInput ?? true;
+    },
+    send: (text) => void ready.then((handle) => handle.send(text)),
+    endInput: () => void ready.then((handle) => handle.endInput()),
+    interrupt: () => ready.then((handle) => handle.interrupt()),
+    kill: () => ready.then((handle) => handle.kill()),
+    sessionId: () => inner?.sessionId(),
+    answerPermission: (id, decision) => inner?.answerPermission?.(id, decision),
   };
 }
 
@@ -233,12 +287,17 @@ export function codexModels(models: readonly v2.Model[]): ModelInfo[] {
     }));
 }
 
-async function listCodexModels(
+/**
+ * A short `app-server` session: `initialize`, then `use`. Rejects with the reason it failed
+ * (not installed, exited, no reply in time, an error reply…); the process is always closed.
+ */
+async function appServerSession<T>(
   command: string,
   prefix: string[],
   env: NodeJS.ProcessEnv,
   timeoutMs: number,
-): Promise<ModelInfo[]> {
+  use: (peer: Peer, initialized: unknown) => Promise<T>,
+): Promise<T> {
   let child: ChildProcess;
   try {
     child = spawnAppServer(command, prefix, env, undefined);
@@ -266,37 +325,19 @@ async function listCodexModels(
   });
   const gone = new Promise<never>((_, reject) => {
     child.on("error", () => reject(new Error("Codex is not installed or not on PATH")));
-    child.on("close", () => {
+    child.on("close", (code) => {
       peer.close("Codex exited");
-      reject(new Error("Codex exited before listing its models"));
+      reject(new Error(`codex app-server exited${code !== null ? ` with code ${code}` : ""}`));
     });
   });
   gone.catch(() => undefined);
   try {
     const run = async () => {
-      await peer.request("initialize", codexInitializeParams(), timeoutMs);
+      const initialized = await peer.request("initialize", codexInitializeParams(), timeoutMs);
       peer.notify("initialized");
-      const all: v2.Model[] = [];
-      let cursor: string | null = null;
-      for (let page = 0; page < 20; page++) {
-        const params: v2.ModelListParams = cursor ? { cursor } : {};
-        const result = (await peer.request(
-          "model/list",
-          params,
-          timeoutMs,
-        )) as v2.ModelListResponse;
-        if (!isObject(result) || !Array.isArray(result.data))
-          throw new Error("bad model/list reply");
-        all.push(...result.data);
-        cursor = typeof result.nextCursor === "string" ? result.nextCursor : null;
-        if (!cursor) break;
-      }
-      return codexModels(all);
+      return use(peer, initialized);
     };
     return await Promise.race([run(), gone]);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "unknown error";
-    throw new Error(`Could not list Codex models: ${reason}`);
   } finally {
     child.stdin?.end();
     const pid = child.pid;
@@ -309,6 +350,61 @@ async function listCodexModels(
         }
       }
     }, 2000).unref();
+  }
+}
+
+async function listCodexModels(
+  command: string,
+  prefix: string[],
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
+): Promise<ModelInfo[]> {
+  try {
+    return await appServerSession(command, prefix, env, timeoutMs, async (peer) => {
+      const all: v2.Model[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page < 20; page++) {
+        const params: v2.ModelListParams = cursor ? { cursor } : {};
+        const result = (await peer.request(
+          "model/list",
+          params,
+          timeoutMs,
+        )) as v2.ModelListResponse;
+        if (!isObject(result) || !Array.isArray(result.data)) {
+          throw new Error("bad model/list reply");
+        }
+        all.push(...result.data);
+        cursor = typeof result.nextCursor === "string" ? result.nextCursor : null;
+        if (!cursor) break;
+      }
+      return codexModels(all);
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "unknown error";
+    throw new Error(`Could not list Codex models: ${reason}`);
+  }
+}
+
+/**
+ * Whether `codex app-server` is there and speaks Konsora's protocol: an `initialize` whose reply
+ * has the shape of the generated types. A version mismatch alone does not count (it warns).
+ */
+export async function probeAppServer(
+  command: string,
+  prefix: string[],
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    await appServerSession(command, prefix, env, timeoutMs, async (_peer, initialized) => {
+      const reply = initialized as Partial<InitializeResponse> | null;
+      if (!isObject(reply) || typeof reply.userAgent !== "string") {
+        throw new Error("its initialize reply does not match the protocol types");
+      }
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : "unknown error" };
   }
 }
 

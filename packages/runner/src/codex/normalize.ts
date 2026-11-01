@@ -91,7 +91,14 @@ export class CodexNormalizer {
     const thread = isObject(value.thread) ? str(value.thread.id) : undefined;
     if (!thread) return this.requestFailed("Codex did not return a thread");
     this.#thread = thread;
-    return [{ t: "started", session: thread, model: str(value.model) ?? "unknown" }];
+    return [
+      {
+        t: "started",
+        session: thread,
+        model: str(value.model) ?? "unknown",
+        transport: "app-server",
+      },
+    ];
   }
 
   /** The reply to `turn/start`: the turn is known before `turn/started` arrives. */

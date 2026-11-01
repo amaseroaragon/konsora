@@ -2,7 +2,7 @@
  * The contract between the runner and an agent CLI (docs/arquitectura.md §5): an adapter starts
  * one run and turns the provider's output into normalized `RunEvent`s.
  */
-import type { AgentSpec, Check, Provider } from "@konsora/core";
+import type { AgentSpec, Check, Provider, RunTransport } from "@konsora/core";
 
 export type RateLimitWindow = {
   /** e.g. "five_hour", "seven_day". */
@@ -26,7 +26,7 @@ export type RateLimits = {
 };
 
 export type RunEvent =
-  | { t: "started"; session?: string; model: string }
+  | { t: "started"; session?: string; model: string; transport?: RunTransport }
   | { t: "message"; text: string; final: boolean }
   | {
       t: "tool";
@@ -107,6 +107,11 @@ export interface RunHandle {
   readonly exited: Promise<RunExit>;
   /** Sends another user message (e.g. the human's answer to `ask`) in the same session. */
   send(text: string): void;
+  /**
+   * `false` when the process cannot take more messages (`codex exec`): an answer then waits for
+   * it to end and resumes the session. Default `true`.
+   */
+  readonly acceptsInput?: boolean;
   /** Closes the agent's input: it ends after the current turn. */
   endInput(): void;
   /** Ends the current turn in an orderly way; the session is kept. */
@@ -133,6 +138,8 @@ export type DetectResult = {
   version_matches?: boolean;
   /** Something the human should know, without blocking runs. */
   warning?: string;
+  /** How runs will talk to the agent, when the adapter has a choice (Codex). */
+  transport?: RunTransport;
 };
 
 export type ModelInfo = { id: string; label: string; efforts: string[] };

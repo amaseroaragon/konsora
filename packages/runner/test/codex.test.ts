@@ -7,6 +7,7 @@ import type { RunEvent, RunHandle, RunSpec } from "../src/adapter.ts";
 import {
   CODEX_APPROVAL_POLICY,
   CODEX_SANDBOX,
+  type CodexAdapterOptions,
   codexDecision,
   codexPermission,
   codexThreadParams,
@@ -52,7 +53,11 @@ type Dump = {
   received: Record<string, unknown>[];
 };
 
-function adapter(name: string, env: Record<string, string> = {}) {
+function adapter(
+  name: string,
+  env: Record<string, string> = {},
+  transport: CodexAdapterOptions["transport"] = "app-server",
+) {
   const dumpFile = join(dir, "dump.json");
   return {
     dumpFile,
@@ -68,6 +73,7 @@ function adapter(name: string, env: Record<string, string> = {}) {
       },
       killGraceMs: 500,
       requestTimeoutMs: 5000,
+      transport,
     }),
   };
 }
@@ -126,7 +132,12 @@ describe("codex app-server recordings (codex-cli 0.166.0)", () => {
           "Codex warning: Codex's Linux sandbox uses bubblewrap and needs access to create user namespaces.",
         retryable: false,
       },
-      { t: "started", session: "01a19774-906d-7483-8718-645c81a1df62", model: "gpt-6-luna" },
+      {
+        t: "started",
+        session: "01a19774-906d-7483-8718-645c81a1df62",
+        model: "gpt-6-luna",
+        transport: "app-server",
+      },
       {
         t: "message",
         text: "I’ll read the note, make the two file changes, then run the requested network command.",

@@ -1,4 +1,4 @@
-import { isActiveRunState, type Run } from "@konsora/core";
+import { isActiveRunState, type Run, transportLimits } from "@konsora/core";
 import { useEffect, useState } from "react";
 import { useApprovals } from "../api/approvals.ts";
 import { ApiError } from "../api/client.ts";
@@ -95,6 +95,11 @@ export function RunSection({
           </div>
         )}
       </dl>
+      {!transportLimits(run.transport).approvals && (
+        <p className="a-callout a-callout--warn" role="note">
+          <span className="a-callout__text">{t("run.transport.exec")}</span>
+        </p>
+      )}
       <RunApprovals approvals={approvals} readOnly={readOnly} />
       {children}
       <div>

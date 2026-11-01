@@ -163,6 +163,28 @@ export const RunExitSchema = z.strictObject({
 });
 
 /**
+ * How the runner talks to the agent: Claude Code's `stream-json`, `codex app-server`, or the
+ * fallback `codex exec --json` (one turn per process).
+ */
+export const RunTransportSchema = z.enum(["stream-json", "app-server", "exec"]);
+export type RunTransport = z.infer<typeof RunTransportSchema>;
+
+export type TransportLimits = {
+  /** The human can approve what the sandbox does not allow. */
+  approvals: boolean;
+  /** An answer reaches the live process; otherwise it resumes the session once it has ended. */
+  live_answers: boolean;
+  rate_limits: boolean;
+};
+
+/** What a run can do over its transport (an unknown transport is assumed complete). */
+export function transportLimits(transport: RunTransport | undefined): TransportLimits {
+  return transport === "exec"
+    ? { approvals: false, live_answers: false, rate_limits: false }
+    : { approvals: true, live_answers: true, rate_limits: true };
+}
+
+/**
  * One rate-limit window of the provider's account (e.g. Claude's `five_hour` or `seven_day`), as
  * last reported during the run. It describes the account, not the run.
  */
@@ -218,6 +240,7 @@ export const RunSchema = z
     /** The exact prompt sent to the agent (`buildRunPrompt`), kept for audit. */
     prompt: z.string().min(1).max(1_000_000).optional(),
     session_id: z.string().min(1).max(200).optional(),
+    transport: RunTransportSchema.optional(),
     started_at: TimestampSchema.optional(),
     finished_at: TimestampSchema.optional(),
     exit: RunExitSchema.optional(),

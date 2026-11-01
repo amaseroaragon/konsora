@@ -235,6 +235,8 @@ checks.json     resultado de cada check
 
 Solo `id`, `task`, `task_hash`, `agent` y `state` son obligatorios; el resto se rellena según avanza el run. `prompt` es el texto exacto que recibió el agente: lo genera `buildRunPrompt` de `core` (título, `desc`, criterios con su check, checks del proyecto, notas `feedback` y `answer` con su pregunta, resúmenes de las dependencias e instrucciones de protocolo; las notas ordinarias no entran), de forma determinista. Las claves desconocidas se rechazan.
 
+`transport` dice cómo habló el runner con el agente: `stream-json` (Claude Code), `app-server` o `exec` (Codex, el plan B). Con `exec` no hay aprobaciones ni rate limits, y las respuestas reanudan la sesión (`transportLimits` de `core`). Si falta, el run se considera completo.
+
 `usage` lleva siempre `input_tokens` (toda la entrada, caché incluida), `output_tokens` y `cost_usd` (`null` si el proveedor no da precio). Si el proveedor los da, añade `cache_read_tokens` y `cache_write_tokens` (parte de la entrada leída o escrita en la caché), `reasoning_tokens` (parte de la salida) y `rate_limits`, la última foto de cada ventana de la cuenta: `{ "window": "five_hour", "status": "allowed", "utilization": 0.68, "resets_at": "2026-11-01T13:20:00Z" }`, con `utilization` como fracción usada. Los `run.json` anteriores, sin estos campos, siguen siendo válidos.
 
 Estados de un run (`core` rechaza cualquier otra transición con un error `invalid_transition`):
