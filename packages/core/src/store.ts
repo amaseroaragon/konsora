@@ -133,11 +133,33 @@ function isAlive(pid: number): boolean {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Acquires the lock or throws `lock_timeout`. Returns a release function. */
-async function acquireLock(root: string, options: StoreOptions): Promise<() => Promise<void>> {
-  const path = join(root, KONSORA_DIR, LOCK_FILE);
+/** Thrown by `acquireFileLock` when another live process keeps the lock past the timeout. */
+export class LockTimeoutError extends Error {
+  /** Who holds the lock, e.g. "pid 123 on host since …", or "another writer". */
+  readonly holder: string;
+  constructor(holder: string) {
+    super(`locked by ${holder}`);
+    this.holder = holder;
+  }
+}
+
+/**
+ * Acquires an exclusive lock file at `path` (O_EXCL, `{pid, host, at}`), or throws
+ * `LockTimeoutError`. A lock is stale only when its PID is dead on this same host; there is no
+ * time-based expiry. Returns a release function that removes the lock only if it is still ours.
+ */
+export async function acquireFileLock(
+  path: string,
+  options: StoreOptions = {},
+): Promise<() => Promise<void>> {
   const deadline = Date.now() + (options.lockTimeoutMs ?? 5000);
-  const mine: LockInfo = { pid: process.pid, host: hostname(), at: new Date().toISOString() };
+  const mine = {
+    pid: process.pid,
+    host: hostname(),
+    at: new Date().toISOString(),
+    // Tells apart two holders in the same process, so a release never removes another's lock.
+    nonce: Math.random().toString(36).slice(2),
+  };
   const body = JSON.stringify(mine);
   for (;;) {
     try {
@@ -170,22 +192,39 @@ async function acquireLock(root: string, options: StoreOptions): Promise<() => P
       continue;
     }
     if (Date.now() >= deadline) {
-      const who = holder
-        ? `pid ${holder.pid} on ${holder.host} since ${holder.at}`
-        : "another writer";
-      fail("lock_timeout", `${TASKS_FILE} is locked by ${who}; try again shortly`);
+      throw new LockTimeoutError(
+        holder ? `pid ${holder.pid} on ${holder.host} since ${holder.at}` : "another writer",
+      );
     }
     await sleep(options.lockPollMs ?? 20);
   }
 }
 
-async function writeAtomically(root: string, text: string): Promise<void> {
-  const dir = join(root, KONSORA_DIR);
-  const temp = join(
-    dir,
-    `.${TASKS_FILE}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`,
-  );
-  const handle = await open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o644);
+/** Acquires the plan's lock or throws `lock_timeout`. Returns a release function. */
+async function acquireLock(root: string, options: StoreOptions): Promise<() => Promise<void>> {
+  try {
+    return await acquireFileLock(join(root, KONSORA_DIR, LOCK_FILE), options);
+  } catch (error) {
+    if (error instanceof LockTimeoutError) {
+      fail("lock_timeout", `${TASKS_FILE} is locked by ${error.holder}; try again shortly`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Replaces `dir/name` atomically: writes a temp file in the same directory (O_EXCL, `mode`),
+ * fsyncs it, renames it over the target and fsyncs the directory. Readers see the old or the new
+ * content, never a partial file.
+ */
+export async function writeFileAtomically(
+  dir: string,
+  name: string,
+  text: string,
+  mode = 0o644,
+): Promise<void> {
+  const temp = join(dir, `.${name}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
+  const handle = await open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, mode);
   try {
     await handle.writeFile(text, "utf8");
     await handle.sync();
@@ -196,7 +235,7 @@ async function writeAtomically(root: string, text: string): Promise<void> {
   }
   await handle.close();
   try {
-    await rename(temp, tasksPath(root));
+    await rename(temp, join(dir, name));
   } catch (error) {
     await unlink(temp).catch(() => undefined);
     throw error;
@@ -207,6 +246,10 @@ async function writeAtomically(root: string, text: string): Promise<void> {
   } finally {
     await dirHandle.close();
   }
+}
+
+function writeAtomically(root: string, text: string): Promise<void> {
+  return writeFileAtomically(join(root, KONSORA_DIR), TASKS_FILE, text);
 }
 
 /**

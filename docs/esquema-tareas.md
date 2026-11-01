@@ -204,37 +204,53 @@ Límite honesto: un proceso con los permisos del usuario puede escribir cualquie
 ```
 run.json        metadatos y estado (se reescribe de forma atómica)
 events.jsonl    eventos normalizados (solo se añaden líneas)
-raw.jsonl       salida cruda del proveedor, para depuración (rotada a 20 MB)
+raw.jsonl       salida cruda del proveedor, para depuración (rotada a 20 MB: la anterior pasa a raw.1.jsonl)
 diff.patch      diff base..head al terminar
 checks.json     resultado de cada check
 ```
 
-`run.json`:
+`run.json` (el test de `core` valida este ejemplo):
 
 ```json
 {
-  "id": "r-01JC8Z3K2Q",
+  "id": "r-01JC8Z3K2QX7M4V9T0B6N5R8PW",
   "task": "BE-02",
-  "task_hash": "sha256:…",
+  "task_hash": "sha256:9f2c4e1b7a0d3c5e8f6a2b4d1c3e5f7a9b0c2d4e6f8a1b3c5d7e9f0a2b4c6d8e",
   "agent": { "provider": "codex", "model": "gpt-5.5", "effort": "medium", "permissions": "default" },
   "state": "succeeded",
   "worktree": "/home/me/.local/share/konsora/worktrees/<project-id>/BE-02-01JC8Z",
   "branch": "konsora/BE-02/01JC8Z",
-  "base_commit": "3f2c…",
-  "head_commit": "9ab1…",
-  "session_id": "…",
-  "started_at": "…", "finished_at": "…",
+  "base_commit": "3f2c9a1e5b7d4c6f8a0b2d4e6f8a1c3e5b7d9f0a",
+  "head_commit": "9ab1c3e5f7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7",
+  "session_id": "0199a8c2-6f1e-7b3a-9c4d-2e5f8a1b3c6d",
+  "started_at": "2026-11-02T10:00:00Z", "finished_at": "2026-11-02T10:14:37Z",
   "exit": { "code": 0, "signal": null },
   "usage": { "input_tokens": 41200, "output_tokens": 5300, "cost_usd": null },
-  "summary": "…",
+  "summary": "Caché del pronóstico de 10 minutos, con tests.",
   "checks": [{ "id": "test", "exit_code": 0, "duration_ms": 8123 }],
   "integration": { "state": "pending" }
 }
 ```
 
-Estados de un run: `queued → starting → running ⇄ waiting_approval → checking → succeeded | failed | cancelled | interrupted`. `interrupted` corresponde a un run que estaba vivo cuando el daemon se cerró: al volver a arrancar **no se reanuda solo**; el humano decide si lo reanuda (con `--resume`, usando el `session_id`) o lo descarta. `integration.state`: `pending → merged | conflict | discarded`.
+Solo `id`, `task`, `task_hash`, `agent` y `state` son obligatorios; el resto se rellena según avanza el run. Las claves desconocidas se rechazan.
 
-Cada tarea puede tener muchos runs, pero como máximo **uno activo**. Las notas que genera un run llevan `run` para enlazarlas.
+Estados de un run (`core` rechaza cualquier otra transición con un error `invalid_transition`):
+
+```
+queued           → starting | cancelled
+starting         → running | failed | cancelled | interrupted
+running          → waiting_approval | checking | failed | cancelled | interrupted
+waiting_approval → running | failed | cancelled | interrupted
+checking         → succeeded | failed | cancelled | interrupted
+interrupted      → starting (reanudar) | cancelled (descartar)
+succeeded, failed, cancelled: finales
+```
+
+`interrupted` corresponde a un run que estaba vivo cuando el daemon se cerró: al volver a arrancar **no se reanuda solo**; el humano decide si lo reanuda (con `--resume`, usando el `session_id`) o lo descarta.
+
+`integration.state` solo existe en runs finales: `pending → merged | conflict | discarded` y `conflict → merged | discarded`. Solo un run `succeeded` puede quedar `pending`; cualquier run final se puede descartar directamente.
+
+Cada tarea puede tener muchos runs, pero como máximo **uno activo**: en `queued`, `starting`, `running`, `waiting_approval`, `checking` o `interrupted` (que aún se puede reanudar, así que hay que descartarlo antes de lanzar otro). Las notas que genera un run llevan `run` para enlazarlas.
 
 ## 7. Migración v1 → v2
 

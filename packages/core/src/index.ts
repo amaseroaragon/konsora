@@ -9,6 +9,7 @@ export * from "./moves.ts";
 export * from "./op-schema.ts";
 export * from "./ops.ts";
 export * from "./rank.ts";
+export * from "./run.ts";
 export * from "./schema.ts";
 export * from "./semantics.ts";
 export * from "./serialize.ts";
