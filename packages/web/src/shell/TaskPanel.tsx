@@ -143,6 +143,7 @@ export function TaskPanel({
   readOnly,
   onClose,
   onOpen,
+  onSelectWithDeps,
 }: {
   projectId: string;
   task: BoardTask;
@@ -152,6 +153,8 @@ export function TaskPanel({
   readOnly: boolean;
   onClose: () => void;
   onOpen: (id: string) => void;
+  /** Selects this task with its pending dependencies (UI-07); only offered where it applies. */
+  onSelectWithDeps?: (() => void) | undefined;
 }) {
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
@@ -185,6 +188,13 @@ export function TaskPanel({
             task={task}
             actions={actions}
           />
+        )}
+        {onSelectWithDeps && (
+          <div className="a-actions">
+            <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>
+              {t("selection.withDeps")}
+            </Button>
+          </div>
         )}
         {task.desc && (
           <p className="a-desc">

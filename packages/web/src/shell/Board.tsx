@@ -29,6 +29,7 @@ import {
 } from "../ui/index.ts";
 import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
 import { FeedbackDialog } from "./FeedbackDialog.tsx";
+import { isSelectable } from "./selection.ts";
 
 /** Keyboard dragging jumps from cell to cell in the arrow's direction instead of by pixels. */
 export const cellToCell: KeyboardCoordinateGetter = (event, { context, currentCoordinates }) => {
@@ -64,14 +65,19 @@ const agentLabel = (task: BoardTask) =>
     ? [task.agent.provider, task.agent.model, task.agent.effort].filter(Boolean).join(" · ")
     : undefined;
 
+/** The selection as the board sees it: what is ticked and how to tick or untick a card. */
+export type BoardSelection = { selected: ReadonlySet<string>; onToggle: (id: string) => void };
+
 function Card({
   task,
   external = false,
   onOpen,
+  selection,
 }: {
   task: BoardTask;
   external?: boolean;
   onOpen?: () => void;
+  selection?: BoardSelection | undefined;
 }) {
   const agent = agentLabel(task);
   const proposer = task.created.by.replace(/^agent:/, "");
@@ -86,6 +92,13 @@ function Card({
       {...(onOpen ? { onOpen } : {})}
       {...(agent ? { agent } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
+      {...(selection
+        ? {
+            selected: selection.selected.has(task.id),
+            selectable: isSelectable(task),
+            onSelectedChange: () => selection.onToggle(task.id),
+          }
+        : {})}
     />
   );
 }
@@ -95,18 +108,21 @@ function DraggableCard({
   external,
   disabled,
   onOpen,
+  selection,
 }: {
   task: BoardTask;
   external: boolean;
   disabled: boolean;
   onOpen: () => void;
+  selection: BoardSelection;
 }) {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: task.id,
     disabled,
     attributes: { roleDescription: t("board.draggable") },
   });
-  if (disabled) return <Card task={task} external={external} onOpen={onOpen} />;
+  if (disabled)
+    return <Card task={task} external={external} onOpen={onOpen} selection={selection} />;
   return (
     // biome-ignore lint/a11y/useSemanticElements: a <button> cannot contain the card's <article>/<h3>.
     <div
@@ -123,7 +139,7 @@ function DraggableCard({
       aria-label={`${t("board.drag", { id: task.id })}: ${task.title}`}
       className={cx("b-drag", isDragging && "b-drag--source")}
     >
-      <Card task={task} external={external} onOpen={onOpen} />
+      <Card task={task} external={external} onOpen={onOpen} selection={selection} />
     </div>
   );
 }
@@ -161,11 +177,13 @@ export function Board({
   board,
   swimlanes,
   onOpen,
+  selection,
   readOnly = false,
 }: {
   board: BoardOk;
   swimlanes: boolean;
   onOpen: (id: string) => void;
+  selection: BoardSelection;
   /** The file is invalid: this is the last valid version, shown without drag or actions. */
   readOnly?: boolean;
 }) {
@@ -277,6 +295,7 @@ export function Board({
                     external={flagged.has(task.id)}
                     disabled={readOnly}
                     onOpen={() => onOpen(task.id)}
+                    selection={selection}
                   />
                 )),
               ),

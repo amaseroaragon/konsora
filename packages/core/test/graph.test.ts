@@ -7,6 +7,7 @@ import {
   indexTasks,
   isReady,
   isWaiting,
+  pendingSubgraph,
   topoOrder,
   transitiveDependents,
   transitiveDeps,
@@ -192,5 +193,63 @@ describe("YOLO", () => {
   it("only active YOLO tasks (not in review/done) cover their chain", () => {
     expect(yoloCovering("Y-01", { tasks: yolo })).toEqual(["Y-03"]);
     expect(yoloCovering("Y-04", { tasks: yolo })).toEqual([]);
+  });
+});
+
+describe("pendingSubgraph", () => {
+  //  D-01 (done) ── D-02 (todo) ── D-04 (todo) ── D-05 (todo)
+  //  D-03 (review) ───────────────────┘             │
+  //  D-06 (done) ── D-07 (proposed) ────────────────┘
+  //  D-00 (todo) ── D-06 (behind a done task: not needed)
+  const doc = {
+    tasks: [
+      task("D-00", "todo"),
+      task("D-01", "done"),
+      task("D-02", "todo", ["D-01"]),
+      task("D-03", "review"),
+      task("D-04", "todo", ["D-02", "D-03"]),
+      task("D-06", "done", ["D-00"]),
+      task("D-07", "proposed", ["D-06"]),
+      task("D-05", "todo", ["D-04", "D-07"]),
+    ],
+  };
+
+  it("is the task plus its unfinished dependencies, dependencies first", () => {
+    expect(pendingSubgraph("D-05", doc)).toEqual(["D-02", "D-03", "D-04", "D-07", "D-05"]);
+    expect(pendingSubgraph("D-04", doc)).toEqual(["D-02", "D-03", "D-04"]);
+  });
+
+  it("does not follow dependencies through a done task", () => {
+    expect(pendingSubgraph("D-07", doc)).toEqual(["D-07"]);
+    expect(pendingSubgraph("D-05", doc)).not.toContain("D-00");
+  });
+
+  it("is just the task when nothing it needs is pending", () => {
+    expect(pendingSubgraph("D-02", doc)).toEqual(["D-02"]);
+    expect(pendingSubgraph("D-00", doc)).toEqual(["D-00"]);
+  });
+
+  it("is empty for a done or unknown task", () => {
+    expect(pendingSubgraph("D-01", doc)).toEqual([]);
+    expect(pendingSubgraph("X-99", doc)).toEqual([]);
+  });
+
+  it("never lists a done task and always closes over pending deps (property)", () => {
+    fc.assert(
+      fc.property(documentArb, (generated) => {
+        const index = indexTasks(generated);
+        for (const t of generated.tasks) {
+          const sub = pendingSubgraph(t.id, generated);
+          const set = new Set(sub);
+          for (const id of sub) {
+            const member = index.get(id);
+            expect(member?.state).not.toBe("done");
+            for (const dep of member?.deps ?? [])
+              if (index.get(dep) && index.get(dep)?.state !== "done")
+                expect(set.has(dep)).toBe(true);
+          }
+        }
+      }),
+    );
   });
 });

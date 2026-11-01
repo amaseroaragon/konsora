@@ -142,6 +142,27 @@ export function yoloCovering(id: string, doc: Pick<TasksDocument, "tasks">): str
     .sort(compareTaskIds);
 }
 
+/**
+ * The subgraph that running `id` needs: the task plus every dependency that is not done yet,
+ * followed only through unfinished tasks (a done dependency is satisfied, so what lies behind it
+ * is not needed). Dependencies come before dependents. Empty for an unknown or done task.
+ */
+export function pendingSubgraph(id: string, doc: Pick<TasksDocument, "tasks">): string[] {
+  const index = indexTasks(doc);
+  const start = index.get(id);
+  if (!start || start.state === "done") return [];
+  const pending = new Set([
+    id,
+    ...reach(id, (current) =>
+      (index.get(current)?.deps ?? []).filter((dep) => {
+        const state = index.get(dep)?.state;
+        return state !== undefined && state !== "done";
+      }),
+    ),
+  ]);
+  return topoOrder(doc).order.filter((taskId) => pending.has(taskId));
+}
+
 export type TaskFlags = { blockers: string[]; blocked: boolean; ready: boolean; waiting: boolean };
 
 /** All derived flags at once, for views that render every task. */

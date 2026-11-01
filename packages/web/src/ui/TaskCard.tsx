@@ -17,6 +17,8 @@ export type TaskCardProps = {
   agent?: string;
   proposedBy?: string;
   selected?: boolean;
+  /** Whether the checkbox can be ticked; defaults to ready tasks only. */
+  selectable?: boolean;
   /** When provided, the card shows a selection checkbox. */
   onSelectedChange?: (selected: boolean) => void;
   onOpen?: () => void;
@@ -33,6 +35,7 @@ export function TaskCard({
   agent,
   proposedBy,
   selected = false,
+  selectable,
   onSelectedChange,
   onOpen,
 }: TaskCardProps) {
@@ -69,7 +72,7 @@ export function TaskCard({
             type="checkbox"
             className="k-card__select"
             checked={selected}
-            disabled={!ready}
+            disabled={!(selectable ?? ready)}
             aria-label={t("card.select", { id })}
             onChange={(event) => onSelectedChange(event.target.checked)}
           />

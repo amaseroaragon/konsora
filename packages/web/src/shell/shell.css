@@ -347,6 +347,12 @@
   stroke: var(--k-done);
   stroke-dasharray: none;
 }
+/* React Flow sets an inline `pointer-events: none` on nodes that are neither selectable nor
+   draggable; ours are clickable (open, Shift+click to select with dependencies). */
+.g-graph .react-flow__node {
+  /* biome-ignore lint/complexity/noImportantStyles: only !important beats React Flow's inline style. */
+  pointer-events: all !important;
+}
 .g-node {
   position: relative;
   box-sizing: border-box;
@@ -407,4 +413,39 @@
   bottom: calc(-1 * var(--k-space-5));
   display: flex;
   gap: var(--k-space-2);
+}
+
+/* Selection (UI-07) */
+.b-selection {
+  border: 1px solid var(--k-line-strong);
+  z-index: 10;
+}
+.b-selection__hint {
+  align-self: center;
+  margin: 0 0 0 auto;
+  padding: var(--k-space-4) var(--k-space-8);
+  font-size: var(--k-text-xs);
+}
+.b-selection__hint + .a-selection__run {
+  margin-left: 0;
+}
+/* Leave room for the sticky selection bar so it never covers the graph or its controls. */
+.b-board--selecting .g-graph {
+  height: max(420px, calc(100vh - 300px));
+}
+.g-node--selected {
+  box-shadow: 4px 4px 0 var(--k-accent);
+}
+.g-node__select {
+  position: absolute;
+  z-index: 1;
+  top: var(--k-space-4);
+  left: var(--k-space-5);
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--k-accent);
+}
+.g-node__select + .g-node__open .g-node__head {
+  padding-left: 22px;
 }

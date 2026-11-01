@@ -53,6 +53,7 @@ import {
   nodeLabel,
   panIntoView,
 } from "./graph-nav.ts";
+import { isSelectable } from "./selection.ts";
 
 type Layout = { key: string; positions: Positions; ms: number } | { key: string; error: string };
 
@@ -102,26 +103,56 @@ type TaskNodeData = {
   /** The graph's single tab stop (roving tabindex). */
   tabbable: boolean;
   describedBy: string;
+  selected: boolean;
+  selectable: boolean;
   onOpen: (id: string) => void;
+  onToggle: (id: string) => void;
+  onSelectWithDeps: (id: string) => void;
 };
 type TaskNode = Node<TaskNodeData, "task">;
 
 /** A task in the graph: id, state and flags on top, title below, painted from its state tokens. */
 const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
-  const { task, external, open, label, tabbable, describedBy, onOpen } = data;
+  const {
+    task,
+    external,
+    open,
+    label,
+    tabbable,
+    describedBy,
+    selected,
+    selectable,
+    onOpen,
+    onToggle,
+    onSelectWithDeps,
+  } = data;
   const tone = nodeTone(task);
   return (
     <div
-      className={cx("g-node", open && "g-node--open")}
+      className={cx("g-node", open && "g-node--open", selected && "g-node--selected")}
       style={{ ...nodeStyle(tone), width: NODE_W, height: NODE_H } as CSSProperties}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
+      {selectable && (
+        <input
+          type="checkbox"
+          className="g-node__select"
+          // One tab stop for the graph: from the keyboard, Space on the node selects it.
+          tabIndex={-1}
+          checked={selected}
+          aria-label={t("selection.node", { id: task.id })}
+          onChange={() => onToggle(task.id)}
+        />
+      )}
       <button
         type="button"
         className="g-node__open"
         data-task={task.id}
         tabIndex={tabbable ? 0 : -1}
-        onClick={() => onOpen(task.id)}
+        // Shift+click selects the task with its pending dependencies instead of opening it.
+        onClick={(event) =>
+          event.shiftKey && selectable ? onSelectWithDeps(task.id) : onOpen(task.id)
+        }
         aria-label={label}
         aria-describedby={describedBy}
         aria-expanded={open}
@@ -161,9 +192,21 @@ export type GraphProps = {
   external: ReadonlySet<string>;
   openId: string | null;
   onOpen: (id: string) => void;
+  selected: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+  onSelectWithDeps: (id: string) => void;
 };
 
-function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
+function GraphCanvas({
+  label,
+  tasks,
+  external,
+  openId,
+  onOpen,
+  selected,
+  onToggle,
+  onSelectWithDeps,
+}: GraphProps) {
   const layout = useGraphLayout(tasks);
   const flow = useReactFlow();
   const fitted = useRef(false);
@@ -196,15 +239,31 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
             task,
             external: external.has(task.id),
             open: openId === task.id,
-            label: nodeLabel(task, external.has(task.id), nav),
+            label: nodeLabel(task, external.has(task.id), nav, selected.has(task.id)),
             tabbable: task.id === tabStop,
             describedBy: instructionsId,
+            selected: selected.has(task.id),
+            selectable: isSelectable(task),
             onOpen,
+            onToggle,
+            onSelectWithDeps,
           },
         },
       ];
     });
-  }, [tasks, positions, nav, external, openId, onOpen, tabStop, instructionsId]);
+  }, [
+    tasks,
+    positions,
+    nav,
+    external,
+    openId,
+    onOpen,
+    tabStop,
+    instructionsId,
+    selected,
+    onToggle,
+    onSelectWithDeps,
+  ]);
   const edges = useMemo<Edge[]>(() => {
     const state = new Map(tasks.map((task) => [task.id, task.state]));
     return graphEdges(tasks).map((edge) => {
@@ -261,6 +320,16 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
   };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const from = (event.target as HTMLElement).dataset?.task;
+    if (from && event.key === " ") {
+      // Space selects instead of opening (Enter opens); Shift+Space takes the pending deps too.
+      event.preventDefault();
+      const task = tasks.find((x) => x.id === from);
+      if (task && isSelectable(task)) {
+        if (event.shiftKey) onSelectWithDeps(from);
+        else onToggle(from);
+      }
+      return;
+    }
     const key = event.key as NavKey;
     if (!from || !nav || !navKeys.includes(key)) return;
     event.preventDefault();
@@ -317,6 +386,9 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
         nodesFocusable={false}
         edgesFocusable={false}
         disableKeyboardA11y
+        // Shift is ours (select with dependencies), not React Flow's box selection.
+        selectionKeyCode={null}
+        multiSelectionKeyCode={null}
         minZoom={0.1}
         maxZoom={2}
         ariaLabelConfig={ariaLabels()}

@@ -138,6 +138,7 @@ export function nodeLabel(
   task: { id: string; title: string; state: TaskState; blocked?: boolean; waiting?: boolean },
   external: boolean,
   graph: NavGraph,
+  selected = false,
 ): string {
   const deps = graph.deps.get(task.id) ?? [];
   const dependents = graph.dependents.get(task.id) ?? [];
@@ -147,6 +148,7 @@ export function nodeLabel(
   return [
     t("graph.node.label", { id: task.id, title: task.title, state: stateLabel(nodeTone(task)) }),
     ...flags,
+    ...(selected ? [t("graph.node.selected")] : []),
     deps.length ? t("graph.node.deps", { ids: deps.join(", ") }) : t("graph.node.noDeps"),
     dependents.length
       ? t("graph.node.dependents", { ids: dependents.join(", ") })

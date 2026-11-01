@@ -1,11 +1,14 @@
+import { pendingSubgraph } from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type BoardOk, type LiveState, toDocument } from "../api/board.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { Segmented, StateBadge } from "../ui/index.ts";
+import { Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { Board } from "./Board.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
+import { SelectionBar } from "./SelectionBar.tsx";
+import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskPanel } from "./TaskPanel.tsx";
 
 const LANES_KEY = "konsora.board.swimlanes";
@@ -60,6 +63,26 @@ export function ProjectView({
   const [swimlanes, setSwimlanes] = useState(readLanesPref);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
+  const toast = useToast();
+  const selection = useSelection(projectId);
+  const selectedIds = visibleSelection(selection.selected, board.tasks);
+  const selectedKey = selectedIds.join(",");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the joined ids are the identity.
+  const selected = useMemo(() => new Set(selectedIds), [selectedKey]);
+  const dispatchSelection = selection.dispatch;
+  const toggle = useCallback(
+    (id: string) => dispatchSelection({ type: "toggle", id }),
+    [dispatchSelection],
+  );
+  const selectWithDeps = useCallback(
+    (id: string) => {
+      const ids = pendingSubgraph(id, doc);
+      if (ids.length === 0) return;
+      dispatchSelection({ type: "add", ids });
+      toast.show(t("selection.withDeps.done", { id, n: ids.length }), "info");
+    },
+    [doc, dispatchSelection, toast],
+  );
   const go = useCallback(
     (next: { view?: ProjectViewName; task?: string | null }) =>
       navigate(
@@ -82,7 +105,7 @@ export function ProjectView({
   }, [openId, go]);
 
   return (
-    <div className="b-board">
+    <div className={selectedIds.length > 0 ? "b-board b-board--selecting" : "b-board"}>
       <div className="b-toolbar">
         <h1 className="b-toolbar__title">{board.project.name}</h1>
         <span className={`b-live b-live--${live}`} role="status">
@@ -130,9 +153,18 @@ export function ProjectView({
               external={flagged}
               openId={opened ? opened.id : null}
               onOpen={open}
+              selected={selected}
+              onToggle={toggle}
+              onSelectWithDeps={selectWithDeps}
             />
           ) : (
-            <Board board={board} swimlanes={swimlanes} onOpen={open} readOnly={readOnly} />
+            <Board
+              board={board}
+              swimlanes={swimlanes}
+              onOpen={open}
+              selection={{ selected, onToggle: toggle }}
+              readOnly={readOnly}
+            />
           )}
         </div>
         {opened && (
@@ -145,9 +177,15 @@ export function ProjectView({
             readOnly={readOnly}
             onClose={() => go({ task: null })}
             onOpen={open}
+            onSelectWithDeps={
+              view === "graph" && isSelectable(opened) ? () => selectWithDeps(opened.id) : undefined
+            }
           />
         )}
       </div>
+      {selectedIds.length > 0 && (
+        <SelectionBar ids={selectedIds} onClear={() => dispatchSelection({ type: "clear" })} />
+      )}
     </div>
   );
 }
