@@ -441,6 +441,9 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions = {}): AgentAd
   const baseEnv = options.env ?? process.env;
   return {
     id: "claude",
+    profiles: ["default"],
+    // Claude Code takes full model ids (claude-opus-5-5…) besides these aliases.
+    openModels: true,
     detect: () => detectClaude(command, prefix, claudeEnv(baseEnv)),
     models: () => Promise.resolve(MODELS.map((m) => ({ ...m, efforts: [...m.efforts] }))),
     start: (spec, io) =>

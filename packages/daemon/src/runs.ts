@@ -14,16 +14,19 @@
 import { join } from "node:path";
 import {
   type AgentSpec,
+  checkAgent,
   isActiveRunState,
   type Provider,
   type Run,
   type RunId,
   RunIdSchema,
+  runAgentFor,
 } from "@konsora/core";
 import { mutate, readTasks } from "@konsora/core/store";
 import {
   type AgentAdapter,
   createClaudeAdapter,
+  createCodexAdapter,
   findOrphanWorktrees,
   type Git,
   type IntegrationResult,
@@ -38,6 +41,7 @@ import {
   removeWorktree,
   startRun,
 } from "@konsora/runner";
+import { AgentCatalog } from "./agents.ts";
 import type { ApprovalEvent, Approvals } from "./approvals.ts";
 import type { Project, Registry } from "./registry.ts";
 
@@ -58,6 +62,8 @@ export type RunManagerOptions = {
   now?: () => Date;
   /** Passed to the supervisor (tests shorten it). */
   interruptGraceMs?: number;
+  /** How long the agent catalog is kept. Default 30 s. */
+  catalogTtlMs?: number;
   /** How long an approval asked through the agent's own protocol (Codex) waits. Default 300 s. */
   permissionWaitMs?: number;
 };
@@ -66,7 +72,7 @@ export type RunManagerOptions = {
 const PERMISSION_WAIT_MS = 300_000;
 
 export class RunManagerError extends Error {
-  readonly code: "not_found" | "not_active" | "no_adapter" | "not_discardable";
+  readonly code: "not_found" | "not_active" | "no_adapter" | "not_discardable" | "invalid_agent";
   constructor(code: RunManagerError["code"], message: string) {
     super(message);
     this.name = "RunManagerError";
@@ -113,8 +119,19 @@ export class RunManager {
   /** Live runs: their supervisor sessions, by run id. */
   readonly #sessions = new Map<RunId, { project: string; task: string; session: RunSession }>();
 
+  readonly #adapters: Partial<Record<Provider, AgentAdapter>>;
+  readonly catalog: AgentCatalog;
+
   constructor(options: RunManagerOptions) {
     this.#options = options;
+    // Given adapters are the whole set (tests); otherwise the installed Claude Code and Codex.
+    this.#adapters = options.adapters ?? {
+      claude: createClaudeAdapter(),
+      codex: createCodexAdapter(),
+    };
+    this.catalog = new AgentCatalog(this.#adapters, {
+      ...(options.catalogTtlMs !== undefined ? { ttlMs: options.catalogTtlMs } : {}),
+    });
   }
 
   store(project: Project): RunStore {
@@ -149,10 +166,15 @@ export class RunManager {
       task?.agent?.provider ??
       (plan.ok ? plan.document.project.defaults?.provider : undefined) ??
       "claude";
-    const adapter =
-      this.#options.adapters?.[provider] ?? (provider === "claude" ? createClaudeAdapter() : null);
+    const adapter = this.#adapters[provider];
     if (!adapter) {
       throw new RunManagerError("no_adapter", `Konsora cannot run ${provider} yet`);
+    }
+    // The agent must be one its adapter declares; nothing is created otherwise.
+    const agent = plan.ok && task ? runAgentFor(task, plan.document, input.agent) : undefined;
+    if (agent) {
+      const check = checkAgent(agent, await this.catalog.entry(agent.provider));
+      if (!check.ok) throw new RunManagerError("invalid_agent", check.reason);
     }
     const store = this.store(project);
     const { approvals } = this.#options;

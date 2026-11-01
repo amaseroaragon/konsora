@@ -31,6 +31,7 @@ import {
   type Run,
   type RunId,
   type RunState,
+  runAgentFor,
   type Task,
   taskHash,
 } from "@konsora/core";
@@ -150,7 +151,7 @@ export async function startRun(
         : `${task.id} is ${task.state}; only a ready todo task can be run`,
     );
   }
-  const agent = input.agent ?? task.agent ?? plan.document.project.defaults;
+  const agent = runAgentFor(task, plan.document, input.agent);
   if (!agent) {
     throw new RunError("no_agent", `Choose an agent for ${task.id}, or set project.defaults`);
   }

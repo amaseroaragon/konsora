@@ -62,6 +62,7 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   not_active: 409,
   not_discardable: 409,
   no_adapter: 422,
+  invalid_agent: 422,
   lock_timeout: 503,
 };
 
@@ -447,6 +448,9 @@ export function createApp(options: AppOptions): Hono {
       throw new RunManagerError("not_found", "Runs are not available in this daemon");
     return options.runs;
   };
+
+  /** What each provider offers: installed and version, models with their efforts, profiles. */
+  api.get("/agents", async (c) => c.json({ agents: await runsOf().catalog.list() }));
 
   /** Launch a run of one task. Only the human calls this, and only for what they selected. */
   api.post("/projects/:id/runs", async (c) => {

@@ -226,6 +226,7 @@ export function createCodexAdapter(options: CodexAdapterOptions = {}): AgentAdap
   };
   return {
     id: "codex",
+    profiles: ["default"],
     detect: async () => {
       const found = await detectCodex({ command, prefixArgs: prefix, env });
       if (!found.installed) return found;

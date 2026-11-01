@@ -146,6 +146,10 @@ export type ModelInfo = { id: string; label: string; efforts: string[] };
 
 export interface AgentAdapter {
   readonly id: Provider;
+  /** The permission profiles it implements. Default `["default"]`. */
+  readonly profiles?: readonly string[];
+  /** It also takes model ids that `models()` does not list (see `AgentCatalogEntry`). */
+  readonly openModels?: boolean;
   detect(): Promise<DetectResult>;
   models(): Promise<ModelInfo[]>;
   start(spec: RunSpec, io?: RunIO): RunHandle;

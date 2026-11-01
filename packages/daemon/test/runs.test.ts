@@ -54,7 +54,7 @@ const decisions: ({ id: string } & PermissionDecision)[] = [];
 const fake: AgentAdapter = {
   id: "claude",
   detect: async () => ({ installed: true, version: "0.0.0" }),
-  models: async () => [],
+  models: async () => [{ id: "fake", label: "Fake", efforts: ["low", "high"] }],
   start(spec) {
     seen.push(spec);
     const queue = new EventQueue<RunEvent>();
@@ -603,5 +603,115 @@ describe("daemon start-up", () => {
     const res = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}`);
     expect(res.body.run.state).toBe("interrupted");
     expect(seen).toHaveLength(count);
+  });
+});
+
+describe("the agent catalog", () => {
+  const codexFake = (installed: boolean): AgentAdapter => ({
+    ...fake,
+    id: "codex",
+    profiles: ["default"],
+    detect: async () =>
+      installed
+        ? {
+            installed: true,
+            version: "0.166.0",
+            expected_version: "0.166.0",
+            version_matches: true,
+            transport: "app-server",
+          }
+        : { installed: false },
+    models: async () => [
+      { id: "gpt-6-luna", label: "GPT-6-Luna", efforts: ["low", "medium", "high"] },
+    ],
+  });
+
+  async function restart(codexInstalled: boolean) {
+    await daemon.close();
+    daemon = await startDaemon({
+      dataDir: data,
+      adapters: { claude: { ...fake, openModels: false }, codex: codexFake(codexInstalled) },
+    });
+  }
+
+  type Entry = { provider: string; installed: boolean; models: unknown[]; profiles: string[] };
+
+  it("lists Claude and Codex with version, models, efforts and profiles", async () => {
+    await restart(true);
+    const res = await api<{ agents: Entry[] }>("/agents");
+    expect(res.status).toBe(200);
+    expect(res.body.agents).toEqual([
+      {
+        provider: "claude",
+        installed: true,
+        version: "0.0.0",
+        models: [{ id: "fake", label: "Fake", efforts: ["low", "high"] }],
+        open_models: false,
+        profiles: ["default"],
+      },
+      {
+        provider: "codex",
+        installed: true,
+        version: "0.166.0",
+        expected_version: "0.166.0",
+        version_matches: true,
+        transport: "app-server",
+        models: [{ id: "gpt-6-luna", label: "GPT-6-Luna", efforts: ["low", "medium", "high"] }],
+        open_models: false,
+        profiles: ["default"],
+      },
+    ]);
+  });
+
+  it.each([
+    [
+      "a model it does not declare",
+      true,
+      { provider: "claude", model: "opus" },
+      /no model "opus"; use "fake"/,
+    ],
+    [
+      "an effort the model does not take",
+      true,
+      { provider: "codex", model: "gpt-6-luna", effort: "max" },
+      /does not take effort "max"; use "low", "medium", "high" or none/,
+    ],
+    [
+      "a profile it does not implement",
+      true,
+      { provider: "codex", model: "gpt-6-luna", permissions: "trusted" },
+      /no permission profile "trusted"; use "default"/,
+    ],
+    [
+      "a provider that is not installed",
+      false,
+      { provider: "codex", model: "gpt-6-luna" },
+      /codex is not installed/,
+    ],
+  ])("refuses to launch with %s (422) and creates no run", async (_, installed, agent, reason) => {
+    await restart(installed);
+    const res = await api<{ error: { code: string; message: string } }>(
+      `/projects/${projectId}/runs`,
+      { method: "POST", body: JSON.stringify({ task: "BE-01", agent }) },
+    );
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("invalid_agent");
+    expect(res.body.error.message).toMatch(reason);
+    const runs = await api<{ runs: Run[] }>(`/projects/${projectId}/runs`);
+    expect(runs.body.runs).toEqual([]);
+    expect(await taskState("BE-01")).toBe("todo");
+  });
+
+  it("launches with an agent the catalog declares", async () => {
+    await restart(true);
+    const res = await api<{ run: Run }>(`/projects/${projectId}/runs`, {
+      method: "POST",
+      body: JSON.stringify({
+        task: "BE-01",
+        agent: { provider: "claude", model: "fake", effort: "high" },
+      }),
+    });
+    expect(res.status).toBe(201);
+    expect((await settled(res.body.run.id)).state).toBe("succeeded");
   });
 });

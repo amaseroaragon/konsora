@@ -28,7 +28,7 @@ export type StartOptions = {
   extraOrigins?: string[];
   /** Folder with the built web UI to serve outside `/api`. */
   webDir?: string;
-  /** Agent adapters by provider (tests pass fakes); default: the installed Claude Code. */
+  /** Agent adapters by provider (tests pass fakes); default: the installed Claude Code and Codex. */
   adapters?: RunManagerOptions["adapters"];
   /** How runs launch `konsora mcp`; default: this checkout's CLI. */
   mcp?: RunManagerOptions["mcp"];

@@ -1,5 +1,6 @@
 /** Konsora core: task schema v2 (CORE-01) and validation (CORE-02). Graph, state machine and store follow. */
 
+export * from "./agents.ts";
 export * from "./graph.ts";
 export * from "./hash.ts";
 export * from "./json-schema.ts";
