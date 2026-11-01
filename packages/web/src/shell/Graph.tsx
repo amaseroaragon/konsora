@@ -15,7 +15,18 @@ import {
 } from "@xyflow/react";
 import Elk, { type ELK } from "elkjs/lib/elk-api.js";
 import elkWorkerUrl from "elkjs/lib/elk-worker.min.js?url";
-import { type CSSProperties, memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type FocusEvent,
+  type KeyboardEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { BoardTask } from "../api/board.ts";
 import { t } from "../i18n/index.ts";
 import { cx } from "../ui/cx.ts";
@@ -33,6 +44,15 @@ import {
   type Positions,
   positionsOf,
 } from "./graph-model.ts";
+import {
+  entryNode,
+  type NavKey,
+  navGraph,
+  navigateGraph,
+  navKeys,
+  nodeLabel,
+  panIntoView,
+} from "./graph-nav.ts";
 
 type Layout = { key: string; positions: Positions; ms: number } | { key: string; error: string };
 
@@ -77,13 +97,18 @@ type TaskNodeData = {
   task: BoardTask;
   external: boolean;
   open: boolean;
+  /** Spoken name: id, title, state, dependencies and dependents. */
+  label: string;
+  /** The graph's single tab stop (roving tabindex). */
+  tabbable: boolean;
+  describedBy: string;
   onOpen: (id: string) => void;
 };
 type TaskNode = Node<TaskNodeData, "task">;
 
 /** A task in the graph: id, state and flags on top, title below, painted from its state tokens. */
 const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
-  const { task, external, open, onOpen } = data;
+  const { task, external, open, label, tabbable, describedBy, onOpen } = data;
   const tone = nodeTone(task);
   return (
     <div
@@ -94,8 +119,12 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
       <button
         type="button"
         className="g-node__open"
+        data-task={task.id}
+        tabIndex={tabbable ? 0 : -1}
         onClick={() => onOpen(task.id)}
-        aria-label={`${t("card.open", { id: task.id })}: ${task.title}`}
+        aria-label={label}
+        aria-describedby={describedBy}
+        aria-expanded={open}
       >
         <span className="g-node__head">
           <span className="g-node__id">{task.id}</span>
@@ -142,8 +171,17 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
   const [drawnMs, setDrawnMs] = useState<number | null>(null);
 
   const positions = layout && "positions" in layout ? layout.positions : null;
+  const nav = useMemo(() => (positions ? navGraph(tasks, positions) : null), [tasks, positions]);
+  const instructionsId = useId();
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const tabStop = nav
+    ? focusId && nav.depth.has(focusId)
+      ? focusId
+      : entryNode(nav, openId)
+    : null;
   const nodes = useMemo<TaskNode[]>(() => {
-    if (!positions) return [];
+    if (!positions || !nav) return [];
     return tasks.flatMap((task) => {
       const position = positions[task.id];
       if (!position) return [];
@@ -154,11 +192,19 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
           position,
           width: NODE_W,
           height: NODE_H,
-          data: { task, external: external.has(task.id), open: openId === task.id, onOpen },
+          data: {
+            task,
+            external: external.has(task.id),
+            open: openId === task.id,
+            label: nodeLabel(task, external.has(task.id), nav),
+            tabbable: task.id === tabStop,
+            describedBy: instructionsId,
+            onOpen,
+          },
         },
       ];
     });
-  }, [tasks, positions, external, openId, onOpen]);
+  }, [tasks, positions, nav, external, openId, onOpen, tabStop, instructionsId]);
   const edges = useMemo<Edge[]>(() => {
     const state = new Map(tasks.map((task) => [task.id, task.state]));
     return graphEdges(tasks).map((edge) => {
@@ -192,9 +238,54 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
     return () => cancelAnimationFrame(frame);
   }, [nodes.length, positions, flow]);
 
+  // Keep the focused node inside the view: the smallest pan that shows it, same zoom.
+  const reveal = useCallback(
+    (id: string) => {
+      const position = positions?.[id];
+      const box = section.current;
+      if (!position || !box) return;
+      // The graph fits in the page by design; bring all of it on screen if the page scrolled.
+      box.scrollIntoView({ block: "nearest", inline: "nearest" });
+      const size = { width: box.clientWidth, height: box.clientHeight };
+      const next = panIntoView(flow.getViewport(), size, position);
+      if (next) flow.setViewport(next);
+    },
+    [positions, flow],
+  );
+  const moveTo = (id: string) => {
+    setFocusId(id);
+    reveal(id);
+    section.current
+      ?.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`)
+      ?.focus({ preventScroll: true });
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    const from = (event.target as HTMLElement).dataset?.task;
+    const key = event.key as NavKey;
+    if (!from || !nav || !navKeys.includes(key)) return;
+    event.preventDefault();
+    const next = navigateGraph(nav, from, key);
+    if (next) {
+      setAnnouncement("");
+      moveTo(next);
+    } else {
+      // A trailing no-break space makes a repeated message count as new, so it is said again.
+      const text = t(`graph.nav.${key}`, { id: from });
+      setAnnouncement((prev) => (prev === text ? `${text}\u00a0` : text));
+    }
+  };
+  const onFocus = (event: FocusEvent<HTMLElement>) => {
+    const id = (event.target as HTMLElement).dataset?.task;
+    if (!id) return;
+    setFocusId(id);
+    reveal(id);
+  };
+
   return (
     <section
       ref={section}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
       className="g-graph"
       aria-label={label}
       data-layout-ms={positions && layout && "ms" in layout ? Math.round(layout.ms) : undefined}
@@ -205,6 +296,12 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
           {t("graph.error", { message: layout.error })}
         </p>
       )}
+      <p id={instructionsId} className="k-visually-hidden">
+        {t("graph.instructions")}
+      </p>
+      <p className="k-visually-hidden" aria-live="polite">
+        {announcement}
+      </p>
       {!layout && (
         <p className="g-graph__status s-muted" role="status">
           {t("graph.layout")}
@@ -219,7 +316,7 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
         elementsSelectable={false}
         nodesFocusable={false}
         edgesFocusable={false}
-        onlyRenderVisibleElements
+        disableKeyboardA11y
         minZoom={0.1}
         maxZoom={2}
         ariaLabelConfig={ariaLabels()}
@@ -232,7 +329,10 @@ function GraphCanvas({ label, tasks, external, openId, onOpen }: GraphProps) {
   );
 }
 
-/** The plan as a dependency graph laid out by ELK; clicking a node opens the task panel. */
+/**
+ * The plan as a dependency graph laid out by ELK. Clicking a node, or Enter on it, opens the task
+ * panel; the arrows walk the graph (graph-nav.ts) with one tab stop for the whole graph.
+ */
 export function Graph(props: GraphProps) {
   return (
     <ReactFlowProvider>
