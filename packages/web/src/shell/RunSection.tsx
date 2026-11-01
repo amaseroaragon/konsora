@@ -1,9 +1,11 @@
 import { isActiveRunState, type Run } from "@konsora/core";
 import { useEffect, useState } from "react";
+import { useApprovals } from "../api/approvals.ts";
 import { ApiError } from "../api/client.ts";
 import { useCancelRun, useRunEvents } from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
 import { Button, RunLog, useToast } from "../ui/index.ts";
+import { RunApprovals } from "./Approvals.tsx";
 import {
   formatSeconds,
   formatTokens,
@@ -51,6 +53,7 @@ export function RunSection({
   const usage = runUsage(run, events);
   const files = touchedFiles(events);
   const rows = logRows(events);
+  const approvals = (useApprovals().data ?? []).filter((a) => a.run === run.id);
   return (
     <section className="b-run a-stack" aria-label={t("run.id", { id: run.id })}>
       <div className="b-run__head">
@@ -84,6 +87,7 @@ export function RunSection({
           </div>
         )}
       </dl>
+      <RunApprovals approvals={approvals} readOnly={readOnly} />
       {children}
       <div>
         <div className="k-label">{t("run.files")}</div>

@@ -1,10 +1,12 @@
 import { pendingSubgraph } from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useApprovals } from "../api/approvals.ts";
 import { type BoardOk, type LiveState, toDocument } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { useRuns, useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Segmented, StateBadge, useToast } from "../ui/index.ts";
+import { ApprovalNotice } from "./Approvals.tsx";
 import { Board } from "./Board.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
@@ -68,6 +70,7 @@ export function ProjectView({
   const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
   const toast = useToast();
   const runs = useRuns(projectId).data;
+  const approvals = (useApprovals().data ?? []).filter((a) => a.project === projectId);
   const startRun = useStartRun(projectId);
   const selection = useSelection(projectId);
   const selectedIds = visibleSelection(selection.selected, board.tasks);
@@ -165,6 +168,7 @@ export function ProjectView({
           {t("project.back")}
         </a>
       </div>
+      <ApprovalNotice approvals={approvals} onOpen={open} />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
       <div className="b-layout">
         <div

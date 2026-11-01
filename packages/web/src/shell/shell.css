@@ -536,3 +536,20 @@
   margin: 0;
   padding-left: var(--k-space-4);
 }
+
+/* Approvals (UI-11) */
+.b-approval__input pre {
+  margin: var(--k-space-3) 0 0;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--k-text-xs);
+}
+.b-approvals {
+  margin-bottom: var(--k-space-5);
+}
+.b-approvals__list {
+  margin: var(--k-space-3) 0 0;
+  padding-left: var(--k-space-6);
+}
