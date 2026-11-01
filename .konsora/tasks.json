@@ -2736,7 +2736,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T14:26:55Z",
+      "updated_at": "2026-11-01T14:34:02Z",
       "notes": [
         {
           "id": "n1",
@@ -2758,6 +2758,13 @@
           "by": "agent:claude",
           "kind": "summary",
           "text": "Adaptador en packages/runner/src/codex/ (adapter.ts y normalize.ts): JSON-RPC por stdio con initialize, initialized, thread/start o thread/resume y turn/start. send() lanza otro turno, interrupt() usa turn/interrupt y endInput() cierra stdin. ac1: cinco grabaciones reales de codex-cli 0.166.0, limpias de datos personales, en test/fixtures/codex/: dos turnos con comandos y aprobaciones, apply_patch, interrupción, modelo inexistente y model/list. fake-codex.ts las reproduce respondiendo a los mensajes reales del adaptador, y codex.test.ts comprueba la secuencia de RunEvent, el uso por turno (deltas de los totales, con caché y razonamiento aparte), los rate limits five_hour/seven_day, los file relativos y el error de turno sin duplicar. Los tests no gastan cuota; grabar costó unos pocos turnos de gpt-6-luna con esfuerzo low. ac2: el test registra lo que recibe el codex falso: sandbox workspace-write, approvalPolicy on-request, nada de danger/bypass/never, y el MCP de Konsora solo dentro de config. El entorno del hijo no tiene ninguna KONSORA_* ni los tokens humanos o del run. Los perfiles distintos de default se rechazan. ac3: models() usa model/list (paginado) y devuelve los 8 modelos visibles con sus esfuerzos (test con la grabación). ac4: una línea malformada, un proceso que muere (exit 3, con stderr sin códigos ANSI), un thread/start rechazado, un ejecutable ausente y kill() acaban en error y un único finished con ok false. ac5: npm run check pasa (717 tests; el único aviso de Biome ya existía). Limitaciones: las aprobaciones del servidor se deniegan con un error explicativo hasta RUN-14. El daemon aún no registra el adaptador (DMN-05). Ver la nota sobre el sandbox, que afecta a RUN-16. Documentado en arquitectura.md §Codex."
+        },
+        {
+          "id": "n4",
+          "at": "2026-11-01T14:34:02Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Sandbox arreglado en esta máquina: el perfil /etc/apparmor.d/bwrap (userns para /usr/bin/bwrap) está cargado. Comprobado con codex sandbox en workspace-write: lee y escribe en el repo, no escribe fuera y no tiene red. app-server ya no emite el configWarning de bubblewrap. RUN-16 ya puede verificar con el codex real."
         }
       ]
     },
