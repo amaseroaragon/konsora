@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 import { createApp } from "./app.ts";
+import { Approvals } from "./approvals.ts";
 import { EventHub } from "./events.ts";
 import { ensurePrivateDir, readJson, writePrivateFile } from "./files.ts";
 import { createOversights } from "./oversight.ts";
@@ -28,7 +29,12 @@ export type StartOptions = {
   webDir?: string;
 };
 
-export type RunningDaemon = DaemonInfo & { dataDir: string; close: () => Promise<void> };
+export type RunningDaemon = DaemonInfo & {
+  dataDir: string;
+  /** Runs register here to get the token their MCP uses to ask for permissions (M6). */
+  approvals: Approvals;
+  close: () => Promise<void>;
+};
 
 function isAlive(pid: number): boolean {
   try {
@@ -70,14 +76,18 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const port = (server.address() as AddressInfo).port;
   const oversight = createOversights(dir);
   const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
+  let hub: EventHub | undefined;
+  const approvals = new Approvals({ onEvent: (event) => hub?.publish(event.project, event) });
   app = createApp({
     ...auth,
     registry,
     oversight,
+    approvals,
     ...(options.webDir ? { webDir: options.webDir } : {}),
   });
-  const hub = new EventHub({ ...auth, registry, oversight });
-  server.on("upgrade", hub.handleUpgrade);
+  const events = new EventHub({ ...auth, registry, oversight });
+  hub = events;
+  server.on("upgrade", events.handleUpgrade);
 
   const info: DaemonInfo = {
     url: `http://127.0.0.1:${port}`,
@@ -90,8 +100,10 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   return {
     ...info,
     dataDir: dir,
+    approvals,
     close: async () => {
-      hub.close();
+      approvals.close();
+      events.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       const current = await readJson<DaemonInfo>(join(dir, DAEMON_FILE)).catch(() => undefined);
       if (current?.token === token) await unlink(join(dir, DAEMON_FILE)).catch(() => undefined);

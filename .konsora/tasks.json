@@ -1538,7 +1538,7 @@
     {
       "id": "MCP-03",
       "title": "Modo run del MCP limitado a su tarea",
-      "state": "review",
+      "state": "done",
       "group": "MCP",
       "deps": [
         "MCP-02"
@@ -1570,7 +1570,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:21:37Z",
+      "updated_at": "2026-11-01T10:22:40Z",
       "notes": [
         {
           "id": "n1",
@@ -1591,7 +1591,7 @@
     {
       "id": "MCP-04",
       "title": "Herramienta permission del MCP para las aprobaciones de Claude",
-      "state": "todo",
+      "state": "review",
       "group": "MCP",
       "deps": [
         "MCP-03"
@@ -1623,7 +1623,23 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:08:14Z"
+      "updated_at": "2026-11-01T10:27:32Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T10:24:17Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Daemon: módulo approvals con runs registrados en memoria, cada uno con un token propio (no el token humano). POST /api/runs/:run/permissions (token del run) crea la aprobación pendiente, emite permission.requested por WS a los suscriptores del proyecto y espera la decisión o el plazo. GET /api/approvals y POST /api/runs/:run/permissions/:id (token humano) para listar y decidir. MCP: en modo run, la herramienta permission con el contrato de --permission-prompt-tool. Usa KONSORA_DAEMON_URL (solo loopback) y KONSORA_RUN_TOKEN, y cualquier fallo o el vencimiento del plazo da deny con un motivo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T10:27:32Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Herramienta permission del MCP y aprobaciones pendientes en el daemon.\n- Daemon (src/approvals.ts): el runner registra cada run con registerRun({run, project, task}) y recibe un token propio del run, distinto del token humano. Se expone en RunningDaemon.approvals para M6. POST /api/runs/:run/permissions (solo con el token del run, Host de loopback y sin Origin) crea la aprobación pendiente, emite permission.requested por WS a los suscriptores del proyecto y responde cuando el humano decide o vence el plazo (wait_s, por defecto 300). El humano usa GET /api/approvals y POST /api/runs/:run/permissions/:id {decision, message?} con su token. Al resolverse se emite permission.resolved. endRun y el cierre del daemon deniegan lo pendiente. Todo vive en memoria.\n- MCP (src/mcp-permission.ts): solo en modo run, la herramienta permission con el contrato de --permission-prompt-tool. Recibe {tool_name, input, tool_use_id?} y responde el texto JSON {behavior:'allow', updatedInput} o {behavior:'deny', message}. Usa KONSORA_DAEMON_URL (solo http a 127.0.0.1 o localhost, así el token nunca sale de la máquina), KONSORA_RUN_TOKEN y KONSORA_PERMISSION_TIMEOUT_S.\nCriterios:\n- ac1: con un daemon real, test/mcp-permission.test.ts y daemon/test/approvals.test.ts comprueban que allow devuelve allow con el input original y que deny devuelve deny con el motivo del humano.\n- ac2: sin daemon (puerto cerrado), sin URL, con una URL que no es loopback, con un token inválido, sin token, sin id de run y al vencer el plazo, la respuesta es deny con su motivo.\n- ac3: el token del run no puede decidir ni listar (403). El token humano no puede pedir en nombre de un run (403), ni el token de otro run, ni un run desconocido, ni una petición con Origin. Decidir una aprobación de otro run o con un id inexistente da 404, decidir dos veces da 409 y una decisión malformada da 400.\n- ac4: npm run check pasa (35 archivos, 538 tests). La única advertencia de Biome ya existía.\n- Docs: arquitectura.md §4 actualizado.\nLimitaciones: la pantalla para decidir y la persistencia de las aprobaciones llegan con los runs en M6. El contrato exacto de Claude Code para --permission-prompt-tool se verificará con una sesión real en MCP-06."
+        }
+      ]
     },
     {
       "id": "MCP-05",

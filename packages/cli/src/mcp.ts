@@ -9,6 +9,7 @@ import { TaskStateSchema } from "@konsora/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { registerPermissionTool } from "./mcp-permission.ts";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
 import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
@@ -32,13 +33,17 @@ const GUIDE =
   "Humans approve, accept and change approved work; there are no tools for that. " +
   "Never edit .konsora/tasks.json by hand.";
 
-function instructions(env: NodeJS.ProcessEnv): string {
-  let scope: RunScope;
+/** The run scope from the environment; a bad one shows up as an error on each write. */
+function scopeOf(env: NodeJS.ProcessEnv): RunScope {
   try {
-    scope = runScope(env);
+    return runScope(env);
   } catch {
-    return GUIDE;
+    return {};
   }
+}
+
+function instructions(env: NodeJS.ProcessEnv): string {
+  const scope = scopeOf(env);
   if (!scope.task) return GUIDE;
   return (
     `${GUIDE}\n\nYou are inside Konsora run ${scope.run ?? "(unnamed)"}, working on ${scope.task}. ` +
@@ -116,6 +121,8 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
   );
 
   registerWriteTools(server, io, root);
+  const scope = scopeOf(io.env);
+  if (scope.task) registerPermissionTool(server, io.env, scope);
   return server;
 }
 

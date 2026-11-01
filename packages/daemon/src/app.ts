@@ -15,7 +15,8 @@ import {
 import { mutate, readTasks } from "@konsora/core/store";
 import { Hono } from "hono";
 import { z } from "zod";
-import { type AuthConfig, guard } from "./auth.ts";
+import { Approvals } from "./approvals.ts";
+import { type AuthConfig, allowedHosts, guard } from "./auth.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
 import { site } from "./site.ts";
@@ -28,6 +29,8 @@ export type AppOptions = AuthConfig & {
   now?: () => Date;
   /** Folder with the built web UI (`packages/web/dist`), served outside `/api`. */
   webDir?: string;
+  /** Pending permission approvals of runs (MCP-04). */
+  approvals?: Approvals;
 };
 
 /** Every task as the UI needs it: stored fields, derived flags and the hash for `expect`. */
@@ -56,6 +59,22 @@ const OP_STATUS: Record<string, 400 | 403 | 404 | 409 | 422> = {
   invalid: 422,
 };
 
+const PermissionBody = z.strictObject({
+  tool_name: z.string().min(1).max(200),
+  input: z.record(z.string(), z.unknown()),
+  tool_use_id: z.string().max(200).optional(),
+  /** How long to wait for the human, in seconds (default 300, at most one hour). */
+  wait_s: z.number().int().min(1).max(3600).optional(),
+});
+
+const DecisionBody = z.strictObject({
+  decision: z.enum(["allow", "deny"]),
+  message: z.string().max(2000).optional(),
+});
+
+/** Largest permission request accepted (tool inputs can carry whole files). */
+const MAX_PERMISSION_BYTES = 1024 * 1024;
+
 const LinkBody = z.strictObject({
   path: z.string().min(1),
   name: z.string().min(1).max(80).optional(),
@@ -74,6 +93,7 @@ export function createApp(options: AppOptions): Hono {
   const now = () => (options.now?.() ?? new Date()).toISOString().replace(/\.\d{3}Z$/, "Z");
   const app = new Hono();
   const oversight = options.oversight ?? createOversights(registry.dataDir);
+  const approvals = options.approvals ?? new Approvals();
 
   app.onError((error, c) => {
     if (error instanceof RegistryError) {
@@ -319,7 +339,76 @@ export function createApp(options: AppOptions): Hono {
     });
   });
 
+  /** Pending permission approvals of every run, for the human. */
+  api.get("/approvals", (c) => c.json({ approvals: approvals.pending() }));
+
+  /** The human allows or denies one pending approval of a run. */
+  api.post("/runs/:run/permissions/:approval", async (c) => {
+    const body = DecisionBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success)
+      return c.json(
+        { error: { code: "bad_request", message: 'Send {decision: "allow" | "deny", message?}' } },
+        400,
+      );
+    const result = approvals.decide(c.req.param("run"), c.req.param("approval"), {
+      behavior: body.data.decision,
+      ...(body.data.message ? { message: body.data.message } : {}),
+    });
+    if (!result.ok)
+      return result.code === "resolved"
+        ? c.json({ error: { code: "resolved", message: "That approval was already decided" } }, 409)
+        : c.json(
+            {
+              error: { code: "not_found", message: "No pending approval with that id in this run" },
+            },
+            404,
+          );
+    return c.json({ ok: true, approval: result.approval });
+  });
+
   api.notFound((c) => c.json({ error: { code: "not_found", message: "Unknown endpoint" } }, 404));
+
+  /**
+   * A run's MCP asks for a permission (MCP-04). This is the only route that takes a run token
+   * instead of the human's: it can ask, never decide, and only for its own run. It answers when
+   * the human decides or the wait runs out (then deny).
+   */
+  app.post("/api/runs/:run/permissions", async (c) => {
+    const deny = (reason: string, message: string, status: 400 | 403 | 413) =>
+      c.json({ error: { code: "forbidden", reason, message } }, status);
+    const host = c.req.header("host")?.toLowerCase();
+    if (!host || !allowedHosts(options.port).has(host))
+      return deny("host", "Forbidden: unexpected Host header", 403);
+    // Only the run's MCP calls this; a browser never should.
+    if (c.req.header("origin")) return deny("origin", "Forbidden: origin not allowed", 403);
+    const token = /^Bearer ([0-9a-f]{64})$/.exec(c.req.header("authorization") ?? "")?.[1];
+    const info = token ? approvals.authenticate(c.req.param("run"), token) : undefined;
+    if (!info) return deny("token", "Forbidden: missing or invalid run token", 403);
+    const text = await c.req.text();
+    if (Buffer.byteLength(text) > MAX_PERMISSION_BYTES)
+      return deny("size", "The permission request is too large", 413);
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {}
+    const body = PermissionBody.safeParse(json);
+    if (!body.success)
+      return c.json(
+        {
+          error: { code: "bad_request", message: "Send {tool_name, input, tool_use_id?, wait_s?}" },
+        },
+        400,
+      );
+    c.header("Cache-Control", "no-store");
+    const { approval, decision } = await approvals.request(
+      info,
+      body.data,
+      (body.data.wait_s ?? 300) * 1000,
+      c.req.raw.signal,
+    );
+    return c.json({ id: approval.id, ...decision });
+  });
+
   app.route("/api", api);
   app.route("/", site(options));
   app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found" } }, 404));

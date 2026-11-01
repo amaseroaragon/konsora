@@ -10,6 +10,7 @@
  * - `board.changed` {project, hash, changes: {added, removed, modified}, external}
  * - `board.invalid` {project, message, issues}
  * - `board.missing` {project}
+ * - `permission.requested` / `permission.resolved` {project, run, approval} (MCP-04)
  */
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -204,6 +205,11 @@ export class EventHub {
       feed.stop();
       this.feeds.delete(projectId);
     }
+  }
+
+  /** Sends an event (e.g. `permission.requested`) to every client subscribed to the project. */
+  publish(projectId: string, payload: unknown) {
+    for (const client of this.feeds.get(projectId)?.clients ?? []) send(client, payload);
   }
 
   /** Number of projects currently watched (for tests and diagnostics). */
