@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRunPrompt } from "../src/run-prompt.ts";
+import { buildAnswerMessage, buildRunPrompt } from "../src/run-prompt.ts";
 import type { Note, Task, TasksDocument } from "../src/schema.ts";
 
 const at = "2026-11-02T10:00:00Z";
@@ -126,5 +126,39 @@ describe("buildRunPrompt", () => {
 
   it("refuses an unknown task", () => {
     expect(() => buildRunPrompt(document, "BE-99")).toThrow(/BE-99 does not exist/);
+  });
+});
+
+describe("buildAnswerMessage", () => {
+  // BE-02 without its trailing unanswered question.
+  const task2 = document.tasks[2] as Task;
+  const base: Task = { ...task2, notes: (task2.notes ?? []).slice(0, -1) };
+
+  it("carries the latest answer with its question", () => {
+    expect(buildAnswerMessage(base)).toBe(
+      [
+        "The human answered your question on BE-02.",
+        "",
+        "Question:",
+        "> Memory or Redis?",
+        "",
+        "Answer:",
+        "> Memory is enough for now.",
+        "",
+        "Continue with BE-02. When it is done, call `finish` with your summary.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("is null without an answer, or when a newer question is still open", () => {
+    expect(buildAnswerMessage({ ...base, notes: [note("question", "Q?")] })).toBeNull();
+    expect(buildAnswerMessage({ ...base, notes: [] })).toBeNull();
+    expect(
+      buildAnswerMessage({
+        ...base,
+        notes: [note("question", "Q1?"), note("answer", "A1"), note("question", "Q2?")],
+      }),
+    ).toBeNull();
   });
 });

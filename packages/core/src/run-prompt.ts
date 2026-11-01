@@ -130,3 +130,27 @@ function protocol(task: Task, document: TasksDocument, options: RunPromptOptions
     "- You cannot approve tasks, accept work or mark anything done; the human reviews your result.",
   ].join("\n");
 }
+
+/**
+ * The message that delivers the human's answer to a run's agent: the latest `answer` with the
+ * question it answers. `null` if the task has no answer after its latest question.
+ */
+export function buildAnswerMessage(task: Task): string | null {
+  const notes = task.notes ?? [];
+  const last = notes.findLastIndex((note) => note.kind === "answer");
+  const answer = notes[last];
+  if (!answer) return null;
+  const laterQuestion = notes.slice(last + 1).some((note) => note.kind === "question");
+  if (laterQuestion) return null;
+  const question = notes.slice(0, last).findLast((note) => note.kind === "question");
+  return [
+    `The human answered your question on ${task.id}.`,
+    ...(question ? ["", "Question:", quote(question.text)] : []),
+    "",
+    "Answer:",
+    quote(answer.text),
+    "",
+    `Continue with ${task.id}. When it is done, call \`finish\` with your summary.`,
+    "",
+  ].join("\n");
+}

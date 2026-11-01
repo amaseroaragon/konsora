@@ -10,8 +10,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Task, TasksDocument } from "@konsora/core";
-import { initTasks, readTasks } from "@konsora/core/store";
+import type { Op, Task, TasksDocument } from "@konsora/core";
+import { initTasks, mutate, readTasks } from "@konsora/core/store";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   type AgentAdapter,
@@ -140,6 +140,20 @@ function options(adapter: AgentAdapter, extra: Partial<SupervisorOptions> = {}):
     store,
     ...extra,
   };
+}
+
+/** The human's own ops (answer, accept…), which only the daemon applies in production. */
+async function human(op: Op): Promise<void> {
+  const result = await mutate(root, op, { actor: "human", at });
+  if (!result.ok) throw new Error(result.error.message);
+}
+
+async function until(check: () => Promise<boolean>, ms = 5000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!(await check())) {
+    if (Date.now() > deadline) throw new Error("timed out");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
 }
 
 async function taskIn(id: string): Promise<Task> {
@@ -318,15 +332,14 @@ describe("startRun", () => {
     expect(worktreePlan).not.toContain("Progress from inside the run.");
   });
 
-  it("keeps the agent's input open while it waits for an answer", async () => {
-    const handles: RunHandle[] = [];
+  it("delivers the human's answer to the live agent through its input", async () => {
     const answers: string[] = [];
     const adapter = fakeAdapter(
-      (spec) => {
+      (spec, emit) => {
+        emit({ t: "started", session: "s-1", model: "fake" });
         konsora(spec, "ask", "BE-01", "Memory or Redis?");
       },
       {
-        handles,
         onMessage: (spec) => {
           answers.push(spec.prompt);
           konsora(spec, "finish", "BE-01", "--summary", "Used memory.");
@@ -338,20 +351,78 @@ describe("startRun", () => {
     void session.done.then(() => {
       settled = true;
     });
-    const deadline = Date.now() + 5000;
-    while ((await store.readEvents(session.run.id)).length === 0 && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
+    await until(async () => (await taskIn("BE-01")).notes?.at(-1)?.kind === "question");
     await new Promise((resolve) => setTimeout(resolve, 200));
     // The turn ended with an open question: the run is still alive, waiting.
     expect(settled).toBe(false);
-    expect((await taskIn("BE-01")).notes?.at(-1)?.kind).toBe("question");
+    expect((await store.read(session.run.id)).state).toBe("running");
 
-    handles[0]?.send("Memory is enough.");
+    await human({ op: "answer", task: "BE-01", text: "Memory is enough." });
+    expect(await session.deliverAnswer()).toBe("stdin");
     const run = await session.done;
-    expect(answers).toEqual(["Memory is enough."]);
+    expect(answers).toHaveLength(1);
+    expect(answers[0]).toContain("> Memory or Redis?");
+    expect(answers[0]).toContain("> Memory is enough.");
     expect(run.state).toBe("succeeded");
     expect((await taskIn("BE-01")).state).toBe("review");
+    const events = (await store.readEvents(run.id)) as { t: string; delivery?: string }[];
+    expect(events.find((e) => e.t === "answer")).toMatchObject({ delivery: "stdin" });
+  });
+
+  it("resumes the saved session with the answer when the agent's process has ended", async () => {
+    const seen: RunSpec[] = [];
+    const adapter = fakeAdapter(
+      (spec, emit) => {
+        if (spec.resume) {
+          konsora(spec, "finish", "BE-01", "--summary", "Resumed and done.");
+          return;
+        }
+        emit({ t: "started", session: "s-42", model: "fake" });
+        konsora(spec, "ask", "BE-01", "Which TTL?");
+      },
+      { exit: { code: 0, signal: null }, seen },
+    );
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    const id = session.run.id;
+    await until(async () =>
+      ((await store.readEvents(id)) as { t: string }[]).some((e) => e.t === "waiting_answer"),
+    );
+    expect(seen).toHaveLength(1);
+    expect((await store.read(id)).state).toBe("running");
+
+    await human({ op: "answer", task: "BE-01", text: "Ten minutes." });
+    expect(await session.deliverAnswer()).toBe("resume");
+    const run = await session.done;
+
+    expect(seen).toHaveLength(2);
+    expect(seen[1]?.resume).toBe("s-42");
+    expect(seen[1]?.prompt).toContain("> Ten minutes.");
+    expect(run).toMatchObject({
+      state: "succeeded",
+      session_id: "s-42",
+      summary: "Resumed and done.",
+    });
+    const events = (await store.readEvents(id)) as {
+      t: string;
+      delivery?: string;
+      session?: string;
+    }[];
+    expect(events.find((e) => e.t === "answer")).toMatchObject({
+      delivery: "resume",
+      session: "s-42",
+    });
+  });
+
+  it("refuses to deliver when there is no answer", async () => {
+    const adapter = fakeAdapter((spec) => {
+      konsora(spec, "ask", "BE-01", "Q?");
+    });
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    await until(async () => (await taskIn("BE-01")).notes?.at(-1)?.kind === "question");
+    await expect(session.deliverAnswer()).rejects.toMatchObject({ code: "no_answer" });
+    await human({ op: "answer", task: "BE-01", text: "Stop here." });
+    await session.deliverAnswer();
+    expect((await session.done).state).toBe("failed");
   });
 
   it("follows pending approvals with waiting_approval", async () => {

@@ -21,6 +21,7 @@ import { join } from "node:path";
 import {
   type AgentSpec,
   blockers,
+  buildAnswerMessage,
   buildRunPrompt,
   indexTasks,
   isReady,
@@ -70,6 +71,11 @@ export type RunSession = {
   readonly done: Promise<Run>;
   /** The daemon calls this while one of the run's approvals is pending, and when it resolves. */
   setAwaitingApproval(waiting: boolean): Promise<void>;
+  /**
+   * The daemon calls this after the human answers the run's question (op `answer`): the answer
+   * goes to the live agent through its input, or resumes its session (`--resume`) if it ended.
+   */
+  deliverAnswer(): Promise<"stdin" | "resume">;
 };
 
 export class RunError extends Error {
@@ -79,6 +85,8 @@ export class RunError extends Error {
     | "no_agent"
     | "wrong_provider"
     | "invalid_plan"
+    /** `deliverAnswer` found no answer to the agent's question in the plan. */
+    | "no_answer"
     /** The run was created but could not start; it is left `failed`. */
     | "launch_failed";
   constructor(code: RunError["code"], message: string) {
@@ -192,19 +200,21 @@ export async function startRun(
       ? { KONSORA_DAEMON_URL: registered.url, KONSORA_RUN_TOKEN: registered.token }
       : {}),
   };
-  const handle = options.adapter.start(
-    {
-      prompt: run.prompt as string,
-      cwd: run.worktree as string,
-      agent: runAgent,
-      ...(plan.document.project.checks ? { checks: plan.document.project.checks } : {}),
-      mcp: { command: options.mcp.command, args: [...options.mcp.args], env },
-      privateDir,
-    },
-    { raw: (line) => void store.appendRaw(id, line).catch(() => undefined) },
-  );
+  const launch: Launch = (prompt, resume) =>
+    options.adapter.start(
+      {
+        prompt,
+        cwd: run.worktree as string,
+        agent: runAgent,
+        ...(plan.document.project.checks ? { checks: plan.document.project.checks } : {}),
+        mcp: { command: options.mcp.command, args: [...options.mcp.args], env },
+        privateDir,
+        ...(resume ? { resume } : {}),
+      },
+      { raw: (line) => void store.appendRaw(id, line).catch(() => undefined) },
+    );
 
-  const supervision = new Supervision(options, store, git, handle, run, now);
+  const supervision = new Supervision(options, store, git, launch, run, now);
   return {
     run,
     done: supervision.run().finally(async () => {
@@ -212,52 +222,95 @@ export async function startRun(
       await rm(privateDir, { recursive: true, force: true });
     }),
     setAwaitingApproval: (waiting) => supervision.setAwaitingApproval(waiting),
+    deliverAnswer: () => supervision.deliverAnswer(),
   };
 }
+
+/** Starts the agent: the run's prompt first, then an answer when resuming a session. */
+type Launch = (prompt: string, resume?: string) => RunHandle;
 
 class Supervision {
   readonly #options: SupervisorOptions;
   readonly #store: RunStore;
   readonly #git: Git;
-  readonly #handle: RunHandle;
+  readonly #launch: Launch;
   readonly #id: RunId;
   readonly #task: string;
+  readonly #prompt: string;
   readonly #worktree: string;
   readonly #base: string;
   readonly #now: () => string;
   #state: RunState;
+  #session: string | undefined;
   #usage = { input_tokens: 0, output_tokens: 0, cost: 0, priced: false };
   /** Serializes `run.json` updates coming from events and from the daemon. */
   #chain: Promise<unknown> = Promise.resolve();
+  /** The agent's process, while it is alive. */
+  #handle: RunHandle | null = null;
+  /** An answer that arrived while no process was alive, waiting to resume the session. */
+  #pendingAnswer: string | null = null;
+  /** Wakes a run that waits, without a process, for the human's answer. */
+  #wake: (() => void) | null = null;
 
   constructor(
     options: SupervisorOptions,
     store: RunStore,
     git: Git,
-    handle: RunHandle,
+    launch: Launch,
     run: Run,
     now: () => string,
   ) {
     this.#options = options;
     this.#store = store;
     this.#git = git;
-    this.#handle = handle;
+    this.#launch = launch;
     this.#id = run.id;
     this.#task = run.task;
+    this.#prompt = run.prompt as string;
     this.#worktree = run.worktree as string;
     this.#base = run.base_commit as string;
     this.#state = run.state;
+    this.#session = run.session_id;
     this.#now = now;
   }
 
   async run(): Promise<Run> {
+    let prompt = this.#prompt;
+    let resume: string | undefined;
+    for (;;) {
+      const handle = this.#launch(prompt, resume);
+      this.#handle = handle;
+      const finished = await this.#drain(handle);
+      const exit = await handle.exited;
+      this.#handle = null;
+
+      // The agent's process is gone while its question is still open: wait for the answer and
+      // resume the same session with it.
+      const task = await this.#readTask();
+      if (task?.state === "doing" && isWaiting(task) && this.#session) {
+        await this.#log({ t: "waiting_answer" });
+        const answer = await this.#nextAnswer();
+        await this.#log({ t: "answer", delivery: "resume", session: this.#session, text: answer });
+        prompt = answer;
+        resume = this.#session;
+        continue;
+      }
+      return this.#serial(() => this.#close(exit, finished));
+    }
+  }
+
+  /** Feeds the agent's events into the run until its process ends. */
+  async #drain(handle: RunHandle): Promise<Extract<RunEvent, { t: "finished" }> | undefined> {
     let finished: Extract<RunEvent, { t: "finished" }> | undefined;
-    for await (const event of this.#handle.events) {
-      await this.#store.appendEvent(this.#id, { at: this.#now(), ...event });
+    for await (const event of handle.events) {
+      await this.#log(event);
       if (event.t === "started") {
         await this.#serial(async () => {
           if (this.#state === "starting") await this.#move("running");
-          if (event.session) await this.#store.update(this.#id, { session_id: event.session });
+          if (event.session) {
+            this.#session = event.session;
+            await this.#store.update(this.#id, { session_id: event.session });
+          }
         });
       } else if (event.t === "permission") {
         await this.setAwaitingApproval(true);
@@ -271,13 +324,50 @@ class Supervision {
           this.#usage.priced = true;
         }
       } else if (event.t === "turn_end") {
-        await this.#afterTurn();
+        await this.#afterTurn(handle);
       } else if (event.t === "finished") {
         finished = event;
       }
     }
-    const exit = await this.#handle.exited;
-    return this.#serial(() => this.#close(exit, finished));
+    return finished;
+  }
+
+  /**
+   * The human answered the agent's question (op `answer` in the plan): send it to the live
+   * process, or resume the session with it if the process has ended.
+   */
+  async deliverAnswer(): Promise<"stdin" | "resume"> {
+    const task = await this.#readTask();
+    const message = task ? buildAnswerMessage(task) : null;
+    if (!message) {
+      throw new RunError("no_answer", `${this.#task} has no answer to deliver`);
+    }
+    if (this.#handle) {
+      this.#handle.send(message);
+      await this.#log({ t: "answer", delivery: "stdin", text: message });
+      return "stdin";
+    }
+    this.#pendingAnswer = message;
+    this.#wake?.();
+    return "resume";
+  }
+
+  #nextAnswer(): Promise<string> {
+    return new Promise((resolve) => {
+      const take = () => {
+        if (this.#pendingAnswer === null) return false;
+        const answer = this.#pendingAnswer;
+        this.#pendingAnswer = null;
+        this.#wake = null;
+        resolve(answer);
+        return true;
+      };
+      if (!take()) this.#wake = () => void take();
+    });
+  }
+
+  #log(event: Record<string, unknown>): Promise<void> {
+    return this.#store.appendEvent(this.#id, { at: this.#now(), ...event });
   }
 
   setAwaitingApproval(waiting: boolean): Promise<void> {
@@ -288,10 +378,11 @@ class Supervision {
   }
 
   /** The turn ended: keep the agent's input open only while it waits for the human's answer. */
-  async #afterTurn(): Promise<void> {
+  async #afterTurn(handle: RunHandle): Promise<void> {
+    if (this.#pendingAnswer !== null) return;
     const task = await this.#readTask();
     if (task?.state === "doing" && isWaiting(task)) return;
-    this.#handle.endInput();
+    handle.endInput();
   }
 
   async #close(
@@ -351,12 +442,7 @@ class Supervision {
         : exit.signal
           ? `the agent was stopped by ${exit.signal} before calling finish`
           : `the agent exited with code ${exit.code} before calling finish`;
-    await this.#store.appendEvent(this.#id, {
-      at: this.#now(),
-      t: "error",
-      message: `Run failed: ${reason}`,
-      retryable: false,
-    });
+    await this.#log({ t: "error", message: `Run failed: ${reason}`, retryable: false });
     if (task?.state === "doing") {
       await mutate(
         this.#options.root,
