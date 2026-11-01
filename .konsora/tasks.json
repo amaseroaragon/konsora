@@ -1906,7 +1906,7 @@
     {
       "id": "RUN-01",
       "title": "Modelo y almacén de runs",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "rank": "zzi",
       "desc": "Define en `core` el esquema zod de `run.json` (§6 de esquema-tareas.md) y la máquina de estados del run: `queued → starting → running ⇄ waiting_approval → checking → succeeded | failed | cancelled | interrupted`, con `integration.state` `pending → merged | conflict | discarded`. Las transiciones inválidas se rechazan con un error tipado. En `packages/runner` va el almacén de `.konsora/runs/<run-id>/`: `run.json` escrito de forma atómica, `events.jsonl` y `raw.jsonl` solo por añadido (`raw.jsonl` rotado a 20 MB), e id `r-` + ULID. También expone qué run activo tiene cada tarea (como mucho uno).",
@@ -1935,7 +1935,7 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:24:56Z",
+      "updated_at": "2026-11-01T11:25:39Z",
       "notes": [
         {
           "id": "n1",
@@ -1956,7 +1956,7 @@
     {
       "id": "RUN-02",
       "title": "Worktree y rama por run",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -1988,12 +1988,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:14:22Z"
+      "updated_at": "2026-11-01T11:29:03Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:26:35Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "packages/runner/src/git.ts: interfaz Git sustituible (spawn de git sin variables GIT_DIR/GIT_WORK_TREE heredadas, opción umask 077). packages/runner/src/worktree.ts: prepareWorktree (tarea ready, sin otro run activo, base_commit = HEAD de base_branch, git worktree add -b konsora/<task>/<short>), removeWorktree idempotente (worktree + rama, solo dentro de worktreesDir y ramas konsora/) y findOrphanWorktrees. El directorio de worktrees lo pasa quien llama (el daemon conoce el project-id). Tests sobre repos temporales."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:29:03Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "packages/runner/src/git.ts (interfaz Git sustituible; la implementación del sistema quita GIT_DIR/GIT_WORK_TREE/… heredados y admite umask) y packages/runner/src/worktree.ts.\n\n- ac1: prepareWorktree fija base_commit = HEAD de project.base_branch y ejecuta git worktree add -b konsora/<task>/<12 caracteres del ULID> en <worktreesDir>/<task>-<short> con umask 077 (carpeta 0700 y archivos sin permisos para otros). El test, sobre un repo temporal con el checkout en otra rama y cambios sin commitear, comprueba la rama, la ruta, el contenido de base_commit y que HEAD, la rama, el status y los archivos del checkout principal no cambian.\n- ac2: se rechazan con errores accionables una tarea inexistente, bloqueada («blocked by BE-03; finish those first»), no todo, con otro run activo («wait for it or cancel it»), una base_branch inexistente («fix project.base_branch») y una rama ya existente. Si git falla, no deja rama ni carpeta.\n- ac3: removeWorktree borra el worktree (aunque tenga cambios) y la rama, y una segunda llamada no hace nada. Se niega a tocar rutas fuera de worktreesDir o ramas que no sean konsora/.\n- findOrphanWorktrees detecta worktrees sin run, con el run ya integrado o descartado, con la carpeta borrada, carpetas sueltas y ramas konsora/ sin run, sin incluir los de runs activos o pendientes de integrar.\n- ac4: npm run check pasa (598 tests).\n\nEl directorio de worktrees lo pasa quien llama (el daemon conoce el project-id; el runner no puede depender del daemon). prepareWorktree devuelve worktree/branch/base_commit y RUN-05 los guardará en run.json. Documentado en arquitectura.md §5."
+        }
+      ]
     },
     {
       "id": "RUN-03",
       "title": "Prompt de run explícito y auditable",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -2025,12 +2041,28 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:14:49Z"
+      "updated_at": "2026-11-01T11:30:31Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:29:18Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "buildRunPrompt en core (run-prompt.ts): función pura y determinista con título, desc, criterios (con su check), checks del proyecto, notas feedback y answer (con la pregunta que responde), resúmenes de las dependencias e instrucciones de protocolo (MCP note/ask/finish, commits en la rama, no tocar .konsora/, sin push). Campo prompt en RunSchema y en §6."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:30:31Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "buildRunPrompt en packages/core/src/run-prompt.ts: función pura y determinista (mismo plan → mismo texto), en inglés como el resto de mensajes para agentes.\n\n- ac1: incluye título, desc, criterios con su check, los checks del proyecto, la rama y el protocolo (herramientas MCP note/ask/finish de Konsora, commits pequeños en la rama, no tocar .konsora/, nunca push ni cambiar de rama, no puede aprobar ni aceptar). Test con snapshot (packages/core/test/__snapshots__/run-prompt.test.ts.snap) y comprobación de cada parte.\n- ac2: entran las notas feedback y cada answer precedida de la pregunta que responde, y el último summary de cada dependencia («(no summary)» si no lo hay). Quedan fuera las notas ordinarias, las preguntas sin responder y los summary del propio agente (test). Las secciones vacías se omiten.\n- ac3: RunSchema tiene un campo opcional prompt (hasta 1 MB). El test del almacén crea un run con el prompt generado y comprueba que run.json lo guarda tal cual y se lee igual.\n- ac4: npm run check pasa (603 tests).\n\nDocumentado en esquema-tareas.md §6 (el ejemplo de run.json incluye prompt). Decisión: las preguntas se incluyen solo como contexto de su respuesta, para que la respuesta se entienda."
+        }
+      ]
     },
     {
       "id": "RUN-04",
       "title": "Adaptador de Claude Code (stream-json)",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-01"
@@ -2062,7 +2094,23 @@
         "at": "2026-11-01T10:40:37Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T11:14:36Z"
+      "updated_at": "2026-11-01T11:38:39Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T11:38:31Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Interfaz AgentAdapter/RunHandle/RunEvent en runner/src/adapter.ts y adaptador de Claude en runner/src/claude.ts (spawn de claude -p con stream-json, perfil default, MCP en modo run en un archivo privado, entorno sin KONSORA_*), con grabaciones reales como fixtures y un claude falso para los fallos. (Anotado al terminar: el trabajo se hizo antes de marcarla como empezada.)"
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T11:38:39Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Interfaz en packages/runner/src/adapter.ts (AgentAdapter, RunSpec, RunHandle, RunEvent) y adaptador en packages/runner/src/claude.ts.\n\n- ac1: dos grabaciones reales de Claude Code 2.1.316 con haiku (rutas anonimizadas) en packages/runner/test/fixtures/claude/: una sesión correcta con Read, Write, Edit, un Bash permitido y otro denegado, y una con modelo inexistente. El test fija la secuencia exacta de RunEvent (started, tool start/end, file add/modify, usage con rate_limits, message final, usage con tokens y coste, finished) sin lanzar claude. Grabarlas y una prueba real del adaptador costaron unos 0,015 $.\n- ac2: los argumentos nunca llevan --dangerously-*, --bare ni bypassPermissions, e incluyen --permission-prompt-tool mcp__konsora__permission, acceptEdits y --allowedTools del perfil default (test). Un claude falso registra su entorno real: sin ninguna variable KONSORA_* (ni KONSORA_DAEMON_TOKEN ni el token humano). El token del run solo va en la config MCP, un archivo 0600 en una carpeta privada 0700 que se borra al terminar (test).\n- ac3: una línea no JSON, un proceso que muere por SIGKILL, uno que sale con código 3 y un binario inexistente producen error y un único finished con ok false, sin excepciones sin capturar (tests). kill() pasa de SIGTERM a SIGKILL al grupo de procesos si hace falta (test).\n- ac4: npm run check pasa (617 tests).\n\nDecisiones (documentadas en arquitectura.md §5):\n1) claude sigue vivo con stdin abierto después de result (comprobado), así que finished se emite al salir el proceso y RunHandle tiene send() (respuestas a ask en la misma sesión) y endInput().\n2) --strict-mcp-config: el agente solo carga el MCP de Konsora en modo run, no otros MCP del usuario ni un konsora manual del .mcp.json del proyecto. Revísalo si prefieres conservar los MCP del usuario.\n3) Solo existe el perfil default; los demás devuelven un error claro.\n4) answerPermission queda como opcional para Codex (M7), porque con Claude las aprobaciones van por la herramienta MCP permission.\nPrueba real extra: el adaptador lanzó claude haiku con el MCP en modo run sobre un proyecto desechable y terminó con finished ok y exit 0."
+        }
+      ]
     },
     {
       "id": "RUN-05",
