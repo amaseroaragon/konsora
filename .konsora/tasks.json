@@ -2604,7 +2604,7 @@
     {
       "id": "RUN-11",
       "title": "Uso y rate limits de Claude",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "rank": "zzzzv",
       "desc": "Investiga y aprovecha lo que da la salida stream-json de Claude Code (lo pide el roadmap de M7). En las grabaciones de RUN-04 hay `result.usage` (entrada, caché creada y leída, salida, razonamiento), `result.modelUsage` (contextWindow, costUSD) y `rate_limit_event` (estado, ventana, `resetsAt`, `utilization` por ventana de 5 h y 7 días). Amplía `RunEvent.usage` y `run.json` con lo que sea fiable (por ejemplo, tokens de caché aparte y la utilización de cada ventana), sin romper los runs existentes, y documenta en arquitectura.md qué da Claude y qué no.",
@@ -2633,7 +2633,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T14:04:01Z",
+      "updated_at": "2026-11-01T14:04:26Z",
       "notes": [
         {
           "id": "n1",
@@ -2654,7 +2654,7 @@
     {
       "id": "RUN-12",
       "title": "Tipos del protocolo de codex app-server y comprobación de versión",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzx",
       "desc": "Genera los tipos con `codex app-server generate-ts` para la versión instalada (codex-cli 0.166.0) y guárdalos en `packages/runner/src/codex/protocol/` con un script reproducible (`npm run codex:types`). La salida son unos 760 archivos (3,2 MB) con `import type` sin extensión, que no encajan con `nodenext` + `allowImportingTsExtensions`: decide si se guarda todo o solo lo que usa el adaptador, y cómo se adaptan las extensiones (el script lo hace solo). Biome no formatea esa carpeta. `detect()` del adaptador compara la versión instalada con la de los tipos y avisa si no coinciden, sin bloquear.",
@@ -2679,7 +2679,23 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:57:55Z"
+      "updated_at": "2026-11-01T14:09:06Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T14:05:09Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Generar los tipos con codex app-server generate-ts, decidir qué se guarda y adaptar las extensiones con un script determinista (npm run codex:types), excluir la carpeta de Biome y añadir detect() con comparación de versión y un codex falso en los tests."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T14:09:06Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: npm run codex:types (packages/runner/scripts/codex-types.ts) ejecuta codex app-server generate-ts en una carpeta temporal y guarda en packages/runner/src/codex/protocol/ solo el cierre transitivo de las cuatro uniones del protocolo más las respuestas que leerá el adaptador (ROOTS en scripts/codex-protocol.ts). Con codex-cli 0.166.0 son 470 archivos y ~280 KB. Añade .ts a los imports relativos, sustituye los index.ts por índices de lo guardado (v2 y serde_json como espacios de nombres) y escribe version.ts. Lo ejecuté tres veces y el resultado fue idéntico. tsc estricto compila, y una prueba de tipos confirmó que resuelven. Biome excluye la carpeta. Hay tests del recorte y de que la carpeta guardada es autocontenida. ac2: detectCodex() da version, expected_version, version_matches y un warning que no bloquea si las versiones no coinciden (codex-detect.test.ts con fake-codex.ts: coincide, no coincide, no instalado o falla). ac3: npm run check pasa (702 tests; Biome solo muestra el aviso que ya existía en daemon/test/events.test.ts). Documentado en arquitectura.md §Codex y en los comandos de CLAUDE.md. Limitación: detectCodex todavía no está en ningún adaptador ni en el daemon; lo integra RUN-13."
+        }
+      ]
     },
     {
       "id": "RUN-13",
