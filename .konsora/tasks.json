@@ -1157,7 +1157,7 @@
     {
       "id": "UI-05",
       "title": "Vista de grafo con disposición ELK coloreada por estado",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "UI-03"
@@ -1193,7 +1193,7 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:22:38Z",
+      "updated_at": "2026-11-01T09:25:39Z",
       "notes": [
         {
           "id": "n1",
@@ -1214,7 +1214,7 @@
     {
       "id": "UI-06",
       "title": "Navegación con teclado en el grafo",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "UI-05"
@@ -1246,7 +1246,23 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:09:10Z"
+      "updated_at": "2026-11-01T09:31:04Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T09:26:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: modelo de navegación puro en graph-model (vecinos por estructura: izquierda=dependencias, derecha=dependientes, arriba/abajo=misma capa por posición), roving tabindex en los nodos, Intro abre y Escape cierra el panel, desplazamiento para mantener visible el nodo con foco, anuncios aria-live en español vía i18n, y test de alcanzabilidad en un plan de 150 tareas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T09:31:04Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "El grafo se usa sin ratón. Tiene un único punto de tabulación (la tarea abierta o, si no hay ninguna, la primera raíz de una cadena). Las flechas siguen la estructura con un modelo puro (graph-nav.ts): izquierda va a una dependencia, derecha a una tarea que depende de esta, arriba y abajo recorren la misma capa e Inicio y Fin saltan a sus extremos. Intro abre el panel y Escape lo cierra, y el foco se queda en el nodo. ac1: test de alcanzabilidad (solo con flechas se llega a las 150 tareas de un plan generado con disposición ELK) y prueba en Chrome: entrar con Tab, 20 teclas a 4 capas de profundidad, abrir y cerrar el panel. ac2: tras cada tecla el nodo con foco quedó dentro del grafo y de la ventana, con un contorno de 3 px; el desplazamiento mínimo (panIntoView) tiene tests. ac3: cada nodo se anuncia en español (tarea, estado, avisos, dependencias y tareas que dependen de ella) vía i18n, y los callejones sin salida en una región aria-live. ac4: npm run check pasa (455 tests). Ya no se ocultan los nodos fuera de la vista: el primer dibujo de 150 tareas sigue por debajo de 1 s (726 ms con la caché vacía). Commit f5b9969."
+        }
+      ]
     },
     {
       "id": "UI-07",
