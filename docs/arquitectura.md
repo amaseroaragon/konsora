@@ -179,6 +179,8 @@ Konsora **no lee, guarda ni transmite credenciales**: ejecuta el CLI oficial con
    - Si hay conflicto → `integration.state = conflict`, la tarea sigue en `review`, el worktree y la rama se conservan y la UI ofrece "pedir al agente que rebase" o "resolver a mano". Resuelto en la rama (se actualiza `head_commit`), se puede volver a integrar.
    - La integración no toca el plan: el daemon solo ejecuta `accept` después de integrar con éxito.
    - Al terminar, se eliminan el worktree y la rama. El run se conserva.
+7. **Cancelar**: se deniegan en el acto las aprobaciones pendientes del run, el agente recibe SIGINT y se cierra su entrada. Si no sale en 5 s, `kill()` envía SIGTERM a su grupo de procesos y, 5 s después, SIGKILL. El run queda `cancelled` y la tarea vuelve a `todo` con una nota de `konsora`; su trabajo queda en la rama. Un run que esperaba una respuesta sin proceso se cancela directamente.
+8. **Reiniciar el daemon**: `recoverRuns` marca como `interrupted` los runs que estaban vivos (`starting`, `running`, `waiting_approval`, `checking`), sin reanudar ni lanzar nada ni tocar el plan, y cancela los `queued` que quedaron a medias.
 
 ### Scheduler (M9)
 

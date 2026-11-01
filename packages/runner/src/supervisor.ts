@@ -59,6 +59,8 @@ export type SupervisorOptions = {
   mcp: Pick<McpServerSpec, "command" | "args">;
   /** The daemon's approvals; without it, permission requests are denied. */
   registry?: RunRegistry;
+  /** How long `cancel` waits after SIGINT before killing the agent. Default 5000 ms. */
+  interruptGraceMs?: number;
   store?: RunStore;
   git?: Git;
   now?: () => Date;
@@ -76,6 +78,12 @@ export type RunSession = {
    * goes to the live agent through its input, or resumes its session (`--resume`) if it ended.
    */
   deliverAnswer(): Promise<"stdin" | "resume">;
+  /**
+   * Cancels the run: its pending approvals are denied, the agent gets SIGINT (and its input is
+   * closed), and if it does not exit in time, SIGTERM to its process group and then SIGKILL.
+   * The run ends `cancelled` and the task goes back to `todo`. Resolves with the closed run.
+   */
+  cancel(): Promise<Run>;
 };
 
 export class RunError extends Error {
@@ -214,15 +222,19 @@ export async function startRun(
       { raw: (line) => void store.appendRaw(id, line).catch(() => undefined) },
     );
 
-  const supervision = new Supervision(options, store, git, launch, run, now);
+  const release = () => {
+    if (registered) options.registry?.unregister(id);
+  };
+  const supervision = new Supervision(options, store, git, launch, run, now, release);
   return {
     run,
     done: supervision.run().finally(async () => {
-      if (registered) options.registry?.unregister(id);
+      release();
       await rm(privateDir, { recursive: true, force: true });
     }),
     setAwaitingApproval: (waiting) => supervision.setAwaitingApproval(waiting),
     deliverAnswer: () => supervision.deliverAnswer(),
+    cancel: () => supervision.cancel(),
   };
 }
 
@@ -251,6 +263,9 @@ class Supervision {
   #pendingAnswer: string | null = null;
   /** Wakes a run that waits, without a process, for the human's answer. */
   #wake: (() => void) | null = null;
+  #cancelled = false;
+  readonly #release: () => void;
+  #done: Promise<Run> | null = null;
 
   constructor(
     options: SupervisorOptions,
@@ -259,7 +274,9 @@ class Supervision {
     launch: Launch,
     run: Run,
     now: () => string,
+    release: () => void,
   ) {
+    this.#release = release;
     this.#options = options;
     this.#store = store;
     this.#git = git;
@@ -274,7 +291,12 @@ class Supervision {
     this.#now = now;
   }
 
-  async run(): Promise<Run> {
+  run(): Promise<Run> {
+    this.#done ??= this.#supervise();
+    return this.#done;
+  }
+
+  async #supervise(): Promise<Run> {
     let prompt = this.#prompt;
     let resume: string | undefined;
     for (;;) {
@@ -287,9 +309,10 @@ class Supervision {
       // The agent's process is gone while its question is still open: wait for the answer and
       // resume the same session with it.
       const task = await this.#readTask();
-      if (task?.state === "doing" && isWaiting(task) && this.#session) {
+      if (!this.#cancelled && task?.state === "doing" && isWaiting(task) && this.#session) {
         await this.#log({ t: "waiting_answer" });
         const answer = await this.#nextAnswer();
+        if (answer === null) return this.#serial(() => this.#close(exit, finished));
         await this.#log({ t: "answer", delivery: "resume", session: this.#session, text: answer });
         prompt = answer;
         resume = this.#session;
@@ -352,9 +375,15 @@ class Supervision {
     return "resume";
   }
 
-  #nextAnswer(): Promise<string> {
+  /** The next answer to resume with, or `null` if the run is cancelled meanwhile. */
+  #nextAnswer(): Promise<string | null> {
     return new Promise((resolve) => {
       const take = () => {
+        if (this.#cancelled) {
+          this.#wake = null;
+          resolve(null);
+          return true;
+        }
         if (this.#pendingAnswer === null) return false;
         const answer = this.#pendingAnswer;
         this.#pendingAnswer = null;
@@ -364,6 +393,26 @@ class Supervision {
       };
       if (!take()) this.#wake = () => void take();
     });
+  }
+
+  async cancel(): Promise<Run> {
+    if (!this.#cancelled) {
+      this.#cancelled = true;
+      await this.#log({ t: "cancel" });
+      this.#release(); // pending approvals are denied right away
+      this.#wake?.();
+      const handle = this.#handle;
+      if (handle) {
+        await handle.interrupt();
+        handle.endInput();
+        const grace = this.#options.interruptGraceMs ?? 5000;
+        const timer = new Promise<"timeout">((resolve) =>
+          setTimeout(() => resolve("timeout"), grace).unref(),
+        );
+        if ((await Promise.race([handle.exited, timer])) === "timeout") await handle.kill();
+      }
+    }
+    return this.run();
   }
 
   #log(event: Record<string, unknown>): Promise<void> {
@@ -379,7 +428,7 @@ class Supervision {
 
   /** The turn ended: keep the agent's input open only while it waits for the human's answer. */
   async #afterTurn(handle: RunHandle): Promise<void> {
-    if (this.#pendingAnswer !== null) return;
+    if (this.#pendingAnswer !== null && !this.#cancelled) return;
     const task = await this.#readTask();
     if (task?.state === "doing" && isWaiting(task)) return;
     handle.endInput();
@@ -433,6 +482,24 @@ class Supervision {
       await this.#move("checking");
       // Checks run here from M8.
       return this.#store.transition(this.#id, "succeeded", fields);
+    }
+
+    if (this.#cancelled && !agentFinished) {
+      await this.#log({ t: "cancelled" });
+      if (task?.state === "doing") {
+        await mutate(
+          this.#options.root,
+          {
+            op: "pause",
+            task: this.#task,
+            text: `Konsora run ${this.#id} was cancelled. Its work is kept on its branch.`,
+          },
+          { actor: ACTOR, at: this.#now(), run: this.#id },
+        );
+      }
+      const run = await this.#store.transition(this.#id, "cancelled", fields);
+      this.#state = run.state;
+      return run;
     }
 
     const reason = agentFinished

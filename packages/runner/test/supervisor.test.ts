@@ -21,11 +21,22 @@ import {
   type RunHandle,
   type RunSpec,
 } from "../src/adapter.ts";
+import { createClaudeAdapter } from "../src/claude.ts";
 import { gitEnv } from "../src/git.ts";
 import { RunStore } from "../src/run-store.ts";
 import { RunError, type RunRegistry, type SupervisorOptions, startRun } from "../src/supervisor.ts";
 
 const cliBin = fileURLToPath(new URL("../../cli/src/bin.ts", import.meta.url));
+const fakeClaude = fileURLToPath(new URL("./fixtures/fake-claude.ts", import.meta.url));
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 const at = "2026-11-02T10:00:00Z";
 let root: string;
 let data: string;
@@ -451,6 +462,70 @@ describe("startRun", () => {
     expect((await store.read(id)).state).toBe("running");
     release();
     expect((await session.done).state).toBe("succeeded");
+  });
+
+  it("cancels a real process that ignores SIGINT, leaving no orphans", async () => {
+    const pids = join(data, "pids.json");
+    const adapter = createClaudeAdapter({
+      command: process.execPath,
+      prefixArgs: [fakeClaude],
+      env: { ...process.env, FAKE_CLAUDE_MODE: "ignore-int", FAKE_CLAUDE_PIDS: pids },
+      killGraceMs: 300,
+    });
+    const unregistered: string[] = [];
+    const registry: RunRegistry = {
+      register: async () => ({ url: "http://127.0.0.1:9999", token: "t" }),
+      unregister: (run) => unregistered.push(run),
+    };
+    const session = await startRun(options(adapter, { registry, interruptGraceMs: 300 }), {
+      task: "BE-01",
+    });
+    const id = session.run.id;
+    await until(async () => existsSync(pids) && (await store.read(id)).state === "running");
+    const { self, child } = JSON.parse(readFileSync(pids, "utf8")) as {
+      self: number;
+      child: number;
+    };
+    expect(alive(self) && alive(child)).toBe(true);
+
+    const run = await session.cancel();
+
+    expect(unregistered[0]).toBe(id); // pending approvals denied as soon as it is cancelled
+    expect(run.state).toBe("cancelled");
+    expect(run.exit).toEqual({ code: null, signal: "SIGTERM" });
+    await until(async () => !alive(self) && !alive(child), 3000);
+    const t = await taskIn("BE-01");
+    expect(t.state).toBe("todo");
+    expect(t.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      run: id,
+      text: expect.stringMatching(/was cancelled/),
+    });
+    const events = (await store.readEvents(id)) as { t: string }[];
+    expect(events.map((e) => e.t)).toEqual(expect.arrayContaining(["cancel", "cancelled"]));
+    // Cancelling again is harmless.
+    expect((await session.cancel()).state).toBe("cancelled");
+  });
+
+  it("cancels a run that waits for an answer without a process", async () => {
+    const seen: RunSpec[] = [];
+    const adapter = fakeAdapter(
+      (spec, emit) => {
+        emit({ t: "started", session: "s-9", model: "fake" });
+        konsora(spec, "ask", "BE-01", "Which TTL?");
+      },
+      { exit: { code: 0, signal: null }, seen },
+    );
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    await until(async () =>
+      ((await store.readEvents(session.run.id)) as { t: string }[]).some(
+        (e) => e.t === "waiting_answer",
+      ),
+    );
+    const run = await session.cancel();
+    expect(run.state).toBe("cancelled");
+    expect(seen).toHaveLength(1);
+    expect((await taskIn("BE-01")).state).toBe("todo");
   });
 
   it("refuses tasks that are not ready, without creating a run", async () => {

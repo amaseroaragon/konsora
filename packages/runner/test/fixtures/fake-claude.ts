@@ -2,6 +2,7 @@
  * A stand-in for `claude` in tests. FAKE_CLAUDE_MODE picks the behaviour; FAKE_CLAUDE_DUMP is a
  * file where it records its argv, environment and the MCP config it was given.
  */
+import { spawn } from "node:child_process";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 
@@ -41,6 +42,16 @@ const result = (text: string) =>
   });
 
 if (mode === "stubborn") process.on("SIGTERM", () => undefined);
+if (mode === "ignore-int") {
+  // Ignores SIGINT and leaves a grandchild in its process group; only a group kill ends both.
+  process.on("SIGINT", () => undefined);
+  setInterval(() => undefined, 1000);
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  writeFileSync(
+    process.env.FAKE_CLAUDE_PIDS as string,
+    JSON.stringify({ self: process.pid, child: child.pid }),
+  );
+}
 
 const input = createInterface({ input: process.stdin });
 const messages: string[] = [];
@@ -64,6 +75,8 @@ input.on("line", (line) => {
     out({ type: "system", subtype: "init", session_id: "s-fake", model: "fake" });
     process.stderr.write("fatal: something broke\n");
     process.kill(process.pid, "SIGKILL");
+  } else if (mode === "ignore-int") {
+    out({ type: "system", subtype: "init", session_id: "s-int", model: "fake" });
   } else if (mode === "crash") {
     process.stderr.write("Error: bad things\n");
     process.exit(3);
@@ -72,4 +85,5 @@ input.on("line", (line) => {
 });
 input.on("close", () => {
   if (mode === "echo") process.exit(0);
+  // "ignore-int" keeps running without input, like an agent stuck in a tool.
 });
