@@ -1267,7 +1267,7 @@
     {
       "id": "UI-07",
       "title": "Selección de tareas y de subgrafos compartida entre grafo y tablero",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "UI-05"
@@ -1299,7 +1299,7 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:40:43Z",
+      "updated_at": "2026-11-01T09:43:05Z",
       "notes": [
         {
           "id": "n1",
@@ -1320,7 +1320,7 @@
     {
       "id": "UI-08",
       "title": "Descripción y notas en markdown seguro en el panel de tarea",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "UI-03"
@@ -1352,7 +1352,23 @@
         "at": "2026-10-31T23:10:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T09:09:31Z"
+      "updated_at": "2026-11-01T09:46:52Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-01T09:43:34Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: renderizador propio de un subconjunto de markdown que construye elementos React (sin HTML en cadena ni dangerouslySetInnerHTML, sin dependencia nueva): encabezados, párrafos, listas, citas, bloques de código, código en línea, énfasis y enlaces solo http/https/mailto con rel=noopener noreferrer. Se usa en la descripción y en las notas del panel. Estilos con tokens de Plano y tests de seguridad."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-01T09:46:52Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "La descripción y las notas del panel se muestran como markdown seguro: encabezados, párrafos, listas anidadas, citas, bloques de código, separadores, código en línea, negrita, cursiva y enlaces (también las URL sueltas). No hay dependencia nueva: md-parse.ts construye un árbol y Markdown.tsx lo convierte en elementos React, sin HTML en cadena ni dangerouslySetInnerHTML; la alternativa habría sido marked + DOMPurify o react-markdown, que no están en arquitectura.md. ac1: el HTML y los scripts se muestran como texto (tests con script, img onerror, iframe, b y style). ac2: solo http, https y mailto se convierten en enlace, con target _blank y rel noopener noreferrer; javascript:, data:, vbscript:, file: y las rutas relativas se quedan como texto (tests, incluidas variantes con mayúsculas, espacios y tabuladores). ac3: en Chrome, con la CSP del daemon, todo se ve con los tokens de Plano en modo claro y oscuro, sin violaciones de CSP ni errores en la consola; los colores son pares que ya tienen validado el contraste AA. ac4: npm run check pasa (487 tests). Commit 9fe8d3a."
+        }
+      ]
     },
     {
       "id": "UI-09",
