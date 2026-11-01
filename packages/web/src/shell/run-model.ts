@@ -163,34 +163,88 @@ export function touchedFiles(events: readonly RunEventRecord[]): TouchedFile[] {
   return [...files.values()];
 }
 
-export type RunUsage = { input: number; output: number; cost: number | null };
+export type RunUsage = {
+  input: number;
+  output: number;
+  cost: number | null;
+  /** The parts the provider broke down, when it did. */
+  cacheRead?: number;
+  cacheWrite?: number;
+  reasoning?: number;
+};
 
-/** The run's usage: `run.json`'s once it closed, the sum of usage events while it is live. */
+/**
+ * The run's usage: `run.json`'s once it closed, the sum of usage events while it is live. `null`
+ * when the provider reported none (a closed run that wrote only zeros counts as none).
+ */
 export function runUsage(run: Run, events: readonly RunEventRecord[]): RunUsage | null {
   if (run.usage) {
-    return {
-      input: run.usage.input_tokens,
-      output: run.usage.output_tokens,
-      cost: run.usage.cost_usd,
+    const u = run.usage;
+    const parts = {
+      ...(u.cache_read_tokens !== undefined ? { cacheRead: u.cache_read_tokens } : {}),
+      ...(u.cache_write_tokens !== undefined ? { cacheWrite: u.cache_write_tokens } : {}),
+      ...(u.reasoning_tokens !== undefined ? { reasoning: u.reasoning_tokens } : {}),
     };
+    const reported =
+      u.input_tokens > 0 ||
+      u.output_tokens > 0 ||
+      u.cost_usd !== null ||
+      Object.keys(parts).length > 0;
+    if (!reported && !events.some((e) => e.t === "usage" && typeof e.input_tokens === "number")) {
+      return null;
+    }
+    return { input: u.input_tokens, output: u.output_tokens, cost: u.cost_usd, ...parts };
   }
-  let input = 0;
-  let output = 0;
+  const sum: Required<Omit<RunUsage, "cost">> = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    reasoning: 0,
+  };
+  const known = new Set<keyof typeof sum>();
   let cost: number | null = null;
-  let seen = false;
+  const fields = [
+    ["input_tokens", "input"],
+    ["output_tokens", "output"],
+    ["cache_read_tokens", "cacheRead"],
+    ["cache_write_tokens", "cacheWrite"],
+    ["reasoning_tokens", "reasoning"],
+  ] as const;
   for (const event of events) {
     if (event.t !== "usage") continue;
-    if (typeof event.input_tokens === "number") {
-      input += event.input_tokens;
-      seen = true;
-    }
-    if (typeof event.output_tokens === "number") {
-      output += event.output_tokens;
-      seen = true;
+    for (const [from, to] of fields) {
+      const value = event[from];
+      if (typeof value === "number") {
+        sum[to] += value;
+        known.add(to);
+      }
     }
     if (typeof event.cost_usd === "number") cost = (cost ?? 0) + event.cost_usd;
   }
-  return seen ? { input, output, cost } : null;
+  if (!known.has("input") && !known.has("output")) return null;
+  return {
+    input: sum.input,
+    output: sum.output,
+    cost,
+    ...(known.has("cacheRead") ? { cacheRead: sum.cacheRead } : {}),
+    ...(known.has("cacheWrite") ? { cacheWrite: sum.cacheWrite } : {}),
+    ...(known.has("reasoning") ? { reasoning: sum.reasoning } : {}),
+  };
+}
+
+/** A rate-limit window's name for people: "5 h", "7 días", "90 min"… (i18n keys). */
+export function windowLabel(window: string): string {
+  if (window === "five_hour") return t("limits.window.five_hour");
+  if (window === "seven_day") return t("limits.window.seven_day");
+  const minutes = /^window_(\d+)m$/.exec(window)?.[1];
+  if (minutes) return t("limits.window.minutes", { n: minutes });
+  return window;
+}
+
+/** 0.68 → "68 %". */
+export function formatUtilization(value: number): string {
+  return `${Math.round(value * 100)} %`;
 }
 
 /** Seconds from start to finish (or to `now` while it runs); null before it started. */

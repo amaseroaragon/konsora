@@ -260,6 +260,36 @@ export const RunSchema = z
   });
 
 export type Run = z.infer<typeof RunSchema>;
+
+export type ProviderRateLimits = {
+  provider: Run["agent"]["provider"];
+  /** The run they come from, and when it reported them (its end, or its start). */
+  run: Run["id"];
+  at: string;
+  windows: RateLimitWindow[];
+};
+
+/**
+ * The latest rate limits known for each provider: those of its most recent run that reported
+ * any. They describe the account, so a newer run replaces an older one whole.
+ */
+export function latestRateLimits(runs: readonly Run[]): ProviderRateLimits[] {
+  const latest = new Map<string, ProviderRateLimits>();
+  for (const run of runs) {
+    const windows = run.usage?.rate_limits;
+    const at = run.finished_at ?? run.started_at;
+    if (!windows || windows.length === 0 || !at) continue;
+    const known = latest.get(run.agent.provider);
+    if (known && (known.at > at || (known.at === at && known.run > run.id))) continue;
+    latest.set(run.agent.provider, {
+      provider: run.agent.provider,
+      run: run.id,
+      at,
+      windows: windows.map((w) => ({ ...w })),
+    });
+  }
+  return [...latest.values()].sort((a, b) => (a.provider < b.provider ? -1 : 1));
+}
 export type RunUsage = z.infer<typeof RunUsageSchema>;
 export type RateLimitWindow = z.infer<typeof RateLimitWindowSchema>;
 

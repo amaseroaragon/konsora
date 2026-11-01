@@ -85,13 +85,36 @@ export function RunSection({
         <div>
           <dt className="k-label">{t("run.tokens")}</dt>
           <dd className="k-mono">
-            {usage ? `${formatTokens(usage.input)} / ${formatTokens(usage.output)}` : "—"}
+            {usage
+              ? `${formatTokens(usage.input)} / ${formatTokens(usage.output)}`
+              : active
+                ? "—"
+                : t("run.usage.none")}
           </dd>
         </div>
-        {usage?.cost != null && (
+        {(usage?.cacheRead !== undefined || usage?.cacheWrite !== undefined) && (
+          <div>
+            <dt className="k-label">{t("run.cache")}</dt>
+            <dd className="k-mono">
+              {t("run.cache.value", {
+                read: formatTokens(usage.cacheRead ?? 0),
+                write: formatTokens(usage.cacheWrite ?? 0),
+              })}
+            </dd>
+          </div>
+        )}
+        {usage?.reasoning !== undefined && (
+          <div>
+            <dt className="k-label">{t("run.reasoning")}</dt>
+            <dd className="k-mono">{formatTokens(usage.reasoning)}</dd>
+          </div>
+        )}
+        {usage && (
           <div>
             <dt className="k-label">{t("run.cost")}</dt>
-            <dd className="k-mono">{`$${usage.cost.toFixed(2)}`}</dd>
+            <dd className="k-mono">
+              {usage.cost != null ? `$${usage.cost.toFixed(2)}` : t("run.cost.none")}
+            </dd>
           </div>
         )}
       </dl>

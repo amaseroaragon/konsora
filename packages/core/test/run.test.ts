@@ -5,6 +5,7 @@ import {
   canTransitionRun,
   createRunIdGenerator,
   isActiveRunState,
+  latestRateLimits,
   type Run,
   RunIdSchema,
   RunSchema,
@@ -128,6 +129,46 @@ describe("RunSchema", () => {
     ["a timestamp with offset", { started_at: "2026-11-02T10:00:00+01:00" }],
   ])("rejects %s", (_, patch) => {
     expect(RunSchema.safeParse({ ...base, ...patch }).success).toBe(false);
+  });
+});
+
+describe("latestRateLimits", () => {
+  const limited = (id: string, provider: "claude" | "codex", at: string, used: number): Run => ({
+    ...base,
+    id: `r-01JC8Z3K2QX7M4V9T0B6N5R8${id}`,
+    agent: { provider, model: "m" },
+    state: "succeeded",
+    finished_at: at,
+    usage: {
+      input_tokens: 1,
+      output_tokens: 1,
+      cost_usd: null,
+      rate_limits: [{ window: "five_hour", utilization: used }],
+    },
+  });
+
+  it("keeps each provider's most recent snapshot", () => {
+    const runs = [
+      limited("P1", "claude", "2026-11-01T10:00:00Z", 0.1),
+      limited("P2", "claude", "2026-11-01T12:00:00Z", 0.5),
+      limited("P3", "codex", "2026-11-01T11:00:00Z", 0.2),
+      { ...base, id: "r-01JC8Z3K2QX7M4V9T0B6N5R8P4", finished_at: "2026-11-01T13:00:00Z" } as Run,
+    ];
+    expect(latestRateLimits(runs)).toEqual([
+      {
+        provider: "claude",
+        run: "r-01JC8Z3K2QX7M4V9T0B6N5R8P2",
+        at: "2026-11-01T12:00:00Z",
+        windows: [{ window: "five_hour", utilization: 0.5 }],
+      },
+      {
+        provider: "codex",
+        run: "r-01JC8Z3K2QX7M4V9T0B6N5R8P3",
+        at: "2026-11-01T11:00:00Z",
+        windows: [{ window: "five_hour", utilization: 0.2 }],
+      },
+    ]);
+    expect(latestRateLimits([])).toEqual([]);
   });
 });
 

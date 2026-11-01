@@ -568,3 +568,23 @@
   align-items: center;
   gap: var(--k-space-3);
 }
+
+/* Rate limits (UI-14) */
+.b-limits {
+  margin-bottom: var(--k-space-5);
+}
+.b-limits__list,
+.b-limits__windows {
+  margin: var(--k-space-3) 0 0;
+  padding-left: var(--k-space-6);
+}
+.b-limits__windows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2);
+}
+.b-limits__meter {
+  inline-size: 8rem;
+  max-inline-size: 40vw;
+}
