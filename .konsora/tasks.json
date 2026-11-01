@@ -1697,7 +1697,7 @@
     {
       "id": "MCP-06",
       "title": "Verificación con sesiones reales de Claude Code y Codex",
-      "state": "review",
+      "state": "done",
       "group": "MCP",
       "deps": [
         "MCP-03",
@@ -1730,7 +1730,7 @@
         "at": "2026-11-01T09:57:32Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T10:35:04Z",
+      "updated_at": "2026-11-01T10:38:29Z",
       "notes": [
         {
           "id": "n1",
