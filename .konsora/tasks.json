@@ -44,12 +44,12 @@
     }
   ],
   "seq": {
-    "CORE": 6,
+    "CORE": 7,
     "CLI": 4,
-    "DMN": 6,
-    "UI": 15,
+    "DMN": 7,
+    "UI": 17,
     "MCP": 6,
-    "RUN": 17
+    "RUN": 21
   },
   "tasks": [
     {
@@ -442,6 +442,44 @@
           "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
+    },
+    {
+      "id": "CORE-07",
+      "title": "Modelo de checks en core: reintentos, resultados y cierre del run",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzv",
+      "desc": "Todo lo que M8 necesita de core, sin ejecutar nada:\n- `project.check_retries` (entero 0–5; si falta, 2), con el JSON Schema regenerado.\n- Una operación humana para cambiar `project.checks` y `project.check_retries`, porque hoy no hay ninguna y solo se podrían editar a mano.\n- `finish` dentro de un run deja la tarea en `doing` con su resumen, y la pasa a `review` (o a `done` en una cadena YOLO) una operación de `konsora` cuando acaban los checks, como ya dice esquema-tareas.md §146. En YOLO, solo con todo en verde.\n- El resultado de cada check por intento: id, origen (proyecto o criterio `acN`), comando, exit code, duración, si venció el timeout y la cola de su salida. Va en `checks.json`, y el resumen del último intento en `run.json`.\n- El prompt de reintento, determinista: los checks fallidos con la cola de su salida, recortada.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "check_retries se valida, se serializa canónicamente y su ausencia equivale a 2"
+        },
+        {
+          "id": "ac2",
+          "text": "Solo un humano puede cambiar project.checks y project.check_retries; un agente recibe forbidden"
+        },
+        {
+          "id": "ac3",
+          "text": "En un run, finish deja la tarea en doing con su summary; la operación de konsora la pasa a review, o a done en YOLO solo con todos los checks en verde (con tests)"
+        },
+        {
+          "id": "ac4",
+          "text": "Los esquemas de checks.json y run.json aceptan los nuevos campos y los run.json anteriores siguen siendo válidos"
+        },
+        {
+          "id": "ac5",
+          "text": "El prompt de reintento es determinista y recorta la salida de cada check a un tamaño fijo (con tests)"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
     },
     {
       "id": "CLI-01",
@@ -1018,6 +1056,39 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-02T10:35:08Z"
+    },
+    {
+      "id": "DMN-07",
+      "title": "Checks en la API y el WebSocket del daemon",
+      "state": "proposed",
+      "group": "DMN",
+      "deps": [
+        "RUN-18"
+      ],
+      "rank": "zzzzzzzi",
+      "desc": "El daemon expone el resultado de los checks de cada run, con todos sus intentos (GET de checks.json, validado con el esquema de core), y emite por WebSocket el inicio y el fin de cada check y los cambios de estado checking ↔ running. La operación humana de configurar los checks del proyecto pasa por el endpoint de ops, como las demás.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un endpoint devuelve los checks de un run con todos sus intentos y su salida recortada"
+        },
+        {
+          "id": "ac2",
+          "text": "El inicio y el fin de cada check llegan por WebSocket sin recargar"
+        },
+        {
+          "id": "ac3",
+          "text": "La operación humana de checks del proyecto funciona por /ops y se rechaza con el rol de agente"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
     },
     {
       "id": "UI-01",
@@ -1862,6 +1933,78 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-02T10:35:24Z"
+    },
+    {
+      "id": "UI-16",
+      "title": "Historial de checks en la revisión y en el detalle",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-07",
+        "RUN-19"
+      ],
+      "rank": "zzzzzzzr",
+      "desc": "La revisión muestra el historial de checks por intento: cada check en verde o en rojo, con su exit code, su duración, si venció el timeout y su salida desplegable. El detalle muestra junto a cada criterio el estado de su check. El log del run muestra los checks y los reintentos en vivo. Una tarea en revisión con checks en rojo se distingue en el tablero, y aceptarla pide confirmación explícita.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La revisión muestra todos los intentos con el resultado de cada check y su salida desplegable"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada criterio con check muestra su último resultado en el detalle"
+        },
+        {
+          "id": "ac3",
+          "text": "Las tarjetas en revisión con checks en rojo se distinguen, y Aceptar pide confirmación en ese caso"
+        },
+        {
+          "id": "ac4",
+          "text": "Textos por i18n y accesible con teclado"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
+    },
+    {
+      "id": "UI-17",
+      "title": "Configurar los checks del proyecto desde la UI",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-07",
+        "RUN-20"
+      ],
+      "rank": "zzzzzzzv",
+      "desc": "Una vista de ajustes del proyecto donde el humano edita `project.checks` (id, comando y timeout), `project.check_retries` y `project.setup`, y el editor de tareas permite poner un comando `check` en cada criterio de aceptación. Todo pasa por operaciones semánticas, nunca editando el archivo.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Se pueden añadir, editar, reordenar y quitar checks del proyecto, y cambiar los reintentos y el setup, con validación en el formulario"
+        },
+        {
+          "id": "ac2",
+          "text": "El editor de tareas permite añadir o quitar el check de un criterio"
+        },
+        {
+          "id": "ac3",
+          "text": "Los errores de validación del daemon se muestran junto al campo, y los textos van por i18n"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
     },
     {
       "id": "MCP-01",
@@ -3089,6 +3232,151 @@
           "text": "Commit 2841a1a. El runner calcula las rutas de git de cada run (runGitWritePaths en worktree.ts): el gitdir del worktree, .git/objects y las carpetas refs/ y logs/refs/heads/konsora/<tarea>/. Solo las que existen, y solo si el worktree está enlazado a una rama konsora/<tarea>/<id>. El supervisor las pasa en RunSpec.gitWritePaths y Codex las abre en su sandbox: sandboxPolicy workspaceWrite en cada turn/start con app-server, y -c sandbox_workspace_write.writable_roots en exec. En los dos casos la red queda fijada a desactivada aunque la configuración del usuario diga otra cosa.\n\n- ac1: run real de Codex (gpt-6-luna low, app-server) sobre el repo de prueba de RUN-16, DEMO-03. El agente hizo «printf … && git add && git commit» en su rama (commit 5ade0e4), con 0 peticiones de permiso, y el run terminó succeeded. En RUN-16 ese mismo commit fallaba con index.lock: Read-only file system.\n- ac2: con codex sandbox 0.166.0 y /tmp excluido, el commit en la rama funciona, y siguen bloqueados mover main (cannot lock refs/heads/main.lock), crear otra rama, escribir en el checkout principal y tocar .git/config. Además encontré y cerré un riesgo nuevo: con el gitdir escribible, el agente podía apuntar el HEAD del worktree a main, y el commit de restos que hace Konsora al cerrar el run (fuera del sandbox) habría movido main. Ahora el supervisor comprueba antes que el worktree sigue en su rama y en el repo del proyecto; si no, el run falla sin commit. Hay un test que lo cubre y falla si se quita la comprobación.\n- ac3: arquitectura.md explica qué rutas se abren y por qué, la comprobación del supervisor y el riesgo aceptado (con objects/ escribible, el agente podría borrar objetos sueltos; git fsck lo detectaría).\n\nComprobaciones: npm run check en verde (771 tests). Tests nuevos de runGitWritePaths con git real, de los parámetros de app-server y exec y del supervisor."
         }
       ]
+    },
+    {
+      "id": "RUN-18",
+      "title": "Ejecutar los checks del run en el worktree",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "CORE-07"
+      ],
+      "rank": "zzzzzzx",
+      "desc": "Cuando el agente llama a `finish`, el run pasa a `checking` y el runner ejecuta en el worktree, en orden, los `project.checks` y luego los `acceptance[].check` de la tarea, tal como estaban aprobados al lanzar el run.\n- Cada uno lleva su timeout (`timeout_s`, por defecto 600) y su propio grupo de procesos (SIGTERM y luego SIGKILL al vencer o al cancelar).\n- El entorno es el del usuario sin `KONSORA_*`. La salida se guarda recortada en `checks.json`.\n- Cada check emite eventos de inicio y fin en `events.jsonl` para el log en vivo.\n- Los checks ejecutan código del worktree, que ha escrito el agente, fuera del sandbox del agente, igual que si el humano lanzara `npm test`. Hay que documentarlo en arquitectura.md.\n- Un check no gasta tokens.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Tras finish, el run pasa por checking, ejecuta los checks en orden en el worktree y guarda checks.json con el resultado de cada uno"
+        },
+        {
+          "id": "ac2",
+          "text": "Un check que supera su timeout termina con todo su grupo de procesos y cuenta como fallido con timed_out (test sin procesos huérfanos)"
+        },
+        {
+          "id": "ac3",
+          "text": "Cancelar durante checking mata el check en curso y deja el run cancelled"
+        },
+        {
+          "id": "ac4",
+          "text": "El entorno de los checks no contiene KONSORA_* ni tokens (con test)"
+        },
+        {
+          "id": "ac5",
+          "text": "arquitectura.md describe la ejecución de checks y su modelo de confianza"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
+    },
+    {
+      "id": "RUN-19",
+      "title": "Bucle de corrección con los checks fallidos",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-18"
+      ],
+      "rank": "zzzzzzy",
+      "desc": "Si algún check falla y quedan reintentos (`project.check_retries`), el runner devuelve el trabajo al mismo agente del run: mismo proveedor y modelo, en la misma sesión (`send()` si sigue vivo, o reanudando con `--resume`/`thread/resume`), con el prompt de reintento. El run vuelve a `running`, y al siguiente `finish` se repiten todos los checks. Con todo en verde, la tarea pasa a `review`. Agotados los reintentos, pasa a `review` con los checks en rojo y una nota de `konsora` que lo dice: nunca en verde. Con 0 reintentos no se gasta ningún token extra.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un check fallido con reintentos disponibles devuelve el trabajo al mismo agente con la salida del fallo, y el run vuelve a running (con un adaptador falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "Si el reintento deja todo en verde, la tarea llega a review y checks.json conserva los dos intentos"
+        },
+        {
+          "id": "ac3",
+          "text": "Agotados los reintentos, la tarea llega a review con los checks en rojo y una nota de konsora; con check_retries = 0 no hay ningún reintento"
+        },
+        {
+          "id": "ac4",
+          "text": "Una tarea intermedia de una cadena YOLO solo pasa a done con todo en verde; con checks en rojo va a review"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
+    },
+    {
+      "id": "RUN-20",
+      "title": "Preparar el worktree antes del run (project.setup)",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "CORE-07"
+      ],
+      "rank": "zzzzzzz",
+      "desc": "Un worktree recién creado no tiene dependencias instaladas (`node_modules`, entornos virtuales…), así que checks como `npm test` fallarían por eso y no por el trabajo del agente. Se añade un comando opcional `project.setup` (p. ej. `npm ci`), que solo puede definir el humano. El runner lo ejecuta en el worktree tras crearlo y antes de lanzar al agente, con timeout. Si falla, el run falla con su salida y no se gasta ningún token.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "project.setup se valida y se serializa, y solo un humano puede cambiarlo"
+        },
+        {
+          "id": "ac2",
+          "text": "El runner ejecuta setup en el worktree antes de lanzar al agente, con timeout y su salida registrada en el run"
+        },
+        {
+          "id": "ac3",
+          "text": "Si setup falla, el run queda failed sin lanzar al agente y la tarea vuelve a todo con una nota que lo explica"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
+    },
+    {
+      "id": "RUN-21",
+      "title": "Verificación de M8 con un agente real",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "UI-16",
+        "UI-17"
+      ],
+      "rank": "zzzzzzzx",
+      "desc": "Cierra el hito con el criterio del roadmap sobre un repo de prueba, como RUN-09 y RUN-16. Una tarea con un test que falla al principio la corrige el agente en el reintento, y la revisión muestra el historial de checks. Con los reintentos agotados (p. ej. un check imposible), la tarea llega a review en rojo. Gasta cuota del usuario: se hace solo cuando el humano lo autorice, y los pasos y resultados quedan anotados.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run real corrige en el reintento un test que fallaba y la revisión muestra los dos intentos"
+        },
+        {
+          "id": "ac2",
+          "text": "Con los reintentos agotados, la tarea llega a review con los checks en rojo"
+        },
+        {
+          "id": "ac3",
+          "text": "Los pasos, las versiones y lo observado quedan anotados en la tarea"
+        }
+      ],
+      "labels": [
+        "m8"
+      ],
+      "created": {
+        "at": "2026-11-02T10:48:46Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:48:46Z"
     }
   ]
 }
