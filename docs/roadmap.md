@@ -39,7 +39,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 `packages/runner`: interfaz `AgentAdapter`, adaptador de Claude (stream-json), worktree y rama por run, prompt de run explícito, `events.jsonl` y `run.json`, cancelación (SIGINT → SIGTERM), estado `interrupted` tras reiniciar, `diff.patch`, integración squash al aceptar. En la UI: botón Ejecutar, log en vivo, aprobaciones, vista de revisión con diff.
 ✅ En un repo fixture, se ejecuta una tarea con el `claude` real; el log llega en vivo a la UI; la revisión muestra el diff; al aceptar queda **exactamente un commit** nuevo en `main` con trailers `Konsora-Task`/`Konsora-Run`, y el worktree y la rama se borran. Cancelar a mitad deja la tarea en `todo` y el run en `cancelled`. Tests del adaptador con grabaciones, sin gastar cuota.
 
-## M7 — Codex y selector de modelo
+## M7 — Codex y selector de modelo ✔ (2026-11-02)
 
 🔧 Adaptador `codex app-server` con tipos generados y comprobación de versión (plan B: `exec --json`). Selector de proveedor, modelo, esfuerzo y perfil por tarea y en la barra de selección, con los modelos que publica cada adaptador. Uso y rate limits visibles cuando el proveedor los expone; para Claude, se investiga qué ofrece su salida.
 ✅ La misma tarea fixture termina con Codex de principio a fin, como en M6. El selector solo ofrece modelos y niveles que el adaptador declara. Tras cada run, la UI muestra el uso de tokens o deja claro que el proveedor no lo da.

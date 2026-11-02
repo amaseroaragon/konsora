@@ -3047,7 +3047,7 @@
     {
       "id": "RUN-17",
       "title": "Permitir commits de Codex en el worktree sin salir del sandbox",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "rank": "zzzzzz",
       "desc": "En el perfil default de Codex (workspace-write), git commit en el worktree de un run falla con «index.lock: Read-only file system», porque el índice y las refs de un worktree viven en el .git común del repo principal, fuera de las raíces escribibles del sandbox. Así, cada commit de un run de Codex pide una aprobación al humano (visto en RUN-16). Hay que decidir y aplicar cómo dejar que el sandbox escriba solo lo necesario (p. ej. añadir a writable_roots el gitdir del worktree y los objetos y refs del .git común), sin abrir el checkout principal ni la rama base. Es una decisión de seguridad: documéntala en arquitectura.md.",
@@ -3072,7 +3072,7 @@
         "at": "2026-11-02T10:27:13Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:39:22Z",
+      "updated_at": "2026-11-02T10:41:27Z",
       "notes": [
         {
           "id": "n1",
