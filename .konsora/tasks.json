@@ -46,8 +46,8 @@
   "seq": {
     "CORE": 6,
     "CLI": 4,
-    "DMN": 5,
-    "UI": 14,
+    "DMN": 6,
+    "UI": 15,
     "MCP": 6,
     "RUN": 17
   },
@@ -990,6 +990,36 @@
       ]
     },
     {
+      "id": "DMN-06",
+      "title": "Leer los rate limits de cada proveedor sin lanzar un run",
+      "state": "todo",
+      "group": "DMN",
+      "rank": "zzzzzzi",
+      "desc": "Hoy los límites de uso solo se conocen al terminar un run, porque salen de su salida. El daemon debe poder darlos en cualquier momento y sin gastar cuota. En Codex, con account/rateLimits/read de app-server, más la notificación account/rateLimits/updated mientras haya runs. En Claude, con lo último que dieron sus runs, investigando si Claude Code expone los límites sin hacer una petición al modelo. Se exponen con GET /api/limits y un evento WebSocket limits.updated, con la fecha y el origen de cada dato.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "GET /api/limits devuelve las ventanas de Codex leídas de app-server sin lanzar ningún run ni gastar cuota"
+        },
+        {
+          "id": "ac2",
+          "text": "Para Claude devuelve lo último conocido con su fecha, o explica por qué no hay dato, y queda documentado qué se investigó"
+        },
+        {
+          "id": "ac3",
+          "text": "Un cambio en los límites llega a la UI por limits.updated sin recargar"
+        }
+      ],
+      "labels": [
+        "limits"
+      ],
+      "created": {
+        "at": "2026-11-02T10:32:19Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:35:08Z"
+    },
+    {
       "id": "UI-01",
       "title": "Base de la app web, i18n y `konsora ui`",
       "state": "done",
@@ -1795,6 +1825,43 @@
           "text": "Sección del run: muestra los tokens de entrada y salida, la caché (leída y escrita, como parte de la entrada), el razonamiento (como parte de la salida) y el coste. Si el proveedor no da coste (Codex), dice El proveedor no lo da. Si un run cerrado no tiene uso, o solo tiene ceros sin eventos de uso, dice El proveedor no da el uso. En vivo, runUsage suma también el desglose de los eventos usage. Página del proyecto: nuevo panel Últimos rate limits conocidos, con latestRateLimits de core, que toma la última foto de cada proveedor del run más reciente que la dio. Muestra cada ventana (5 h, 7 días o N min), su utilización con un meter y en %, su estado (disponible, cerca del límite o agotado) y cuándo se reinicia, y aclara que son de la cuenta y no del proyecto. ac1: tests en web/test/usage.test.tsx (desglose completo, Codex sin coste, run sin uso y suma en vivo). ac2: test con las ventanas de Claude y Codex, su utilización, estado y reinicio, más el test de core de latestRateLimits. ac3: npm run check pasa (757 tests). Limitaciones: los rate limits salen de run.json, que se escribe al cerrar el run, así que los de un run en marcha aparecen cuando termina. No lo he revisado en un navegador."
         }
       ]
+    },
+    {
+      "id": "UI-15",
+      "title": "Pestaña de límites de uso siempre visible",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "DMN-06"
+      ],
+      "rank": "zzzzzzr",
+      "desc": "Una pestaña o vista fija de Konsora, fuera de las tareas, con los límites de Codex y de Claude Code: cada ventana (5 h, 7 días…), su porcentaje usado, cuándo se reinicia y de cuándo es el dato. Se actualiza en vivo y sustituye al aviso que hoy aparece encima del tablero tras un run.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Desde cualquier pantalla se llega a la vista de límites en un clic"
+        },
+        {
+          "id": "ac2",
+          "text": "Muestra cada ventana con el porcentaje usado, el reinicio y la antigüedad del dato, y se actualiza sin recargar"
+        },
+        {
+          "id": "ac3",
+          "text": "Si un proveedor no da el dato, la vista lo dice en lugar de dejarlo vacío"
+        },
+        {
+          "id": "ac4",
+          "text": "Textos por i18n y accesible con teclado"
+        }
+      ],
+      "labels": [
+        "limits"
+      ],
+      "created": {
+        "at": "2026-11-02T10:32:19Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:35:24Z"
     },
     {
       "id": "MCP-01",
@@ -2921,7 +2988,7 @@
     {
       "id": "RUN-16",
       "title": "Verificación de M7 con el codex real",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-14",
@@ -2952,7 +3019,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:27:23Z",
+      "updated_at": "2026-11-02T10:28:30Z",
       "notes": [
         {
           "id": "n1",
@@ -2980,7 +3047,7 @@
     {
       "id": "RUN-17",
       "title": "Permitir commits de Codex en el worktree sin salir del sandbox",
-      "state": "proposed",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzzz",
       "desc": "En el perfil default de Codex (workspace-write), git commit en el worktree de un run falla con «index.lock: Read-only file system», porque el índice y las refs de un worktree viven en el .git común del repo principal, fuera de las raíces escribibles del sandbox. Así, cada commit de un run de Codex pide una aprobación al humano (visto en RUN-16). Hay que decidir y aplicar cómo dejar que el sandbox escriba solo lo necesario (p. ej. añadir a writable_roots el gitdir del worktree y los objetos y refs del .git común), sin abrir el checkout principal ni la rama base. Es una decisión de seguridad: documéntala en arquitectura.md.",
@@ -3005,7 +3072,23 @@
         "at": "2026-11-02T10:27:13Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:27:13Z"
+      "updated_at": "2026-11-02T10:39:22Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-02T10:33:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Reproducido con codex sandbox: el commit falla en .git/worktrees/<n>/index.lock. Con writable_roots = [gitdir del worktree, objects del .git común, refs/heads/konsora/<tarea> y logs/refs/heads/konsora/<tarea>] el commit funciona, y siguen bloqueados mover main, crear otras ramas, escribir en el checkout y tocar .git/config (probado con /tmp excluido). Plan: el runner calcula esas rutas (solo si existen y la rama es konsora/<tarea>/<id>) y las pasa en RunSpec; el adaptador de Codex las añade al sandbox en app-server (sandboxPolicy del turno) y en exec (-c sandbox_workspace_write.writable_roots). Tests y documentación en arquitectura.md."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-02T10:39:22Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 2841a1a. El runner calcula las rutas de git de cada run (runGitWritePaths en worktree.ts): el gitdir del worktree, .git/objects y las carpetas refs/ y logs/refs/heads/konsora/<tarea>/. Solo las que existen, y solo si el worktree está enlazado a una rama konsora/<tarea>/<id>. El supervisor las pasa en RunSpec.gitWritePaths y Codex las abre en su sandbox: sandboxPolicy workspaceWrite en cada turn/start con app-server, y -c sandbox_workspace_write.writable_roots en exec. En los dos casos la red queda fijada a desactivada aunque la configuración del usuario diga otra cosa.\n\n- ac1: run real de Codex (gpt-6-luna low, app-server) sobre el repo de prueba de RUN-16, DEMO-03. El agente hizo «printf … && git add && git commit» en su rama (commit 5ade0e4), con 0 peticiones de permiso, y el run terminó succeeded. En RUN-16 ese mismo commit fallaba con index.lock: Read-only file system.\n- ac2: con codex sandbox 0.166.0 y /tmp excluido, el commit en la rama funciona, y siguen bloqueados mover main (cannot lock refs/heads/main.lock), crear otra rama, escribir en el checkout principal y tocar .git/config. Además encontré y cerré un riesgo nuevo: con el gitdir escribible, el agente podía apuntar el HEAD del worktree a main, y el commit de restos que hace Konsora al cerrar el run (fuera del sandbox) habría movido main. Ahora el supervisor comprueba antes que el worktree sigue en su rama y en el repo del proyecto; si no, el run falla sin commit. Hay un test que lo cubre y falla si se quita la comprobación.\n- ac3: arquitectura.md explica qué rutas se abren y por qué, la comprobación del supervisor y el riesgo aceptado (con objects/ escribible, el agente podría borrar objetos sueltos; git fsck lo detectaría).\n\nComprobaciones: npm run check en verde (771 tests). Tests nuevos de runGitWritePaths con git real, de los parámetros de app-server y exec y del supervisor."
+        }
+      ]
     }
   ]
 }
