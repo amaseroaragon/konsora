@@ -85,10 +85,26 @@ export function codexThreadParams(
     : { method: "thread/start", params: common };
 }
 
+/**
+ * The `default` profile's sandbox, spelled out on every turn so the user's own Codex config cannot
+ * widen it: `workspace-write` over the worktree plus the run's git paths (so it can commit on its
+ * branch without asking), no network, and Codex's usual temporary folders.
+ */
+export function codexSandboxPolicy(spec: RunSpec): v2.SandboxPolicy {
+  return {
+    type: "workspaceWrite",
+    writableRoots: [...(spec.gitWritePaths ?? [])],
+    networkAccess: false,
+    excludeTmpdirEnvVar: false,
+    excludeSlashTmp: false,
+  };
+}
+
 export function codexTurnParams(thread: string, text: string, spec: RunSpec): v2.TurnStartParams {
   return {
     threadId: thread,
     input: [{ type: "text", text, text_elements: [] }],
+    sandboxPolicy: codexSandboxPolicy(spec),
     ...(spec.agent.effort ? { effort: spec.agent.effort } : {}),
   };
 }

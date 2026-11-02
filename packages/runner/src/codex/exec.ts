@@ -48,6 +48,12 @@ export function codexExecArgs(spec: RunSpec): string[] {
     `mcp_servers.konsora.args=${toml(spec.mcp.args)}`,
     `mcp_servers.konsora.env=${toml(execMcpEnv(spec.mcp.env))}`,
     ...(effort ? [`model_reasoning_effort=${toml(effort)}`] : []),
+    // Same sandbox as app-server (`codexSandboxPolicy`): no network whatever the user's config
+    // says, plus the run's git paths so it can commit on its branch.
+    "sandbox_workspace_write.network_access=false",
+    ...(spec.gitWritePaths?.length
+      ? [`sandbox_workspace_write.writable_roots=${toml(spec.gitWritePaths)}`]
+      : []),
   ].flatMap((entry) => ["-c", entry]);
   if (spec.resume) {
     // `exec resume` has no -s/-C: the sandbox goes through config, the cwd is the process's.

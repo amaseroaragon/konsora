@@ -165,6 +165,19 @@ describe("codexExecArgs", () => {
     ]);
     expect(args.slice(-2)).toEqual(["01a19791-7d3b-7683-8a4b-57858917212a", "-"]);
   });
+
+  it("keeps the network off and opens the run's git paths, also when resuming", () => {
+    expect(codexExecArgs(spec)).toContain("sandbox_workspace_write.network_access=false");
+    expect(codexExecArgs(spec).join(" ")).not.toContain("writable_roots");
+    const gitWritePaths = ["/repo/.git/worktrees/BE-01-x", "/repo/.git/objects"];
+    for (const resume of [undefined, "01a19791-7d3b-7683-8a4b-57858917212a"]) {
+      const args = codexExecArgs({ ...spec, gitWritePaths, ...(resume ? { resume } : {}) });
+      expect(args).toContain(
+        'sandbox_workspace_write.writable_roots=["/repo/.git/worktrees/BE-01-x", "/repo/.git/objects"]',
+      );
+      expect(args).toContain("sandbox_workspace_write.network_access=false");
+    }
+  });
 });
 
 type ExecDump = { args: string[]; env: Record<string, string>; cwd: string; stdin: string };

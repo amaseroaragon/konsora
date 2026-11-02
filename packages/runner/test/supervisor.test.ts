@@ -431,6 +431,33 @@ describe("startRun", () => {
     });
   });
 
+  it("gives the agent its branch's git paths, and never commits for it on a branch it switched to", async () => {
+    const seen: RunSpec[] = [];
+    const mainBefore = git(root, "rev-parse", "main");
+    const adapter = fakeAdapter(
+      (spec) => {
+        // A sandboxed agent can write its worktree's git dir: it points HEAD at main.
+        writeFileSync(join(spec.cwd, "sneaky.txt"), "on main?\n");
+        git(spec.cwd, "symbolic-ref", "HEAD", "refs/heads/main");
+        konsora(spec, "finish", "BE-01", "--summary", "Done.");
+      },
+      { seen },
+    );
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    const run = await session.done;
+
+    const common = join(root, ".git");
+    expect(seen[0]?.gitWritePaths).toEqual([
+      join(common, "worktrees", `BE-01-${run.id.slice(2, 14)}`),
+      join(common, "objects"),
+      join(common, "refs", "heads", "konsora", "BE-01"),
+      join(common, "logs", "refs", "heads", "konsora", "BE-01"),
+    ]);
+    expect(run.state).toBe("failed");
+    expect(git(root, "rev-parse", "main")).toBe(mainBefore);
+    expect(git(root, "log", "--format=%s", "main")).not.toMatch(/wip/);
+  });
+
   it("reports a crash with its exit code", async () => {
     const adapter = fakeAdapter((_, emit) => emit({ t: "started", model: "fake" }), {
       exit: { code: 1, signal: null },

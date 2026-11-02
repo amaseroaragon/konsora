@@ -328,12 +328,29 @@ describe("what Konsora sends to codex", () => {
     expect(byMethod("turn/start")?.params).toMatchObject({
       input: [{ type: "text", text: "Do the task.", text_elements: [] }],
       effort: "low",
+      sandboxPolicy: {
+        type: "workspaceWrite",
+        writableRoots: [],
+        networkAccess: false,
+        excludeTmpdirEnvVar: false,
+        excludeSlashTmp: false,
+      },
     });
     const sent = JSON.stringify(seen.received) + JSON.stringify(seen.args);
     expect(sent).not.toMatch(/danger|bypass|"never"/i);
     // The run's variables reach the MCP server through config only, never the child's env.
     expect(Object.keys(seen.env).filter((k) => k.startsWith("KONSORA_"))).toEqual([]);
     expect(JSON.stringify(seen.env)).not.toMatch(/human-token|run-token/);
+  });
+
+  it("opens the run's git paths in the sandbox so the agent can commit on its branch", async () => {
+    const { adapter: codex, dumpFile } = adapter("patch");
+    const gitWritePaths = ["/repo/.git/worktrees/BE-01-x", "/repo/.git/objects"];
+    await collect(codex.start({ ...spec, gitWritePaths }));
+    const turn = read(dumpFile).received.find((m) => m.method === "turn/start");
+    expect(turn?.params).toMatchObject({
+      sandboxPolicy: { type: "workspaceWrite", writableRoots: gitWritePaths, networkAccess: false },
+    });
   });
 
   it("resumes the saved thread with the same safety parameters", () => {

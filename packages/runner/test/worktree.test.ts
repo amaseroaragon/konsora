@@ -20,6 +20,7 @@ import {
   findOrphanWorktrees,
   prepareWorktree,
   removeWorktree,
+  runGitWritePaths,
   WorktreeError,
 } from "../src/worktree.ts";
 
@@ -360,5 +361,39 @@ describe("findOrphanWorktrees", () => {
 
   it("returns nothing for a repo without Konsora worktrees", async () => {
     expect(await findOrphanWorktrees({ root, worktreesDir, store })).toEqual([]);
+  });
+});
+
+describe("runGitWritePaths", () => {
+  it("opens the worktree's git dir, the objects and the run branch's ref folders, nothing else", async () => {
+    const run = await queued("BE-01");
+    const prepared = await prepareWorktree({
+      root,
+      worktreesDir,
+      document: plan,
+      task: "BE-01",
+      runId: run.id,
+      store,
+    });
+    const common = join(root, ".git");
+    const paths = await runGitWritePaths(prepared.worktree, prepared.branch);
+    expect(paths).toEqual([
+      join(common, "worktrees", `BE-01-${run.id.slice(2, 14)}`),
+      join(common, "objects"),
+      join(common, "refs", "heads", "konsora", "BE-01"),
+      join(common, "logs", "refs", "heads", "konsora", "BE-01"),
+    ]);
+    // Never the repo's config, hooks, HEAD or the base branch.
+    for (const path of paths) {
+      expect(path).not.toBe(common);
+      expect(path).not.toMatch(/config|hooks|refs\/heads$|refs\/heads\/main/);
+    }
+  });
+
+  it("returns nothing for the main checkout or a branch outside konsora/<task>/<id>", async () => {
+    expect(await runGitWritePaths(root, "feature")).toEqual([]);
+    expect(await runGitWritePaths(root, "konsora/BE-01/01ABCDEFGHJK")).toEqual([]);
+    expect(await runGitWritePaths(root, "konsora/../main/01ABCDEFGHJK")).toEqual([]);
+    expect(await runGitWritePaths(join(root, "missing"), "konsora/BE-01/01ABCDEFGHJK")).toEqual([]);
   });
 });

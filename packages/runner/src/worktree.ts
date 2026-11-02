@@ -320,3 +320,50 @@ function isInside(dir: string, path: string): boolean {
   const rel = relative(dir, path);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
+
+const RUN_BRANCH = /^konsora\/[A-Za-z0-9][A-Za-z0-9-]*\/[0-9A-Z]{12}$/;
+
+/**
+ * What in the repo's git directory a run must be able to write to commit on its own branch from
+ * inside a sandbox (Codex `workspace-write` protects `.git`, and a linked worktree keeps its index
+ * and HEAD in the main repo's `.git/worktrees/<name>`, outside the worktree):
+ *
+ * - the worktree's own git dir (index, HEAD, its reflog, COMMIT_EDITMSG),
+ * - the shared `objects/` (new blobs, trees and commits),
+ * - `refs/heads/konsora/<task>/` and `logs/refs/heads/konsora/<task>/` (the run's branch and its
+ *   reflog; the folder, because git writes `<ref>.lock` next to the ref).
+ *
+ * Never the main checkout, `config`, `hooks`, `HEAD`, `packed-refs` or any other branch, so the
+ * agent cannot move the base branch. Only paths that exist are returned, and nothing at all
+ * unless `worktree` is a linked worktree of a `konsora/<task>/<short>` branch: the caller then
+ * keeps the provider's default sandbox, which asks before writing git metadata.
+ */
+export async function runGitWritePaths(
+  worktree: string,
+  branch: string,
+  git: Git = systemGit,
+): Promise<string[]> {
+  if (!RUN_BRANCH.test(branch)) return [];
+  const result = await git
+    .run(["rev-parse", "--absolute-git-dir", "--git-common-dir"], { cwd: worktree })
+    .catch(() => null);
+  if (!result || result.code !== 0) return [];
+  const [gitDirLine, commonLine] = result.stdout.split("\n").map((line) => line.trim());
+  if (!gitDirLine || !commonLine) return [];
+  const gitDir = await realpath(gitDirLine).catch(() => null);
+  const commonDir = await realpath(resolve(worktree, commonLine)).catch(() => null);
+  if (!gitDir || !commonDir || !isInside(join(commonDir, "worktrees"), gitDir)) return [];
+  const task = branch.split("/")[1] as string;
+  const candidates = [
+    gitDir,
+    join(commonDir, "objects"),
+    join(commonDir, "refs", "heads", "konsora", task),
+    join(commonDir, "logs", "refs", "heads", "konsora", task),
+  ];
+  const present = await Promise.all(
+    candidates.map(async (path) =>
+      (await lstat(path).catch(() => null))?.isDirectory() ? path : null,
+    ),
+  );
+  return present.filter((path): path is string => path !== null);
+}

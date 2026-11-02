@@ -87,6 +87,11 @@ export type RunSpec = {
    * the run token). Created 0700; the adapter removes its own files when the run ends.
    */
   privateDir: string;
+  /**
+   * Folders in the repo's git directory the agent may write so it can commit on the run's branch
+   * (`runGitWritePaths`): a sandboxing adapter (Codex) adds them to its writable roots.
+   */
+  gitWritePaths?: readonly string[];
   /** Resume this provider session instead of starting a new one. */
   resume?: string;
 };

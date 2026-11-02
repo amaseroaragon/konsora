@@ -16,8 +16,8 @@
  *    Finished → `checking` → `succeeded` (checks arrive in M8). Not finished → `failed`, and the
  *    task goes back to `todo` with a runner note. The worktree stays until integrate or discard.
  */
-import { rm } from "node:fs/promises";
-import { join } from "node:path";
+import { realpath, rm } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import {
   type AgentSpec,
   blockers,
@@ -46,7 +46,7 @@ import type {
 import { type Git, systemGit } from "./git.ts";
 import { RunStore } from "./run-store.ts";
 import { UsageTally } from "./usage.ts";
-import { prepareWorktree, WorktreeError } from "./worktree.ts";
+import { prepareWorktree, runGitWritePaths, WorktreeError } from "./worktree.ts";
 
 /** Where the daemon registers runs for permission approvals (`Approvals.registerRun`). */
 export interface RunRegistry {
@@ -202,6 +202,7 @@ export async function startRun(
   }
 
   // ── Launch ─────────────────────────────────────────────────────────────────
+  const gitWritePaths = await runGitWritePaths(run.worktree as string, run.branch as string, git);
   let registered: { url: string; token: string } | null = null;
   try {
     registered = options.registry
@@ -238,6 +239,7 @@ export async function startRun(
         ...(plan.document.project.checks ? { checks: plan.document.project.checks } : {}),
         mcp: { command: options.mcp.command, args: [...options.mcp.args], env },
         privateDir,
+        ...(gitWritePaths.length ? { gitWritePaths } : {}),
         ...(resume ? { resume } : {}),
       },
       { raw: (line) => void store.appendRaw(id, line).catch(() => undefined) },
@@ -272,6 +274,7 @@ class Supervision {
   readonly #prompt: string;
   readonly #worktree: string;
   readonly #base: string;
+  readonly #branch: string;
   readonly #now: () => string;
   #state: RunState;
   #session: string | undefined;
@@ -309,6 +312,7 @@ class Supervision {
     this.#prompt = run.prompt as string;
     this.#worktree = run.worktree as string;
     this.#base = run.base_commit as string;
+    this.#branch = run.branch as string;
     this.#state = run.state;
     this.#session = run.session_id;
     this.#now = now;
@@ -504,6 +508,7 @@ class Supervision {
     const problems: string[] = [];
     let head: string | undefined;
     try {
+      await this.#checkWorktree();
       await this.#commitLeftovers();
       await this.#dropPlanChanges();
       head = await this.#gitOut(["rev-parse", "HEAD"]);
@@ -583,6 +588,25 @@ class Supervision {
     const run = await this.#store.transition(this.#id, "failed", fields);
     this.#state = run.state;
     return run;
+  }
+
+  /**
+   * Konsora's own git commands below run outside any sandbox, in the worktree. A sandboxed agent
+   * may write the worktree's git dir (`gitWritePaths`), so before trusting it, check that it is
+   * still on the run's branch and in the project's repo: otherwise a rewritten `HEAD` or
+   * `commondir` would let Konsora's commit move another branch.
+   */
+  async #checkWorktree(): Promise<void> {
+    const head = await this.#gitOut(["symbolic-ref", "-q", "HEAD"]);
+    if (head !== `refs/heads/${this.#branch}`) throw new Error("the worktree left its branch");
+    const common = async (cwd: string) => {
+      const out = await this.#git.run(["rev-parse", "--git-common-dir"], { cwd });
+      if (out.code !== 0) throw new Error("git rev-parse failed");
+      return realpath(resolve(cwd, out.stdout.trim()));
+    };
+    if ((await common(this.#worktree)) !== (await common(this.#options.root))) {
+      throw new Error("the worktree points to another repository");
+    }
   }
 
   /** Commits whatever the agent left uncommitted, except `.konsora/`. */
