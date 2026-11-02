@@ -49,7 +49,7 @@
     "DMN": 5,
     "UI": 14,
     "MCP": 6,
-    "RUN": 16
+    "RUN": 17
   },
   "tasks": [
     {
@@ -1696,7 +1696,7 @@
     {
       "id": "UI-13",
       "title": "Selector de agente por tarea y en la barra de selección",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-05"
@@ -1728,7 +1728,7 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T15:08:04Z",
+      "updated_at": "2026-11-01T15:08:43Z",
       "notes": [
         {
           "id": "n1",
@@ -2921,7 +2921,7 @@
     {
       "id": "RUN-16",
       "title": "Verificación de M7 con el codex real",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-14",
@@ -2952,7 +2952,60 @@
         "at": "2026-11-01T13:55:22Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-01T13:58:17Z"
+      "updated_at": "2026-11-02T10:27:23Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-02T10:22:33Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Autorizado por el humano el 2026-11-02. Como en RUN-09: repo de prueba desechable en el scratchpad con tareas aprobadas, daemon de esta rama con KONSORA_DATA_DIR propio y la web compilada manejada con Chrome headless por el protocolo DevTools. Elijo Codex en el selector del panel con el modelo más barato que declare el adaptador; una tarea que pida red para forzar una aprobación; revisión con diff y Aceptar. Después compruebo el selector y el uso con Claude (haiku) y con Codex."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-02T10:27:01Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Verificación real de M7 del 2026-11-02. Versiones: codex-cli 0.166.0 (igual a CODEX_PROTOCOL_VERSION, transporte app-server), Claude Code 2.1.316, Node 22.22.2, git 2.43.0, Google Chrome 146.0.7680.80 headless manejado por el protocolo DevTools desde un script del scratchpad (sin dependencias nuevas). Web recompilada (vite build) y daemon de esta rama con KONSORA_DATA_DIR propio. El perfil AppArmor de bwrap ya estaba cargado: codex sandbox funciona.\n\n**Montaje**: repo de prueba desechable en el scratchpad (git init, konsora init --agents-md, DEMO-01 y DEMO-02 propuestas con batch y aprobadas por la API del daemon), sin project.defaults para obligar a elegir agente en el selector.\n\n**Run de Codex de principio a fin (ac1, DEMO-01: crear saludo.txt con «hola mundo», commit, curl -sI https://example.com y anotar la primera línea)**\n- Panel de DEMO-01: proveedor codex, modelo gpt-6-luna, esfuerzo low, perfil default → «Ejecutar →».\n- El log creció en vivo sin recargar (1 → 2 → 4 → 5 → 6 → 8 filas en sondeos de 2 s): inicio con gpt-6-luna, mensaje, shell pwd, cat del SKILL.md, printf a saludo.txt, note.\n- Aprobación real: Codex pidió escalar «git add saludo.txt && git commit … && curl -sI https://example.com». Aparecieron el aviso global y la tarjeta con la entrada (command, cwd del worktree y reason). «Permitir» la retiró, curl devolvió HTTP/2 200 y el agente anotó y terminó con finish.\n- Run r-01M6DWKKESE6CV318044A7BWQS succeeded en 36 s, transport app-server. Uso: 214,7k de entrada (193,4k de caché leída) y 639 de salida, razonamiento 0. Coste: «El proveedor no lo da». Rate limits de Codex: 5 h al 0 % y 7 días al 42 %, en el panel global «Últimos rate limits conocidos».\n- La tarea pasó sola a revisión con el diff (1 archivos · +1 −0, saludo.txt +hola mundo), «Archivos tocados: saludo.txt nuevo», el resumen y el uso.\n- «Aceptar» → aviso «DEMO-01 aceptada e integrada en un commit (a47be99)». En main hay exactamente un commit nuevo, «DEMO-01: Añadir saludo.txt y comprobar la red», con el resumen como cuerpo y los trailers Konsora-Task: DEMO-01 y Konsora-Run: r-01M6DWKKESE6CV318044A7BWQS. git worktree list solo muestra main, git branch --list 'konsora/*' sale vacío y la carpeta de worktrees quedó vacía.\n\n**Selector y uso (ac2)**\n- GET /api/agents: claude (opus, sonnet, haiku; esfuerzos low…max; open_models) y codex (8 modelos de model/list: gpt-6.1-sol, gpt-6-astra, gpt-6.1-terra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna). Perfiles: solo default en ambos.\n- Las opciones de los <select> del panel coinciden exactamente con el catálogo, para los dos proveedores. Al cambiar a codex, el modelo pasó al primero declarado y el esfuerzo se vació.\n- Esfuerzos: Codex declara también «ultra» en 6 de sus modelos, pero el selector ofrece low…max, porque EffortSchema no incluye ultra (effortOptions filtra lo que Konsora no puede pedir). Es un subconjunto de lo declarado y cumple el criterio.\n- Claude (DEMO-02, haiku low): run r-01M6DWPGPWPQHKCTFEXQDYS3VZ succeeded en 11 s. Uso: 96,7k / 915 tokens, 71k de caché leída, 25,8k escrita, razonamiento 43, coste 0,01 $ (0,006319 $ en run.json). Rate limits de Claude: 5 h al 3 % y 7 días al 41 %. Aceptado → commit 7697a61 con trailers, sin worktree ni rama.\n- Codex sin coste: la UI dice «El proveedor no lo da» en lugar de dejar el hueco vacío.\n\n**Observaciones** (no bloquean M7):\n1. En el sandbox workspace-write de Codex, git commit en el worktree falla («index.lock: Read-only file system»): el índice de un worktree vive en .git/worktrees/<n> del repo principal, fuera de las raíces escribibles. Así que cada commit de un run de Codex necesita una aprobación. Aquí sirvió como la aprobación que pide el hito, pero en el uso diario es fricción. Lo propongo como tarea aparte, porque abrir el .git común al sandbox es una decisión de seguridad.\n2. Durante el run, «Archivos tocados» decía «Todavía no ha tocado archivos» aunque Codex ya había creado saludo.txt con un shell (printf). Al cerrarse el run se corrige con el diff. Es lo mismo que pasaba con Claude en RUN-09.\n3. Detalles cosméticos del log de Codex: las herramientas MCP salen como «mcp__konsora__note · mcp__konsora__note» (nombre repetido) y el primer comando como «/bin/bash -lc pwd» (con el envoltorio).\nCoste: Codex sin coste publicado (cuota de suscripción; 0 % de la ventana de 5 h); Claude 0,0063 $."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-02T10:27:23Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Verificación real de M7 sobre un repo de prueba desechable, manejando la UI con Chrome headless (protocolo DevTools), con codex-cli 0.166.0 (app-server, versión igual a la de los tipos) y Claude Code 2.1.316. Los pasos, versiones, capturas revisadas y usos están en la nota.\n\n- ac1: en el panel de DEMO-01 elegí codex · gpt-6-luna · low · default y pulsé Ejecutar. El log llegó en vivo (de 1 a 8 filas sin recargar). Codex pidió una aprobación real (git commit + curl, fuera del sandbox), que apareció en el aviso global y en la tarjeta; Permitir la retiró y el run terminó succeeded en 36 s. La tarea pasó sola a revisión con el diff (saludo.txt +1 −0), el resumen y el uso. Aceptar dejó exactamente un commit nuevo en main (a47be99, con el resumen y los trailers Konsora-Task y Konsora-Run) y borró el worktree y la rama.\n- ac2: las opciones del selector coinciden con GET /api/agents para claude (opus, sonnet, haiku) y para codex (los 8 modelos de model/list), con perfil default. Los esfuerzos son los declarados que Konsora admite (Codex declara también «ultra», que EffortSchema no tiene, así que no se ofrece). Uso tras cada run: Codex 214,7k/639 tokens con caché y razonamiento, «El proveedor no lo da» en el coste y rate limits de 5 h y 7 días. Claude (DEMO-02, haiku) 96,7k/915 tokens, 0,0063 $ y sus rate limits. DEMO-02 también se aceptó con un commit y trailers.\n- ac3: nota con versiones, montaje, pasos, ids de run, usos y observaciones.\n\nObservaciones: (1) dentro del sandbox de Codex, git commit falla porque el índice del worktree vive en el .git común, así que cada commit pide aprobación; lo propongo como RUN-17. (2) «Archivos tocados» no ve en vivo los archivos creados por shell (se corrige al cerrar el run). (3) Detalles cosméticos del log de Codex: nombres MCP repetidos y el envoltorio /bin/bash -lc. No cambié código."
+        }
+      ]
+    },
+    {
+      "id": "RUN-17",
+      "title": "Permitir commits de Codex en el worktree sin salir del sandbox",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzz",
+      "desc": "En el perfil default de Codex (workspace-write), git commit en el worktree de un run falla con «index.lock: Read-only file system», porque el índice y las refs de un worktree viven en el .git común del repo principal, fuera de las raíces escribibles del sandbox. Así, cada commit de un run de Codex pide una aprobación al humano (visto en RUN-16). Hay que decidir y aplicar cómo dejar que el sandbox escriba solo lo necesario (p. ej. añadir a writable_roots el gitdir del worktree y los objetos y refs del .git común), sin abrir el checkout principal ni la rama base. Es una decisión de seguridad: documéntala en arquitectura.md.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run de Codex con el perfil default hace git add y git commit en su rama sin pedir aprobación"
+        },
+        {
+          "id": "ac2",
+          "text": "El sandbox sigue sin poder escribir en el checkout principal ni mover la rama base (comprobado con codex sandbox, sin gastar cuota)"
+        },
+        {
+          "id": "ac3",
+          "text": "arquitectura.md explica qué rutas se abren y por qué"
+        }
+      ],
+      "labels": [
+        "m7"
+      ],
+      "created": {
+        "at": "2026-11-02T10:27:13Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-02T10:27:13Z"
     }
   ]
 }
