@@ -446,7 +446,7 @@
     {
       "id": "CORE-07",
       "title": "Modelo de checks en core: reintentos, resultados y cierre del run",
-      "state": "todo",
+      "state": "review",
       "group": "CORE",
       "rank": "zzzzzzv",
       "desc": "Todo lo que M8 necesita de core, sin ejecutar nada:\n- `project.check_retries` (entero 0–5; si falta, 2), con el JSON Schema regenerado.\n- Una operación humana para cambiar `project.checks` y `project.check_retries`, porque hoy no hay ninguna y solo se podrían editar a mano.\n- `finish` dentro de un run deja la tarea en `doing` con su resumen, y la pasa a `review` (o a `done` en una cadena YOLO) una operación de `konsora` cuando acaban los checks, como ya dice esquema-tareas.md §146. En YOLO, solo con todo en verde.\n- El resultado de cada check por intento: id, origen (proyecto o criterio `acN`), comando, exit code, duración, si venció el timeout y la cola de su salida. Va en `checks.json`, y el resumen del último intento en `run.json`.\n- El prompt de reintento, determinista: los checks fallidos con la cola de su salida, recortada.",
@@ -479,7 +479,23 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:52:35Z"
+      "updated_at": "2026-11-06T19:45:49Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T19:40:29Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Leer esquema y ops; añadir check_retries, op humana set-checks, finish en run deja doing + op de konsora para cerrar tras checks, esquema de checks.json/resumen en run.json y prompt de reintento."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T19:45:49Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: project.check_retries (entero 0–5) se valida con zod, se serializa canónicamente tras checks (también con 0), el JSON Schema está regenerado y checkRetries() da 2 si falta (tests en checks.test.ts). ac2: nueva op humana set-checks (checks y/o check_retries; [] y null los quitan); agente, agente en run y konsora reciben forbidden (ops.test.ts). ac3: dentro de un run, finish deja la tarea en doing con su summary (y permite volver a llamar a finish en un reintento); la op complete, solo de konsora y que exige un summary de ese run, la pasa a review, o a done en una cadena YOLO solo con checks_passed (tests de YOLO verde/rojo y de la tarea YOLO). El supervisor ya aplica complete tras checking (de momento sin checks, RUN-18). ac4: ChecksFileSchema (intentos con id, source project/acceptance, command, exit_code, duration_ms, timed_out, cola de salida ≤16 KB) y run.json con checks del último intento + check_attempts; los run.json anteriores siguen siendo válidos (test). También checking→running para reintentos. ac5: buildRetryPrompt determinista, solo checks fallidos, salida recortada a 4000 caracteres, con fences seguros (tests). Docs: esquema-tareas.md y arquitectura.md. Commit e468513; npm run check en verde (802 tests)."
+        }
+      ]
     },
     {
       "id": "CLI-01",
@@ -1030,7 +1046,7 @@
     {
       "id": "DMN-06",
       "title": "Leer los rate limits de cada proveedor sin lanzar un run",
-      "state": "review",
+      "state": "done",
       "group": "DMN",
       "rank": "zzzzzzi",
       "desc": "Hoy los límites de uso solo se conocen al terminar un run, porque salen de su salida. El daemon debe poder darlos en cualquier momento y sin gastar cuota. En Codex, con account/rateLimits/read de app-server, más la notificación account/rateLimits/updated mientras haya runs. En Claude, con lo último que dieron sus runs, investigando si Claude Code expone los límites sin hacer una petición al modelo. Se exponen con GET /api/limits y un evento WebSocket limits.updated, con la fecha y el origen de cada dato.",
@@ -1055,7 +1071,7 @@
         "at": "2026-11-02T10:32:19Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T19:40:24Z",
+      "updated_at": "2026-11-06T19:40:42Z",
       "notes": [
         {
           "id": "n1",
