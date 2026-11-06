@@ -3284,7 +3284,7 @@
     {
       "id": "RUN-18",
       "title": "Ejecutar los checks del run en el worktree",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "CORE-07"
@@ -3320,7 +3320,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T19:54:06Z",
+      "updated_at": "2026-11-06T20:02:27Z",
       "notes": [
         {
           "id": "n1",
@@ -3341,7 +3341,7 @@
     {
       "id": "RUN-19",
       "title": "Bucle de corrección con los checks fallidos",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "RUN-18"
@@ -3373,12 +3373,28 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:52:57Z"
+      "updated_at": "2026-11-06T20:10:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T20:08:05Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Tras un intento con checks en rojo y reintentos disponibles: run checking→running y reanudar la sesión del mismo agente con buildRetryPrompt; al siguiente finish se repiten todos los checks. Agotados: complete en rojo con nota de konsora."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T20:10:44Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: con checks en rojo y reintentos disponibles (check_retries leído al lanzar), el run pasa de checking a running, la tarea recibe una nota de konsora («retry N of M») y el mismo agente (mismo proveedor, modelo y esfuerzo) recibe buildRetryPrompt con la salida del fallo reanudando su sesión (--resume / thread/resume); queda un evento retry en events.jsonl (test con adaptador falso: segundo lanzamiento con resume=s-1 y el prompt del fallo). ac2: si el reintento deja todo en verde, la tarea llega a review y checks.json conserva los dos intentos ([0,1] y [0,0]); run.json con check_attempts 2. ac3: agotados los reintentos (2), la tarea llega a review con los checks en rojo y una nota «They still fail after 2 retries»; con check_retries = 0 hay un único lanzamiento. ac4: una tarea intermedia de una cadena YOLO solo pasa a done con todo en verde; con checks en rojo va a review (test). Tras un reintento solo cuenta un finish nuevo; si la sesión no se puede reanudar, no se reintenta y la nota lo dice. Docs en arquitectura.md. Commit 822c435; npm run check en verde (828 tests)."
+        }
+      ]
     },
     {
       "id": "RUN-20",
       "title": "Preparar el worktree antes del run (project.setup)",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "CORE-07"
@@ -3406,7 +3422,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T19:55:58Z",
+      "updated_at": "2026-11-06T20:02:29Z",
       "notes": [
         {
           "id": "n1",
