@@ -446,7 +446,7 @@
     {
       "id": "CORE-07",
       "title": "Modelo de checks en core: reintentos, resultados y cierre del run",
-      "state": "review",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzv",
       "desc": "Todo lo que M8 necesita de core, sin ejecutar nada:\n- `project.check_retries` (entero 0–5; si falta, 2), con el JSON Schema regenerado.\n- Una operación humana para cambiar `project.checks` y `project.check_retries`, porque hoy no hay ninguna y solo se podrían editar a mano.\n- `finish` dentro de un run deja la tarea en `doing` con su resumen, y la pasa a `review` (o a `done` en una cadena YOLO) una operación de `konsora` cuando acaban los checks, como ya dice esquema-tareas.md §146. En YOLO, solo con todo en verde.\n- El resultado de cada check por intento: id, origen (proyecto o criterio `acN`), comando, exit code, duración, si venció el timeout y la cola de su salida. Va en `checks.json`, y el resumen del último intento en `run.json`.\n- El prompt de reintento, determinista: los checks fallidos con la cola de su salida, recortada.",
@@ -479,7 +479,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T19:45:49Z",
+      "updated_at": "2026-11-06T19:46:25Z",
       "notes": [
         {
           "id": "n1",
@@ -1932,7 +1932,7 @@
     {
       "id": "UI-15",
       "title": "Pestaña de límites de uso siempre visible",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-06"
@@ -1964,7 +1964,23 @@
         "at": "2026-11-02T10:32:19Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:35:24Z"
+      "updated_at": "2026-11-06T19:49:36Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T19:45:59Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Vista #/limites con enlace fijo en la cabecera, datos de /api/limits y limits.updated en vivo; sustituye el aviso sobre el tablero."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T19:49:36Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: la cabecera de todas las pantallas (con sesión) tiene el enlace «Límites», con el uso más alto de cada proveedor (p. ej. «Claude Code 85 % · Codex 0 %»), que lleva a #/limites en un clic; marca aria-current en la vista. ac2: cada proveedor muestra sus ventanas (5 h, 7 días, 7 días por modelo, otras) con medidor y porcentaje usado, estado, reinicio relativo y absoluto, y de dónde y de cuándo es el dato (leído del proveedor / según el run X, hace N min); se actualiza sin recargar con limits.updated por un WebSocket sin suscripción y una consulta cada 60 s, y el botón «Leer ahora» fuerza la lectura. ac3: sin datos, dice «Todavía no hay datos de este proveedor» y el motivo de que no se pudieran leer. ac4: textos por i18n (pasa i18n-literals), tabla con encabezados y caption, enlace y botón nativos (orden de foco comprobado en Chrome). Sustituye el aviso sobre el tablero. Verificado en Chrome headless con el daemon y los CLI reales. Commit 8ecc79c; npm run check en verde (805 tests)."
+        }
+      ]
     },
     {
       "id": "UI-16",
