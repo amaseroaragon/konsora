@@ -136,7 +136,7 @@ const plan: TasksDocument = {
     name: "demo",
     base_branch: "main",
     defaults: { provider: "claude", model: "fake" },
-    checks: [{ id: "test", run: "npm test" }],
+    checks: [{ id: "test", run: "test -f readme.txt" }],
   },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 3 },
@@ -352,7 +352,8 @@ describe("startRun", () => {
         ],
       },
       summary: "Added feature.txt and updated the readme.",
-      checks: [],
+      checks: [{ id: "test", source: "project", exit_code: 0, timed_out: false }],
+      check_attempts: 1,
     });
     expect(run.prompt).toContain("Task BE-01: Task BE-01");
     expect((await taskIn("BE-01")).state).toBe("review");
@@ -382,6 +383,8 @@ describe("startRun", () => {
       "message",
       "turn_end",
       "finished",
+      "check",
+      "check",
     ]);
     for (const event of events) expect(event.at).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
     expect(
@@ -775,5 +778,156 @@ describe("startRun", () => {
       startRun(options(adapter), { task: "BE-01", agent: { provider: "codex", model: "x" } }),
     ).rejects.toThrow(/asks for codex/);
     expect((await store.list()).runs).toEqual([]);
+  });
+});
+
+describe("checks after finish (RUN-18)", () => {
+  async function withChecks(
+    checks: TasksDocument["project"]["checks"],
+    acceptance?: Task["acceptance"],
+  ) {
+    const result = await mutate(
+      root,
+      { op: "set-checks", checks: checks ?? [] },
+      { actor: "human", at },
+    );
+    if (!result.ok) throw new Error(result.error.message);
+    if (acceptance) {
+      const edit = await mutate(
+        root,
+        { op: "edit", task: "BE-01", changes: { acceptance } },
+        { actor: "human", at },
+      );
+      if (!edit.ok) throw new Error(edit.error.message);
+    }
+  }
+
+  const finishing = (extra: Script = () => undefined) =>
+    fakeAdapter(async (spec, emit) => {
+      emit({ t: "started", session: "s-1", model: "fake" });
+      writeFileSync(join(spec.cwd, "feature.txt"), "feature\n");
+      await extra(spec, emit);
+      konsora(spec, "finish", "BE-01", "--summary", "Added feature.txt.");
+    });
+
+  it("runs the project's checks, then the criteria's, in order in the worktree, and saves checks.json", async () => {
+    await withChecks(
+      [
+        { id: "lint", run: "test -f feature.txt && echo lint ok" },
+        { id: "where", run: "pwd" },
+      ],
+      [
+        { id: "ac1", text: "Has the feature", check: "grep -q feature feature.txt" },
+        { id: "ac2", text: "Reads well" },
+      ],
+    );
+    const session = await startRun(options(finishing()), { task: "BE-01" });
+    const run = await session.done;
+    expect(run).toMatchObject({
+      state: "succeeded",
+      check_attempts: 1,
+      checks: [
+        { id: "lint", source: "project", exit_code: 0, timed_out: false },
+        { id: "where", source: "project", exit_code: 0 },
+        { id: "ac1", source: "acceptance", exit_code: 0 },
+      ],
+    });
+    const file = await store.readChecks(run.id);
+    expect(file?.attempts).toHaveLength(1);
+    expect(file?.attempts[0]?.results.map((r) => r.command)).toEqual([
+      "test -f feature.txt && echo lint ok",
+      "pwd",
+      "grep -q feature feature.txt",
+    ]);
+    expect(file?.attempts[0]?.results[1]?.output).toBe(`${run.worktree}\n`);
+    // The run went through checking, and every check has start and end events.
+    const events = (await store.readEvents(run.id)) as { t: string; phase?: string; id?: string }[];
+    expect(events.filter((e) => e.t === "check").map((e) => `${e.phase}:${e.id}`)).toEqual([
+      "start:lint",
+      "end:lint",
+      "start:where",
+      "end:where",
+      "start:ac1",
+      "end:ac1",
+    ]);
+    expect((await taskIn("BE-01")).state).toBe("review");
+  });
+
+  it("with a failing check, the task goes to review with a Konsora note saying which", async () => {
+    await withChecks([
+      { id: "unit", run: "echo 1 failing; exit 1" },
+      { id: "slow", run: "sleep 30", timeout_s: 1 },
+    ]);
+    const session = await startRun(options(finishing(), { checkKillGraceMs: 200 }), {
+      task: "BE-01",
+    });
+    const run = await session.done;
+    expect(run.state).toBe("succeeded");
+    expect(run.checks).toMatchObject([
+      { id: "unit", exit_code: 1, timed_out: false },
+      { id: "slow", exit_code: null, timed_out: true },
+    ]);
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(after.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      kind: "note",
+      run: run.id,
+      text: expect.stringContaining("checks failed: unit (exit 1), slow (timed out)"),
+    });
+    expect((await store.readChecks(run.id))?.attempts[0]?.results[0]?.output).toBe("1 failing\n");
+  });
+
+  it("uses the checks approved at launch, not later edits", async () => {
+    await withChecks([{ id: "first", run: "true" }]);
+    const session = await startRun(
+      options(
+        finishing(async () => {
+          await human({ op: "set-checks", checks: [{ id: "later", run: "exit 9" }] });
+        }),
+      ),
+      { task: "BE-01" },
+    );
+    const run = await session.done;
+    expect(run.checks?.map((c) => c.id)).toEqual(["first"]);
+    expect((await taskIn("BE-01")).state).toBe("review");
+  });
+
+  it("cancelling during checking kills the check in progress and leaves the run cancelled", async () => {
+    const pids = join(data, "check.pid");
+    await withChecks([{ id: "hang", run: `sleep 60 & echo $! > ${pids}; sleep 60` }]);
+    const session = await startRun(options(finishing(), { checkKillGraceMs: 200 }), {
+      task: "BE-01",
+    });
+    await until(
+      async () => (await store.read(session.run.id)).state === "checking" && existsSync(pids),
+    );
+    const run = await session.cancel();
+    expect(run.state).toBe("cancelled");
+    expect(run.checks).toMatchObject([{ id: "hang", exit_code: null, timed_out: false }]);
+    const grandchild = Number(readFileSync(pids, "utf8"));
+    await until(async () => !alive(grandchild), 3000);
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("todo");
+    expect(after.notes?.at(-1)?.text).toContain("was cancelled");
+  });
+
+  it("runs the checks without Konsora's variables", async () => {
+    const out = join(data, "env.txt");
+    await withChecks([{ id: "env", run: `env > ${out}` }]);
+    const session = await startRun(
+      options(finishing(), {
+        checkEnv: { PATH: process.env.PATH, KONSORA_RUN_TOKEN: "t", KONSORA_DAEMON_TOKEN: "h" },
+        registry: {
+          register: async () => ({ url: "http://127.0.0.1:1", token: "run-token" }),
+          unregister: () => undefined,
+        },
+      }),
+      { task: "BE-01" },
+    );
+    await session.done;
+    const env = readFileSync(out, "utf8");
+    expect(env).not.toContain("KONSORA_");
+    expect(env).not.toContain("run-token");
   });
 });

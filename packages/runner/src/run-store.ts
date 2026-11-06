@@ -14,6 +14,9 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, readFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  type CheckAttempt,
+  type ChecksFile,
+  ChecksFileSchema,
   type IntegrationState,
   isActiveRunState,
   type Run,
@@ -39,6 +42,7 @@ export const EVENTS_FILE = "events.jsonl";
 export const RAW_FILE = "raw.jsonl";
 export const RAW_ROTATED_FILE = "raw.1.jsonl";
 export const DIFF_FILE = "diff.patch";
+export const CHECKS_FILE = "checks.json";
 export const RAW_MAX_BYTES = 20 * 1024 * 1024;
 
 export type RunStoreErrorCode =
@@ -251,6 +255,49 @@ export class RunStore {
         throw error;
       },
     );
+  }
+
+  /** Reads `checks.json`, or `null` if the run has not run its checks. */
+  async readChecks(id: RunId): Promise<ChecksFile | null> {
+    const text = await readFile(join(this.runDir(id), CHECKS_FILE), "utf8").catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      },
+    );
+    if (text === null) return null;
+    let value: unknown;
+    try {
+      value = JSON.parse(text);
+    } catch {
+      throw new RunStoreError("invalid", `Run ${id}: ${CHECKS_FILE} is not valid JSON`);
+    }
+    const parsed = ChecksFileSchema.safeParse(value);
+    if (!parsed.success || parsed.data.run !== id) {
+      throw new RunStoreError("invalid", `Run ${id}: ${CHECKS_FILE} is not valid`);
+    }
+    return parsed.data;
+  }
+
+  /** Adds an attempt to `checks.json` (atomically); its number must follow the last one. */
+  async appendCheckAttempt(id: RunId, attempt: CheckAttempt): Promise<ChecksFile> {
+    await this.read(id);
+    const current = (await this.readChecks(id)) ?? { run: id, attempts: [] };
+    const next: ChecksFile = { run: id, attempts: [...current.attempts, attempt] };
+    const parsed = ChecksFileSchema.safeParse(next);
+    if (!parsed.success) {
+      throw new RunStoreError(
+        "invalid",
+        `Run ${id}: attempt ${attempt.attempt} does not fit ${CHECKS_FILE}`,
+      );
+    }
+    await writeFileAtomically(
+      this.runDir(id),
+      CHECKS_FILE,
+      `${JSON.stringify(parsed.data, null, 2)}\n`,
+      FILE_MODE,
+    );
+    return parsed.data;
   }
 
   /** Reads `events.jsonl`, ignoring a trailing incomplete line. */

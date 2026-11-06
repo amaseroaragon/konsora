@@ -1,5 +1,6 @@
 /** Agent adapters, worktrees, scheduler, checks and git integration. */
 export * from "./adapter.ts";
+export * from "./checks.ts";
 export * from "./claude.ts";
 export { parseClaudeUsage, UsageUnsupportedError } from "./claude-usage.ts";
 export * from "./codex/adapter.ts";

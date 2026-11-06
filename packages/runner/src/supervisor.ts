@@ -13,8 +13,9 @@
  *    close it, the agent is done without finishing.
  * 4. Close (the process exited): commit what is left as `wip` (never `.konsora/`), record
  *    `head_commit` and `diff.patch` = `base_commit..HEAD` without `.konsora/`, usage and exit.
- *    Finished → `checking`, then `complete` moves the task to review (or done in a YOLO chain)
- *    → `succeeded` (checks arrive in M8). Not finished → `failed`, and the
+ *    Finished → `checking`: the checks approved at launch run in the worktree (`checks.ts`,
+ *    `checks.json`), then `complete` moves the task to review (or done in a YOLO chain with every
+ *    check green) → `succeeded`. Cancelled while checking → `cancelled`. Not finished → `failed`, and the
  *    task goes back to `todo` with a runner note. The worktree stays until integrate or discard.
  */
 import { realpath, rm } from "node:fs/promises";
@@ -24,11 +25,17 @@ import {
   blockers,
   buildAnswerMessage,
   buildRunPrompt,
+  type CheckAttempt,
+  checkPassed,
+  checkSummary,
+  checksPassed,
   indexTasks,
   isReady,
   isWaiting,
   type Note,
   newRunId,
+  type PlannedCheck,
+  plannedChecks,
   type Run,
   type RunId,
   type RunState,
@@ -44,6 +51,7 @@ import type {
   RunEvent,
   RunHandle,
 } from "./adapter.ts";
+import { runChecks } from "./checks.ts";
 import { type Git, systemGit } from "./git.ts";
 import { RunStore } from "./run-store.ts";
 import { UsageTally } from "./usage.ts";
@@ -86,6 +94,10 @@ export type SupervisorOptions = {
   store?: RunStore;
   git?: Git;
   now?: () => Date;
+  /** The environment the checks' is derived from (minus `KONSORA_*`). Default `process.env`. */
+  checkEnv?: NodeJS.ProcessEnv;
+  /** Between SIGTERM and SIGKILL when a check times out or is cancelled. Default 5000 ms. */
+  checkKillGraceMs?: number;
 };
 
 export type RunSession = {
@@ -249,7 +261,9 @@ export async function startRun(
   const release = () => {
     if (registered) options.registry?.unregister(id);
   };
-  const supervision = new Supervision(options, store, git, launch, run, now, release);
+  // The checks as approved now, at launch: later edits to the plan do not change this run's.
+  const checks = plannedChecks(plan.document, task.id);
+  const supervision = new Supervision(options, store, git, launch, run, now, release, checks);
   return {
     run,
     done: supervision.run().finally(async () => {
@@ -293,6 +307,11 @@ class Supervision {
   readonly #delivered = new Set<string>();
   readonly #release: () => void;
   #done: Promise<Run> | null = null;
+  readonly #checks: readonly PlannedCheck[];
+  /** Stops the check in progress when the run is cancelled during `checking`. */
+  #checksAbort: AbortController | null = null;
+  /** Check attempts so far (checks.json). */
+  #attempts = 0;
 
   constructor(
     options: SupervisorOptions,
@@ -302,8 +321,10 @@ class Supervision {
     run: Run,
     now: () => string,
     release: () => void,
+    checks: readonly PlannedCheck[],
   ) {
     this.#release = release;
+    this.#checks = checks;
     this.#options = options;
     this.#store = store;
     this.#git = git;
@@ -431,6 +452,7 @@ class Supervision {
       await this.#log({ t: "cancel" });
       this.#release(); // pending approvals are denied right away
       this.#wake?.();
+      this.#checksAbort?.abort(); // stops the check in progress, if any
       const handle = this.#handle;
       if (handle) {
         await handle.interrupt();
@@ -550,34 +572,32 @@ class Supervision {
     if (agentFinished && problems.length === 0) {
       if (this.#state === "starting") await this.#move("running");
       await this.#move("checking");
-      // Checks run here from M8 (RUN-18); with none, the attempt passes.
-      if (task?.state === "doing") {
-        await mutate(
-          this.#options.root,
-          { op: "complete", task: this.#task, checks_passed: true },
-          { actor: ACTOR, at: this.#now(), run: this.#id },
-        );
+      const attempt = this.#cancelled ? null : await this.#runCheckAttempt();
+      const checked = attempt
+        ? { ...fields, checks: checkSummary(attempt.attempt), check_attempts: this.#attempts }
+        : fields;
+      if (!attempt || attempt.cancelled || this.#cancelled) {
+        return this.#closeCancelled(task, checked);
       }
-      return this.#store.transition(this.#id, "succeeded", fields);
-    }
-
-    if (this.#cancelled && !agentFinished) {
-      await this.#log({ t: "cancelled" });
+      const passed = checksPassed(attempt.attempt.results);
       if (task?.state === "doing") {
         await mutate(
           this.#options.root,
           {
-            op: "pause",
+            op: "complete",
             task: this.#task,
-            text: `Konsora run ${this.#id} was cancelled. Its work is kept on its branch.`,
+            checks_passed: passed,
+            ...(passed ? {} : { text: this.#failedChecksNote(attempt.attempt) }),
           },
           { actor: ACTOR, at: this.#now(), run: this.#id },
         );
       }
-      const run = await this.#store.transition(this.#id, "cancelled", fields);
+      const run = await this.#store.transition(this.#id, "succeeded", checked);
       this.#state = run.state;
       return run;
     }
+
+    if (this.#cancelled && !agentFinished) return this.#closeCancelled(task, fields);
 
     const reason = agentFinished
       ? problems.join("; ")
@@ -601,6 +621,71 @@ class Supervision {
     const run = await this.#store.transition(this.#id, "failed", fields);
     this.#state = run.state;
     return run;
+  }
+
+  /** Cancelled: the task goes back to todo (its work stays on the branch), the run `cancelled`. */
+  async #closeCancelled(task: Task | null, fields: Parameters<RunStore["transition"]>[2]) {
+    await this.#log({ t: "cancelled" });
+    if (task?.state === "doing") {
+      await mutate(
+        this.#options.root,
+        {
+          op: "pause",
+          task: this.#task,
+          text: `Konsora run ${this.#id} was cancelled. Its work is kept on its branch.`,
+        },
+        { actor: ACTOR, at: this.#now(), run: this.#id },
+      );
+    }
+    const run = await this.#store.transition(this.#id, "cancelled", fields);
+    this.#state = run.state;
+    return run;
+  }
+
+  /**
+   * One pass over the run's checks in its worktree: events for the live log, the attempt in
+   * `checks.json`. With no checks there is nothing to run and nothing is written.
+   */
+  async #runCheckAttempt(): Promise<{ attempt: CheckAttempt; cancelled: boolean }> {
+    const number = this.#attempts + 1;
+    if (this.#checks.length === 0) {
+      return {
+        attempt: { attempt: number, started_at: this.#now(), results: [] },
+        cancelled: false,
+      };
+    }
+    this.#checksAbort = new AbortController();
+    try {
+      const result = await runChecks(this.#checks, number, {
+        cwd: this.#worktree,
+        signal: this.#checksAbort.signal,
+        now: this.#now,
+        onEvent: (event) => this.#log(event),
+        ...(this.#options.checkEnv ? { env: this.#options.checkEnv } : {}),
+        ...(this.#options.checkKillGraceMs !== undefined
+          ? { killGraceMs: this.#options.checkKillGraceMs }
+          : {}),
+      });
+      this.#attempts = number;
+      await this.#store.appendCheckAttempt(this.#id, result.attempt);
+      return result;
+    } finally {
+      this.#checksAbort = null;
+    }
+  }
+
+  /** The Konsora note on a task whose checks failed. */
+  #failedChecksNote(attempt: CheckAttempt): string {
+    const failed = attempt.results
+      .filter((r) => !checkPassed(r))
+      .map((r) =>
+        r.timed_out
+          ? `${r.id} (timed out)`
+          : r.exit_code === null
+            ? `${r.id} (stopped)`
+            : `${r.id} (exit ${r.exit_code})`,
+      );
+    return `Konsora run ${this.#id}: checks failed: ${failed.join(", ")}. The task is in review with its checks failing.`;
   }
 
   /**
