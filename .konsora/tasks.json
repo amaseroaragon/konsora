@@ -44,12 +44,12 @@
     }
   ],
   "seq": {
-    "CORE": 7,
+    "CORE": 8,
     "CLI": 4,
-    "DMN": 7,
-    "UI": 17,
+    "DMN": 8,
+    "UI": 18,
     "MCP": 6,
-    "RUN": 22
+    "RUN": 25
   },
   "tasks": [
     {
@@ -496,6 +496,36 @@
           "text": "ac1: project.check_retries (entero 0–5) se valida con zod, se serializa canónicamente tras checks (también con 0), el JSON Schema está regenerado y checkRetries() da 2 si falta (tests en checks.test.ts). ac2: nueva op humana set-checks (checks y/o check_retries; [] y null los quitan); agente, agente en run y konsora reciben forbidden (ops.test.ts). ac3: dentro de un run, finish deja la tarea en doing con su summary (y permite volver a llamar a finish en un reintento); la op complete, solo de konsora y que exige un summary de ese run, la pasa a review, o a done en una cadena YOLO solo con checks_passed (tests de YOLO verde/rojo y de la tarea YOLO). El supervisor ya aplica complete tras checking (de momento sin checks, RUN-18). ac4: ChecksFileSchema (intentos con id, source project/acceptance, command, exit_code, duration_ms, timed_out, cola de salida ≤16 KB) y run.json con checks del último intento + check_attempts; los run.json anteriores siguen siendo válidos (test). También checking→running para reintentos. ac5: buildRetryPrompt determinista, solo checks fallidos, salida recortada a 4000 caracteres, con fences seguros (tests). Docs: esquema-tareas.md y arquitectura.md. Commit e468513; npm run check en verde (802 tests)."
         }
       ]
+    },
+    {
+      "id": "CORE-08",
+      "title": "Modelo de la cola y del scheduler en core",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzz",
+      "desc": "Todo lo que M9 necesita de core, sin ejecutar nada:\n- El esquema de `queue.json` (`~/.local/share/konsora/projects/<id>/queue.json`): las tareas que el humano seleccionó, en orden, con el agente elegido y cuándo se añadieron, y si la cola está en marcha o en pausa.\n- Los límites de paralelismo: `max_parallel` global (por defecto 2) y uno opcional por proveedor, guardados en los ajustes del daemon (`settings.json` en el directorio de datos), no en el plan.\n- Una función pura `nextRuns(cola, plan, runs activos, límites)` que dice qué tareas lanzar ahora: solo las de la cola que estén ready (dependencias en done, es decir, integradas), sin run activo y sin superar ningún límite, en orden topológico y por rank. Nunca añade tareas que no estén en la cola.\n- Qué entradas salen de la cola y por qué (terminada, cancelada, quitada por el humano, tarea que ya no existe o ya no está aprobada).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "queue.json y los ajustes de paralelismo se validan con zod en los bordes y los archivos anteriores o ausentes tienen valores por defecto"
+        },
+        {
+          "id": "ac2",
+          "text": "nextRuns nunca supera max_parallel ni el límite de un proveedor, nunca devuelve una tarea con una dependencia sin done ni una tarea fuera de la cola (tests de propiedades)"
+        },
+        {
+          "id": "ac3",
+          "text": "El orden de lanzamiento es determinista: orden topológico y después rank (con tests)"
+        }
+      ],
+      "labels": [
+        "m9"
+      ],
+      "created": {
+        "at": "2026-11-06T21:15:14Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:15:14Z"
     },
     {
       "id": "CLI-01",
@@ -1137,6 +1167,39 @@
           "text": "ac1: GET /api/projects/:id/runs/:run/checks devuelve checks.json validado con ChecksFileSchema (todos los intentos, cada check con comando, exit, duración, timeout y cola de salida), null si aún no se ejecutaron y 404 para un run desconocido (tests). ac2: el inicio y el fin de cada check llegan como run.event y los cambios checking ↔ running como run.state por WebSocket, sin recargar (test con un reintento: check start/end de los dos intentos y la secuencia checking → running → checking → succeeded). ac3: set-checks funciona por POST /ops como op humana (actualiza checks y check_retries; un valor inválido da 400), y la misma op con rol de agente se rechaza con forbidden. arquitectura.md actualizado. Commit 7fa3b1f; npm run check en verde."
         }
       ]
+    },
+    {
+      "id": "DMN-08",
+      "title": "Cola persistente y scheduler en el daemon",
+      "state": "proposed",
+      "group": "DMN",
+      "deps": [
+        "CORE-08"
+      ],
+      "rank": "zzzzzzzzr",
+      "desc": "El daemon guarda la cola de cada proyecto en `queue.json` y lanza runs con `nextRuns` cada vez que cambia algo (un run termina, se integra una tarea, cambia el plan o la cola, o el humano la reanuda). API para encolar las tareas seleccionadas con su agente, quitar entradas, vaciar, pausar y reanudar, leer y cambiar los límites de paralelismo, y eventos WebSocket `queue.*`. Solo ejecuta lo que el humano encoló. Fuera de YOLO, una dependencia en review bloquea a sus dependientes hasta tu accept. Al arrancar, el daemon carga la cola **en pausa**: los runs vivos quedan interrupted y no se lanza nada hasta que el humano la reanude.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Encolar varias tareas lanza como mucho max_parallel runs a la vez (y no más del límite de cada proveedor), y las demás arrancan al quedar ready (test con un adaptador falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "La cola sobrevive a un reinicio del daemon, que la deja en pausa y no lanza nada por su cuenta (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La cola y sus cambios llegan por la API y por WebSocket queue.*"
+        }
+      ],
+      "labels": [
+        "m9"
+      ],
+      "created": {
+        "at": "2026-11-06T21:15:14Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:15:14Z"
     },
     {
       "id": "UI-01",
@@ -2101,6 +2164,44 @@
           "text": "ac1: nueva vista «Ajustes» del proyecto (pestaña junto a Tablero y Grafo, #/p/<id>?view=settings) para añadir, editar, reordenar (↑/↓) y quitar checks (id, comando y tiempo), cambiar los reintentos y el comando y tiempo de preparación del worktree; se valida en el formulario con las mismas reglas que core (id en minúsculas y único, comando ≤1000, tiempo 1–86400, reintentos 0–5, setup sin comando con tiempo) y se guarda como una sola op set-checks con solo lo que cambió (vacío = valor por defecto o quitar). Verificado en Chrome: errores junto al campo y, al guardar, tasks.json con el nuevo orden, el check añadido, check_retries 0 y setup npm ci, escrito por el daemon. ac2: el editor de tareas ya permitía poner o quitar el check de cada criterio con la op edit; ahora valida además el límite de 1000 caracteres (tests). ac3: los errores del daemon se colocan junto a su campo (issues con JSON Pointer y bad_request con su ruta) y el resto en el formulario; textos por i18n (pasa i18n-literals) y etiquetas estables por posición. Commit f462a05; npm run check en verde (849 tests)."
         }
       ]
+    },
+    {
+      "id": "UI-18",
+      "title": "Vista de cola y runs activos",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-08",
+        "RUN-24"
+      ],
+      "rank": "zzzzzzzzx",
+      "desc": "La barra de selección ofrece Encolar (además de Ejecutar ya): las tareas seleccionadas entran en la cola con el agente elegido. Una vista de Konsora, fuera del tablero, muestra por proyecto los runs activos, lo que espera en la cola y por qué (bloqueada por una dependencia, esperando un hueco, cola en pausa), los límites de paralelismo con su ocupación, y permite pausar, reanudar, quitar entradas y cambiar max_parallel. Se actualiza en vivo. En la revisión de un run en conflicto, botones para pedir el rebase al agente o resolver a mano.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Encolar desde la barra de selección añade las tareas con su agente, y la vista muestra cada una con su motivo de espera en vivo"
+        },
+        {
+          "id": "ac2",
+          "text": "Pausar, reanudar, quitar y cambiar los límites funcionan desde la vista y se reflejan sin recargar"
+        },
+        {
+          "id": "ac3",
+          "text": "La revisión de un run en conflicto ofrece pedir el rebase al agente"
+        },
+        {
+          "id": "ac4",
+          "text": "Textos por i18n y accesible con teclado"
+        }
+      ],
+      "labels": [
+        "m9"
+      ],
+      "created": {
+        "at": "2026-11-06T21:15:14Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:15:19Z"
     },
     {
       "id": "MCP-01",
@@ -3491,7 +3592,7 @@
     {
       "id": "RUN-21",
       "title": "Verificación de M8 con un agente real",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "UI-16",
@@ -3520,7 +3621,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:12:09Z",
+      "updated_at": "2026-11-06T21:12:26Z",
       "notes": [
         {
           "id": "n1",
@@ -3555,7 +3656,7 @@
     {
       "id": "RUN-22",
       "title": "Indicar en el prompt de reintento qué hacer si un check no puede pasar",
-      "state": "proposed",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzzzzy",
       "desc": "En RUN-21, con un check imposible, Codex usó ask en lugar de volver a llamar a finish, y el run quedó esperando al humano en vez de llegar a review en rojo. El prompt de reintento (buildRetryPrompt) puede decir que, si el agente cree que un check no puede pasar por su trabajo, llame a finish explicando por qué, para que la tarea llegue a review con el check en rojo y el humano decida.",
@@ -3573,7 +3674,126 @@
         "at": "2026-11-06T21:12:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:12:09Z"
+      "updated_at": "2026-11-06T21:13:59Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T21:13:22Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir a buildRetryPrompt qué hacer si un check no puede pasar por el trabajo del agente: finish explicando por qué, sin ask; test y docs."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T21:13:59Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: buildRetryPrompt añade, tras las instrucciones de corrección, que si el agente está seguro de que un check no puede pasar por su trabajo (check imposible o que depende de algo fuera del worktree) no use ask ni cambie el check, sino que llame a finish con un resumen que explique por qué, para que la tarea llegue a review con el check en rojo y decida el humano. Sigue siendo determinista (test en checks.test.ts). ac2: arquitectura.md (Reintentos) y esquema-tareas.md (§6) lo describen. Commit e82b1ac; npm run check en verde (849 tests). No lo he vuelto a probar con un agente real para no gastar cuota."
+        }
+      ]
+    },
+    {
+      "id": "RUN-23",
+      "title": "Integrar automáticamente las tareas intermedias de una cadena YOLO",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "CORE-08"
+      ],
+      "rank": "zzzzzzzzi",
+      "desc": "Hoy una tarea intermedia de una cadena YOLO pasa a `done` con los checks en verde, pero su rama no se integra: sus dependientes arrancarían sin su trabajo. Al cerrar el run con todo en verde, el runner integra antes (squash en `base_branch`, un commit con trailers, como `accept`) y solo después aplica `complete` a `done`, como ya hace el daemon al aceptar. Si la integración choca, la tarea va a `review` con `integration = conflict` y una nota de `konsora`, y la cadena se detiene ahí.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una tarea intermedia de una cadena YOLO con checks en verde queda integrada con un commit y en done, y su worktree y su rama se borran"
+        },
+        {
+          "id": "ac2",
+          "text": "Si la integración choca, la tarea queda en review con integration = conflict y una nota, nunca en done (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Un dependiente lanzado después parte de una base que ya contiene el commit de su dependencia (test)"
+        }
+      ],
+      "labels": [
+        "m9"
+      ],
+      "created": {
+        "at": "2026-11-06T21:15:14Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:15:14Z"
+    },
+    {
+      "id": "RUN-24",
+      "title": "Pedir al agente que resuelva un conflicto de integración",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzzzzv",
+      "desc": "Cuando la integración de un run choca con la rama base (`integration = conflict`), el humano puede pedir al agente que rebase su rama sobre la punta actual de `base_branch` y resuelva los conflictos: un run nuevo de la misma tarea sobre la misma rama y worktree, que reanuda la sesión del agente si se puede, con un prompt determinista que lista los ficheros en conflicto. Al terminar se ejecutan los checks como en cualquier run y la tarea vuelve a review para integrarla de nuevo. La alternativa, resolver a mano, sigue disponible.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Desde un run en conflict se lanza un run de rebase en la misma rama con el prompt que lista los ficheros en conflicto (test con adaptador falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "Tras el rebase y los checks, la tarea vuelve a review y la integración ya no choca (test en un repo con un conflicto real)"
+        },
+        {
+          "id": "ac3",
+          "text": "El prompt de rebase es determinista y prohíbe push y force sobre base_branch (con test)"
+        }
+      ],
+      "labels": [
+        "m9"
+      ],
+      "created": {
+        "at": "2026-11-06T21:15:14Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:15:14Z"
+    },
+    {
+      "id": "RUN-25",
+      "title": "Verificación de M9: DAG de 6 tareas en YOLO con max_parallel = 2",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "DMN-08",
+        "RUN-23",
+        "RUN-24",
+        "UI-18"
+      ],
+      "rank": "zzzzzzzzy",
+      "desc": "Cierra el hito con el criterio del roadmap: un fixture con un DAG de 6 tareas (2 ramas independientes y un nodo final) en YOLO, con max_parallel = 2. Primero con un adaptador falso en un test e2e del daemon (sin gastar cuota) y después, solo si el humano lo autoriza, con un agente real. Se comprueba también el reinicio a mitad y un conflicto resuelto por el agente.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Nunca hay más de 2 runs a la vez y ninguna tarea empieza antes de integrar sus dependencias (test e2e que lo registra)"
+        },
+        {
+          "id": "ac2",
+          "text": "Termina con 6 commits en orden topológico en main y la tarea final en review"
+        },
+        {
+          "id": "ac3",
+          "text": "Reiniciar el daemon a mitad deja los runs vivos interrupted y la cola en pausa, sin lanzar nada"
+        },
+        {
+          "id": "ac4",
+          "text": "Los pasos, las versiones y lo observado quedan anotados en la tarea"
+        }
+      ],
+      "labels": [
+        "m9"
+      ],
+      "created": {
+        "at": "2026-11-06T21:15:14Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:15:14Z"
     }
   ]
 }

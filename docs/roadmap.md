@@ -44,7 +44,7 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 Adaptador `codex app-server` con tipos generados y comprobación de versión (plan B: `exec --json`). Selector de proveedor, modelo, esfuerzo y perfil por tarea y en la barra de selección, con los modelos que publica cada adaptador. Uso y rate limits visibles cuando el proveedor los expone; para Claude, se investiga qué ofrece su salida.
 ✅ La misma tarea fixture termina con Codex de principio a fin, como en M6. El selector solo ofrece modelos y niveles que el adaptador declara. Tras cada run, la UI muestra el uso de tokens o deja claro que el proveedor no lo da.
 
-## M8 — Verificación automática
+## M8 — Verificación automática ✔ (2026-11-06)
 
 🔧 Ejecución de `project.checks` y `acceptance[].check` en el worktree, con timeout; `checks.json`; bucle de corrección (devolver al agente con la salida de los checks fallidos, hasta N reintentos configurables).
 ✅ Una tarea fixture con un test que falla al principio la corrige el agente en el reintento, y la revisión muestra el historial de checks. Si se agotan los reintentos, la tarea llega a `review` con los checks en rojo, nunca en verde.
