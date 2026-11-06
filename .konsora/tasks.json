@@ -49,7 +49,7 @@
     "DMN": 7,
     "UI": 17,
     "MCP": 6,
-    "RUN": 21
+    "RUN": 22
   },
   "tasks": [
     {
@@ -2055,7 +2055,7 @@
     {
       "id": "UI-17",
       "title": "Configurar los checks del proyecto desde la UI",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-07",
@@ -2084,7 +2084,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T20:27:39Z",
+      "updated_at": "2026-11-06T20:57:08Z",
       "notes": [
         {
           "id": "n1",
@@ -3491,7 +3491,7 @@
     {
       "id": "RUN-21",
       "title": "Verificación de M8 con un agente real",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "UI-16",
@@ -3520,7 +3520,60 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:53:12Z"
+      "updated_at": "2026-11-06T21:12:09Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T20:57:35Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Verificación con Codex (autorizada por el humano): repo de prueba con un test que falla, run real con reintento, y otro run con un check imposible; anotar versiones y resultados."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T20:59:12Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Autorizado por el humano el 2026-11-06 con Codex. Montaje: repo desechable en el scratchpad, daemon de esta rama con KONSORA_DATA_DIR propio, runs lanzados por la API del daemon con codex · gpt-6-luna · low · default. Ajustes por set-checks (como la vista Ajustes): setup «node --version» y check_retries 1. DEMO-01: slug.js con un test oculto fuera del repo que exige «_» como separador y quitar acentos (la descripción no lo dice); DEMO-02: check imposible. Las aprobaciones solo se registran, no se deciden automáticamente."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-06T21:12:00Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Verificación real de M8 del 2026-11-06. Versiones: codex-cli 0.166.0 (app-server, igual que los tipos), Node 22.22.2, git 2.43.0, Google Chrome 146.0.7680.80 headless (protocolo DevTools). Daemon de esta rama con KONSORA_DATA_DIR propio y la web compilada. Agente: codex · gpt-6-luna · low · default. Ajustes por set-checks: setup «node --version» y check_retries 1.\n\n**DEMO-01 (ac1)**, run r-01M6SAGQQM2RPRH04REASC3996, 34 s:\n- El setup se ejecutó en el worktree en 7 ms (exit 0) antes de lanzar al agente.\n- Codex creó slug.js uniendo con «-» e hizo commit. Al llamar a finish, el run pasó a checking y el check ac1 (test oculto fuera del repo) falló en el intento 1: «expected 'hola_mundo', actual 'hola-mundo'».\n- El run volvió a running, la tarea recibió la nota «retry 1 of 1» y Codex reanudó su sesión de app-server con el prompt de reintento. Corrigió slug.js (NFD sin diacríticos, separador «_»), hizo commit y volvió a llamar a finish.\n- Intento 2 en verde, y la tarea pasó a review. checks.json tiene los dos intentos ([ac1:1], [ac1:0]) y run.json, check_attempts 2. Uso: 454,6k de entrada y 1,7k de salida.\n- En la UI, la revisión muestra «Intento 2 · todo en verde · el último» sobre «Intento 1 · con fallos», con la salida desplegable, el diff final y el criterio «✓ Último check: correcto». El log muestra el setup, los checks y el reintento.\n\n**DEMO-02 (ac2)**, run r-01M6SAHSDME1MMMW8G7V4HEER1, check imposible (`exit 1`):\n- El intento 1 falló y Codex recibió el reintento. Vio que el check no puede pasar y, en vez de llamar a finish, usó **ask** para preguntar si cambiar el check o dejar la tarea en revisión. El run quedó esperando la respuesta, como cualquier pregunta. La contesté por la API del daemon de prueba, actuando como humano en el repo desechable.\n- Codex llamó a finish, el intento 2 volvió a fallar, se agotaron los reintentos y la tarea llegó a review con la nota de konsora «They still fail after 1 retry. The task is in review with its checks failing.» Uso: 418,4k / 1,4k.\n- En la UI, la tarjeta de DEMO-02 lleva «Checks en rojo» en el tablero; la revisión tiene el aviso y los dos intentos en rojo, y el criterio «✕ Último check: salió con 1».\n\nNo hubo peticiones de aprobación: los commits dentro del sandbox funcionaron (RUN-17). Rate limits de Codex tras los runs: 0 % en 5 h y en 7 días.\n\n**Observación**: con un check que el agente considera imposible, Codex puede preguntar (ask) en vez de volver a llamar a finish. Entonces el run no llega a «reintentos agotados» hasta que el humano responde. Es un comportamiento legítimo, pero quizá convenga que el prompt de reintento diga qué hacer en ese caso (por ejemplo, llamar a finish explicando por qué no puede pasar). Lo propongo como tarea aparte."
+        },
+        {
+          "id": "n4",
+          "at": "2026-11-06T21:12:09Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Verificación real de M8 con codex-cli 0.166.0 (app-server, gpt-6-luna low) sobre un repo desechable, con el daemon de esta rama, setup «node --version» y check_retries 1 puestos con set-checks. ac1: en DEMO-01, el test oculto falló en el intento 1 (separador «-» en vez de «_»). El run volvió a running y Codex reanudó su sesión con el prompt de reintento, corrigió slug.js y el intento 2 quedó en verde; la tarea llegó a review en 34 s. La revisión en la UI (Chrome headless) muestra los dos intentos con su salida, el diff y el criterio en verde. ac2: en DEMO-02, con un check imposible, se agotó el reintento y la tarea llegó a review con los checks en rojo, la nota de konsora, la marca «Checks en rojo» en la tarjeta y el aviso en la revisión. Hallazgo: en el reintento Codex preguntó (ask) en vez de terminar y hubo que responderle; propuse una tarea para que el prompt de reintento lo cubra. ac3: versiones, pasos, ids de run, usos y observaciones en la nota. Sin aprobaciones necesarias; sin cambios de código."
+        }
+      ]
+    },
+    {
+      "id": "RUN-22",
+      "title": "Indicar en el prompt de reintento qué hacer si un check no puede pasar",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzzzy",
+      "desc": "En RUN-21, con un check imposible, Codex usó ask en lugar de volver a llamar a finish, y el run quedó esperando al humano en vez de llegar a review en rojo. El prompt de reintento (buildRetryPrompt) puede decir que, si el agente cree que un check no puede pasar por su trabajo, llame a finish explicando por qué, para que la tarea llegue a review con el check en rojo y el humano decida.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "buildRetryPrompt indica que, si un check no puede pasar por el trabajo del agente, llame a finish con la explicación (con test)"
+        },
+        {
+          "id": "ac2",
+          "text": "La documentación de reintentos lo describe"
+        }
+      ],
+      "created": {
+        "at": "2026-11-06T21:12:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-06T21:12:09Z"
     }
   ]
 }
