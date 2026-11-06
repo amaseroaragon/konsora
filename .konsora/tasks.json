@@ -446,7 +446,7 @@
     {
       "id": "CORE-07",
       "title": "Modelo de checks en core: reintentos, resultados y cierre del run",
-      "state": "proposed",
+      "state": "todo",
       "group": "CORE",
       "rank": "zzzzzzv",
       "desc": "Todo lo que M8 necesita de core, sin ejecutar nada:\n- `project.check_retries` (entero 0–5; si falta, 2), con el JSON Schema regenerado.\n- Una operación humana para cambiar `project.checks` y `project.check_retries`, porque hoy no hay ninguna y solo se podrían editar a mano.\n- `finish` dentro de un run deja la tarea en `doing` con su resumen, y la pasa a `review` (o a `done` en una cadena YOLO) una operación de `konsora` cuando acaban los checks, como ya dice esquema-tareas.md §146. En YOLO, solo con todo en verde.\n- El resultado de cada check por intento: id, origen (proyecto o criterio `acN`), comando, exit code, duración, si venció el timeout y la cola de su salida. Va en `checks.json`, y el resumen del último intento en `run.json`.\n- El prompt de reintento, determinista: los checks fallidos con la cola de su salida, recortada.",
@@ -479,7 +479,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:52:35Z"
     },
     {
       "id": "CLI-01",
@@ -1030,7 +1030,7 @@
     {
       "id": "DMN-06",
       "title": "Leer los rate limits de cada proveedor sin lanzar un run",
-      "state": "todo",
+      "state": "review",
       "group": "DMN",
       "rank": "zzzzzzi",
       "desc": "Hoy los límites de uso solo se conocen al terminar un run, porque salen de su salida. El daemon debe poder darlos en cualquier momento y sin gastar cuota. En Codex, con account/rateLimits/read de app-server, más la notificación account/rateLimits/updated mientras haya runs. En Claude, con lo último que dieron sus runs, investigando si Claude Code expone los límites sin hacer una petición al modelo. Se exponen con GET /api/limits y un evento WebSocket limits.updated, con la fecha y el origen de cada dato.",
@@ -1055,12 +1055,28 @@
         "at": "2026-11-02T10:32:19Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:35:08Z"
+      "updated_at": "2026-11-06T19:40:24Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T19:39:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Lectura directa de límites por adaptador (Codex: account/rateLimits/read; Claude: claude -p /usage local), servicio Limits en el daemon con GET /api/limits y limits.updated a todos los clientes."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T19:40:24Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: GET /api/limits devuelve las ventanas de Codex leídas con account/rateLimits/read en una sesión corta de app-server (sin hilo ni turno; test con grabación real y prueba real con codex 0.166.0). ac2: para Claude, Konsora ejecuta el comando local 'claude -p /usage' (num_turns 0, coste 0; TZ=UTC, sin sesión guardada, sin MCP, fuera del proyecto) y parsea sus ventanas; si falla o no es local, devuelve lo último que dieron sus runs con fecha y run, y 'unavailable' con el motivo; si no hay nada, source 'none' con la explicación. La investigación está en arquitectura.md §4 (Límites de uso). ac3: el daemon emite limits.updated a todos los clientes autenticados cuando cambian (lectura directa o evento usage de un run vivo); la web lo aplica a la caché sin recargar y el aviso de límites ya lee /api/limits (test de daemon con WebSocket). Commit e607ecf; npm run check en verde (787 tests)."
+        }
+      ]
     },
     {
       "id": "DMN-07",
       "title": "Checks en la API y el WebSocket del daemon",
-      "state": "proposed",
+      "state": "todo",
       "group": "DMN",
       "deps": [
         "RUN-18"
@@ -1088,7 +1104,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:52:52Z"
     },
     {
       "id": "UI-01",
@@ -1937,7 +1953,7 @@
     {
       "id": "UI-16",
       "title": "Historial de checks en la revisión y en el detalle",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-07",
@@ -1970,12 +1986,12 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:53:04Z"
     },
     {
       "id": "UI-17",
       "title": "Configurar los checks del proyecto desde la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-07",
@@ -2004,7 +2020,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:53:00Z"
     },
     {
       "id": "MCP-01",
@@ -3236,7 +3252,7 @@
     {
       "id": "RUN-18",
       "title": "Ejecutar los checks del run en el worktree",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "CORE-07"
@@ -3272,12 +3288,12 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:52:49Z"
     },
     {
       "id": "RUN-19",
       "title": "Bucle de corrección con los checks fallidos",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-18"
@@ -3309,12 +3325,12 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:52:57Z"
     },
     {
       "id": "RUN-20",
       "title": "Preparar el worktree antes del run (project.setup)",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "CORE-07"
@@ -3342,12 +3358,12 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:52:44Z"
     },
     {
       "id": "RUN-21",
       "title": "Verificación de M8 con un agente real",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "UI-16",
@@ -3376,7 +3392,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:48:46Z"
+      "updated_at": "2026-11-02T10:53:12Z"
     }
   ]
 }
