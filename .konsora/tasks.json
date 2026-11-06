@@ -3378,7 +3378,7 @@
     {
       "id": "RUN-20",
       "title": "Preparar el worktree antes del run (project.setup)",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "CORE-07"
@@ -3406,7 +3406,23 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:52:44Z"
+      "updated_at": "2026-11-06T19:55:58Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T19:54:33Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "project.setup {run, timeout_s} en core (solo humano, vía set-checks), ejecutado por el supervisor en el worktree antes del agente con timeout; si falla, run failed y tarea a todo con nota."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T19:55:58Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: project.setup ({run, timeout_s?}) se valida con zod, se serializa canónicamente antes de checks, está en el JSON Schema regenerado y solo un humano lo cambia con set-checks (setup: null lo quita); agente y konsora reciben forbidden (tests en checks.test.ts). ac2: el supervisor lo ejecuta en el worktree tras pasar la tarea a doing y antes de lanzar al agente, con timeout (por defecto 600 s), grupo de procesos propio y entorno sin KONSORA_*; registra eventos setup de inicio y fin con la cola de su salida en events.jsonl y el resultado en run.json (test: el agente ve el worktree preparado). ac3: si falla o vence el plazo, el run queda failed sin lanzar al agente (sin uso de tokens) y la tarea vuelve a todo con una nota de konsora que dice qué comando falló y cómo (tests de exit 1 y timeout); cancelar durante el setup lo detiene y deja el run cancelled. Docs actualizadas. Commit dba69b8; npm run check en verde (823 tests)."
+        }
+      ]
     },
     {
       "id": "RUN-21",
