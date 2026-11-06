@@ -67,6 +67,12 @@ export const AgentSpecSchema = strict({
   permissions: z.string().regex(slug, "Permission profile must be a lowercase slug").optional(),
 });
 
+/** Retries when `project.check_retries` is absent, and the most it may be. */
+export const DEFAULT_CHECK_RETRIES = 2;
+export const MAX_CHECK_RETRIES = 5;
+/** A check's timeout when `timeout_s` is absent. */
+export const DEFAULT_CHECK_TIMEOUT_S = 600;
+
 export const CheckSchema = strict({
   id: z.string().regex(slug, "Check id must be a lowercase slug"),
   run: z.string().min(1).max(1000),
@@ -78,6 +84,8 @@ export const ProjectSchema = strict({
   base_branch: z.string().min(1).max(255),
   defaults: AgentSpecSchema.optional(),
   checks: z.array(CheckSchema).optional(),
+  /** How many times a run's agent gets the failed checks back to fix them (default 2). */
+  check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).optional(),
 });
 
 export const GroupSchema = strict({
@@ -144,6 +152,11 @@ export type Provider = z.infer<typeof ProviderSchema>;
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type Check = z.infer<typeof CheckSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
+
+/** `project.check_retries`, or its default when absent. */
+export function checkRetries(project: Pick<Project, "check_retries">): number {
+  return project.check_retries ?? DEFAULT_CHECK_RETRIES;
+}
 export type Group = z.infer<typeof GroupSchema>;
 export type Acceptance = z.infer<typeof AcceptanceSchema>;
 export type NoteKind = z.infer<typeof NoteKindSchema>;

@@ -9,6 +9,7 @@
  * and the agent's own summaries stay out: they are progress, not instructions.
  */
 import { indexTasks } from "./graph.ts";
+import { type CheckAttempt, checkPassed, tailOutput } from "./run.ts";
 import type { Note, Task, TasksDocument } from "./schema.ts";
 
 export type RunPromptOptions = {
@@ -153,4 +154,54 @@ export function buildAnswerMessage(task: Task): string | null {
     `Continue with ${task.id}. When it is done, call \`finish\` with your summary.`,
     "",
   ].join("\n");
+}
+
+/** How much of each failed check's output the retry prompt carries: its last characters. */
+export const RETRY_OUTPUT_MAX = 4000;
+
+/**
+ * The message that gives a failed attempt back to the run's agent: each failed check with its
+ * command, how it ended and the tail of its output (at most `RETRY_OUTPUT_MAX` characters).
+ * Deterministic: no times or durations, so the same results always give the same text.
+ */
+export function buildRetryPrompt(
+  taskId: string,
+  attempt: Pick<CheckAttempt, "attempt" | "results">,
+  retriesLeft: number,
+): string {
+  const failed = attempt.results.filter((result) => !checkPassed(result));
+  const blocks = failed.map((result) => {
+    const name =
+      result.source === "project"
+        ? `Project check ${result.id}`
+        : `Acceptance criterion ${result.id}`;
+    const ending = result.timed_out
+      ? "It ran out of time and was stopped."
+      : result.exit_code === null
+        ? "It was stopped by a signal."
+        : `It exited with code ${result.exit_code}.`;
+    const { output, truncated } = tailOutput(result.output.trimEnd(), RETRY_OUTPUT_MAX);
+    const body = output
+      ? `${truncated ? "Last part of its output (earlier output omitted):" : "Its output:"}\n${fence(output)}`
+      : "It printed nothing.";
+    return `### ${name}: \`${result.command}\`\n\n${ending}\n\n${body}`;
+  });
+  const after =
+    retriesLeft > 0
+      ? `If they still fail, you will get ${retriesLeft === 1 ? "one more try" : `${retriesLeft} more tries`}.`
+      : "This is the last try: if they still fail, the task goes to review with the checks failing.";
+  return [
+    `Konsora ran the checks of ${taskId} after you called \`finish\` (attempt ${attempt.attempt}), and ${failed.length === 1 ? "one failed" : `${failed.length} failed`}.`,
+    "",
+    ...blocks.flatMap((block) => [block, ""]),
+    `Fix the cause in your worktree and commit, then call \`finish\` on ${taskId} again with an updated summary. Konsora will run every check again. ${after}`,
+    "",
+  ].join("\n");
+}
+
+/** A code fence longer than any run of backticks in `text`. */
+function fence(text: string): string {
+  const longest = Math.max(2, ...[...text.matchAll(/`+/g)].map((m) => m[0].length));
+  const marks = "`".repeat(longest + 1);
+  return `${marks}\n${text}\n${marks}`;
 }

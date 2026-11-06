@@ -17,7 +17,7 @@ type Obj = Record<string, unknown>;
 
 const ORDER = {
   root: ["$schema", "schema", "project", "groups", "seq", "tasks"],
-  project: ["name", "base_branch", "defaults", "checks"],
+  project: ["name", "base_branch", "defaults", "checks", "check_retries"],
   agent: ["provider", "model", "effort", "permissions"],
   check: ["id", "run", "timeout_s"],
   group: ["id", "name"],

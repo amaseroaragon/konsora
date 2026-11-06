@@ -497,7 +497,9 @@ export function registerWriteCommands(
           const state = doc.tasks.find((t) => t.id === id.toUpperCase())?.state;
           return state === "done"
             ? `Finished ${id.toUpperCase()}: done (part of a YOLO chain, no review needed).\n`
-            : `Finished ${id.toUpperCase()}: waiting for human review. Stop here.\n`;
+            : state === "doing"
+              ? `Finished ${id.toUpperCase()}: Konsora now runs the checks. Stop here.\n`
+              : `Finished ${id.toUpperCase()}: waiting for human review. Stop here.\n`;
         });
       },
     );

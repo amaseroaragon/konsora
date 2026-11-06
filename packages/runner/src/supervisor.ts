@@ -8,12 +8,13 @@
  *    `doing` as `konsora`, and the adapter starts with Konsora's MCP in run mode.
  * 3. Supervise: every event goes to `events.jsonl` (with `at`) and every raw line to
  *    `raw.jsonl`; `run.json` follows the state (`running ⇄ waiting_approval`), the session id and
- *    the usage. After each turn the plan says what comes next: the task is in review (the agent
- *    called `finish`) → close the agent's input; it waits for an answer → keep it open; else →
+ *    the usage. After each turn the plan says what comes next: the agent called `finish` (the
+ *    task keeps doing, with this run's summary) → close the agent's input; it waits for an answer → keep it open; else →
  *    close it, the agent is done without finishing.
  * 4. Close (the process exited): commit what is left as `wip` (never `.konsora/`), record
  *    `head_commit` and `diff.patch` = `base_commit..HEAD` without `.konsora/`, usage and exit.
- *    Finished → `checking` → `succeeded` (checks arrive in M8). Not finished → `failed`, and the
+ *    Finished → `checking`, then `complete` moves the task to review (or done in a YOLO chain)
+ *    → `succeeded` (checks arrive in M8). Not finished → `failed`, and the
  *    task goes back to `todo` with a runner note. The worktree stays until integrate or discard.
  */
 import { realpath, rm } from "node:fs/promises";
@@ -526,7 +527,12 @@ class Supervision {
     const summary = task
       ? [...(task.notes ?? [])].reverse().find((n) => n.kind === "summary" && n.run === this.#id)
       : undefined;
-    const agentFinished = task !== null && (task.state === "review" || task.state === "done");
+    // Inside a run, `finish` leaves the task doing with this run's summary; `complete` moves it.
+    const agentFinished =
+      task !== null &&
+      (task.state === "review" ||
+        task.state === "done" ||
+        (task.state === "doing" && summary !== undefined));
     const fields = {
       finished_at: this.#now(),
       exit,
@@ -544,7 +550,14 @@ class Supervision {
     if (agentFinished && problems.length === 0) {
       if (this.#state === "starting") await this.#move("running");
       await this.#move("checking");
-      // Checks run here from M8.
+      // Checks run here from M8 (RUN-18); with none, the attempt passes.
+      if (task?.state === "doing") {
+        await mutate(
+          this.#options.root,
+          { op: "complete", task: this.#task, checks_passed: true },
+          { actor: ACTOR, at: this.#now(), run: this.#id },
+        );
+      }
       return this.#store.transition(this.#id, "succeeded", fields);
     }
 

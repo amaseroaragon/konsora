@@ -7,7 +7,9 @@ import type { Op } from "./ops.ts";
 import {
   AcceptanceSchema,
   AgentSpecSchema,
+  CheckSchema,
   GroupSchema,
+  MAX_CHECK_RETRIES,
   TaskIdSchema,
   TaskSchema,
 } from "./schema.ts";
@@ -69,6 +71,19 @@ export const OpSchema = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("ask"), expect, task: id, text }),
   z.strictObject({ op: z.literal("answer"), expect, task: id, text }),
   z.strictObject({ op: z.literal("finish"), expect, task: id, summary: text }),
+  z.strictObject({
+    op: z.literal("complete"),
+    expect,
+    task: id,
+    checks_passed: z.boolean(),
+    text: text.optional(),
+  }),
+  z.strictObject({
+    op: z.literal("set-checks"),
+    expect,
+    checks: z.array(CheckSchema).max(50).optional(),
+    check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).nullable().optional(),
+  }),
   z.strictObject({ op: z.literal("accept"), expect, task: id }),
   z.strictObject({ op: z.literal("send-back"), expect, task: id, feedback: text }),
   z.strictObject({ op: z.literal("reopen"), expect, task: id, text: text.optional() }),

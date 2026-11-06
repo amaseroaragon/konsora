@@ -191,6 +191,7 @@ describe("run state machine", () => {
     ["waiting_approval", "failed"],
     ["waiting_approval", "cancelled"],
     ["waiting_approval", "interrupted"],
+    ["checking", "running"],
     ["checking", "succeeded"],
     ["checking", "failed"],
     ["checking", "cancelled"],

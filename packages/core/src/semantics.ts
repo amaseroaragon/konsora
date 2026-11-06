@@ -25,6 +25,16 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
   const add = (path: (string | number)[], code: string, message: string) =>
     issues.push({ path: toPointer(path), code, message });
 
+  checkUnique(
+    doc.project.checks?.map((c) => c.id),
+    (j, id) =>
+      add(
+        ["project", "checks", j, "id"],
+        "duplicate_check_id",
+        `Project check ${id} is defined twice`,
+      ),
+  );
+
   const groups = new Set<string>();
   doc.groups.forEach((group, i) => {
     if (groups.has(group.id))

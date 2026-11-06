@@ -5,7 +5,17 @@
  * Pure and browser-safe: the file store lives in `@konsora/runner`.
  */
 import { z } from "zod";
-import { AgentSpecSchema, TaskIdSchema, TimestampSchema } from "./schema.ts";
+import {
+  AgentSpecSchema,
+  DEFAULT_CHECK_TIMEOUT_S,
+  MAX_CHECK_RETRIES,
+  TaskIdSchema,
+  type TasksDocument,
+  TimestampSchema,
+} from "./schema.ts";
+
+/** At most one attempt plus every retry. */
+const MAX_ATTEMPTS = MAX_CHECK_RETRIES + 1;
 
 // ── Ids ──────────────────────────────────────────────────────────────────────
 
@@ -112,7 +122,8 @@ const RUN_TRANSITIONS: Readonly<Record<RunState, readonly RunState[]>> = {
   starting: ["running", "failed", "cancelled", "interrupted"],
   running: ["waiting_approval", "checking", "failed", "cancelled", "interrupted"],
   waiting_approval: ["running", "failed", "cancelled", "interrupted"],
-  checking: ["succeeded", "failed", "cancelled", "interrupted"],
+  // `running` again: a check failed and the agent gets it back to fix it (a retry).
+  checking: ["running", "succeeded", "failed", "cancelled", "interrupted"],
   succeeded: [],
   failed: [],
   cancelled: [],
@@ -213,12 +224,139 @@ export const RunUsageSchema = z.strictObject({
   rate_limits: z.array(RateLimitWindowSchema).max(10).optional(),
 });
 
+const CheckIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{0,30}$/, "Check id must be a lowercase slug");
+
+/** Where a check comes from: the project's checks, or a task's acceptance criterion (`acN`). */
+export const CheckSourceSchema = z.enum(["project", "acceptance"]);
+export type CheckSource = z.infer<typeof CheckSourceSchema>;
+
+/**
+ * A check's result in `run.json` (the summary of the last attempt). `source` and `timed_out`
+ * arrived with M8; older runs lack them.
+ */
 export const RunCheckResultSchema = z.strictObject({
-  id: z.string().regex(/^[a-z][a-z0-9-]{0,30}$/, "Check id must be a lowercase slug"),
+  id: CheckIdSchema,
+  source: CheckSourceSchema.optional(),
   /** `null` when the check did not exit on its own (timeout or signal). */
   exit_code: z.int().nullable(),
   duration_ms: z.int().min(0),
+  timed_out: z.boolean().optional(),
 });
+
+/** How much of a check's output `checks.json` keeps: its last characters. */
+export const CHECK_OUTPUT_MAX = 16_384;
+
+/** A check's full result in `checks.json`: the summary plus the command and its output's tail. */
+export const CheckResultSchema = z.strictObject({
+  id: CheckIdSchema,
+  source: CheckSourceSchema,
+  command: z.string().min(1).max(1000),
+  exit_code: z.int().nullable(),
+  duration_ms: z.int().min(0),
+  timed_out: z.boolean(),
+  /** The tail of stdout and stderr, interleaved as they came. */
+  output: z.string().max(CHECK_OUTPUT_MAX),
+  /** The output was longer and only its tail is kept. */
+  output_truncated: z.boolean().optional(),
+});
+export type CheckResult = z.infer<typeof CheckResultSchema>;
+
+/** One pass over the checks: the first after `finish`, then one per retry. */
+export const CheckAttemptSchema = z.strictObject({
+  attempt: z.int().min(1),
+  started_at: TimestampSchema,
+  finished_at: TimestampSchema.optional(),
+  results: z.array(CheckResultSchema).max(200),
+});
+export type CheckAttempt = z.infer<typeof CheckAttemptSchema>;
+
+/** `.konsora/runs/<id>/checks.json`: every attempt of the run, in order. */
+export const ChecksFileSchema = z
+  .strictObject({
+    run: RunIdSchema,
+    attempts: z.array(CheckAttemptSchema).max(MAX_ATTEMPTS),
+  })
+  .superRefine((file, ctx) => {
+    file.attempts.forEach((attempt, i) => {
+      if (attempt.attempt !== i + 1) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["attempts", i, "attempt"],
+          message: `Attempt ${i + 1} is numbered ${attempt.attempt}`,
+        });
+      }
+    });
+  });
+export type ChecksFile = z.infer<typeof ChecksFileSchema>;
+
+/** A check that exited 0 within its time. */
+export function checkPassed(result: Pick<CheckResult, "exit_code" | "timed_out">): boolean {
+  return result.exit_code === 0 && result.timed_out !== true;
+}
+
+/** Every check passed (no checks counts as passed). */
+export function checksPassed(results: readonly Pick<CheckResult, "exit_code" | "timed_out">[]) {
+  return results.every(checkPassed);
+}
+
+/** The `run.json` summary of an attempt: the results without command and output. */
+export function checkSummary(attempt: CheckAttempt): RunCheckResult[] {
+  return attempt.results.map((r) => ({
+    id: r.id,
+    source: r.source,
+    exit_code: r.exit_code,
+    duration_ms: r.duration_ms,
+    timed_out: r.timed_out,
+  }));
+}
+
+/** Keeps the last `max` characters of a check's output. */
+export function tailOutput(
+  text: string,
+  max: number = CHECK_OUTPUT_MAX,
+): { output: string; truncated: boolean } {
+  return text.length > max
+    ? { output: text.slice(text.length - max), truncated: true }
+    : { output: text, truncated: false };
+}
+
+/** A check to run: a project check, or an acceptance criterion with a `check`. */
+export type PlannedCheck = {
+  id: string;
+  source: CheckSource;
+  command: string;
+  timeout_s: number;
+};
+
+/**
+ * The checks of a run, in order: the project's checks, then the task's acceptance criteria that
+ * have a `check`. Taken from the plan as it was approved when the run was launched.
+ */
+export function plannedChecks(document: TasksDocument, taskId: string): PlannedCheck[] {
+  const task = document.tasks.find((t) => t.id === taskId);
+  return [
+    ...(document.project.checks ?? []).map((check) => ({
+      id: check.id,
+      source: "project" as const,
+      command: check.run,
+      timeout_s: check.timeout_s ?? DEFAULT_CHECK_TIMEOUT_S,
+    })),
+    ...(task?.acceptance ?? []).flatMap((ac) =>
+      ac.check
+        ? [
+            {
+              id: ac.id,
+              source: "acceptance" as const,
+              command: ac.check,
+              timeout_s: DEFAULT_CHECK_TIMEOUT_S,
+            },
+          ]
+        : [],
+    ),
+  ];
+}
 
 /**
  * `run.json`. Only the identity and the state are required: the rest is filled in as the run goes
@@ -246,7 +384,10 @@ export const RunSchema = z
     exit: RunExitSchema.optional(),
     usage: RunUsageSchema.optional(),
     summary: z.string().min(1).max(20_000).optional(),
+    /** The results of the last attempt; every attempt is in `checks.json`. */
     checks: z.array(RunCheckResultSchema).optional(),
+    /** How many times the checks ran (1 + the retries used). */
+    check_attempts: z.int().min(0).max(MAX_ATTEMPTS).optional(),
     integration: z.strictObject({ state: IntegrationStateSchema }).optional(),
   })
   .superRefine((run, ctx) => {
@@ -291,6 +432,7 @@ export function latestRateLimits(runs: readonly Run[]): ProviderRateLimits[] {
   return [...latest.values()].sort((a, b) => (a.provider < b.provider ? -1 : 1));
 }
 export type RunUsage = z.infer<typeof RunUsageSchema>;
+export type RunCheckResult = z.infer<typeof RunCheckResultSchema>;
 
 /** A direct read of a provider's rate limits (no run, no quota), or why it failed. */
 export type LimitsReading =

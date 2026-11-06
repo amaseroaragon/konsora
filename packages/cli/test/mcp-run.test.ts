@@ -133,9 +133,12 @@ describe("konsora mcp in run mode", () => {
     await call("note", { id: "BE-04", text: "Progress" });
     await call("ask", { id: "BE-04", question: "Which TTL?" });
     expect((await call("status")).json().waiting).toEqual(["BE-04"]);
-    await call("finish", { id: "BE-04", summary: "Done" });
+    const finished = await call("finish", { id: "BE-04", summary: "Done" });
+    expect(JSON.stringify(finished)).toContain("Konsora now runs the checks");
     expect(file(worktree)).toBe(worktreeBefore);
-    expect(task(main_, "BE-04")?.state).toBe("review");
+    // Inside a run, finish records the summary; Konsora moves the task after the checks.
+    expect(task(main_, "BE-04")?.state).toBe("doing");
+    expect(task(main_, "BE-04")?.notes?.at(-1)).toMatchObject({ kind: "summary", text: "Done" });
     await close();
   });
 

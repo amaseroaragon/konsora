@@ -23,7 +23,8 @@ Konsora separa dos cosas que el v1 mezclaba:
     "checks": [
       { "id": "typecheck", "run": "npm run typecheck", "timeout_s": 300 },
       { "id": "test", "run": "npm test", "timeout_s": 600 }
-    ]
+    ],
+    "check_retries": 2
   },
   "groups": [
     { "id": "BE", "name": "Backend" },
@@ -78,7 +79,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
-**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `checks` (`Check[]` que se ejecutan en todos los runs).
+**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`.
 
 **`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60).
 
@@ -143,7 +144,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 | editar `todo`/`review`/`done` | **H** | Los agentes no cambian trabajo aprobado; solo añaden notas y dependencias. |
 | `todo` → `doing` | A, K | `start`. Rechazado si está `blocked`. Dentro de un run, la tarea la empieza el runner: el agente solo puede hacer `note`, `ask` y `finish` sobre su tarea, o proponer tareas nuevas (`out_of_scope` en otro caso). |
 | `doing` → `todo` | A, K, H | `pause` (opcionalmente con nota), cancelación o fallo de un run. |
-| `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, el runner aplica la transición **después** de los checks (§6). |
+| `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, `finish` solo añade el `summary` (con su `run`) y la tarea sigue en `doing`; cuando acaban los checks (§6), Konsora aplica `complete` `{checks_passed, text?}`, que la pasa a `review` (o a `done` en una cadena YOLO, solo con todos los checks en verde) y puede añadir una nota de Konsora. `complete` es solo de Konsora y exige un `summary` de ese run. Si un check falla y quedan reintentos, el agente recibe el fallo y vuelve a llamar a `finish`. |
 | `review` → `done` | **H** | `accept`. Si la tarea tiene un run, integra su rama (squash, ver `arquitectura.md`). |
 | `review` → `todo` | **H** | `send-back` con una nota `feedback`, que el agente leerá. |
 | `done` → `todo` | **H** | `reopen`. |
@@ -155,7 +156,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 - `waiting` = la última nota `question` no tiene un `answer` posterior.
 - `ready` = `todo` y no `blocked`.
 
-**YOLO** (adaptado de Kanvas): el humano activa `yolo` en una tarea T, lo que aprueba todas las propuestas de la cadena de T, es decir, T y sus dependencias transitivas. Cuando un run termina con los checks en verde, una tarea de la cadena que no sea T pasa directamente a `done` y se integra sin revisión. T termina en `review`. El modo YOLO se desactiva cuando T llega a `review`. Así, una cadena puede ejecutarse entera en paralelo sin detenerse en cada revisión intermedia.
+**YOLO** (adaptado de Kanvas): el humano activa `yolo` en una tarea T, lo que aprueba todas las propuestas de la cadena de T, es decir, T y sus dependencias transitivas. Cuando un run termina con los checks en verde, una tarea de la cadena que no sea T pasa directamente a `done` y se integra sin revisión; con algún check en rojo, va a `review`. T termina en `review`. El modo YOLO se desactiva cuando T llega a `review`. Así, una cadena puede ejecutarse entera en paralelo sin detenerse en cada revisión intermedia.
 
 ## 3. Validación
 
@@ -206,7 +207,7 @@ run.json        metadatos y estado (se reescribe de forma atómica)
 events.jsonl    eventos normalizados (solo se añaden líneas)
 raw.jsonl       salida cruda del proveedor, para depuración (rotada a 20 MB: la anterior pasa a raw.1.jsonl)
 diff.patch      diff base..head al terminar
-checks.json     resultado de cada check
+checks.json     resultado de cada check, por intento
 ```
 
 `run.json` (el test de `core` valida este ejemplo):
@@ -228,12 +229,36 @@ checks.json     resultado de cada check
   "exit": { "code": 0, "signal": null },
   "usage": { "input_tokens": 41200, "output_tokens": 5300, "cost_usd": null },
   "summary": "Caché del pronóstico de 10 minutos, con tests.",
-  "checks": [{ "id": "test", "exit_code": 0, "duration_ms": 8123 }],
+  "checks": [{ "id": "test", "source": "project", "exit_code": 0, "duration_ms": 8123, "timed_out": false }],
+  "check_attempts": 1,
   "integration": { "state": "pending" }
 }
 ```
 
 Solo `id`, `task`, `task_hash`, `agent` y `state` son obligatorios; el resto se rellena según avanza el run. `prompt` es el texto exacto que recibió el agente: lo genera `buildRunPrompt` de `core` (título, `desc`, criterios con su check, checks del proyecto, notas `feedback` y `answer` con su pregunta, resúmenes de las dependencias e instrucciones de protocolo; las notas ordinarias no entran), de forma determinista. Las claves desconocidas se rechazan.
+
+`checks` es el resumen del último intento (sin el comando ni la salida) y `check_attempts`, cuántas veces se ejecutaron los checks (1 más los reintentos usados). Los `run.json` anteriores a M8, con solo `id`, `exit_code` y `duration_ms` en cada check, siguen siendo válidos.
+
+`checks.json` guarda todos los intentos (`ChecksFileSchema` de `core`):
+
+```json
+{
+  "run": "r-01JC8Z3K2QX7M4V9T0B6N5R8PW",
+  "attempts": [
+    {
+      "attempt": 1, "started_at": "2026-11-02T10:12:00Z", "finished_at": "2026-11-02T10:13:10Z",
+      "results": [
+        { "id": "test", "source": "project", "command": "npm test", "exit_code": 1, "duration_ms": 8123,
+          "timed_out": false, "output": "…\nFAIL cache.test.ts\n", "output_truncated": true },
+        { "id": "ac1", "source": "acceptance", "command": "npm test -- cache", "exit_code": null,
+          "duration_ms": 600000, "timed_out": true, "output": "" }
+      ]
+    }
+  ]
+}
+```
+
+Los checks de un run son, en orden, los `project.checks` y después los `acceptance[].check` de la tarea (`plannedChecks`), tal como estaban al lanzarlo. `source` dice de dónde viene cada uno (`project` o `acceptance`, con el id del criterio). Un check cumple si sale con 0 dentro de su `timeout_s` (por defecto, 600). De la salida (stdout y stderr juntos) se guardan los últimos 16 KB (`CHECK_OUTPUT_MAX`). Si falla alguno y quedan reintentos, el agente recibe `buildRetryPrompt`: los checks fallidos con su comando, cómo acabaron y los últimos 4000 caracteres de su salida, sin fechas ni duraciones, de forma determinista.
 
 `transport` dice cómo habló el runner con el agente: `stream-json` (Claude Code), `app-server` o `exec` (Codex, el plan B). Con `exec` no hay aprobaciones ni rate limits, y las respuestas reanudan la sesión (`transportLimits` de `core`). Si falta, el run se considera completo.
 
@@ -246,7 +271,7 @@ queued           → starting | cancelled
 starting         → running | failed | cancelled | interrupted
 running          → waiting_approval | checking | failed | cancelled | interrupted
 waiting_approval → running | failed | cancelled | interrupted
-checking         → succeeded | failed | cancelled | interrupted
+checking         → running (reintento) | succeeded | failed | cancelled | interrupted
 interrupted      → starting (reanudar) | cancelled (descartar)
 succeeded, failed, cancelled: finales
 ```

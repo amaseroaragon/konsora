@@ -209,10 +209,14 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     (args) =>
       apply(
         () => ({ op: "finish", task: args.id.toUpperCase(), summary: args.summary }),
-        (doc) =>
-          doc.tasks.find((t) => t.id === args.id.toUpperCase())?.state === "done"
+        (doc) => {
+          const state = doc.tasks.find((t) => t.id === args.id.toUpperCase())?.state;
+          return state === "done"
             ? "The task is done (part of a YOLO chain, no review needed)."
-            : "The task is waiting for human review. Stop here.",
+            : state === "doing"
+              ? "Konsora now runs the checks; if one fails, you will get its output to fix it. Stop here."
+              : "The task is waiting for human review. Stop here.";
+        },
       ),
   );
 }

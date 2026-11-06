@@ -159,19 +159,9 @@ describe("transitions", () => {
     expect(err(applyOp(d, { op: "finish", task: "BE-01", summary: "  " }, agent))).toBe(
       "summary_required",
     );
-    const r = ok(
-      applyOp(
-        d,
-        { op: "finish", task: "BE-01", summary: "Done it" },
-        { ...agent, run: "r-01JC8Z3K2Q" },
-      ),
-    );
+    const r = ok(applyOp(d, { op: "finish", task: "BE-01", summary: "Done it" }, agent));
     expect(r.document.tasks[0]?.state).toBe("review");
-    expect(r.document.tasks[0]?.notes?.at(-1)).toMatchObject({
-      kind: "summary",
-      text: "Done it",
-      run: "r-01JC8Z3K2Q",
-    });
+    expect(r.document.tasks[0]?.notes?.at(-1)).toMatchObject({ kind: "summary", text: "Done it" });
   });
 
   it("send-back requires feedback and returns review → todo with a feedback note", () => {
@@ -396,6 +386,11 @@ describe("properties", () => {
       fc.record({ op: fc.constant("accept" as const), task: id }),
       fc.record({ op: fc.constant("reopen" as const), task: id }),
       fc.record({ op: fc.constant("set-yolo" as const), task: id, value: fc.boolean() }),
+      fc.record({ op: fc.constant("complete" as const), task: id, checks_passed: fc.boolean() }),
+      fc.record({
+        op: fc.constant("set-checks" as const),
+        check_retries: fc.integer({ min: 0, max: 5 }),
+      }),
     ) as fc.Arbitrary<Op>;
   };
 
@@ -466,5 +461,124 @@ describe("restore (human-only revert)", () => {
     expect(err(applyOp(changed, { op: "restore", task: "BE-02", version: original }, human))).toBe(
       "invalid",
     );
+  });
+});
+
+describe("checks (CORE-07)", () => {
+  const RUN = "r-01JC8Z3K2QX7M4V9T0B6N5R8PW";
+  const inRun: OpContext = { ...agent, runTask: "BE-01", run: RUN };
+  const konsora: OpContext = { ...runner, run: RUN };
+
+  it("inside a run, finish keeps the task doing with its summary; complete moves it to review", () => {
+    const d = doc(task("BE-01", "doing"));
+    const finished = ok(applyOp(d, { op: "finish", task: "BE-01", summary: "Done" }, inRun));
+    expect(finished.document.tasks[0]).toMatchObject({ state: "doing" });
+    expect(finished.document.tasks[0]?.notes?.at(-1)).toMatchObject({
+      kind: "summary",
+      text: "Done",
+      run: RUN,
+    });
+    // A retry: the agent finishes again while still doing.
+    const again = ok(
+      applyOp(finished.document, { op: "finish", task: "BE-01", summary: "Fixed" }, inRun),
+    );
+    expect(again.document.tasks[0]?.notes?.filter((n) => n.kind === "summary")).toHaveLength(2);
+
+    const closed = ok(
+      applyOp(
+        again.document,
+        {
+          op: "complete",
+          task: "BE-01",
+          checks_passed: false,
+          text: "Checks failed after 2 retries.",
+        },
+        konsora,
+      ),
+    );
+    expect(closed.document.tasks[0]).toMatchObject({ state: "review" });
+    expect(closed.document.tasks[0]?.notes?.at(-1)).toMatchObject({
+      kind: "note",
+      by: "konsora",
+      text: "Checks failed after 2 retries.",
+      run: RUN,
+    });
+  });
+
+  it("only Konsora completes, and only after this run's summary", () => {
+    const d = doc(task("BE-01", "doing"));
+    const op: Op = { op: "complete", task: "BE-01", checks_passed: true };
+    expect(err(applyOp(d, op, agent))).toBe("forbidden");
+    expect(err(applyOp(d, op, inRun))).toBe("forbidden");
+    expect(err(applyOp(d, op, human))).toBe("forbidden");
+    expect(err(applyOp(d, op, konsora))).toBe("summary_required");
+    const other = ok(
+      applyOp(
+        d,
+        { op: "finish", task: "BE-01", summary: "x" },
+        { ...inRun, run: "r-01JC8Z3K2QX7M4V9T0B6N5R8PA" },
+      ),
+    ).document;
+    expect(err(applyOp(other, op, konsora))).toBe("summary_required");
+    expect(err(applyOp(doc(task("BE-01", "review")), op, runner))).toBe("summary_required");
+  });
+
+  it("in a YOLO chain, an intermediate task goes to done only with every check green", () => {
+    const chain = doc(task("BE-01", "doing"), task("BE-02", "todo", ["BE-01"], { yolo: true }));
+    const finished = ok(
+      applyOp(chain, { op: "finish", task: "BE-01", summary: "ok" }, inRun),
+    ).document;
+    const green = ok(
+      applyOp(finished, { op: "complete", task: "BE-01", checks_passed: true }, konsora),
+    );
+    expect(state(green, "BE-01")).toBe("done");
+    const red = ok(
+      applyOp(finished, { op: "complete", task: "BE-01", checks_passed: false }, konsora),
+    );
+    expect(state(red, "BE-01")).toBe("review");
+
+    // The YOLO task itself always goes to review, and YOLO ends there.
+    const last = doc(task("BE-01", "done"), task("BE-02", "doing", ["BE-01"], { yolo: true }));
+    const inLast: OpContext = { ...inRun, runTask: "BE-02" };
+    const f2 = ok(applyOp(last, { op: "finish", task: "BE-02", summary: "ok" }, inLast)).document;
+    const c2 = ok(
+      applyOp(f2, { op: "complete", task: "BE-02", checks_passed: true }, konsora),
+    ).document;
+    expect(c2.tasks[1]).toMatchObject({ state: "review" });
+    expect(c2.tasks[1]?.yolo).toBeUndefined();
+  });
+
+  it("only a human sets the project's checks and retries; an agent gets forbidden", () => {
+    const d = doc(task("BE-01", "todo"));
+    const op: Op = {
+      op: "set-checks",
+      checks: [{ id: "test", run: "npm test", timeout_s: 300 }],
+      check_retries: 0,
+    };
+    expect(err(applyOp(d, op, agent))).toBe("forbidden");
+    expect(err(applyOp(d, op, inRun))).toBe("forbidden");
+    expect(err(applyOp(d, op, runner))).toBe("forbidden");
+    const set = ok(applyOp(d, op, human)).document;
+    expect(set.project).toMatchObject({
+      checks: [{ id: "test", run: "npm test", timeout_s: 300 }],
+      check_retries: 0,
+    });
+    // A field left out is kept; [] and null remove.
+    const kept = ok(applyOp(set, { op: "set-checks", check_retries: 4 }, human)).document;
+    expect(kept.project.checks).toHaveLength(1);
+    const cleared = ok(
+      applyOp(kept, { op: "set-checks", checks: [], check_retries: null }, human),
+    ).document;
+    expect(cleared.project.checks).toBeUndefined();
+    expect(cleared.project.check_retries).toBeUndefined();
+    expect(err(applyOp(d, { op: "set-checks" }, human))).toBe("invalid");
+    const twice: Op = {
+      op: "set-checks",
+      checks: [
+        { id: "test", run: "a" },
+        { id: "test", run: "b" },
+      ],
+    };
+    expect(err(applyOp(d, twice, human))).toBe("invalid");
   });
 });

@@ -22,6 +22,7 @@ import { rankAfterAll } from "./rank.ts";
 import type {
   Acceptance,
   AgentSpec,
+  Check,
   Note,
   NoteKind,
   SchemaIssue,
@@ -86,6 +87,16 @@ export type Op = Base &
     | { op: "ask"; task: string; text: string }
     | { op: "answer"; task: string; text: string }
     | { op: "finish"; task: string; summary: string }
+    /**
+     * Konsora closes a run's task once its checks are done: to `review`, or to `done` for an
+     * intermediate task of a YOLO chain whose checks all passed. `text` adds a Konsora note.
+     */
+    | { op: "complete"; task: string; checks_passed: boolean; text?: string }
+    /**
+     * The human sets the project's checks and how many times a run retries them. A field left
+     * out is kept; `checks: []` and `check_retries: null` remove them.
+     */
+    | { op: "set-checks"; checks?: Check[]; check_retries?: number | null }
     | { op: "accept"; task: string }
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
@@ -144,6 +155,8 @@ const ROLES: Record<OpName, readonly Role[]> = {
   ask: ["agent"],
   answer: ["human"],
   finish: ["agent", "konsora"],
+  complete: ["konsora"],
+  "set-checks": ["human"],
   accept: ["human"],
   "send-back": ["human"],
   reopen: ["human"],
@@ -433,11 +446,53 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     case "finish": {
       const task = get(op.task);
       const summary = requireText(op.summary, "summary_required", "a summary of what was done");
+      if (ctx.run && role === "agent") {
+        // Inside a run the task stays doing: Konsora runs the checks, then applies `complete`.
+        if (task.state !== "doing") {
+          fail("invalid_transition", `${task.id} is ${task.state}; finish needs doing`, {
+            task: task.id,
+          });
+        }
+        addNote(task, "summary", summary);
+        break;
+      }
       // Inside an active YOLO chain, intermediate tasks skip review; the YOLO task itself does not.
       const covered = !task.yolo && yoloCovering(task.id, input).length > 0;
       transition(task, ["doing"], covered ? "done" : "review");
       if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
       addNote(task, "summary", summary);
+      break;
+    }
+    case "complete": {
+      const task = get(op.task);
+      const notes = task.notes ?? [];
+      const summary = notes.findLast((n) => n.kind === "summary");
+      if (!summary || (ctx.run !== undefined && summary.run !== ctx.run)) {
+        fail(
+          "summary_required",
+          `${task.id} has no summary from this run; the agent must finish first`,
+          {
+            task: task.id,
+          },
+        );
+      }
+      // Only green checks let an intermediate task of a YOLO chain skip review.
+      const covered = !task.yolo && yoloCovering(task.id, input).length > 0;
+      transition(task, ["doing"], covered && op.checks_passed ? "done" : "review");
+      if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
+      if (op.text?.trim()) addNote(task, "note", op.text);
+      break;
+    }
+    case "set-checks": {
+      if (!("checks" in op) && !("check_retries" in op)) {
+        fail("invalid", "set-checks needs checks, check_retries or both");
+      }
+      if (op.checks !== undefined) {
+        if (op.checks.length > 0) doc.project.checks = structuredClone(op.checks);
+        else delete doc.project.checks;
+      }
+      if (op.check_retries === null) delete doc.project.check_retries;
+      else if (op.check_retries !== undefined) doc.project.check_retries = op.check_retries;
       break;
     }
     case "accept":
