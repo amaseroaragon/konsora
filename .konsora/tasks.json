@@ -3284,7 +3284,7 @@
     {
       "id": "RUN-18",
       "title": "Ejecutar los checks del run en el worktree",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "CORE-07"
@@ -3320,7 +3320,23 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:52:49Z"
+      "updated_at": "2026-11-06T19:54:06Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T19:49:41Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Ejecutor de checks en el runner (grupo de procesos propio, timeout con SIGTERM→SIGKILL, entorno sin KONSORA_*, salida recortada), integrado en el cierre del supervisor con checks.json, eventos y cancelación."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T19:54:06Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: tras finish el run pasa a checking y ejecuta en el worktree, en orden, los project.checks y luego los acceptance[].check aprobados al lanzar (editarlos después no cambia el run); guarda checks.json (un intento con id, source, comando, exit, duración, timeout y cola de salida) y el resumen en run.json (checks, check_attempts); la tarea llega a review (con nota de konsora si hay checks en rojo; reintentos en RUN-19). Cada check emite eventos check start/end en events.jsonl. ac2: un check que vence su timeout recibe SIGTERM en todo su grupo y SIGKILL tras la gracia; cuenta como fallido con timed_out; test con un nieto en segundo plano que muere, y otro que ignora SIGTERM; al terminar el shell se mata lo que deje en su grupo (sin huérfanos). ac3: cancelar durante checking aborta el check en curso (y su grupo) y deja el run cancelled, con la tarea de vuelta en todo (test). ac4: el entorno es el del usuario sin KONSORA_* ni tokens (tests unitario y del supervisor). ac5: arquitectura.md §5 «Verificar» describe la ejecución y el modelo de confianza (código del agente fuera de su sandbox, como un npm test del humano). Los checks no hablan con ningún modelo. Commit 2c71c8c; npm run check en verde (818 tests)."
+        }
+      ]
     },
     {
       "id": "RUN-19",
