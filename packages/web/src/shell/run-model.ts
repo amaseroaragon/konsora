@@ -118,6 +118,54 @@ export function logRows(events: readonly RunEventRecord[]): RunLogEvent[] {
       case "error":
         rows.push({ at, kind: "error", text: str(event.message) });
         break;
+      case "setup":
+        rows.push(
+          event.phase === "start"
+            ? { at, kind: "bash", text: t("run.log.setup.start", { command: str(event.command) }) }
+            : {
+                at,
+                kind: event.exit_code === 0 && event.timed_out !== true ? "check" : "error",
+                text: t(
+                  event.exit_code === 0 && event.timed_out !== true
+                    ? "run.log.setup.ok"
+                    : "run.log.setup.fail",
+                ),
+              },
+        );
+        break;
+      case "check": {
+        const id = str(event.id);
+        if (event.phase === "start") {
+          rows.push({
+            at,
+            kind: "check",
+            text: t("run.log.check.start", { id, command: str(event.command) }),
+          });
+        } else {
+          const passed = event.exit_code === 0 && event.timed_out !== true;
+          const how = event.timed_out
+            ? t("checks.timedOut")
+            : event.exit_code === null || event.exit_code === undefined
+              ? t("checks.stopped")
+              : t("checks.exit", { code: String(event.exit_code) });
+          rows.push({
+            at,
+            kind: passed ? "check" : "error",
+            text: passed ? t("run.log.check.ok", { id }) : t("run.log.check.fail", { id, how }),
+          });
+        }
+        break;
+      }
+      case "retry":
+        rows.push({
+          at,
+          kind: "message",
+          text: t("run.log.retry", {
+            n: String(event.attempt ?? ""),
+            of: String(event.of ?? ""),
+          }),
+        });
+        break;
       case "finished":
         rows.push({
           at,

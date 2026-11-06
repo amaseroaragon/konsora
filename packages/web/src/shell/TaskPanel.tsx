@@ -16,6 +16,7 @@ import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { AgentPicker } from "./AgentPicker.tsx";
 import { agentProblem, initialAgent } from "./agent-model.ts";
 import { opErrorText } from "./board-model.ts";
+import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { OlderRuns } from "./OlderRuns.tsx";
@@ -53,10 +54,13 @@ function Actions({
   projectId,
   task,
   actions,
+  checksFailed = false,
 }: {
   projectId: string;
   task: BoardTask;
   actions: TaskAction[];
+  /** The latest run's checks are red: accepting asks first. */
+  checksFailed?: boolean;
 }) {
   const mutation = useTaskAction(projectId);
   const toast = useToast();
@@ -65,7 +69,13 @@ function Actions({
   const [text, setText] = useState("");
   /** Why the last accept could not integrate the run's work (the task stays in review). */
   const [problem, setProblem] = useState<string | null>(null);
-  const run = (action: TaskAction, value?: string) =>
+  const run = (action: TaskAction, value?: string) => {
+    if (
+      action === "accept" &&
+      !confirmAccept(task.id, checksFailed, (question) => window.confirm(question))
+    ) {
+      return;
+    }
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
       {
@@ -90,6 +100,7 @@ function Actions({
         },
       },
     );
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!open) return;
@@ -255,6 +266,8 @@ export function TaskPanel({
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
   const run = latestRun(runs, task.id);
+  const criteria = criterionResults(run);
+  const checksFailed = task.state === "review" && runChecksFailed(run);
   const runnable = runs !== undefined && canRun(task, { readOnly, runs, id: task.id });
   return (
     <aside className="a-detail b-panel" aria-label={t("detail.label", { id: task.id })}>
@@ -295,6 +308,7 @@ export function TaskPanel({
             projectId={projectId}
             task={task}
             actions={actions}
+            checksFailed={checksFailed}
           />
         )}
         {runnable && <RunButton projectId={projectId} task={task} doc={doc} />}
@@ -340,15 +354,32 @@ export function TaskPanel({
               <table className="a-criteria">
                 <caption className="k-label">{t("detail.criteria")}</caption>
                 <tbody>
-                  {(task.acceptance ?? []).map((ac) => (
-                    <tr key={ac.id}>
-                      <td className="k-mono a-criteria__id">{ac.id}</td>
-                      <td>
-                        {ac.text}
-                        {ac.check && <div className="k-mono a-criteria__check">{ac.check}</div>}
-                      </td>
-                    </tr>
-                  ))}
+                  {(task.acceptance ?? []).map((ac) => {
+                    const result = ac.check ? criteria.get(ac.id) : undefined;
+                    const ok = result ? result.exit_code === 0 && result.timed_out !== true : null;
+                    return (
+                      <tr key={ac.id}>
+                        <td className="k-mono a-criteria__id">{ac.id}</td>
+                        <td>
+                          {ac.text}
+                          {ac.check && <div className="k-mono a-criteria__check">{ac.check}</div>}
+                          {ac.check && (
+                            <div
+                              className={`a-criteria__result ${
+                                ok === null ? "s-muted" : ok ? "b-checks__ok" : "b-checks__fail"
+                              }`}
+                            >
+                              {result
+                                ? `${ok ? "✓" : "✕"} ${t("checks.criterion.last", {
+                                    outcome: checkOutcome(result),
+                                  })}`
+                                : t("checks.criterion.none")}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

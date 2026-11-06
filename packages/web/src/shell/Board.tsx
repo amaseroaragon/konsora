@@ -89,6 +89,7 @@ function Card({
       blockedBy={task.state === "todo" ? task.blockers : []}
       waiting={task.waiting}
       external={external}
+      checksFailed={task.checks_failed === true}
       {...(onOpen ? { onOpen } : {})}
       {...(agent ? { agent } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}

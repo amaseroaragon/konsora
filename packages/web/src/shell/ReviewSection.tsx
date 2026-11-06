@@ -2,6 +2,8 @@ import type { Run } from "@konsora/core";
 import { useRunDiff } from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
 import { DiffView } from "../ui/index.ts";
+import { ChecksHistory } from "./ChecksHistory.tsx";
+import { runChecksFailed } from "./checks-model.ts";
 import { Markdown } from "./Markdown.tsx";
 import { diffTotals, parsePatch } from "./review-model.ts";
 
@@ -30,12 +32,18 @@ export function ReviewSection({
           {t("review.conflict.persist")}
         </p>
       )}
+      {runChecksFailed(run) && (
+        <p className="a-callout a-callout--warn" role="status">
+          {t("checks.review.failing")}
+        </p>
+      )}
       {summary && (
         <div className="a-summary">
           <div className="k-label">{t("review.summary")}</div>
           <Markdown className="md--compact" text={summary} />
         </div>
       )}
+      <ChecksHistory projectId={projectId} runId={run.id} />
       <div>
         <div className="k-label">{t("review.diff")}</div>
         {diff.isPending ? (

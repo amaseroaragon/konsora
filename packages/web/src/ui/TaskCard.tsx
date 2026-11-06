@@ -11,6 +11,8 @@ export type TaskCardProps = {
   waiting?: boolean;
   /** An unapproved change made outside Konsora is pending on this task. */
   external?: boolean;
+  /** In review with its run's checks failing. */
+  checksFailed?: boolean;
   /** Elapsed time of the active run, e.g. "4:12". */
   running?: string;
   /** "claude · opus · alto" */
@@ -31,6 +33,7 @@ export function TaskCard({
   blockedBy = [],
   waiting = false,
   external = false,
+  checksFailed = false,
   running,
   agent,
   proposedBy,
@@ -52,6 +55,7 @@ export function TaskCard({
         blocked && "k-card--blocked",
         running && "k-card--running",
         external && "k-card--external",
+        checksFailed && "k-card--checks",
         selected && "k-card--selected",
       )}
     >
@@ -64,6 +68,7 @@ export function TaskCard({
         {ready && <StateBadge kind="ready" />}
         {waiting && <StateBadge kind="waiting" />}
         {external && <StateBadge kind="external" />}
+        {checksFailed && <StateBadge kind="checks" />}
         {state === "proposed" && proposedBy && (
           <StateBadge kind="proposed" label={t("card.proposedBy", { actor: proposedBy })} />
         )}

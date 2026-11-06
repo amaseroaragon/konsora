@@ -3,7 +3,7 @@ import { type MessageKey, t } from "../i18n/index.ts";
 /** Stored task states (docs/esquema-tareas.md §2). */
 export type TaskState = "proposed" | "todo" | "doing" | "review" | "done";
 /** Derived or run-related conditions shown alongside the state. */
-export type TaskFlag = "blocked" | "waiting" | "ready" | "running" | "external";
+export type TaskFlag = "blocked" | "waiting" | "ready" | "running" | "external" | "checks";
 export type BadgeKind = TaskState | TaskFlag;
 
 export const taskStates: readonly TaskState[] = ["proposed", "todo", "doing", "review", "done"];
@@ -19,6 +19,7 @@ const labelKey: Record<BadgeKind, MessageKey> = {
   ready: "state.ready",
   running: "state.running",
   external: "state.external",
+  checks: "state.checks",
 };
 
 export type StateBadgeProps = {

@@ -301,12 +301,17 @@ export const ChecksFileSchema = z
 export type ChecksFile = z.infer<typeof ChecksFileSchema>;
 
 /** A check that exited 0 within its time. */
-export function checkPassed(result: Pick<CheckResult, "exit_code" | "timed_out">): boolean {
+export function checkPassed(result: {
+  exit_code: number | null;
+  timed_out?: boolean | undefined;
+}): boolean {
   return result.exit_code === 0 && result.timed_out !== true;
 }
 
 /** Every check passed (no checks counts as passed). */
-export function checksPassed(results: readonly Pick<CheckResult, "exit_code" | "timed_out">[]) {
+export function checksPassed(
+  results: readonly { exit_code: number | null; timed_out?: boolean | undefined }[],
+) {
   return results.every(checkPassed);
 }
 

@@ -1,5 +1,5 @@
 /** Runs over the daemon (DMN-04): launch, cancel, the run list and each run's events. */
-import type { AgentSpec, Run } from "@konsora/core";
+import type { AgentSpec, ChecksFile, Run } from "@konsora/core";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appendEvent, type RunEventRecord, upsertRun } from "../shell/run-model.ts";
 import { boardKey } from "./board.ts";
@@ -99,10 +99,32 @@ export function applyRunMessage(
     client.setQueryData<RunEventRecord[]>(runEventsKey(project, message.run), (events) =>
       events === undefined ? events : appendEvent(events, message.event as RunEventRecord),
     );
+    // A check that ended (or a retry) changes checks.json: read it again.
+    const event = message.event as RunEventRecord;
+    if ((event.t === "check" && event.phase === "end") || event.t === "retry") {
+      client.invalidateQueries({ queryKey: runChecksKey(project, message.run) });
+    }
   }
 }
 
 export const runDiffKey = (project: string, run: string) => ["runs", project, run, "diff"] as const;
+export const runChecksKey = (project: string, run: string) =>
+  ["runs", project, run, "checks"] as const;
+
+/** The run's `checks.json`: every attempt (null before its checks ran). */
+export function useRunChecks(project: string, run: string, enabled = true) {
+  const api = useApi();
+  return useQuery({
+    queryKey: runChecksKey(project, run),
+    enabled,
+    queryFn: async () =>
+      (
+        await api.get<{ checks: ChecksFile | null }>(
+          `${base(project)}/${encodeURIComponent(run)}/checks`,
+        )
+      ).checks,
+  });
+}
 
 /** The run's `diff.patch` (null until it closes). */
 export function useRunDiff(project: string, run: string, enabled = true) {

@@ -7,7 +7,12 @@ import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
 import { applyRunMessage } from "./runs.ts";
 import { reconnectDelay, TOKEN_KEY } from "./session.ts";
 
-export type BoardTask = Task & TaskFlags & { hash: string };
+export type BoardTask = Task &
+  TaskFlags & {
+    hash: string;
+    /** Set by the page from the task's latest run: in review with checks failing (UI-16). */
+    checks_failed?: boolean;
+  };
 export type ExternalFlag = {
   task: string;
   kind: string;

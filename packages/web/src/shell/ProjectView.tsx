@@ -10,6 +10,7 @@ import { Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { ApprovalNotice } from "./Approvals.tsx";
 import { initialBatchAgent } from "./agent-model.ts";
 import { Board } from "./Board.tsx";
+import { failingReviews } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
@@ -73,6 +74,17 @@ export function ProjectView({
   const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
   const toast = useToast();
   const runs = useRuns(projectId).data;
+  // Cards in review whose latest run ended with checks in red stand out on the board.
+  const marked = useMemo(() => {
+    const failing = failingReviews(board.tasks, runs);
+    if (failing.size === 0) return board;
+    return {
+      ...board,
+      tasks: board.tasks.map((task) =>
+        failing.has(task.id) ? { ...task, checks_failed: true } : task,
+      ),
+    };
+  }, [board, runs]);
   const approvals = (useApprovals().data ?? []).filter((a) => a.project === projectId);
   const startRun = useStartRun(projectId);
   const selection = useSelection(projectId);
@@ -204,7 +216,7 @@ export function ProjectView({
             />
           ) : (
             <Board
-              board={board}
+              board={marked}
               swimlanes={swimlanes}
               onOpen={open}
               selection={{ selected, onToggle: toggle }}
