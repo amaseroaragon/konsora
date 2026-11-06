@@ -100,6 +100,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     daemonUrl: () => url,
     mcp: options.mcp ?? mcpCommand(),
     publish: (project, payload) => hub?.publish(project, payload),
+    broadcast: (payload) => hub?.broadcast(payload),
     ...(options.adapters ? { adapters: options.adapters } : {}),
     ...(options.interruptGraceMs !== undefined
       ? { interruptGraceMs: options.interruptGraceMs }

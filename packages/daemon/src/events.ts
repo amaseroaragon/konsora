@@ -11,6 +11,7 @@
  * - `board.invalid` {project, message, issues}
  * - `board.missing` {project}
  * - `permission.requested` / `permission.resolved` {project, run, approval} (MCP-04)
+ * - `limits.updated` {limits}: to every authenticated client, subscribed or not (DMN-06)
  */
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -55,6 +56,8 @@ export type EventHubOptions = AuthConfig & {
 export class EventHub {
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
   private readonly feeds = new Map<string, Feed>();
+  /** Authenticated clients, whatever they subscribe to (for account-wide events). */
+  private readonly authed = new Set<WebSocket>();
   private readonly options: EventHubOptions;
 
   constructor(options: EventHubOptions) {
@@ -104,6 +107,7 @@ export class EventHub {
           sameToken(message.token, this.options.token)
         ) {
           authed = true;
+          this.authed.add(ws);
           clearTimeout(timer);
           return send(ws, { type: "ready" });
         }
@@ -133,6 +137,7 @@ export class EventHub {
 
     ws.on("close", () => {
       clearTimeout(timer);
+      this.authed.delete(ws);
       for (const project of subscriptions) this.unsubscribe(project, ws);
     });
   }
@@ -210,6 +215,11 @@ export class EventHub {
   /** Sends an event (e.g. `permission.requested`) to every client subscribed to the project. */
   publish(projectId: string, payload: unknown) {
     for (const client of this.feeds.get(projectId)?.clients ?? []) send(client, payload);
+  }
+
+  /** Sends an account-wide event (e.g. `limits.updated`) to every authenticated client. */
+  broadcast(payload: unknown) {
+    for (const client of this.authed) send(client, payload);
   }
 
   /** Number of projects currently watched (for tests and diagnostics). */

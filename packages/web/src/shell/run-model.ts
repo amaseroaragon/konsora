@@ -222,6 +222,8 @@ export function runUsage(run: Run, events: readonly RunEventRecord[]): RunUsage 
 export function windowLabel(window: string): string {
   if (window === "five_hour") return t("limits.window.five_hour");
   if (window === "seven_day") return t("limits.window.seven_day");
+  const scope = /^seven_day_([a-z0-9_]+)$/.exec(window)?.[1];
+  if (scope) return t("limits.window.seven_day_scoped", { scope: scope.replace(/_/g, " ") });
   const minutes = /^window_(\d+)m$/.exec(window)?.[1];
   if (minutes) return t("limits.window.minutes", { n: minutes });
   return window;

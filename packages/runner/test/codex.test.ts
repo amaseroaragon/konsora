@@ -520,3 +520,23 @@ describe("failures", () => {
     expect(read(dumpFile).received.filter((m) => m.method === undefined)).toEqual([]);
   });
 });
+
+describe("rateLimits()", () => {
+  it("reads the account's windows from account/rateLimits/read, with no thread or turn", async () => {
+    const { adapter: codex, dumpFile } = adapter("rate-limits", { FAKE_CODEX_SKIP: "" });
+    expect(await codex.rateLimits?.()).toEqual([
+      { window: "five_hour", status: "allowed", utilization: 0.12, resets_at: 1794011577 },
+      { window: "seven_day", status: "allowed", utilization: 0.41, resets_at: 1794598377 },
+    ]);
+    const dump = JSON.parse(readFileSync(dumpFile, "utf8")) as {
+      received: { method?: string }[];
+    };
+    const methods = dump.received.map((m) => m.method).filter(Boolean);
+    expect(methods).toEqual(["initialize", "initialized", "account/rateLimits/read"]);
+  });
+
+  it("fails with an actionable error when codex is missing", async () => {
+    const codex = createCodexAdapter({ command: "/nonexistent/codex" });
+    await expect(codex.rateLimits?.()).rejects.toThrow(/Could not read Codex rate limits/);
+  });
+});

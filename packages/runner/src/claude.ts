@@ -30,6 +30,7 @@ import {
   type RunIO,
   type RunSpec,
 } from "./adapter.ts";
+import { readClaudeUsage, UsageUnsupportedError } from "./claude-usage.ts";
 import { agentEnv } from "./env.ts";
 import { readVersion } from "./version.ts";
 
@@ -427,7 +428,11 @@ export type ClaudeAdapterOptions = {
   env?: NodeJS.ProcessEnv;
   /** How long `kill()` waits after SIGTERM before SIGKILL. Default 5000 ms. */
   killGraceMs?: number;
+  /** How long `claude -p /usage` may take. Default 20 s. */
+  usageTimeoutMs?: number;
 };
+
+const USAGE_TIMEOUT_MS = 20_000;
 
 const MODELS: ModelInfo[] = [
   { id: "opus", label: "Claude Opus", efforts: [...EffortSchema.options] },
@@ -439,6 +444,8 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions = {}): AgentAd
   const command = options.command ?? "claude";
   const prefix = options.prefixArgs ?? [];
   const baseEnv = options.env ?? process.env;
+  // Once `/usage` turned out not to be local, it is never run again (it could spend quota).
+  let usageUnsupported: UsageUnsupportedError | null = null;
   return {
     id: "claude",
     profiles: ["default"],
@@ -446,6 +453,17 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions = {}): AgentAd
     openModels: true,
     detect: () => detectClaude(command, prefix, claudeEnv(baseEnv)),
     models: () => Promise.resolve(MODELS.map((m) => ({ ...m, efforts: [...m.efforts] }))),
+    rateLimits: async () => {
+      if (usageUnsupported) throw usageUnsupported;
+      try {
+        return await readClaudeUsage(command, prefix, claudeEnv(baseEnv), {
+          timeoutMs: options.usageTimeoutMs ?? USAGE_TIMEOUT_MS,
+        });
+      } catch (error) {
+        if (error instanceof UsageUnsupportedError) usageUnsupported = error;
+        throw error;
+      }
+    },
     start: (spec, io) =>
       startClaude(
         command,

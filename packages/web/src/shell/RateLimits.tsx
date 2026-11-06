@@ -1,5 +1,5 @@
-import { latestRateLimits, type ProviderRateLimits, type Run } from "@konsora/core";
-import { useRuns } from "../api/runs.ts";
+import type { ProviderLimits } from "@konsora/core";
+import { useLimits } from "../api/limits.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { formatUtilization, windowLabel } from "./run-model.ts";
 
@@ -12,19 +12,27 @@ const STATUS: Record<string, MessageKey> = {
 const when = (iso: string) =>
   new Date(iso).toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
 
-/** The latest known rate limits of each provider: window, use, status and reset. */
-export function RateLimitList({ limits }: { limits: readonly ProviderRateLimits[] }) {
-  if (limits.length === 0) return null;
+/**
+ * The latest known rate limits of each provider: window, use, status and reset, and where they
+ * come from (read from the provider, or reported by a run).
+ */
+export function RateLimitList({ limits }: { limits: readonly ProviderLimits[] }) {
+  const known = limits.filter((entry) => entry.windows.length > 0 && entry.at);
+  if (known.length === 0) return null;
   return (
     <section className="a-callout b-limits" aria-label={t("limits.label")}>
       <p className="a-callout__text">
         <b>{t("limits.title")}</b>
       </p>
       <ul className="b-limits__list">
-        {limits.map((entry) => (
+        {known.map((entry) => (
           <li key={entry.provider} className="b-limits__provider">
             <span className="k-mono">{entry.provider}</span>{" "}
-            <span className="s-muted">{t("limits.from", { at: when(entry.at) })}</span>
+            <span className="s-muted">
+              {t(entry.source === "provider" ? "limits.read" : "limits.from", {
+                at: when(entry.at ?? ""),
+              })}
+            </span>
             <ul className="b-limits__windows">
               {entry.windows.map((w) => (
                 <li key={w.window}>
@@ -70,8 +78,7 @@ export function RateLimitList({ limits }: { limits: readonly ProviderRateLimits[
   );
 }
 
-/** The project's runs say what each provider last reported about the account's limits. */
-export function RateLimits({ projectId }: { projectId: string }) {
-  const runs: readonly Run[] = useRuns(projectId).data ?? [];
-  return <RateLimitList limits={latestRateLimits(runs)} />;
+/** The account's limits from the daemon, kept live by `limits.updated`. */
+export function RateLimits() {
+  return <RateLimitList limits={useLimits().data ?? []} />;
 }

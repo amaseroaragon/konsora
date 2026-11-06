@@ -23,6 +23,7 @@ import {
   EventQueue,
   type ModelInfo,
   type PermissionDecision,
+  type RateLimitWindow,
   type RunEvent,
   type RunExit,
   type RunHandle,
@@ -32,7 +33,7 @@ import {
 import { agentEnv } from "../env.ts";
 import { detectCodex } from "./detect.ts";
 import { startCodexExec } from "./exec.ts";
-import { CodexNormalizer, clip, shellCommand } from "./normalize.ts";
+import { CodexNormalizer, clip, codexRateLimits, shellCommand } from "./normalize.ts";
 import type { InitializeParams, InitializeResponse, v2 } from "./protocol/index.ts";
 
 const KILL_GRACE_MS = 5000;
@@ -256,6 +257,7 @@ export function createCodexAdapter(options: CodexAdapterOptions = {}): AgentAdap
       };
     },
     models: () => listCodexModels(command, prefix, env, timeout),
+    rateLimits: () => readCodexRateLimits(command, prefix, env, timeout),
     start: (spec, io) =>
       deferredHandle(
         choose().then((chosen) =>
@@ -399,6 +401,34 @@ async function listCodexModels(
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown error";
     throw new Error(`Could not list Codex models: ${reason}`);
+  }
+}
+
+/**
+ * The account's rate limits from `account/rateLimits/read`: a read of the usage the backend
+ * already counted, with no model request (no quota is spent).
+ */
+export async function readCodexRateLimits(
+  command: string,
+  prefix: string[],
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
+): Promise<RateLimitWindow[]> {
+  try {
+    return await appServerSession(command, prefix, env, timeoutMs, async (peer) => {
+      const params: v2.GetAccountRateLimitsParams = { excludeResetCreditDetails: true };
+      const result = (await peer.request("account/rateLimits/read", params, timeoutMs)) as
+        | v2.GetAccountRateLimitsResponse
+        | undefined;
+      if (!isObject(result)) throw new Error("bad account/rateLimits/read reply");
+      const byId = isObject(result.rateLimitsByLimitId) ? result.rateLimitsByLimitId : {};
+      const limits = codexRateLimits(byId.codex ?? result.rateLimits);
+      if (!limits) throw new Error("the reply has no rate-limit windows");
+      return limits.windows;
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "unknown error";
+    throw new Error(`Could not read Codex rate limits: ${reason}`);
   }
 }
 

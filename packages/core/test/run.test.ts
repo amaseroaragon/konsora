@@ -6,6 +6,7 @@ import {
   createRunIdGenerator,
   isActiveRunState,
   latestRateLimits,
+  providerLimits,
   type Run,
   RunIdSchema,
   RunSchema,
@@ -331,5 +332,47 @@ describe("run ids", () => {
     const next = createRunIdGenerator();
     const ids = Array.from({ length: 10_000 }, () => next());
     expect([...ids].sort()).toEqual(ids);
+  });
+});
+
+describe("providerLimits", () => {
+  const fromRun = {
+    provider: "claude" as const,
+    run: "r-01JC8Z3K2QX7M4V9T0B6N5R8PW" as Run["id"],
+    at: "2026-11-06T18:00:00Z",
+    windows: [{ window: "five_hour", utilization: 0.5 }],
+  };
+  const read = (at: string) => ({ at, windows: [{ window: "five_hour", utilization: 0.1 }] });
+
+  it("takes the freshest of a direct read and the runs, a tie going to the read", () => {
+    expect(providerLimits("claude", read("2026-11-06T19:00:00Z"), fromRun)).toEqual({
+      provider: "claude",
+      source: "provider",
+      at: "2026-11-06T19:00:00Z",
+      windows: [{ window: "five_hour", utilization: 0.1 }],
+    });
+    expect(providerLimits("claude", read("2026-11-06T18:00:00Z"), fromRun).source).toBe("provider");
+    expect(providerLimits("claude", read("2026-11-06T17:00:00Z"), fromRun)).toEqual({
+      ...fromRun,
+      source: "run",
+    });
+  });
+
+  it("says why there is no direct read, with or without a run behind", () => {
+    const failed = { at: "2026-11-06T19:00:00Z", error: "Codex is not installed" };
+    expect(providerLimits("codex", failed, undefined)).toEqual({
+      provider: "codex",
+      source: "none",
+      windows: [],
+      unavailable: "Codex is not installed",
+    });
+    expect(providerLimits("claude", undefined, fromRun)).toMatchObject({
+      source: "run",
+      unavailable: "This provider has no way to read its limits without a run",
+    });
+    // A read with no windows counts as nothing read.
+    expect(
+      providerLimits("claude", { at: "2026-11-06T19:00:00Z", windows: [] }, fromRun).source,
+    ).toBe("run");
   });
 });

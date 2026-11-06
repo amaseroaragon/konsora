@@ -185,7 +185,7 @@ export function ProjectView({
       </div>
       <ApprovalNotice approvals={approvals} onOpen={open} />
       <Orphans projectId={projectId} />
-      <RateLimits projectId={projectId} />
+      <RateLimits />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
       <div className="b-layout">
         <div

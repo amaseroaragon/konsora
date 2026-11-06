@@ -291,6 +291,60 @@ export function latestRateLimits(runs: readonly Run[]): ProviderRateLimits[] {
   return [...latest.values()].sort((a, b) => (a.provider < b.provider ? -1 : 1));
 }
 export type RunUsage = z.infer<typeof RunUsageSchema>;
+
+/** A direct read of a provider's rate limits (no run, no quota), or why it failed. */
+export type LimitsReading =
+  | { at: string; windows: RateLimitWindow[] }
+  | { at: string; error: string };
+
+/**
+ * The rate limits shown for one provider: the freshest of a direct read and what its runs last
+ * reported, with where they come from and when.
+ */
+export type ProviderLimits = {
+  provider: Run["agent"]["provider"];
+  /** `provider`: read from it directly; `run`: reported by a run; `none`: nothing is known. */
+  source: "provider" | "run" | "none";
+  at?: string;
+  /** The run they come from (`source: "run"`). */
+  run?: Run["id"];
+  windows: RateLimitWindow[];
+  /** Why there is no direct read (the provider has none, or it failed). */
+  unavailable?: string;
+};
+
+export function providerLimits(
+  provider: ProviderLimits["provider"],
+  reading: LimitsReading | undefined,
+  fromRuns: ProviderRateLimits | undefined,
+): ProviderLimits {
+  const read = reading && "windows" in reading && reading.windows.length > 0 ? reading : undefined;
+  const unavailable = read
+    ? undefined
+    : reading && "error" in reading
+      ? reading.error
+      : "This provider has no way to read its limits without a run";
+  if (read && (!fromRuns || read.at >= fromRuns.at)) {
+    return {
+      provider,
+      source: "provider",
+      at: read.at,
+      windows: read.windows.map((w) => ({ ...w })),
+    };
+  }
+  if (fromRuns) {
+    return {
+      provider,
+      source: "run",
+      at: fromRuns.at,
+      run: fromRuns.run,
+      windows: fromRuns.windows.map((w) => ({ ...w })),
+      ...(unavailable ? { unavailable } : {}),
+    };
+  }
+  return { provider, source: "none", windows: [], ...(unavailable ? { unavailable } : {}) };
+}
+
 export type RateLimitWindow = z.infer<typeof RateLimitWindowSchema>;
 
 // ── Transitions ──────────────────────────────────────────────────────────────

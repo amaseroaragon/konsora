@@ -157,6 +157,11 @@ export interface AgentAdapter {
   readonly openModels?: boolean;
   detect(): Promise<DetectResult>;
   models(): Promise<ModelInfo[]>;
+  /**
+   * The account's rate-limit windows, read without any model request (no quota is spent).
+   * Absent when the provider has no such read; rejects with the reason it failed.
+   */
+  rateLimits?(): Promise<RateLimitWindow[]>;
   start(spec: RunSpec, io?: RunIO): RunHandle;
 }
 

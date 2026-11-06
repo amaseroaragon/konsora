@@ -4,7 +4,7 @@
  * limits keep the last snapshot of each window, since they describe the account, not the run.
  */
 import type { RunUsage, RateLimitWindow as StoredWindow } from "@konsora/core";
-import type { RateLimitWindow, RunEvent } from "./adapter.ts";
+import type { RateLimits, RateLimitWindow, RunEvent } from "./adapter.ts";
 
 type UsageEvent = Extract<RunEvent, { t: "usage" }>;
 
@@ -40,6 +40,36 @@ function stored(window: RateLimitWindow): StoredWindow | null {
   };
 }
 
+/** Adapter windows (reset in Unix seconds) as `run.json` stores them; invalid ones are dropped. */
+export function storedWindows(windows: readonly RateLimitWindow[]): StoredWindow[] {
+  const result = new Map<string, StoredWindow>();
+  for (const window of windows) {
+    const value = stored(window);
+    if (value && (result.has(value.window) || result.size < MAX_WINDOWS)) {
+      result.set(value.window, value);
+    }
+  }
+  return [...result.values()];
+}
+
+/** The windows a `usage` event reports: its list, or the single window it names. */
+export function eventWindows(limits: RateLimits | undefined): StoredWindow[] {
+  if (!limits) return [];
+  return storedWindows(
+    limits.windows?.length
+      ? limits.windows
+      : limits.window
+        ? [
+            {
+              window: limits.window,
+              status: limits.status,
+              ...(limits.resets_at !== undefined ? { resets_at: limits.resets_at } : {}),
+            },
+          ]
+        : [],
+  );
+}
+
 export class UsageTally {
   #input = 0;
   #output = 0;
@@ -66,26 +96,10 @@ export class UsageTally {
       this.#cost += event.cost_usd;
       this.#priced = true;
     }
-    const limits = event.rate_limits;
-    if (limits) {
-      const windows: RateLimitWindow[] = limits.windows?.length
-        ? limits.windows
-        : limits.window
-          ? [
-              {
-                window: limits.window,
-                status: limits.status,
-                ...(limits.resets_at !== undefined ? { resets_at: limits.resets_at } : {}),
-              },
-            ]
-          : [];
-      for (const window of windows) {
-        const value = stored(window);
-        if (!value) continue;
-        if (!this.#windows.has(value.window) && this.#windows.size >= MAX_WINDOWS) continue;
-        // A newer snapshot replaces the window, keeping what it does not repeat.
-        this.#windows.set(value.window, { ...this.#windows.get(value.window), ...value });
-      }
+    for (const value of eventWindows(event.rate_limits)) {
+      if (!this.#windows.has(value.window) && this.#windows.size >= MAX_WINDOWS) continue;
+      // A newer snapshot replaces the window, keeping what it does not repeat.
+      this.#windows.set(value.window, { ...this.#windows.get(value.window), ...value });
     }
   }
 

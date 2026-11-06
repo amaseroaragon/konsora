@@ -111,8 +111,10 @@ export const es = {
   "limits.label": "Rate limits",
   "limits.title": "Últimos rate limits conocidos",
   "limits.hint":
-    "Son de tu cuenta, no del proyecto: salen del último run de cada proveedor que los dio.",
+    "Son de tu cuenta, no del proyecto: Konsora los lee de cada proveedor sin gastar cuota o, si no puede, los toma del último run que los dio.",
   "limits.from": "según el run del {at}",
+  "limits.read": "leídos del proveedor el {at}",
+  "limits.window.seven_day_scoped": "7 días ({scope})",
   "limits.window.five_hour": "5 h",
   "limits.window.seven_day": "7 días",
   "limits.window.minutes": "{n} min",

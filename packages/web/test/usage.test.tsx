@@ -1,4 +1,4 @@
-import type { ProviderRateLimits, Run } from "@konsora/core";
+import type { ProviderLimits, Run } from "@konsora/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -91,9 +91,10 @@ describe("a run's usage (UI-14)", () => {
 });
 
 describe("rate limits on the project page (UI-14)", () => {
-  const limits: ProviderRateLimits[] = [
+  const limits: ProviderLimits[] = [
     {
       provider: "claude",
+      source: "run",
       run: "r-01JC8Z3K2QX7M4V9T0B6N5R8PA",
       at: "2026-11-01T12:00:00Z",
       windows: [
@@ -108,7 +109,7 @@ describe("rate limits on the project page (UI-14)", () => {
     },
     {
       provider: "codex",
-      run: "r-01JC8Z3K2QX7M4V9T0B6N5R8PB",
+      source: "provider",
       at: "2026-11-01T14:00:00Z",
       windows: [
         {
@@ -134,10 +135,15 @@ describe("rate limits on the project page (UI-14)", () => {
     expect(html).toContain("agotado");
     expect(html.match(/se reinicia el/g)).toHaveLength(2);
     expect(html).toContain('<meter class="b-limits__meter"');
+    expect(html).toContain("según el run del");
+    expect(html).toContain("leídos del proveedor el");
   });
 
   it("shows nothing until a run has reported them", () => {
     expect(renderToStaticMarkup(<RateLimitList limits={[]} />)).toBe("");
+    const none: ProviderLimits = { provider: "claude", source: "none", windows: [] };
+    expect(renderToStaticMarkup(<RateLimitList limits={[none]} />)).toBe("");
+    expect(windowLabel("seven_day_sonnet")).toBe("7 días (sonnet)");
     expect(windowLabel("weekly")).toBe("weekly");
   });
 });

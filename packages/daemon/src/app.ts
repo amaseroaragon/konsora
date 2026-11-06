@@ -452,6 +452,14 @@ export function createApp(options: AppOptions): Hono {
   /** What each provider offers: installed and version, models with their efforts, profiles. */
   api.get("/agents", async (c) => c.json({ agents: await runsOf().catalog.list() }));
 
+  /**
+   * The providers' rate limits without launching a run (DMN-06): each one's freshest data with
+   * its source and date, or why there is none. `?refresh=1` reads the providers again.
+   */
+  api.get("/limits", async (c) =>
+    c.json({ limits: await runsOf().limits.list({ refresh: c.req.query("refresh") === "1" }) }),
+  );
+
   /** Launch a run of one task. Only the human calls this, and only for what they selected. */
   api.post("/projects/:id/runs", async (c) => {
     const project = await registry.get(c.req.param("id"));

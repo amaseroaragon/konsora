@@ -2,6 +2,7 @@
 import type { Op, Task, TaskAction, TaskFlags, TasksDocument } from "@konsora/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { applyLimitsMessage } from "./limits.ts";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
 import { applyRunMessage } from "./runs.ts";
 import { TOKEN_KEY } from "./session.ts";
@@ -102,7 +103,8 @@ export const reconnectDelay = (attempt: number) => Math.min(10_000, 500 * 2 ** a
 
 /**
  * Subscribes to the daemon's events for a project: `board.*` refetch the board, `run.*` update
- * the runs in place and `permission.*` refetch the approvals (everything is refetched after
+ * the runs in place, `permission.*` refetch the approvals and `limits.updated` replaces the
+ * rate limits (everything is refetched after
  * reconnecting, in case events were missed). Returns the connection state.
  */
 export function useBoardEvents(projectId: string): LiveState {
@@ -138,6 +140,7 @@ export function useBoardEvents(projectId: string): LiveState {
           project?: string;
           run?: unknown;
           event?: unknown;
+          limits?: unknown;
         };
         if (message.type === "ready")
           socket?.send(JSON.stringify({ type: "subscribe", project: projectId }));
@@ -145,6 +148,8 @@ export function useBoardEvents(projectId: string): LiveState {
           if (attempt > 0) resync();
           attempt = 0;
           setState("live");
+        } else if (message.type === "limits.updated") {
+          applyLimitsMessage(client, message);
         } else if (message.project !== projectId) {
           return;
         } else if (message.type.startsWith("board.")) refresh();

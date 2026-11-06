@@ -33,6 +33,7 @@ import {
   integrateRun,
   type McpServerSpec,
   type OrphanWorktree,
+  type RateLimits,
   RunError,
   type RunSession,
   RunStore,
@@ -43,9 +44,12 @@ import {
 } from "@konsora/runner";
 import { AgentCatalog } from "./agents.ts";
 import type { ApprovalEvent, Approvals } from "./approvals.ts";
+import { Limits } from "./limits.ts";
 import type { Project, Registry } from "./registry.ts";
 
 export type Publish = (project: string, payload: unknown) => void;
+
+type RunUsageEvent = { t?: string; at?: unknown; rate_limits?: RateLimits };
 
 export type RunManagerOptions = {
   registry: Registry;
@@ -57,6 +61,10 @@ export type RunManagerOptions = {
   /** How to launch `konsora mcp`; the runner adds the run-mode environment. */
   mcp: Pick<McpServerSpec, "command" | "args">;
   publish?: Publish;
+  /** Sends an event to every client, whatever project it watches (`limits.updated`). */
+  broadcast?: (payload: unknown) => void;
+  /** How long a direct read of the providers' rate limits is kept. Default 60 s. */
+  limitsTtlMs?: number;
   adapters?: Partial<Record<Provider, AgentAdapter>>;
   git?: Git;
   now?: () => Date;
@@ -121,6 +129,7 @@ export class RunManager {
 
   readonly #adapters: Partial<Record<Provider, AgentAdapter>>;
   readonly catalog: AgentCatalog;
+  readonly limits: Limits;
 
   constructor(options: RunManagerOptions) {
     this.#options = options;
@@ -132,15 +141,24 @@ export class RunManager {
     this.catalog = new AgentCatalog(this.#adapters, {
       ...(options.catalogTtlMs !== undefined ? { ttlMs: options.catalogTtlMs } : {}),
     });
+    this.limits = new Limits({
+      adapters: this.#adapters,
+      runs: () => this.#allRuns(),
+      ...(options.broadcast ? { broadcast: options.broadcast } : {}),
+      ...(options.limitsTtlMs !== undefined ? { ttlMs: options.limitsTtlMs } : {}),
+      ...(options.now ? { now: options.now } : {}),
+    });
   }
 
   store(project: Project): RunStore {
     let store = this.#stores.get(project.id);
     if (!store) {
       const publish = this.#options.publish ?? (() => undefined);
-      store = new PublishingRunStore(project.path, (payload) =>
-        publish(project.id, { ...(payload as object), project: project.id }),
-      );
+      const created: PublishingRunStore = new PublishingRunStore(project.path, (payload) => {
+        publish(project.id, { ...(payload as object), project: project.id });
+        void this.#noteUsage(created, payload).catch(() => undefined);
+      });
+      store = created;
       this.#stores.set(project.id, store);
     }
     return store;
@@ -364,6 +382,33 @@ export class RunManager {
   /** Waits for a live run to close (tests). */
   async settled(id: RunId): Promise<Run | undefined> {
     return this.#sessions.get(id)?.session.done;
+  }
+
+  /** A run's `usage` event with rate limits updates the providers' limits. */
+  async #noteUsage(store: RunStore, payload: unknown): Promise<void> {
+    const { type, run, event } = payload as { type?: string; run?: RunId; event?: RunUsageEvent };
+    if (type !== "run.event" || !run || event?.t !== "usage" || !event.rate_limits) return;
+    const live = this.#sessions.get(run)?.session.run ?? (await store.read(run));
+    await this.limits.onRunUsage(
+      live,
+      typeof event.at === "string" ? event.at : this.#at(),
+      event.rate_limits,
+    );
+  }
+
+  /** Every run of every linked project, for the limits they last reported. */
+  async #allRuns(): Promise<Run[]> {
+    const runs: Run[] = [];
+    for (const project of await this.#options.registry.list()) {
+      runs.push(
+        ...(
+          await this.store(project)
+            .list()
+            .catch(() => ({ runs: [] }))
+        ).runs,
+      );
+    }
+    return runs;
   }
 
   #runId(id: string): RunId {

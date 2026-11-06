@@ -39,6 +39,35 @@ function windowName(minutes: number | undefined, fallback: string): string {
   return fallback;
 }
 
+/**
+ * A `RateLimitSnapshot` (from `account/rateLimits/updated` or `account/rateLimits/read`) as
+ * Konsora's windows; `null` if it has none.
+ */
+export function codexRateLimits(
+  value: unknown,
+): { status: string; windows: RateLimitWindow[] } | null {
+  const snapshot = isObject(value) ? value : null;
+  if (!snapshot) return null;
+  const status = str(snapshot.rateLimitReachedType) ? "rejected" : "allowed";
+  const windows: RateLimitWindow[] = [];
+  for (const [slot, fallback] of [
+    ["primary", "primary"],
+    ["secondary", "secondary"],
+  ] as const) {
+    const raw = snapshot[slot];
+    if (!isObject(raw)) continue;
+    const used = num(raw.usedPercent);
+    const resets = num(raw.resetsAt);
+    windows.push({
+      window: windowName(num(raw.windowDurationMins), fallback),
+      status,
+      ...(used !== undefined && used >= 0 ? { utilization: used / 100 } : {}),
+      ...(resets !== undefined ? { resets_at: resets } : {}),
+    });
+  }
+  return windows.length > 0 ? { status, windows } : null;
+}
+
 type Usage = Pick<
   v2.TokenUsageBreakdown,
   | "inputTokens"
@@ -316,36 +345,17 @@ export class CodexNormalizer {
   }
 
   #rateLimits(params: Json): RunEvent[] {
-    const snapshot = isObject(params.rateLimits) ? params.rateLimits : null;
-    if (!snapshot) return [];
-    const windows: RateLimitWindow[] = [];
-    for (const [slot, fallback] of [
-      ["primary", "primary"],
-      ["secondary", "secondary"],
-    ] as const) {
-      const raw = snapshot[slot];
-      if (!isObject(raw)) continue;
-      const used = num(raw.usedPercent);
-      const resets = num(raw.resetsAt);
-      windows.push({
-        window: windowName(num(raw.windowDurationMins), fallback),
-        ...(used !== undefined && used >= 0 ? { utilization: used / 100 } : {}),
-        ...(resets !== undefined ? { resets_at: resets } : {}),
-      });
-    }
-    if (windows.length === 0) return [];
-    const reached = str(snapshot.rateLimitReachedType);
-    const status = reached ? "rejected" : "allowed";
-    for (const window of windows) window.status = status;
+    const limits = codexRateLimits(params.rateLimits);
+    if (!limits) return [];
     // Codex repeats the snapshot after every request; only changes are worth an event.
     // Its `resetsAt` jitters by a second between snapshots, so it is compared to the minute.
     const key = JSON.stringify([
-      status,
-      windows.map((w) => [w.window, w.utilization, Math.round((w.resets_at ?? 0) / 60)]),
+      limits.status,
+      limits.windows.map((w) => [w.window, w.utilization, Math.round((w.resets_at ?? 0) / 60)]),
     ]);
     if (key === this.#lastLimits) return [];
     this.#lastLimits = key;
-    return [{ t: "usage", rate_limits: { status, windows } }];
+    return [{ t: "usage", rate_limits: limits }];
   }
 
   #error(params: Json): RunEvent[] {

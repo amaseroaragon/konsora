@@ -14,8 +14,36 @@ if (args[0] === "--version") {
   process.exit(0);
 }
 
+if (args[0] === "-p" && args[1] === "/usage") {
+  // `claude -p /usage`: a local command. FAKE_CLAUDE_USAGE picks the reply: a recording
+  // (default), `model` (a version that sent it to the model), `none` (no windows) or `hang`.
+  const usage = process.env.FAKE_CLAUDE_USAGE ?? "recorded";
+  if (process.env.FAKE_CLAUDE_DUMP) {
+    writeFileSync(
+      process.env.FAKE_CLAUDE_DUMP,
+      JSON.stringify({ args, env: process.env, cwd: process.cwd() }),
+    );
+  }
+  if (usage === "hang") {
+    setInterval(() => undefined, 1000);
+    await new Promise(() => undefined);
+  } else {
+    const recorded = JSON.parse(
+      readFileSync(new URL("./claude/usage.json", import.meta.url), "utf8"),
+    ) as Record<string, unknown>;
+    if (usage === "model") {
+      delete recorded.local_command;
+      recorded.num_turns = 1;
+      recorded.result = "Here is your usage summary…";
+    }
+    if (usage === "none") recorded.result = "You are using an API key.";
+    process.stdout.write(`${JSON.stringify(recorded)}\n`);
+    process.exit(0);
+  }
+}
+
 const dump = process.env.FAKE_CLAUDE_DUMP;
-if (dump) {
+if (dump && !(args[0] === "-p" && args[1] === "/usage")) {
   const configPath = args[args.indexOf("--mcp-config") + 1] as string;
   writeFileSync(
     dump,

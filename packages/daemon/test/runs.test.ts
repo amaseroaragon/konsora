@@ -44,7 +44,7 @@ const konsora = (spec: RunSpec, ...args: string[]) =>
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-type Behaviour = "finish" | "hang" | "ask" | "noop" | "permission";
+type Behaviour = "finish" | "hang" | "ask" | "noop" | "permission" | "limits";
 let behaviour: Behaviour = "finish";
 const seen: RunSpec[] = [];
 /** What the fake was told about its approval requests ("permission" behaviour). */
@@ -86,6 +86,18 @@ const fake: AgentAdapter = {
       }
       if (mode === "noop") {
         konsora(spec, "finish", "BE-01", "--summary", "Checked: nothing to change.");
+      }
+      if (mode === "limits") {
+        queue.push({
+          t: "usage",
+          input_tokens: 10,
+          output_tokens: 2,
+          rate_limits: {
+            status: "allowed",
+            windows: [{ window: "five_hour", utilization: 0.4, resets_at: 1794011580 }],
+          },
+        });
+        konsora(spec, "finish", "BE-01", "--summary", "Reported usage.");
       }
       if (mode === "finish") {
         writeFileSync(join(spec.cwd, "app.txt"), "from the agent\n");
@@ -348,6 +360,47 @@ describe("run events over WebSocket", () => {
       expect.arrayContaining(["starting", "running", "checking", "succeeded"]),
     );
     expect(states.at(-1)).toBe("succeeded");
+  });
+});
+
+describe("rate limits (DMN-06)", () => {
+  it("a run's usage reaches GET /api/limits and every client as limits.updated", async () => {
+    const ws = new WebSocket(`${daemon.url.replace("http", "ws")}/api/ws`);
+    const messages: { type: string; limits?: { provider: string; source: string }[] }[] = [];
+    ws.on("message", (raw) => messages.push(JSON.parse(String(raw))));
+    await new Promise((resolve) => ws.once("open", resolve));
+    // Authenticated but not subscribed to any project: limits describe the account.
+    ws.send(JSON.stringify({ type: "auth", token: daemon.token }));
+    const before = await api<{ limits: { provider: string; source: string }[] }>("/limits");
+    expect(before.body.limits).toEqual([
+      {
+        provider: "claude",
+        source: "none",
+        windows: [],
+        unavailable: "This provider has no way to read its limits without a run",
+      },
+    ]);
+
+    behaviour = "limits";
+    const run = await settled((await launch()).id);
+    const deadline = Date.now() + 3000;
+    while (!messages.some((m) => m.limits?.[0]?.source === "run") && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    ws.close();
+    const update = messages.findLast((m) => m.type === "limits.updated");
+    expect(update?.limits?.[0]).toMatchObject({ provider: "claude", source: "run", run: run.id });
+
+    const after = await api<{ limits: unknown[] }>("/limits");
+    expect(after.body.limits).toEqual([
+      expect.objectContaining({
+        provider: "claude",
+        source: "run",
+        run: run.id,
+        at: expect.stringMatching(/Z$/),
+        windows: [{ window: "five_hour", utilization: 0.4, resets_at: "2026-11-07T00:33:00Z" }],
+      }),
+    ]);
   });
 });
 
