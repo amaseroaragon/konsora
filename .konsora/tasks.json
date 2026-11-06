@@ -2001,7 +2001,7 @@
     {
       "id": "UI-16",
       "title": "Historial de checks en la revisión y en el detalle",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-07",
@@ -2034,7 +2034,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T20:22:30Z",
+      "updated_at": "2026-11-06T20:22:39Z",
       "notes": [
         {
           "id": "n1",
@@ -2055,7 +2055,7 @@
     {
       "id": "UI-17",
       "title": "Configurar los checks del proyecto desde la UI",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-07",
@@ -2084,7 +2084,23 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:53:00Z"
+      "updated_at": "2026-11-06T20:27:39Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T20:22:35Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Vista de ajustes del proyecto (checks, reintentos, setup) que envía set-checks, y campo check por criterio en el editor de tareas; errores del daemon junto al campo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T20:27:39Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: nueva vista «Ajustes» del proyecto (pestaña junto a Tablero y Grafo, #/p/<id>?view=settings) para añadir, editar, reordenar (↑/↓) y quitar checks (id, comando y tiempo), cambiar los reintentos y el comando y tiempo de preparación del worktree; se valida en el formulario con las mismas reglas que core (id en minúsculas y único, comando ≤1000, tiempo 1–86400, reintentos 0–5, setup sin comando con tiempo) y se guarda como una sola op set-checks con solo lo que cambió (vacío = valor por defecto o quitar). Verificado en Chrome: errores junto al campo y, al guardar, tasks.json con el nuevo orden, el check añadido, check_retries 0 y setup npm ci, escrito por el daemon. ac2: el editor de tareas ya permitía poner o quitar el check de cada criterio con la op edit; ahora valida además el límite de 1000 caracteres (tests). ac3: los errores del daemon se colocan junto a su campo (issues con JSON Pointer y bad_request con su ruta) y el resto en el formulario; textos por i18n (pasa i18n-literals) y etiquetas estables por posición. Commit f462a05; npm run check en verde (849 tests)."
+        }
+      ]
     },
     {
       "id": "MCP-01",
