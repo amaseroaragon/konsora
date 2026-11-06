@@ -1092,7 +1092,7 @@
     {
       "id": "DMN-07",
       "title": "Checks en la API y el WebSocket del daemon",
-      "state": "review",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "RUN-18"
@@ -1120,7 +1120,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T20:12:33Z",
+      "updated_at": "2026-11-06T20:17:15Z",
       "notes": [
         {
           "id": "n1",
@@ -1948,7 +1948,7 @@
     {
       "id": "UI-15",
       "title": "Pestaña de límites de uso siempre visible",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-06"
@@ -1980,7 +1980,7 @@
         "at": "2026-11-02T10:32:19Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T19:49:36Z",
+      "updated_at": "2026-11-06T20:17:12Z",
       "notes": [
         {
           "id": "n1",
@@ -2001,7 +2001,7 @@
     {
       "id": "UI-16",
       "title": "Historial de checks en la revisión y en el detalle",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-07",
@@ -2034,7 +2034,23 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:53:04Z"
+      "updated_at": "2026-11-06T20:22:30Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T20:17:40Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Hook useRunChecks, historial por intento en la revisión con salida desplegable, estado del check junto a cada criterio, checks/reintentos en el log, marca en tarjetas en revisión con checks en rojo y confirmación al aceptar."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T20:22:30Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: la revisión muestra todos los intentos de checks.json (el último primero), cada check en verde o rojo (✓/✕ además del color) con cómo acabó (correcto, salió con N, superó su tiempo, detenido), duración, origen, comando y su salida en un <details> desplegable, abierto en los fallos del último intento; y un aviso si el último intento está en rojo. Se refresca en vivo al terminar cada check o con un reintento. ac2: en el detalle, cada criterio con check muestra su último resultado («✕ Último check: …») o que aún no se ha ejecutado. ac3: las tarjetas en revisión cuyo último run tiene checks en rojo llevan la marca «Checks en rojo» y borde de alerta, y Aceptar pide confirmación explícita (comprobado en Chrome: diálogo y, al cancelar, la tarea sigue en revisión). ac4: textos por i18n (pasa i18n-literals); salida y resumen con <details>/<summary> nativos, botones nativos. El log en vivo también muestra setup, checks y reintentos. Commit 97788fe; npm run check en verde (839 tests)."
+        }
+      ]
     },
     {
       "id": "UI-17",
@@ -3357,7 +3373,7 @@
     {
       "id": "RUN-19",
       "title": "Bucle de corrección con los checks fallidos",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "RUN-18"
@@ -3389,7 +3405,7 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T20:10:44Z",
+      "updated_at": "2026-11-06T20:17:18Z",
       "notes": [
         {
           "id": "n1",
