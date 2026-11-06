@@ -1092,7 +1092,7 @@
     {
       "id": "DMN-07",
       "title": "Checks en la API y el WebSocket del daemon",
-      "state": "todo",
+      "state": "review",
       "group": "DMN",
       "deps": [
         "RUN-18"
@@ -1120,7 +1120,23 @@
         "at": "2026-11-02T10:48:46Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-02T10:52:52Z"
+      "updated_at": "2026-11-06T20:12:33Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-06T20:10:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "GET de checks.json por run, test de eventos check y estados checking↔running por WebSocket, y set-checks por /ops (humano) con su registro."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-06T20:12:33Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: GET /api/projects/:id/runs/:run/checks devuelve checks.json validado con ChecksFileSchema (todos los intentos, cada check con comando, exit, duración, timeout y cola de salida), null si aún no se ejecutaron y 404 para un run desconocido (tests). ac2: el inicio y el fin de cada check llegan como run.event y los cambios checking ↔ running como run.state por WebSocket, sin recargar (test con un reintento: check start/end de los dos intentos y la secuencia checking → running → checking → succeeded). ac3: set-checks funciona por POST /ops como op humana (actualiza checks y check_retries; un valor inválido da 400), y la misma op con rol de agente se rechaza con forbidden. arquitectura.md actualizado. Commit 7fa3b1f; npm run check en verde."
+        }
+      ]
     },
     {
       "id": "UI-01",
