@@ -118,6 +118,8 @@ export function changesFrom(
     return { ok: false, field: "group", message: t("edit.error.group", { group: draft.group }) };
   if (draft.acceptance.some((row) => row.text.trim().length > 500))
     return { ok: false, field: "acceptance", message: t("edit.error.criterion.long") };
+  if (draft.acceptance.some((row) => row.check.trim().length > 1000))
+    return { ok: false, field: "acceptance", message: t("edit.error.check.long") };
   if (draft.acceptance.some((row) => !row.text.trim() && row.check.trim()))
     return { ok: false, field: "acceptance", message: t("edit.error.criterion.empty") };
   const touchedAgent = touched.has("agent") && draft.agent !== null;

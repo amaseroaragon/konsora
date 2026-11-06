@@ -14,6 +14,7 @@ import { failingReviews } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
+import { ProjectSettings } from "./ProjectSettings.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
@@ -47,6 +48,7 @@ const LIVE_KEYS: Record<LiveState, MessageKey> = {
 const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
   board: "app.view.board",
   graph: "app.view.graph",
+  settings: "app.view.settings",
 };
 
 /**
@@ -171,7 +173,7 @@ export function ProjectView({
           label={t("app.views")}
           value={view}
           onChange={(value) => go({ view: value as ProjectViewName })}
-          options={(["board", "graph"] as const).map((value) => ({
+          options={(["board", "graph", "settings"] as const).map((value) => ({
             value,
             label: t(VIEW_KEYS[value]),
           }))}
@@ -197,52 +199,58 @@ export function ProjectView({
       <ApprovalNotice approvals={approvals} onOpen={open} />
       <Orphans projectId={projectId} />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
-      <div className="b-layout">
-        <div
-          className={view === "graph" ? "b-layout__main b-layout__main--graph" : "b-layout__main"}
-        >
-          {board.tasks.length === 0 ? (
-            <p className="s-text s-muted">{t("board.empty")}</p>
-          ) : view === "graph" ? (
-            <Graph
-              label={t("graph.label", { name: board.project.name })}
-              tasks={board.tasks}
-              external={flagged}
-              openId={opened ? opened.id : null}
-              onOpen={open}
-              selected={selected}
-              onToggle={toggle}
-              onSelectWithDeps={selectWithDeps}
-            />
-          ) : (
-            <Board
-              board={marked}
-              swimlanes={swimlanes}
-              onOpen={open}
-              selection={{ selected, onToggle: toggle }}
+      {view === "settings" ? (
+        <ProjectSettings projectId={projectId} project={board.plan.project} readOnly={readOnly} />
+      ) : (
+        <div className="b-layout">
+          <div
+            className={view === "graph" ? "b-layout__main b-layout__main--graph" : "b-layout__main"}
+          >
+            {board.tasks.length === 0 ? (
+              <p className="s-text s-muted">{t("board.empty")}</p>
+            ) : view === "graph" ? (
+              <Graph
+                label={t("graph.label", { name: board.project.name })}
+                tasks={board.tasks}
+                external={flagged}
+                openId={opened ? opened.id : null}
+                onOpen={open}
+                selected={selected}
+                onToggle={toggle}
+                onSelectWithDeps={selectWithDeps}
+              />
+            ) : (
+              <Board
+                board={marked}
+                swimlanes={swimlanes}
+                onOpen={open}
+                selection={{ selected, onToggle: toggle }}
+                readOnly={readOnly}
+              />
+            )}
+          </div>
+          {opened && (
+            <TaskPanel
+              key={opened.id}
+              projectId={projectId}
+              groups={board.plan.groups}
+              task={opened}
+              doc={doc}
+              groupName={board.plan.groups.find((g) => g.id === opened.group)?.name ?? opened.group}
+              external={board.external.filter((f) => f.task === opened.id)}
               readOnly={readOnly}
+              onClose={() => go({ task: null })}
+              onOpen={open}
+              runs={runs}
+              onSelectWithDeps={
+                view === "graph" && isSelectable(opened)
+                  ? () => selectWithDeps(opened.id)
+                  : undefined
+              }
             />
           )}
         </div>
-        {opened && (
-          <TaskPanel
-            key={opened.id}
-            projectId={projectId}
-            groups={board.plan.groups}
-            task={opened}
-            doc={doc}
-            groupName={board.plan.groups.find((g) => g.id === opened.group)?.name ?? opened.group}
-            external={board.external.filter((f) => f.task === opened.id)}
-            readOnly={readOnly}
-            onClose={() => go({ task: null })}
-            onOpen={open}
-            runs={runs}
-            onSelectWithDeps={
-              view === "graph" && isSelectable(opened) ? () => selectWithDeps(opened.id) : undefined
-            }
-          />
-        )}
-      </div>
+      )}
       {selectedIds.length > 0 && (
         <SelectionBar
           ids={selectedIds}

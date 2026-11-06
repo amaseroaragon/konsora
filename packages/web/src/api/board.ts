@@ -241,3 +241,14 @@ export function useEditTask(projectId: string) {
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
   });
 }
+
+/** The human's `set-checks`: the project's checks, retries and setup (UI-17). */
+export function useSetChecks(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (op: Record<string, unknown>) =>
+      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, op),
+    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
+}
