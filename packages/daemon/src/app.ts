@@ -155,7 +155,15 @@ export function createApp(options: AppOptions): Hono {
   const api = new Hono();
   api.use("*", guard(options));
 
-  api.get("/health", (c) => c.json({ ok: true, service: "konsora-daemon", version: VERSION }));
+  /** `live_runs`: runs alive in this daemon (a restart would leave them interrupted). */
+  api.get("/health", (c) =>
+    c.json({
+      ok: true,
+      service: "konsora-daemon",
+      version: VERSION,
+      live_runs: options.runs?.live().length ?? 0,
+    }),
+  );
 
   /** Linked projects, each with the state of its plan (never modifies anything). */
   api.get("/projects", async (c) => {
@@ -590,6 +598,11 @@ export function createApp(options: AppOptions): Hono {
 
   app.route("/api", api);
   app.route("/", site(options));
-  app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found" } }, 404));
+  // An unknown /api route usually means a daemon older than the web UI it serves.
+  app.notFound((c) =>
+    c.req.path.startsWith("/api/")
+      ? c.json({ error: { code: "unknown_endpoint", message: "Unknown endpoint" } }, 404)
+      : c.json({ error: { code: "not_found", message: "Not found" } }, 404),
+  );
   return app;
 }

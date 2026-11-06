@@ -11,7 +11,14 @@ export {
 } from "./approvals.ts";
 export { type AuthConfig, checkRequest } from "./auth.ts";
 export { diffTasks, EventHub, WS_PATH } from "./events.ts";
-export { dataDir, logDir, mcpCommand, webDir } from "./paths.ts";
+export { codeStamp, dataDir, logDir, mcpCommand, webDir } from "./paths.ts";
 export { type Project, projectId, Registry, RegistryError } from "./registry.ts";
 export { type Publish, RunManager, RunManagerError, type RunManagerOptions } from "./runs.ts";
-export { type DaemonInfo, findDaemon, type RunningDaemon, startDaemon } from "./server.ts";
+export {
+  type DaemonInfo,
+  daemonIsStale,
+  findDaemon,
+  type RunningDaemon,
+  startDaemon,
+  stopDaemon,
+} from "./server.ts";

@@ -2,14 +2,14 @@ import type { ProviderLimits } from "@konsora/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { createApi } from "../src/api/client.ts";
+import { ApiError, createApi } from "../src/api/client.ts";
 import { applyLimitsMessage, limitsKey } from "../src/api/limits.ts";
 import { ApiContext } from "../src/api/projects.ts";
 import { LimitsLink, LimitsList } from "../src/shell/LimitsPage.tsx";
 import { ago, headerSummary, resetText, sourceText, until } from "../src/shell/limits-model.ts";
 import { parseRoute } from "../src/shell/route.ts";
 import { windowLabel } from "../src/shell/run-model.ts";
-import { NoSession, Shell } from "../src/shell/Shell.tsx";
+import { NoSession, QueryError, Shell } from "../src/shell/Shell.tsx";
 
 const NOW = Date.parse("2026-11-06T20:00:00Z");
 
@@ -117,5 +117,23 @@ describe("the limits view (UI-15)", () => {
     expect(client.getQueryData(limitsKey)).toEqual(limits);
     applyLimitsMessage(client, { limits: "nope" });
     expect(client.getQueryData(limitsKey)).toEqual(limits);
+  });
+});
+
+describe("a daemon older than the UI", () => {
+  it("explains how to restart it instead of showing Not found", () => {
+    const old = new ApiError(404, "not_found", "Not found");
+    const html = renderToStaticMarkup(<QueryError error={old} retry={() => undefined} />);
+    expect(html).toContain("konsora ui --restart");
+    expect(html).not.toContain("Not found");
+    const newer = new ApiError(404, "unknown_endpoint", "Unknown endpoint");
+    expect(renderToStaticMarkup(<QueryError error={newer} retry={() => undefined} />)).toContain(
+      "anterior a esta versión",
+    );
+    // A real missing thing keeps its own message.
+    const missing = new ApiError(404, "not_found", "Task BE-09 does not exist");
+    expect(renderToStaticMarkup(<QueryError error={missing} retry={() => undefined} />)).toContain(
+      "Task BE-09 does not exist",
+    );
   });
 });

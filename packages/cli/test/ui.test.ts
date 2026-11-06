@@ -65,6 +65,7 @@ describe("konsora ui", () => {
 
     const first = await run(["ui", "--no-open"], project, env);
     const info = await findDaemon(data);
+    const stale: (number | undefined)[] = [];
     try {
       expect(first.err).toBe("");
       expect(first.code).toBe(EXIT.ok);
@@ -98,11 +99,51 @@ describe("konsora ui", () => {
       expect(readFileSync(join(base, "state", "konsora", "logs", "daemon.log"), "utf8")).toContain(
         "listening on",
       );
+
+      // A daemon that runs code older than the checkout (here: daemon.json says so) is restarted.
+      const file = join(data, "daemon.json");
+      writeFileSync(file, JSON.stringify({ ...info, code: 1 }), { mode: 0o600 });
+      const third = await run(["ui", "--no-open", "--no-link"], base, env);
+      const restarted = await findDaemon(data);
+      stale.push(restarted?.pid);
+      expect(third.code).toBe(EXIT.ok);
+      expect(third.out).toContain("it ran code older than this checkout");
+      expect(restarted?.pid).not.toBe(info?.pid);
+      expect(third.out).toContain(`Started the Konsora daemon at ${restarted?.url}`);
+      const health = (await (
+        await fetch(`${restarted?.url}/api/health`, {
+          headers: { authorization: `Bearer ${restarted?.token}` },
+        })
+      ).json()) as { live_runs: number };
+      expect(health.live_runs).toBe(0);
+
+      // A fresh daemon is reused; --restart restarts it anyway.
+      expect((await run(["ui", "--no-open", "--no-link"], base, env)).out).toContain(
+        `Using the Konsora daemon at ${restarted?.url}`,
+      );
+      const fourth = await run(["ui", "--no-open", "--no-link", "--restart"], base, env);
+      const again = await findDaemon(data);
+      stale.push(again?.pid);
+      expect(fourth.out).toContain("Stopped the Konsora daemon.");
+      expect(again?.pid).not.toBe(restarted?.pid);
     } finally {
-      if (info) process.kill(info.pid, "SIGTERM");
+      for (const pid of stale) {
+        try {
+          if (pid) process.kill(pid, "SIGTERM");
+        } catch {
+          // gone
+        }
+      }
+      if (info) {
+        try {
+          process.kill(info.pid, "SIGTERM");
+        } catch {
+          // already restarted
+        }
+      }
       for (let i = 0; i < 50 && (await findDaemon(data)); i++)
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
     expect(await findDaemon(data)).toBeUndefined();
-  }, 20_000);
+  }, 40_000);
 });

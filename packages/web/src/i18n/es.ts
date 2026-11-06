@@ -328,6 +328,8 @@ export const es = {
     "El token de sesión no es válido o el daemon se ha reiniciado. Vuelve a ejecutar `konsora ui`.",
   "session.offline":
     "No hay conexión con el daemon de Konsora. ¿Sigue en marcha? Ejecuta `konsora ui`.",
+  "session.stale_daemon":
+    "El daemon de Konsora en marcha es anterior a esta versión de la interfaz y no conoce esta función. Reinícialo con `konsora ui --restart`.",
   "error.generic": "Algo ha fallado: {message}",
   "action.retry": "Reintentar",
   "projects.title": "Proyectos",

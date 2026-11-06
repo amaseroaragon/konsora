@@ -14,11 +14,18 @@ import { Approvals } from "./approvals.ts";
 import { EventHub } from "./events.ts";
 import { ensurePrivateDir, readJson, writePrivateFile } from "./files.ts";
 import { createOversights } from "./oversight.ts";
-import { DAEMON_FILE, dataDir as defaultDataDir, mcpCommand } from "./paths.ts";
+import { codeStamp, DAEMON_FILE, dataDir as defaultDataDir, mcpCommand } from "./paths.ts";
 import { Registry } from "./registry.ts";
 import { RunManager, type RunManagerOptions } from "./runs.ts";
 
-export type DaemonInfo = { url: string; token: string; pid: number; started_at: string };
+export type DaemonInfo = {
+  url: string;
+  token: string;
+  pid: number;
+  started_at: string;
+  /** `codeStamp()` when it started; absent in daemons older than this field. */
+  code?: number;
+};
 
 export type StartOptions = {
   dataDir?: string;
@@ -34,6 +41,8 @@ export type StartOptions = {
   mcp?: RunManagerOptions["mcp"];
   /** Passed to the run supervisor (tests shorten it). */
   interruptGraceMs?: number;
+  /** The code stamp to record; default `codeStamp()` of this checkout. */
+  code?: number;
 };
 
 export type RunningDaemon = DaemonInfo & {
@@ -57,6 +66,26 @@ function isAlive(pid: number): boolean {
 export async function findDaemon(dir: string = defaultDataDir()): Promise<DaemonInfo | undefined> {
   const info = await readJson<DaemonInfo>(join(dir, DAEMON_FILE)).catch(() => undefined);
   return info && isAlive(info.pid) ? info : undefined;
+}
+
+/** The daemon runs code older than this checkout's (or too old to say): restart it. */
+export function daemonIsStale(info: DaemonInfo, current: number = codeStamp()): boolean {
+  return info.code === undefined || current > info.code;
+}
+
+/** Stops a running daemon (SIGTERM, which closes it cleanly) and waits for it to exit. */
+export async function stopDaemon(info: DaemonInfo, timeoutMs = 10_000): Promise<boolean> {
+  try {
+    process.kill(info.pid, "SIGTERM");
+  } catch {
+    return true;
+  }
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!isAlive(info.pid)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return !isAlive(info.pid);
 }
 
 export async function startDaemon(options: StartOptions = {}): Promise<RunningDaemon> {
@@ -125,6 +154,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     token,
     pid: process.pid,
     started_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    code: options.code ?? codeStamp(),
   };
   await writePrivateFile(join(dir, DAEMON_FILE), `${JSON.stringify(info, null, 2)}\n`);
 

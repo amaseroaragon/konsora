@@ -55,9 +55,11 @@ export function QueryError({ error, retry }: { error: unknown; retry: () => void
     ? t("error.generic", { message: String(error) })
     : error.unauthorized
       ? t("session.expired")
-      : error.code === "network"
-        ? t("session.offline")
-        : t("error.generic", { message: error.message });
+      : error.code === "unknown_endpoint" || (error.status === 404 && error.message === "Not found")
+        ? t("session.stale_daemon")
+        : error.code === "network"
+          ? t("session.offline")
+          : t("error.generic", { message: error.message });
   return (
     <div className="s-alert" role="alert">
       <p className="s-text">

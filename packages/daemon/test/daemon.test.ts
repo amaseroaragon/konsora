@@ -277,7 +277,12 @@ describe("read endpoints", () => {
     });
     expect((await call(`/api/projects/${body.project.id}/tasks/BE-09`)).status).toBe(404);
     expect((await call("/api/projects/p-000000000000/board")).status).toBe(404);
-    expect((await call("/api/nope")).status).toBe(404);
+    const unknown = await call("/api/nope");
+    expect(unknown.status).toBe(404);
+    // An unknown API route says so: usually a daemon older than the web UI it serves.
+    expect(await unknown.json()).toEqual({
+      error: { code: "unknown_endpoint", message: "Unknown endpoint" },
+    });
   });
 });
 
@@ -300,7 +305,7 @@ describe("startDaemon (real server)", () => {
       });
       expect([health.status, await health.json()]).toEqual([
         200,
-        { ok: true, service: "konsora-daemon", version: "0.0.0" },
+        { ok: true, service: "konsora-daemon", version: "0.0.0", live_runs: 0 },
       ]);
       expect((await fetch(`${daemon.url}/api/health`)).status).toBe(403);
       expect(
