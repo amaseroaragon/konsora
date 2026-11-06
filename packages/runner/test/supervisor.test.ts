@@ -858,6 +858,7 @@ describe("checks after finish (RUN-18)", () => {
       { id: "unit", run: "echo 1 failing; exit 1" },
       { id: "slow", run: "sleep 30", timeout_s: 1 },
     ]);
+    await human({ op: "set-checks", check_retries: 0 });
     const session = await startRun(options(finishing(), { checkKillGraceMs: 200 }), {
       task: "BE-01",
     });
@@ -1034,5 +1035,133 @@ describe("project.setup before the agent (RUN-20)", () => {
     expect(run.state).toBe("cancelled");
     expect(seen).toHaveLength(0);
     expect((await taskIn("BE-01")).state).toBe("todo");
+  });
+});
+
+describe("the fix loop with failed checks (RUN-19)", () => {
+  async function setChecks(checks: TasksDocument["project"]["checks"], retries?: number) {
+    await human({
+      op: "set-checks",
+      checks: checks ?? [],
+      ...(retries !== undefined ? { check_retries: retries } : {}),
+    });
+  }
+
+  /** An agent that finishes every turn; `fix` decides what it does when it gets a retry. */
+  function agent(fix: (spec: RunSpec) => void, seen: RunSpec[]) {
+    return fakeAdapter(
+      (spec, emit) => {
+        emit({ t: "started", session: "s-1", model: "fake" });
+        if (spec.resume) fix(spec);
+        konsora(
+          spec,
+          "finish",
+          "BE-01",
+          "--summary",
+          spec.resume ? "Fixed the checks." : "First try.",
+        );
+      },
+      { seen, exit: { code: 0, signal: null } },
+    );
+  }
+
+  it("gives a failed check back to the same agent in its session, and a green retry reaches review", async () => {
+    await setChecks([
+      { id: "lint", run: "true" },
+      { id: "unit", run: "test -f fixed.txt || { echo 'expected fixed.txt'; exit 1; }" },
+    ]);
+    const seen: RunSpec[] = [];
+    const session = await startRun(
+      options(agent((spec) => writeFileSync(join(spec.cwd, "fixed.txt"), "ok\n"), seen)),
+      { task: "BE-01" },
+    );
+    const run = await session.done;
+
+    expect(seen).toHaveLength(2);
+    expect(seen[1]?.resume).toBe("s-1");
+    expect(seen[1]?.agent).toEqual(seen[0]?.agent);
+    expect(seen[1]?.prompt).toContain(
+      "Konsora ran the checks of BE-01 after you called `finish` (attempt 1), and one failed.",
+    );
+    expect(seen[1]?.prompt).toContain("expected fixed.txt");
+    expect(seen[1]?.prompt).not.toContain("Project check lint");
+
+    expect(run).toMatchObject({
+      state: "succeeded",
+      check_attempts: 2,
+      summary: "Fixed the checks.",
+      checks: [
+        { id: "lint", exit_code: 0 },
+        { id: "unit", exit_code: 0 },
+      ],
+    });
+    const file = await store.readChecks(run.id);
+    expect(file?.attempts.map((a) => a.results.map((r) => r.exit_code))).toEqual([
+      [0, 1],
+      [0, 0],
+    ]);
+    const events = (await store.readEvents(run.id)) as { t: string; attempt?: number }[];
+    expect(events.filter((e) => e.t === "retry")).toEqual([
+      expect.objectContaining({ attempt: 1, of: 2, failed: ["unit (exit 1)"] }),
+    ]);
+    // The run was back in running for the retry: it started a second agent turn.
+    expect(events.filter((e) => e.t === "started")).toHaveLength(2);
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(after.notes?.some((n) => n.by === "konsora" && n.text.includes("retry 1 of 2"))).toBe(
+      true,
+    );
+  });
+
+  it("once the retries run out, the task reaches review with the checks red and a note", async () => {
+    await setChecks([{ id: "unit", run: "echo nope; exit 2" }], 2);
+    const seen: RunSpec[] = [];
+    const session = await startRun(options(agent(() => undefined, seen)), { task: "BE-01" });
+    const run = await session.done;
+    expect(seen).toHaveLength(3);
+    expect(seen[2]?.prompt).toContain("This is the last try");
+    expect(run).toMatchObject({ state: "succeeded", check_attempts: 3 });
+    expect(run.checks).toMatchObject([{ id: "unit", exit_code: 2 }]);
+    expect((await store.readChecks(run.id))?.attempts).toHaveLength(3);
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(after.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      text: expect.stringContaining("They still fail after 2 retries"),
+    });
+  });
+
+  it("with check_retries = 0 there is no retry at all", async () => {
+    await setChecks([{ id: "unit", run: "exit 1" }], 0);
+    const seen: RunSpec[] = [];
+    const run = await (await startRun(options(agent(() => undefined, seen)), { task: "BE-01" }))
+      .done;
+    expect(seen).toHaveLength(1);
+    expect(run.check_attempts).toBe(1);
+    expect((await taskIn("BE-01")).state).toBe("review");
+  });
+
+  it("an intermediate task of a YOLO chain goes to done only with every check green", async () => {
+    // BE-03 → BE-02 (YOLO): BE-03 is intermediate.
+    await human({ op: "set-yolo", task: "BE-02", value: true });
+    const yoloAgent = (seen: RunSpec[]) =>
+      fakeAdapter(
+        (spec, emit) => {
+          emit({ t: "started", session: "s-1", model: "fake" });
+          konsora(spec, "finish", "BE-03", "--summary", "Done.");
+        },
+        { seen, exit: { code: 0, signal: null } },
+      );
+
+    await setChecks([{ id: "unit", run: "exit 1" }], 0);
+    const red = await (await startRun(options(yoloAgent([])), { task: "BE-03" })).done;
+    expect(red.check_attempts).toBe(1);
+    expect((await taskIn("BE-03")).state).toBe("review");
+
+    // Sent back and run again with green checks: straight to done.
+    await human({ op: "send-back", task: "BE-03", feedback: "Again." });
+    await setChecks([{ id: "unit", run: "true" }]);
+    await (await startRun(options(yoloAgent([])), { task: "BE-03" })).done;
+    expect((await taskIn("BE-03")).state).toBe("done");
   });
 });

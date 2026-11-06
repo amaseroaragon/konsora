@@ -24,9 +24,11 @@ import {
   type AgentSpec,
   blockers,
   buildAnswerMessage,
+  buildRetryPrompt,
   buildRunPrompt,
   type CheckAttempt,
   checkPassed,
+  checkRetries,
   checkSummary,
   checksPassed,
   indexTasks,
@@ -38,6 +40,7 @@ import {
   plannedChecks,
   plannedSetup,
   type Run,
+  type RunCheckResult,
   type RunId,
   type RunSetupResult,
   type RunState,
@@ -266,6 +269,7 @@ export async function startRun(
   // The checks as approved now, at launch: later edits to the plan do not change this run's.
   const checks = plannedChecks(plan.document, task.id);
   const setup = plannedSetup(plan.document);
+  const retries = checkRetries(plan.document.project);
   const supervision = new Supervision(
     options,
     store,
@@ -276,6 +280,7 @@ export async function startRun(
     release,
     checks,
     setup,
+    retries,
   );
   return {
     run,
@@ -326,6 +331,12 @@ class Supervision {
   #checksAbort: AbortController | null = null;
   /** Check attempts so far (checks.json). */
   #attempts = 0;
+  /** `project.check_retries` at launch: how many failed attempts go back to the agent. */
+  readonly #retries: number;
+  /** The last attempt's summary, kept in `run.json` whatever happens next. */
+  #lastChecks: RunCheckResult[] = [];
+  /** Summary notes already checked: after a retry, only a new `finish` counts. */
+  readonly #checkedSummaries = new Set<string>();
 
   constructor(
     options: SupervisorOptions,
@@ -337,7 +348,9 @@ class Supervision {
     release: () => void,
     checks: readonly PlannedCheck[],
     setup: { command: string; timeout_s: number } | null,
+    retries: number,
   ) {
+    this.#retries = retries;
     this.#release = release;
     this.#checks = checks;
     this.#setup = setup;
@@ -390,13 +403,20 @@ class Supervision {
       if (!this.#cancelled && waiting && this.#session) {
         await this.#log({ t: "waiting_answer" });
         const answer = await this.#nextAnswer();
-        if (answer === null) return this.#serial(() => this.#close(exit, finished));
+        if (answer === null) return this.#serial(() => this.#closeRun(exit, finished));
         await this.#log({ t: "answer", delivery: "resume", session: this.#session, text: answer });
         prompt = answer;
         resume = this.#session;
         continue;
       }
-      return this.#serial(() => this.#close(exit, finished));
+      const closed = await this.#serial(() => this.#close(exit, finished));
+      if ("retry" in closed) {
+        // Failed checks go back to the same agent, in the same session.
+        prompt = closed.retry;
+        resume = this.#session;
+        continue;
+      }
+      return closed;
     }
   }
 
@@ -551,10 +571,26 @@ class Supervision {
     handle.endInput();
   }
 
-  async #close(
+  /** Closes the run for good (no retry possible: it was cancelled). */
+  async #closeRun(
     exit: { code: number | null; signal: string | null },
     finished: Extract<RunEvent, { t: "finished" }> | undefined,
   ): Promise<Run> {
+    const closed = await this.#close(exit, finished, false);
+    if ("retry" in closed) throw new Error("unreachable: no retry when closing for good");
+    return closed;
+  }
+
+  /**
+   * The agent's process ended: collect its work and, if it finished, run the checks. A failed
+   * attempt with retries left returns `{retry}` (the prompt for the agent) with the run back in
+   * `running`; otherwise the run is closed.
+   */
+  async #close(
+    exit: { code: number | null; signal: string | null },
+    finished: Extract<RunEvent, { t: "finished" }> | undefined,
+    mayRetry = true,
+  ): Promise<Run | { retry: string }> {
     const problems: string[] = [];
     let head: string | undefined;
     try {
@@ -576,17 +612,18 @@ class Supervision {
     const summary = task
       ? [...(task.notes ?? [])].reverse().find((n) => n.kind === "summary" && n.run === this.#id)
       : undefined;
+    // After a retry, the summary that led to it does not count: the agent must finish again.
+    const fresh = summary !== undefined && !this.#checkedSummaries.has(summary.id);
     // Inside a run, `finish` leaves the task doing with this run's summary; `complete` moves it.
     const agentFinished =
       task !== null &&
-      (task.state === "review" ||
-        task.state === "done" ||
-        (task.state === "doing" && summary !== undefined));
+      (task.state === "review" || task.state === "done" || (task.state === "doing" && fresh));
     const fields = {
       finished_at: this.#now(),
       exit,
       usage: this.#usage.toRunUsage(),
-      checks: [],
+      checks: this.#lastChecks,
+      ...(this.#attempts > 0 ? { check_attempts: this.#attempts } : {}),
       ...(head ? { head_commit: head } : {}),
       ...(summary
         ? { summary: summary.text }
@@ -606,7 +643,14 @@ class Supervision {
       if (!attempt || attempt.cancelled || this.#cancelled) {
         return this.#closeCancelled(task, checked);
       }
+      this.#lastChecks = checked.checks;
+      if (summary) this.#checkedSummaries.add(summary.id);
       const passed = checksPassed(attempt.attempt.results);
+      const used = attempt.attempt.attempt - 1;
+      const resumable = this.#session !== undefined;
+      if (!passed && used < this.#retries && mayRetry && resumable && task?.state === "doing") {
+        return this.#retry(attempt.attempt, checked);
+      }
       if (task?.state === "doing") {
         await mutate(
           this.#options.root,
@@ -614,7 +658,15 @@ class Supervision {
             op: "complete",
             task: this.#task,
             checks_passed: passed,
-            ...(passed ? {} : { text: this.#failedChecksNote(attempt.attempt) }),
+            ...(passed
+              ? {}
+              : {
+                  text: this.#failedChecksNote(
+                    attempt.attempt,
+                    used,
+                    used < this.#retries && !resumable,
+                  ),
+                }),
           },
           { actor: ACTOR, at: this.#now(), run: this.#id },
         );
@@ -766,9 +818,33 @@ class Supervision {
     return run;
   }
 
-  /** The Konsora note on a task whose checks failed. */
-  #failedChecksNote(attempt: CheckAttempt): string {
-    const failed = attempt.results
+  /**
+   * A failed attempt with retries left: the run goes back to `running`, the task gets a note,
+   * and the agent gets the failed checks (`buildRetryPrompt`) in its own session.
+   */
+  async #retry(
+    attempt: CheckAttempt,
+    fields: Parameters<RunStore["update"]>[1],
+  ): Promise<{ retry: string }> {
+    const retry = attempt.attempt; // the retry about to start: 1, 2…
+    const failed = this.#failedList(attempt);
+    await this.#store.update(this.#id, fields);
+    await this.#move("running");
+    await this.#log({ t: "retry", attempt: retry, of: this.#retries, failed });
+    await mutate(
+      this.#options.root,
+      {
+        op: "note",
+        task: this.#task,
+        text: `Konsora run ${this.#id}: checks failed: ${failed.join(", ")}. The agent gets them back to fix (retry ${retry} of ${this.#retries}).`,
+      },
+      { actor: ACTOR, at: this.#now(), run: this.#id },
+    );
+    return { retry: buildRetryPrompt(this.#task, attempt, this.#retries - retry) };
+  }
+
+  #failedList(attempt: CheckAttempt): string[] {
+    return attempt.results
       .filter((r) => !checkPassed(r))
       .map((r) =>
         r.timed_out
@@ -777,7 +853,16 @@ class Supervision {
             ? `${r.id} (stopped)`
             : `${r.id} (exit ${r.exit_code})`,
       );
-    return `Konsora run ${this.#id}: checks failed: ${failed.join(", ")}. The task is in review with its checks failing.`;
+  }
+
+  /** The Konsora note on a task whose checks failed for good. */
+  #failedChecksNote(attempt: CheckAttempt, used: number, noSession: boolean): string {
+    const why = noSession
+      ? " The agent's session could not be resumed to retry them."
+      : used > 0
+        ? ` They still fail after ${used} ${used === 1 ? "retry" : "retries"}.`
+        : "";
+    return `Konsora run ${this.#id}: checks failed: ${this.#failedList(attempt).join(", ")}.${why} The task is in review with its checks failing.`;
   }
 
   /**
