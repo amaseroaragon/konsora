@@ -4,6 +4,9 @@
  * the address bar or history. A later visit in the same tab reuses the stored token.
  */
 export const TOKEN_KEY = "konsora.token";
+
+/** WebSocket reconnect delays: 0.5 s, 1 s, 2 s … capped at 10 s. */
+export const reconnectDelay = (attempt: number) => Math.min(10_000, 500 * 2 ** attempt);
 const TOKEN = /^[0-9a-f]{64}$/;
 
 export type Bootstrap = {

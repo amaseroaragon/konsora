@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { applyLimitsMessage } from "./limits.ts";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
 import { applyRunMessage } from "./runs.ts";
-import { TOKEN_KEY } from "./session.ts";
+import { reconnectDelay, TOKEN_KEY } from "./session.ts";
 
 export type BoardTask = Task & TaskFlags & { hash: string };
 export type ExternalFlag = {
@@ -98,8 +98,7 @@ export function useMoveTask(projectId: string) {
 
 export type LiveState = "connecting" | "live" | "offline";
 
-/** Mirrors a reconnect delay schedule: 0.5 s, 1 s, 2 s … capped at 10 s. */
-export const reconnectDelay = (attempt: number) => Math.min(10_000, 500 * 2 ** attempt);
+export { reconnectDelay } from "./session.ts";
 
 /**
  * Subscribes to the daemon's events for a project: `board.*` refetch the board, `run.*` update

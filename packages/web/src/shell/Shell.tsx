@@ -5,17 +5,29 @@ import { Button, Panel } from "../ui/index.ts";
 import { Brand } from "./Brand.tsx";
 import { Rich } from "./Rich.tsx";
 
-/** The real app's frame: header with the brand and a link home, then the page. */
-export function Shell({ children }: { children: ReactNode }) {
+/**
+ * The real app's frame: header with the brand, a link home and, once there is a session, the
+ * link to the usage limits (`nav`), then the page.
+ */
+export function Shell({
+  children,
+  nav,
+  home = false,
+}: {
+  children: ReactNode;
+  nav?: ReactNode;
+  home?: boolean;
+}) {
   return (
     <div className="a-app">
       <header className="a-header">
         <Brand />
         <nav className="a-header__cell" aria-label={t("shell.nav")}>
-          <a className="s-nav__link" href="#/">
+          <a className="s-nav__link" href="#/" aria-current={home ? "page" : undefined}>
             {t("shell.home")}
           </a>
         </nav>
+        {nav && <div className="a-header__cell">{nav}</div>}
       </header>
       <main className="s-page">{children}</main>
     </div>

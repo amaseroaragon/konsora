@@ -13,7 +13,6 @@ import { Board } from "./Board.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
-import { RateLimits } from "./RateLimits.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
@@ -185,7 +184,6 @@ export function ProjectView({
       </div>
       <ApprovalNotice approvals={approvals} onOpen={open} />
       <Orphans projectId={projectId} />
-      <RateLimits />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
       <div className="b-layout">
         <div

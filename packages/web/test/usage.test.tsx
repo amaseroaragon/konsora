@@ -1,13 +1,12 @@
-import type { ProviderLimits, Run } from "@konsora/core";
+import type { Run } from "@konsora/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
 import { runEventsKey } from "../src/api/runs.ts";
-import { RateLimitList } from "../src/shell/RateLimits.tsx";
 import { RunSection } from "../src/shell/RunSection.tsx";
-import { runUsage, windowLabel } from "../src/shell/run-model.ts";
+import { runUsage } from "../src/shell/run-model.ts";
 import { ToastProvider } from "../src/ui/index.ts";
 
 const run = (extra: Partial<Run> = {}): Run => ({
@@ -87,63 +86,5 @@ describe("a run's usage (UI-14)", () => {
       cacheRead: 100,
     });
     expect(runUsage(run({ state: "running" }), [])).toBeNull();
-  });
-});
-
-describe("rate limits on the project page (UI-14)", () => {
-  const limits: ProviderLimits[] = [
-    {
-      provider: "claude",
-      source: "run",
-      run: "r-01JC8Z3K2QX7M4V9T0B6N5R8PA",
-      at: "2026-11-01T12:00:00Z",
-      windows: [
-        {
-          window: "five_hour",
-          status: "allowed",
-          utilization: 0.68,
-          resets_at: "2026-11-01T13:20:00Z",
-        },
-        { window: "seven_day", status: "allowed_warning", utilization: 0.92 },
-      ],
-    },
-    {
-      provider: "codex",
-      source: "provider",
-      at: "2026-11-01T14:00:00Z",
-      windows: [
-        {
-          window: "window_90m",
-          status: "rejected",
-          utilization: 1,
-          resets_at: "2026-11-01T15:00:00Z",
-        },
-      ],
-    },
-  ];
-
-  it("shows each provider's windows with their use, status and reset", () => {
-    const html = renderToStaticMarkup(<RateLimitList limits={limits} />);
-    expect(html).toContain("claude");
-    expect(html).toContain("codex");
-    expect(html).toContain(">5 h<");
-    expect(html).toContain(">7 días<");
-    expect(html).toContain(">90 min<");
-    expect(html).toContain("68 % usado");
-    expect(html).toContain("92 % usado");
-    expect(html).toContain("cerca del límite");
-    expect(html).toContain("agotado");
-    expect(html.match(/se reinicia el/g)).toHaveLength(2);
-    expect(html).toContain('<meter class="b-limits__meter"');
-    expect(html).toContain("según el run del");
-    expect(html).toContain("leídos del proveedor el");
-  });
-
-  it("shows nothing until a run has reported them", () => {
-    expect(renderToStaticMarkup(<RateLimitList limits={[]} />)).toBe("");
-    const none: ProviderLimits = { provider: "claude", source: "none", windows: [] };
-    expect(renderToStaticMarkup(<RateLimitList limits={[none]} />)).toBe("");
-    expect(windowLabel("seven_day_sonnet")).toBe("7 días (sonnet)");
-    expect(windowLabel("weekly")).toBe("weekly");
   });
 });

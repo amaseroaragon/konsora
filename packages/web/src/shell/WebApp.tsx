@@ -2,6 +2,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { useState } from "react";
 import { ApiError, createApi } from "../api/client.ts";
 import { ApiContext } from "../api/projects.ts";
+import { LimitsLink, LimitsPage } from "./LimitsPage.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { ProjectsPage } from "./ProjectsPage.tsx";
 import type { Route } from "./route.ts";
@@ -31,9 +32,14 @@ export function WebApp({ token, route }: { token: string | null; route: Route })
   return (
     <ApiContext.Provider value={setup.api}>
       <QueryClientProvider client={setup.queries}>
-        <Shell>
+        <Shell
+          home={route.name === "projects"}
+          nav={<LimitsLink current={route.name === "limits"} />}
+        >
           {route.name === "project" ? (
             <ProjectPage key={route.id} id={route.id} view={route.view} task={route.task} />
+          ) : route.name === "limits" ? (
+            <LimitsPage />
           ) : (
             <ProjectsPage />
           )}
