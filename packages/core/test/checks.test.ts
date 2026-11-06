@@ -221,6 +221,12 @@ describe("the retry prompt (ac5)", () => {
       "### Acceptance criterion ac1: `npm test -- cache`\n\nIt ran out of time and was stopped.",
     );
     expect(text).toContain("call `finish` on BE-01 again");
+    // A check the agent cannot make pass: finish explaining why, never ask or edit the check.
+    expect(text).toContain(
+      "If you are sure a check cannot pass because of anything in this task's work",
+    );
+    expect(text).toContain("do not `ask` and do not change the check: call `finish` on BE-01");
+    expect(text.trimEnd().endsWith("and the human decides.")).toBe(true);
     expect(text).toContain("one more try");
     expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     expect(text).not.toContain("1200");

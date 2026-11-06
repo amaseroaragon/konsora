@@ -196,6 +196,8 @@ export function buildRetryPrompt(
     ...blocks.flatMap((block) => [block, ""]),
     `Fix the cause in your worktree and commit, then call \`finish\` on ${taskId} again with an updated summary. Konsora will run every check again. ${after}`,
     "",
+    `If you are sure a check cannot pass because of anything in this task's work (the check itself is wrong or impossible, or it depends on something outside the worktree), do not \`ask\` and do not change the check: call \`finish\` on ${taskId} with a summary that explains why. The task then goes to review with that check failing, and the human decides.`,
+    "",
   ].join("\n");
 }
 
