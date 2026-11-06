@@ -931,3 +931,108 @@ describe("checks after finish (RUN-18)", () => {
     expect(env).not.toContain("run-token");
   });
 });
+
+describe("project.setup before the agent (RUN-20)", () => {
+  async function withSetup(setup: { run: string; timeout_s?: number }) {
+    await human({ op: "set-checks", setup });
+  }
+
+  it("runs setup in the worktree before launching the agent, with its output in the run", async () => {
+    await withSetup({ run: "echo installing; pwd; touch .deps-ready" });
+    const seen: RunSpec[] = [];
+    const adapter = fakeAdapter(
+      (spec, emit) => {
+        // The agent starts in a prepared worktree.
+        emit({
+          t: "message",
+          text: existsSync(join(spec.cwd, ".deps-ready")) ? "ready" : "bare",
+          final: false,
+        });
+        konsora(spec, "finish", "BE-01", "--summary", "Done.");
+      },
+      { seen },
+    );
+    const session = await startRun(options(adapter), { task: "BE-01" });
+    const run = await session.done;
+    expect(run.state).toBe("succeeded");
+    expect(run.setup).toMatchObject({
+      command: "echo installing; pwd; touch .deps-ready",
+      exit_code: 0,
+      timed_out: false,
+    });
+    const events = (await store.readEvents(run.id)) as {
+      t: string;
+      phase?: string;
+      output?: string;
+      text?: string;
+    }[];
+    expect(events[0]).toMatchObject({ t: "setup", phase: "start" });
+    expect(events[1]).toMatchObject({
+      t: "setup",
+      phase: "end",
+      output: `installing\n${run.worktree}\n`,
+    });
+    expect(events.find((e) => e.t === "message")?.text).toBe("ready");
+    expect(seen).toHaveLength(1);
+  });
+
+  it("a failing setup leaves the run failed without launching the agent, and the task in todo with a note", async () => {
+    await withSetup({ run: "echo npm ERR! missing lockfile; exit 1" });
+    const seen: RunSpec[] = [];
+    const session = await startRun(options(fakeAdapter(() => undefined, { seen })), {
+      task: "BE-01",
+    });
+    const run = await session.done;
+    expect(seen).toHaveLength(0);
+    expect(run).toMatchObject({ state: "failed", setup: { exit_code: 1, timed_out: false } });
+    expect(run.usage).toBeUndefined();
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("todo");
+    expect(after.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      run: run.id,
+      text: expect.stringContaining(
+        "the setup command `echo npm ERR! missing lockfile; exit 1` exited with code 1",
+      ),
+    });
+    const events = (await store.readEvents(run.id)) as { t: string; output?: string }[];
+    expect(events.find((e) => e.t === "setup" && e.output)?.output).toBe(
+      "npm ERR! missing lockfile\n",
+    );
+  });
+
+  it("a setup past its timeout is stopped and fails the run", async () => {
+    await withSetup({ run: "sleep 30", timeout_s: 1 });
+    const seen: RunSpec[] = [];
+    const session = await startRun(
+      options(
+        fakeAdapter(() => undefined, { seen }),
+        { checkKillGraceMs: 200 },
+      ),
+      { task: "BE-01" },
+    );
+    const run = await session.done;
+    expect(seen).toHaveLength(0);
+    expect(run).toMatchObject({ state: "failed", setup: { exit_code: null, timed_out: true } });
+    expect((await taskIn("BE-01")).notes?.at(-1)?.text).toContain("ran out of time");
+  });
+
+  it("cancelling during setup stops it and leaves the run cancelled", async () => {
+    await withSetup({ run: "sleep 30" });
+    const seen: RunSpec[] = [];
+    const session = await startRun(
+      options(
+        fakeAdapter(() => undefined, { seen }),
+        { checkKillGraceMs: 200 },
+      ),
+      { task: "BE-01" },
+    );
+    await until(async () =>
+      ((await store.readEvents(session.run.id)) as { t: string }[]).some((e) => e.t === "setup"),
+    );
+    const run = await session.cancel();
+    expect(run.state).toBe("cancelled");
+    expect(seen).toHaveLength(0);
+    expect((await taskIn("BE-01")).state).toBe("todo");
+  });
+});

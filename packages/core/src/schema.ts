@@ -79,10 +79,20 @@ export const CheckSchema = strict({
   timeout_s: z.int().min(1).max(86_400).optional(),
 });
 
+/**
+ * A command that prepares a new worktree before the agent starts (e.g. `npm ci`), so checks do
+ * not fail for missing dependencies. Only the human sets it.
+ */
+export const SetupSchema = strict({
+  run: z.string().min(1).max(1000),
+  timeout_s: z.int().min(1).max(86_400).optional(),
+});
+
 export const ProjectSchema = strict({
   name: z.string().min(1).max(80),
   base_branch: z.string().min(1).max(255),
   defaults: AgentSpecSchema.optional(),
+  setup: SetupSchema.optional(),
   checks: z.array(CheckSchema).optional(),
   /** How many times a run's agent gets the failed checks back to fix them (default 2). */
   check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).optional(),
@@ -151,6 +161,7 @@ export type Effort = z.infer<typeof EffortSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type Check = z.infer<typeof CheckSchema>;
+export type Setup = z.infer<typeof SetupSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 
 /** `project.check_retries`, or its default when absent. */

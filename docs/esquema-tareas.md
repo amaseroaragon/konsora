@@ -79,7 +79,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
-**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`.
+**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `setup` (opcional, `{run, timeout_s?}`: el comando que prepara cada worktree nuevo antes de lanzar al agente, p. ej. `npm ci`; timeout por defecto 600 s), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `setup`, `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `setup: null`, `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`.
 
 **`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60).
 
@@ -237,7 +237,7 @@ checks.json     resultado de cada check, por intento
 
 Solo `id`, `task`, `task_hash`, `agent` y `state` son obligatorios; el resto se rellena según avanza el run. `prompt` es el texto exacto que recibió el agente: lo genera `buildRunPrompt` de `core` (título, `desc`, criterios con su check, checks del proyecto, notas `feedback` y `answer` con su pregunta, resúmenes de las dependencias e instrucciones de protocolo; las notas ordinarias no entran), de forma determinista. Las claves desconocidas se rechazan.
 
-`checks` es el resumen del último intento (sin el comando ni la salida) y `check_attempts`, cuántas veces se ejecutaron los checks (1 más los reintentos usados). Los `run.json` anteriores a M8, con solo `id`, `exit_code` y `duration_ms` en cada check, siguen siendo válidos.
+`setup` dice cómo fue `project.setup` en el worktree (`command`, `exit_code`, `duration_ms`, `timed_out`); su salida va en el evento `setup` de fin en `events.jsonl`. `checks` es el resumen del último intento (sin el comando ni la salida) y `check_attempts`, cuántas veces se ejecutaron los checks (1 más los reintentos usados). Los `run.json` anteriores a M8, con solo `id`, `exit_code` y `duration_ms` en cada check, siguen siendo válidos.
 
 `checks.json` guarda todos los intentos (`ChecksFileSchema` de `core`):
 

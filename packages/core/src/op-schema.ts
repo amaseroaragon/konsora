@@ -10,6 +10,7 @@ import {
   CheckSchema,
   GroupSchema,
   MAX_CHECK_RETRIES,
+  SetupSchema,
   TaskIdSchema,
   TaskSchema,
 } from "./schema.ts";
@@ -83,6 +84,7 @@ export const OpSchema = z.discriminatedUnion("op", [
     expect,
     checks: z.array(CheckSchema).max(50).optional(),
     check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).nullable().optional(),
+    setup: SetupSchema.nullable().optional(),
   }),
   z.strictObject({ op: z.literal("accept"), expect, task: id }),
   z.strictObject({ op: z.literal("send-back"), expect, task: id, feedback: text }),

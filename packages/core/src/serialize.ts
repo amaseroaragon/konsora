@@ -17,7 +17,8 @@ type Obj = Record<string, unknown>;
 
 const ORDER = {
   root: ["$schema", "schema", "project", "groups", "seq", "tasks"],
-  project: ["name", "base_branch", "defaults", "checks", "check_retries"],
+  project: ["name", "base_branch", "defaults", "setup", "checks", "check_retries"],
+  setup: ["run", "timeout_s"],
   agent: ["provider", "model", "effort", "permissions"],
   check: ["id", "run", "timeout_s"],
   group: ["id", "name"],
@@ -120,9 +121,11 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
         return ordered(value as Obj, ORDER.project, (k, v) =>
           k === "defaults"
             ? agent(v)
-            : k === "checks"
-              ? (v as Obj[]).map((c) => ordered(c, ORDER.check))
-              : v,
+            : k === "setup"
+              ? ordered(v as Obj, ORDER.setup)
+              : k === "checks"
+                ? (v as Obj[]).map((c) => ordered(c, ORDER.check))
+                : v,
         );
       case "groups":
         return (value as Obj[]).map((g) => ordered(g, ORDER.group));

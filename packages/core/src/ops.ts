@@ -26,6 +26,7 @@ import type {
   Note,
   NoteKind,
   SchemaIssue,
+  Setup,
   Task,
   TaskState,
   TasksDocument,
@@ -93,10 +94,11 @@ export type Op = Base &
      */
     | { op: "complete"; task: string; checks_passed: boolean; text?: string }
     /**
-     * The human sets the project's checks and how many times a run retries them. A field left
-     * out is kept; `checks: []` and `check_retries: null` remove them.
+     * The human sets the project's checks, how many times a run retries them and the setup
+     * command of new worktrees. A field left out is kept; `checks: []`, `check_retries: null`
+     * and `setup: null` remove them.
      */
-    | { op: "set-checks"; checks?: Check[]; check_retries?: number | null }
+    | { op: "set-checks"; checks?: Check[]; check_retries?: number | null; setup?: Setup | null }
     | { op: "accept"; task: string }
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
@@ -484,9 +486,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       break;
     }
     case "set-checks": {
-      if (!("checks" in op) && !("check_retries" in op)) {
-        fail("invalid", "set-checks needs checks, check_retries or both");
+      if (!("checks" in op) && !("check_retries" in op) && !("setup" in op)) {
+        fail("invalid", "set-checks needs checks, check_retries or setup");
       }
+      if (op.setup === null) delete doc.project.setup;
+      else if (op.setup !== undefined) doc.project.setup = structuredClone(op.setup);
       if (op.checks !== undefined) {
         if (op.checks.length > 0) doc.project.checks = structuredClone(op.checks);
         else delete doc.project.checks;

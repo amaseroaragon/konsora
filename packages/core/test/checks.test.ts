@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseOp } from "../src/op-schema.ts";
+import { applyOp } from "../src/ops.ts";
 import {
   CHECK_OUTPUT_MAX,
   type CheckAttempt,
@@ -8,6 +9,7 @@ import {
   checkSummary,
   checksPassed,
   plannedChecks,
+  plannedSetup,
   RunSchema,
   tailOutput,
 } from "../src/run.ts";
@@ -248,5 +250,39 @@ describe("the retry prompt (ac5)", () => {
     expect(text).toContain("`````\n```\nnot the end\n````\n`````");
     expect(text).toContain("It printed nothing.");
     expect(text).toContain("2 more tries");
+  });
+});
+
+describe("project.setup (RUN-20 ac1)", () => {
+  it("is validated, serialized canonically before checks, and set only by a human", () => {
+    expect(validateDocument(plan({ setup: { run: "npm ci" } })).ok).toBe(true);
+    expect(validateDocument(plan({ setup: { run: "" } })).ok).toBe(false);
+    expect(validateDocument(plan({ setup: "npm ci" })).ok).toBe(false);
+    expect(validateDocument(plan({ setup: { run: "npm ci", timeout_s: 0 } })).ok).toBe(false);
+    const parsed = validateDocument(
+      plan({
+        checks: [{ id: "test", run: "npm test" }],
+        setup: { timeout_s: 900, run: "npm ci" },
+      }),
+    );
+    if (!parsed.ok) throw new Error("invalid");
+    expect(serializeDocument(parsed.document)).toContain(
+      '"setup": {\n      "run": "npm ci",\n      "timeout_s": 900\n    },\n    "checks": [',
+    );
+    expect(plannedSetup(parsed.document)).toEqual({ command: "npm ci", timeout_s: 900 });
+    expect(parseOp({ op: "set-checks", setup: { run: "npm ci" } }).ok).toBe(true);
+    expect(parseOp({ op: "set-checks", setup: null }).ok).toBe(true);
+    expect(parseOp({ op: "set-checks", setup: { run: "npm ci", extra: 1 } }).ok).toBe(false);
+
+    const document = parsed.document;
+    const op = { op: "set-checks" as const, setup: { run: "pnpm i" } };
+    for (const actor of ["agent:claude", "konsora"]) {
+      const result = applyOp(document, op, { actor, at });
+      expect(result.ok ? "ok" : result.error.code).toBe("forbidden");
+    }
+    const set = applyOp(document, op, { actor: "human", at });
+    expect(set.ok && set.document.project.setup).toEqual({ run: "pnpm i" });
+    const cleared = applyOp(document, { op: "set-checks", setup: null }, { actor: "human", at });
+    expect(cleared.ok && cleared.document.project.setup).toBeUndefined();
   });
 });

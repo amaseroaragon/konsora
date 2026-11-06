@@ -36,8 +36,10 @@ import {
   newRunId,
   type PlannedCheck,
   plannedChecks,
+  plannedSetup,
   type Run,
   type RunId,
+  type RunSetupResult,
   type RunState,
   runAgentFor,
   type Task,
@@ -51,7 +53,7 @@ import type {
   RunEvent,
   RunHandle,
 } from "./adapter.ts";
-import { runChecks } from "./checks.ts";
+import { runCheck, runChecks } from "./checks.ts";
 import { type Git, systemGit } from "./git.ts";
 import { RunStore } from "./run-store.ts";
 import { UsageTally } from "./usage.ts";
@@ -263,7 +265,18 @@ export async function startRun(
   };
   // The checks as approved now, at launch: later edits to the plan do not change this run's.
   const checks = plannedChecks(plan.document, task.id);
-  const supervision = new Supervision(options, store, git, launch, run, now, release, checks);
+  const setup = plannedSetup(plan.document);
+  const supervision = new Supervision(
+    options,
+    store,
+    git,
+    launch,
+    run,
+    now,
+    release,
+    checks,
+    setup,
+  );
   return {
     run,
     done: supervision.run().finally(async () => {
@@ -308,6 +321,7 @@ class Supervision {
   readonly #release: () => void;
   #done: Promise<Run> | null = null;
   readonly #checks: readonly PlannedCheck[];
+  readonly #setup: { command: string; timeout_s: number } | null;
   /** Stops the check in progress when the run is cancelled during `checking`. */
   #checksAbort: AbortController | null = null;
   /** Check attempts so far (checks.json). */
@@ -322,9 +336,11 @@ class Supervision {
     now: () => string,
     release: () => void,
     checks: readonly PlannedCheck[],
+    setup: { command: string; timeout_s: number } | null,
   ) {
     this.#release = release;
     this.#checks = checks;
+    this.#setup = setup;
     this.#options = options;
     this.#store = store;
     this.#git = git;
@@ -346,6 +362,17 @@ class Supervision {
   }
 
   async #supervise(): Promise<Run> {
+    // `project.setup` prepares the worktree first; if it fails, the agent is never launched.
+    if (this.#setup) {
+      const setup = await this.#runSetup(this.#setup);
+      if (this.#cancelled) {
+        const task = await this.#readTask();
+        return this.#serial(() => this.#closeCancelled(task, { finished_at: this.#now(), setup }));
+      }
+      if (setup.exit_code !== 0 || setup.timed_out) {
+        return this.#serial(() => this.#failSetup(setup));
+      }
+    }
     let prompt = this.#prompt;
     let resume: string | undefined;
     for (;;) {
@@ -672,6 +699,71 @@ class Supervision {
     } finally {
       this.#checksAbort = null;
     }
+  }
+
+  /** Runs `project.setup` in the worktree, logging its start and its end with its output. */
+  async #runSetup(setup: { command: string; timeout_s: number }): Promise<RunSetupResult> {
+    await this.#log({ t: "setup", phase: "start", command: setup.command });
+    this.#checksAbort = new AbortController();
+    try {
+      const result = await runCheck(
+        { id: "setup", source: "project", command: setup.command, timeout_s: setup.timeout_s },
+        {
+          cwd: this.#worktree,
+          signal: this.#checksAbort.signal,
+          ...(this.#options.checkEnv ? { env: this.#options.checkEnv } : {}),
+          ...(this.#options.checkKillGraceMs !== undefined
+            ? { killGraceMs: this.#options.checkKillGraceMs }
+            : {}),
+        },
+      );
+      const summary: RunSetupResult = {
+        command: result.command,
+        exit_code: result.exit_code,
+        duration_ms: result.duration_ms,
+        timed_out: result.timed_out,
+      };
+      await this.#log({
+        t: "setup",
+        phase: "end",
+        ...summary,
+        output: result.output,
+        ...(result.output_truncated ? { output_truncated: true } : {}),
+      });
+      await this.#store.update(this.#id, { setup: summary });
+      return summary;
+    } finally {
+      this.#checksAbort = null;
+    }
+  }
+
+  /** The setup failed: the agent never ran, the task goes back to todo, the run `failed`. */
+  async #failSetup(setup: RunSetupResult): Promise<Run> {
+    const how = setup.timed_out
+      ? `ran out of time after ${Math.round(setup.duration_ms / 1000)} s`
+      : setup.exit_code === null
+        ? "was stopped by a signal"
+        : `exited with code ${setup.exit_code}`;
+    const reason = `the setup command \`${setup.command}\` ${how}`;
+    await this.#log({ t: "error", message: `Run failed: ${reason}`, retryable: false });
+    const task = await this.#readTask();
+    if (task?.state === "doing") {
+      await mutate(
+        this.#options.root,
+        {
+          op: "pause",
+          task: this.#task,
+          text: `Konsora run ${this.#id} failed before launching the agent: ${reason}. Its output is in the run's log. Fix project.setup or the project, then run the task again.`,
+        },
+        { actor: ACTOR, at: this.#now(), run: this.#id },
+      );
+    }
+    const run = await this.#store.transition(this.#id, "failed", {
+      finished_at: this.#now(),
+      setup,
+    });
+    this.#state = run.state;
+    return run;
   }
 
   /** The Konsora note on a task whose checks failed. */

@@ -245,6 +245,15 @@ export const RunCheckResultSchema = z.strictObject({
   timed_out: z.boolean().optional(),
 });
 
+/** How `project.setup` went in the run's worktree; its output is in `events.jsonl`. */
+export const RunSetupResultSchema = z.strictObject({
+  command: z.string().min(1).max(1000),
+  exit_code: z.int().nullable(),
+  duration_ms: z.int().min(0),
+  timed_out: z.boolean(),
+});
+export type RunSetupResult = z.infer<typeof RunSetupResultSchema>;
+
 /** How much of a check's output `checks.json` keeps: its last characters. */
 export const CHECK_OUTPUT_MAX = 16_384;
 
@@ -384,6 +393,8 @@ export const RunSchema = z
     exit: RunExitSchema.optional(),
     usage: RunUsageSchema.optional(),
     summary: z.string().min(1).max(20_000).optional(),
+    /** `project.setup`, run in the worktree before the agent. */
+    setup: RunSetupResultSchema.optional(),
     /** The results of the last attempt; every attempt is in `checks.json`. */
     checks: z.array(RunCheckResultSchema).optional(),
     /** How many times the checks ran (1 + the retries used). */
@@ -547,4 +558,14 @@ export function transitionIntegration(run: Run, to: IntegrationState): RunTransi
     );
   }
   return { ok: true, run: { ...run, integration: { state: to } } };
+}
+
+/** `project.setup` as the runner runs it, with its default timeout; `null` without one. */
+export function plannedSetup(
+  document: TasksDocument,
+): { command: string; timeout_s: number } | null {
+  const setup = document.project.setup;
+  return setup
+    ? { command: setup.run, timeout_s: setup.timeout_s ?? DEFAULT_CHECK_TIMEOUT_S }
+    : null;
 }
