@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Run, Task, TasksDocument } from "@konsora/core";
+import { applyOp, type Op, type Run, type Task, type TasksDocument } from "@konsora/core";
 import { initTasks, readTasks } from "@konsora/core/store";
 import {
   type AgentAdapter,
@@ -360,6 +360,113 @@ describe("run events over WebSocket", () => {
       expect.arrayContaining(["starting", "running", "checking", "succeeded"]),
     );
     expect(states.at(-1)).toBe("succeeded");
+  });
+});
+
+describe("checks over HTTP and WebSocket (DMN-07)", () => {
+  const setChecks = {
+    op: "set-checks",
+    checks: [
+      { id: "app", run: "grep -q agent app.txt" },
+      { id: "boom", run: "echo boom; exit 1" },
+    ],
+    check_retries: 1,
+  };
+
+  it("sets the project's checks through /ops, and only as a human", async () => {
+    const res = await api<{ ok: boolean }>(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify(setChecks),
+    });
+    expect(res.status).toBe(200);
+    const after = await readTasks(root);
+    expect(after.ok && after.document.project).toMatchObject({
+      checks: setChecks.checks,
+      check_retries: 1,
+    });
+    const bad = await api<{ error: { code: string } }>(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({ op: "set-checks", check_retries: 9 }),
+    });
+    expect(bad.status).toBe(400);
+    // The same op from an agent (CLI or MCP apply it with the agent's role) is forbidden.
+    if (!after.ok) throw new Error("plan");
+    const asAgent = applyOp(after.document, setChecks as Op, { actor: "agent:claude", at });
+    expect(asAgent.ok ? "ok" : asAgent.error.code).toBe("forbidden");
+  });
+
+  it("sends each check's start and end and checking ↔ running live, and serves checks.json", async () => {
+    await api(`/projects/${projectId}/ops`, { method: "POST", body: JSON.stringify(setChecks) });
+    const ws = new WebSocket(`${daemon.url.replace("http", "ws")}/api/ws`);
+    const messages: {
+      type: string;
+      run?: unknown;
+      event?: { t: string; phase?: string; id?: string };
+    }[] = [];
+    ws.on("message", (raw) => messages.push(JSON.parse(String(raw))));
+    await new Promise((resolve) => ws.once("open", resolve));
+    ws.send(JSON.stringify({ type: "auth", token: daemon.token }));
+    ws.send(JSON.stringify({ type: "subscribe", project: projectId }));
+    const deadline = Date.now() + 3000;
+    while (!messages.some((m) => m.type === "subscribed") && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const run = await settled((await launch()).id);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    ws.close();
+
+    const checks = messages
+      .filter((m) => m.type === "run.event" && m.event?.t === "check")
+      .map((m) => `${m.event?.phase}:${m.event?.id}`);
+    // Two attempts (one retry), each with both checks.
+    expect(checks).toEqual([
+      "start:app",
+      "end:app",
+      "start:boom",
+      "end:boom",
+      "start:app",
+      "end:app",
+      "start:boom",
+      "end:boom",
+    ]);
+    const states = messages
+      .filter((m) => m.type === "run.state")
+      .map((m) => (m.run as Run).state)
+      .filter((state, i, all) => state !== all[i - 1]);
+    expect(states).toEqual(
+      expect.arrayContaining(["running", "checking", "running", "checking", "succeeded"]),
+    );
+    const i = states.indexOf("checking");
+    expect(states.slice(i, i + 3)).toEqual(["checking", "running", "checking"]);
+
+    const res = await api<{ checks: { run: string; attempts: { results: unknown[] }[] } }>(
+      `/projects/${projectId}/runs/${run.id}/checks`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.checks.run).toBe(run.id);
+    expect(res.body.checks.attempts).toHaveLength(2);
+    expect(res.body.checks.attempts[1]?.results).toEqual([
+      expect.objectContaining({ id: "app", source: "project", exit_code: 0, output: "" }),
+      expect.objectContaining({
+        id: "boom",
+        command: "echo boom; exit 1",
+        exit_code: 1,
+        timed_out: false,
+        output: "boom\n",
+      }),
+    ]);
+    expect(await taskState("BE-01")).toBe("review");
+  });
+
+  it("answers null before the checks ran, and 404 for an unknown run", async () => {
+    behaviour = "hang";
+    const run = await launch();
+    const res = await api<{ checks: null }>(`/projects/${projectId}/runs/${run.id}/checks`);
+    expect(res.body.checks).toBeNull();
+    await api(`/projects/${projectId}/runs/${run.id}/cancel`, { method: "POST" });
+    const missing = await api(`/projects/${projectId}/runs/r-01JC8Z3K2QX7M4V9T0B6N5R8PW/checks`);
+    expect(missing.status).toBe(404);
   });
 });
 

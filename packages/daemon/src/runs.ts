@@ -14,6 +14,7 @@
 import { join } from "node:path";
 import {
   type AgentSpec,
+  type ChecksFile,
   checkAgent,
   isActiveRunState,
   type Provider,
@@ -247,6 +248,13 @@ export class RunManager {
 
   async events(project: Project, id: string): Promise<unknown[]> {
     return this.store(project).readEvents(this.#runId(id));
+  }
+
+  /** `checks.json` of a run, or null if its checks have not run. */
+  async checks(project: Project, id: string): Promise<ChecksFile | null> {
+    const runId = this.#runId(id);
+    await this.store(project).read(runId);
+    return this.store(project).readChecks(runId);
   }
 
   async diff(project: Project, id: string): Promise<string | null> {

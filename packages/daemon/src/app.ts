@@ -506,6 +506,15 @@ export function createApp(options: AppOptions): Hono {
     return c.json({ diff: await runsOf().diff(project, c.req.param("runId")) });
   });
 
+  /**
+   * The run's `checks.json` (DMN-07): every attempt, each check with its command, result and the
+   * tail of its output; null before the checks ran. Validated with core's schema.
+   */
+  api.get("/projects/:id/runs/:runId/checks", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ checks: await runsOf().checks(project, c.req.param("runId")) });
+  });
+
   api.post("/projects/:id/runs/:runId/cancel", async (c) => {
     const project = await registry.get(c.req.param("id"));
     return c.json({ run: await runsOf().cancel(project, c.req.param("runId")) });
