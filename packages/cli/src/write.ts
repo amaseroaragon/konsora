@@ -14,6 +14,7 @@ import {
   type Op,
   type OpContext,
   type OpError,
+  ReviewVerdictSchema,
   type TasksDocument,
   taskHash,
 } from "@konsora/core";
@@ -209,6 +210,7 @@ export async function runOp(
   if (scope.task) ctx.runTask = scope.task;
   if (scope.run) ctx.run = scope.run;
   if (scope.plan) ctx.plan = true;
+  if (scope.review) ctx.review = true;
   const result = await mutate(root, op, ctx);
   if (result.ok)
     return {
@@ -489,6 +491,40 @@ export function registerWriteCommands(
           { op: "ask", task: id.toUpperCase(), text: body },
           opts,
           () => `Asked on ${id.toUpperCase()}. Stop here and wait for the human's answer.\n`,
+        );
+      },
+    );
+
+  withAgent(program.command("review"))
+    .description("inside a review run: leave your verdict on the task's work, with your reasons")
+    .argument("<id>")
+    .requiredOption("--verdict <verdict>", "approve, or changes to ask for changes")
+    .argument("[reasons]")
+    .option("-m, --message <text>", "your reasons")
+    .action(
+      async (
+        id: string,
+        reasons: string | undefined,
+        opts: { verdict: string; message?: string; as?: string; json?: boolean },
+      ) => {
+        const verdict = ReviewVerdictSchema.safeParse(opts.verdict);
+        if (!verdict.success) {
+          throw new CliError(
+            `Unknown verdict "${opts.verdict}".`,
+            "Use --verdict approve or --verdict changes.",
+            EXIT.usage,
+          );
+        }
+        const text = await readText(
+          io,
+          reasons,
+          opts.message !== undefined ? { message: opts.message } : {},
+          "reasons",
+        );
+        await apply(
+          { op: "review", task: id.toUpperCase(), verdict: verdict.data, text },
+          opts,
+          () => `Reviewed ${id.toUpperCase()} (${verdict.data}). Stop here.\n`,
         );
       },
     );

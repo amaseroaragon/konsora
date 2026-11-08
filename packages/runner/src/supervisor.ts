@@ -148,6 +148,8 @@ export class RunError extends Error {
     | "no_conflict"
     /** `resumeRun`: the run is not interrupted, or its worktree or task cannot take it back. */
     | "not_resumable"
+    /** `startReviewRun`: the run is not a succeeded, unintegrated run with its worktree. */
+    | "not_reviewable"
     /** The run was created but could not start; it is left `failed`. */
     | "launch_failed";
   constructor(code: RunError["code"], message: string) {

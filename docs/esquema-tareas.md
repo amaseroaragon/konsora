@@ -283,6 +283,7 @@ running          → waiting_approval | checking | failed | cancelled | interrup
 waiting_approval → running | failed | cancelled | interrupted
 checking         → running (reintento) | succeeded | failed | cancelled | interrupted
 interrupted      → starting (reanudar) | cancelled (descartar)
+running          → succeeded, solo en un run de revisión (no tiene checks)
 succeeded, failed, cancelled: finales
 ```
 

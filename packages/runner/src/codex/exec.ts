@@ -22,6 +22,7 @@ import {
   type RunSpec,
 } from "../adapter.ts";
 import { clip, shellCommand } from "./normalize.ts";
+import { CODEX_READONLY_SANDBOX, codexReadonly } from "./profile.ts";
 
 /** Variables the exec MCP server does not get: they would show up in the process list. */
 const SECRET_ENV = new Set(["KONSORA_RUN_TOKEN", "KONSORA_DAEMON_URL"]);
@@ -43,6 +44,8 @@ export function execMcpEnv(env: Record<string, string>): Record<string, string> 
 
 export function codexExecArgs(spec: RunSpec): string[] {
   const { model, effort } = spec.agent;
+  // `readonly` (review runs): Codex's read-only sandbox, nothing writable.
+  const sandbox = codexReadonly(spec) ? CODEX_READONLY_SANDBOX : "workspace-write";
   const config = [
     `mcp_servers.konsora.command=${toml(spec.mcp.command)}`,
     `mcp_servers.konsora.args=${toml(spec.mcp.args)}`,
@@ -51,7 +54,7 @@ export function codexExecArgs(spec: RunSpec): string[] {
     // Same sandbox as app-server (`codexSandboxPolicy`): no network whatever the user's config
     // says, plus the run's git paths so it can commit on its branch.
     "sandbox_workspace_write.network_access=false",
-    ...(spec.gitWritePaths?.length
+    ...(sandbox === "workspace-write" && spec.gitWritePaths?.length
       ? [`sandbox_workspace_write.writable_roots=${toml(spec.gitWritePaths)}`]
       : []),
   ].flatMap((entry) => ["-c", entry]);
@@ -64,13 +67,13 @@ export function codexExecArgs(spec: RunSpec): string[] {
       "-m",
       model,
       "-c",
-      `sandbox_mode=${toml("workspace-write")}`,
+      `sandbox_mode=${toml(sandbox)}`,
       ...config,
       spec.resume,
       "-",
     ];
   }
-  return ["exec", "--json", "-m", model, "-s", "workspace-write", "-C", spec.cwd, ...config, "-"];
+  return ["exec", "--json", "-m", model, "-s", sandbox, "-C", spec.cwd, ...config, "-"];
 }
 
 type Json = Record<string, unknown>;

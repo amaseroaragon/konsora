@@ -166,6 +166,20 @@ describe("codexExecArgs", () => {
     expect(args.slice(-2)).toEqual(["01a19791-7d3b-7683-8a4b-57858917212a", "-"]);
   });
 
+  it("runs the readonly profile with -s read-only and no writable roots, also when resuming (RUN-29)", () => {
+    const readonly = {
+      ...spec,
+      agent: { ...spec.agent, permissions: "readonly" },
+      gitWritePaths: ["/repo/.git/objects"],
+    };
+    const args = codexExecArgs(readonly);
+    expect(args.slice(4, 6)).toEqual(["-s", "read-only"]);
+    expect(args.join(" ")).not.toMatch(/workspace-write\b(?!\.)|writable_roots/);
+    const resumed = codexExecArgs({ ...readonly, resume: "01a19791-7d3b-7683-8a4b-57858917212a" });
+    expect(resumed).toContain('sandbox_mode="read-only"');
+    expect(resumed.join(" ")).not.toContain("writable_roots");
+  });
+
   it("keeps the network off and opens the run's git paths, also when resuming", () => {
     expect(codexExecArgs(spec)).toContain("sandbox_workspace_write.network_access=false");
     expect(codexExecArgs(spec).join(" ")).not.toContain("writable_roots");

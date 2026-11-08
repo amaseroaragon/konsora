@@ -67,6 +67,7 @@ const decisions: ({ id: string } & PermissionDecision)[] = [];
 /** A fake Claude: "finish" edits a file and finishes; "hang" never ends until killed. */
 const fake: AgentAdapter = {
   id: "claude",
+  profiles: ["default", "readonly"],
   detect: async () => ({ installed: true, version: "0.0.0" }),
   models: async () => [{ id: "fake", label: "Fake", efforts: ["low", "high"] }],
   start(spec) {
@@ -84,9 +85,12 @@ const fake: AgentAdapter = {
       queue.close();
       resolveExit(exit);
     };
-    const mode = behaviour;
+    const mode = spec.mcp.env.KONSORA_REVIEW === "1" ? "review" : behaviour;
     void (async () => {
       queue.push({ t: "started", session: "s-1", model: "fake" });
+      if (mode === "review") {
+        await konsora(spec, "review", "BE-01", "--verdict", "approve", "-m", "Looks right.");
+      }
       if (mode === "ask") await konsora(spec, "ask", "BE-01", "Which TTL?");
       if (mode === "permission") {
         // Like Codex: it asks through its own protocol and waits for the decision.
@@ -880,7 +884,7 @@ describe("the agent catalog", () => {
         version: "0.0.0",
         models: [{ id: "fake", label: "Fake", efforts: ["low", "high"] }],
         open_models: false,
-        profiles: ["default"],
+        profiles: ["default", "readonly"],
       },
       {
         provider: "codex",
@@ -1125,5 +1129,76 @@ describe("variants of a task (RUN-28)", () => {
       body: JSON.stringify({ task: "BE-01", agents: [agents[0]] }),
     });
     expect(one.status).toBe(400);
+  });
+});
+
+describe("review runs (RUN-29)", () => {
+  async function setReviewer(launch: "auto" | "manual"): Promise<void> {
+    const res = await api(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({
+        op: "set-reviewer",
+        reviewer: { agent: { provider: "claude", model: "fake" }, launch },
+      }),
+    });
+    expect(res.status).toBe(200);
+  }
+
+  async function reviewsOf(id: string): Promise<Run[]> {
+    const { runs } = (await api<{ runs: Run[] }>(`/projects/${projectId}/runs`)).body;
+    return runs.filter((r) => r.kind === "review" && r.review_of === id);
+  }
+
+  async function settledReviews(id: string, count: number): Promise<Run[]> {
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      const reviews = await reviewsOf(id);
+      if (reviews.length >= count && reviews.every((r) => r.state === "succeeded")) return reviews;
+      if (Date.now() > deadline) throw new Error("the review did not finish");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
+  it("with an automatic reviewer, reaching review launches exactly one review run", async () => {
+    await setReviewer("auto");
+    const run = await launch();
+    expect((await settled(run.id)).state).toBe("succeeded");
+    const [review] = await settledReviews(run.id, 1);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(await reviewsOf(run.id)).toHaveLength(1);
+    expect(review?.agent.permissions).toBe("readonly");
+    expect(await taskState("BE-01")).toBe("review");
+    const plan = await readTasks(root);
+    const notes = plan.ok ? plan.document.tasks[0]?.notes : [];
+    expect(notes?.filter((n) => n.kind === "review")).toEqual([
+      expect.objectContaining({ verdict: "approve", text: "Looks right.", run: review?.id }),
+    ]);
+    // The review does not stand in the way of accepting the reviewed run.
+    const accepted = await api<{ integrated: { run: string } }>(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({ op: "accept", task: "BE-01" }),
+    });
+    expect(accepted.body.integrated.run).toBe(run.id);
+  });
+
+  it("with a manual reviewer nothing launches on its own; POST …/review does, once at a time", async () => {
+    await setReviewer("manual");
+    const run = await launch();
+    await settled(run.id);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(await reviewsOf(run.id)).toEqual([]);
+    const res = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}/review`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.run).toMatchObject({ kind: "review", review_of: run.id });
+    await settledReviews(run.id, 1);
+    expect(await taskState("BE-01")).toBe("review");
+    const wrong = await api<{ error: { code: string } }>(
+      `/projects/${projectId}/runs/${res.body.run.id}/review`,
+      { method: "POST" },
+    );
+    expect(wrong.status).toBe(409);
+    expect(wrong.body.error.code).toBe("not_reviewable");
   });
 });

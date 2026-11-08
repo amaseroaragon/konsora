@@ -60,7 +60,7 @@ export function storeError(error: StoreError, root: string): never {
   }
 }
 
-export type RunScope = { task?: string; run?: string; plan?: boolean };
+export type RunScope = { task?: string; run?: string; plan?: boolean; review?: boolean };
 
 /**
  * Inside a Konsora run the runner sets KONSORA_TASK (KONSORA_RUN_TASK is accepted as an alias)
@@ -83,6 +83,8 @@ export function runScope(env: NodeJS.ProcessEnv): RunScope {
   if (env.KONSORA_RUN?.trim()) scope.run = env.KONSORA_RUN.trim();
   // `konsora plan` starts its MCP server with KONSORA_PLAN=1: proposals only (CLI-05).
   if (env.KONSORA_PLAN === "1") scope.plan = true;
+  // A review run (RUN-29) starts its MCP server with KONSORA_REVIEW=1: review notes only.
+  if (env.KONSORA_REVIEW === "1") scope.review = true;
   return scope;
 }
 

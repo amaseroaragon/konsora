@@ -7,7 +7,7 @@
  * The actor is `agent:<name>`, from KONSORA_AGENT or else the MCP client's name
  * (`claude-code` → `agent:claude`, `codex-mcp-client` → `agent:codex`).
  */
-import { DifficultySchema, type Op, type TasksDocument } from "@konsora/core";
+import { DifficultySchema, type Op, ReviewVerdictSchema, type TasksDocument } from "@konsora/core";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -234,6 +234,31 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
               ? "Konsora now runs the checks; if one fails, you will get its output to fix it. Stop here."
               : "The task is waiting for human review. Stop here.";
         },
+      ),
+  );
+
+  server.registerTool(
+    "review",
+    {
+      title: "Review a task's work",
+      description:
+        "Only inside a review run: leave your verdict on the work under review (approve, or changes to ask for changes) with your reasons. It never accepts or sends the task back.",
+      inputSchema: {
+        id,
+        verdict: ReviewVerdictSchema.describe("approve, or changes"),
+        text: text("your reasons: what holds, and what is wrong or missing, with files and lines"),
+      },
+      annotations: WRITE,
+    },
+    (args) =>
+      apply(
+        () => ({
+          op: "review",
+          task: args.id.toUpperCase(),
+          verdict: args.verdict,
+          text: args.text,
+        }),
+        "Your review is on the task. Stop here: the human decides.",
       ),
   );
 }

@@ -8,9 +8,10 @@
  * summaries of the dependencies, and the protocol. Ordinary notes, questions without an answer
  * and the agent's own summaries stay out: they are progress, not instructions.
  */
-import { DEFAULT_PROFILE_COMMANDS } from "./agents.ts";
+
+import { DEFAULT_PROFILE_COMMANDS, READONLY_PROFILE_COMMANDS } from "./agents.ts";
 import { indexTasks } from "./graph.ts";
-import { type CheckAttempt, checkPassed, tailOutput } from "./run.ts";
+import { type CheckAttempt, checkPassed, type Run, tailOutput } from "./run.ts";
 import type { Note, Task, TasksDocument } from "./schema.ts";
 
 export type RunPromptOptions = {
@@ -299,4 +300,94 @@ function toolGuidance(): string {
     prefix ? `\`${command} …\`` : `\`${command}\``,
   ).join(", ");
   return `- Create, change and read files with your file-editing and file-reading tools, not with shell commands. Run shell commands one at a time, never chained with \`&&\`, \`;\` or pipes. You can run ${allowed} and the project's checks without asking; any other command may wait for the human's approval, so use it only when you need it.`;
+}
+
+/** How much of the reviewed diff the review prompt carries: its first characters. */
+export const REVIEW_DIFF_MAX = 60_000;
+
+export type ReviewPromptInput = {
+  /** The run under review (its summary, checks, branch and commits). */
+  run: Pick<Run, "id" | "branch" | "base_commit" | "head_commit" | "summary" | "checks">;
+  /** Its `diff.patch`; `null` if there is none. */
+  diff: string | null;
+};
+
+/**
+ * The prompt of a review run (RUN-29): the task, its criteria, the reviewed run's summary, check
+ * results and diff (at most `REVIEW_DIFF_MAX` characters), and how to leave the verdict with the
+ * `review` tool, without changing anything. Deterministic: no times nor durations.
+ */
+export function buildReviewPrompt(
+  document: TasksDocument,
+  taskId: string,
+  input: ReviewPromptInput,
+): string {
+  const task = indexTasks(document).get(taskId);
+  if (!task) throw new RangeError(`Task ${taskId} does not exist`);
+  const { run } = input;
+  const criteria = task.acceptance?.length
+    ? task.acceptance
+        .map((ac) => `- ${ac.id}: ${ac.text}${ac.check ? `\n  Check: \`${ac.check}\`` : ""}`)
+        .join("\n")
+    : "(no acceptance criteria)";
+  const checks = run.checks?.length
+    ? run.checks
+        .map((c) => {
+          const how = checkPassed(c)
+            ? "passed"
+            : c.timed_out
+              ? "ran out of time"
+              : c.exit_code === null
+                ? "was stopped"
+                : `failed (exit ${c.exit_code})`;
+          return `- ${c.id}: ${how}`;
+        })
+        .join("\n")
+    : "No checks ran.";
+  const diff = input.diff?.trim() ?? "";
+  const shown =
+    diff.length > REVIEW_DIFF_MAX
+      ? `${fence(diff.slice(0, REVIEW_DIFF_MAX))}\n\nThe diff is longer: only its first part is shown. Read the rest with \`git diff\` in your worktree.`
+      : diff
+        ? fence(diff)
+        : "The run changed no files.";
+  const range =
+    run.base_commit && run.head_commit
+      ? ` (\`git diff ${run.base_commit}..${run.head_commit}\`)`
+      : "";
+  const allowed = READONLY_PROFILE_COMMANDS.map(({ command, prefix }) =>
+    prefix ? `\`${command} …\`` : `\`${command}\``,
+  ).join(", ");
+  return [
+    `You are reviewing the work of Konsora run ${run.id} on task ${task.id} of the project "${document.project.name}". Another agent did the work; you only review it.`,
+    "",
+    section(`Task ${task.id}: ${task.title}`, task.desc?.trim() || "(no description)"),
+    "",
+    section("Acceptance criteria", criteria),
+    "",
+    section("The agent's summary", run.summary ? quote(run.summary) : "(no summary)"),
+    "",
+    section("Checks", checks),
+    "",
+    section(`Changes${range}`, shown),
+    "",
+    section(
+      "What to do",
+      [
+        `1. Read the changes in your worktree${run.branch ? `, on \`${run.branch}\`` : ""}, and judge whether they meet each acceptance criterion, are correct, and leave nothing important out.`,
+        `2. Call the \`review\` tool on ${task.id} once, with your verdict: \`approve\` if you would accept the work as it is, or \`changes\` if you would ask for changes. In the text, give your reasons: what holds, and what is wrong or missing, with files and lines.`,
+        "3. Then stop. The human decides: your review is advice.",
+      ].join("\n"),
+    ),
+    "",
+    section(
+      "Rules",
+      [
+        "- This review is read-only: do not create, edit or delete any file, do not commit and do not run anything that writes. Such tools are denied.",
+        `- You can read files with your file-reading tools and run ${allowed}. Run shell commands one at a time.`,
+        "- You cannot note, ask, finish, accept or send back: only `review`.",
+      ].join("\n"),
+    ),
+    "",
+  ].join("\n");
 }

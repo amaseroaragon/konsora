@@ -590,13 +590,22 @@ export type RunTransitionError = {
 
 export type RunTransitionResult = { ok: true; run: Run } | { ok: false; error: RunTransitionError };
 
-export function canTransitionRun(from: RunState, to: RunState): boolean {
+/**
+ * Whether a run may go from `from` to `to`. A review run (RUN-29) has no checks: it succeeds
+ * straight from `running`, once its agent has left its review.
+ */
+export function canTransitionRun(
+  from: RunState,
+  to: RunState,
+  kind: RunKind | undefined = undefined,
+): boolean {
+  if (kind === "review" && from === "running" && to === "succeeded") return true;
   return RUN_TRANSITIONS[from].includes(to);
 }
 
 /** Moves a run to `to`, or explains why it cannot. Pure: returns a new object. */
 export function transitionRun(run: Run, to: RunState): RunTransitionResult {
-  if (!canTransitionRun(run.state, to)) {
+  if (!canTransitionRun(run.state, to, run.kind)) {
     const allowed = RUN_TRANSITIONS[run.state];
     return {
       ok: false,

@@ -96,12 +96,17 @@ export function registerPermissionTool(server: McpServer, env: NodeJS.ProcessEnv
       annotations: { openWorldHint: false },
     },
     async (args): Promise<CallToolResult> => {
-      const decision = scope.run
-        ? await askDaemon(env, scope.run, args)
-        : {
+      const decision = scope.review
+        ? {
             behavior: "deny" as const,
-            message: `Konsora denied ${args.tool_name}: this run has no id (KONSORA_RUN).`,
-          };
+            message: `Konsora denied ${args.tool_name}: this review run is read-only.`,
+          }
+        : scope.run
+          ? await askDaemon(env, scope.run, args)
+          : {
+              behavior: "deny" as const,
+              message: `Konsora denied ${args.tool_name}: this run has no id (KONSORA_RUN).`,
+            };
       return { content: [{ type: "text", text: JSON.stringify(decision) }] };
     },
   );

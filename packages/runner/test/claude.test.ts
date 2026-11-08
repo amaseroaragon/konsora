@@ -261,11 +261,44 @@ describe("arguments and environment", () => {
 
   it("rejects other permission profiles and option-like values", () => {
     expect(() => claudeAllowedTools({ agent: { ...spec.agent, permissions: "trusted" } })).toThrow(
-      /not available for Claude yet/,
+      /not available for Claude; use default or readonly/,
     );
     expect(() => claudeArgs({ ...spec, agent: { ...spec.agent, model: "--bare" } }, "/x")).toThrow(
       /Invalid model/,
     );
+  });
+
+  it("the readonly profile gets no Edit, Write nor writing Bash, and never auto-accepts edits (RUN-29)", () => {
+    const readonly = { ...spec, agent: { ...spec.agent, permissions: "readonly" } };
+    const args = claudeArgs(readonly, "/private/claude-mcp.json");
+    const flag = (name: string) => args[args.indexOf(name) + 1];
+    expect(flag("--permission-mode")).toBe("default");
+    expect(flag("--permission-prompt-tool")).toBe("mcp__konsora__permission");
+    expect((flag("--disallowedTools") as string).split(",")).toEqual([
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "NotebookEdit",
+    ]);
+    const tools = (flag("--allowedTools") as string).split(",");
+    expect(tools).toEqual([
+      "Read",
+      "Glob",
+      "Grep",
+      "TodoWrite",
+      "mcp__konsora",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git blame:*)",
+      "Bash(ls:*)",
+    ]);
+    // Not even the project's checks: they may write.
+    expect(
+      tools.some((t) => /^(Edit|MultiEdit|Write|NotebookEdit)$|npm|git (add|commit)/.test(t)),
+    ).toBe(false);
+    for (const arg of args) expect(arg).not.toMatch(/^--dangerously|bypassPermissions/);
   });
 
   it("strips every KONSORA_* variable from the child's environment", () => {

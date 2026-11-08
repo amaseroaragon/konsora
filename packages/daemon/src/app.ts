@@ -83,6 +83,8 @@ const RunBody = z
   })
   .refine((body) => !(body.agent && body.agents), "Send agent or agents, not both");
 
+const ReviewBody = z.strictObject({ agent: AgentSpecSchema.optional() });
+
 /** HTTP status for the runner's errors (the body carries code and message). */
 const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   not_found: 404,
@@ -94,6 +96,7 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   no_answer: 409,
   not_rebasable: 409,
   not_resumable: 409,
+  not_reviewable: 409,
   variant_not_chosen: 409,
   variants_running: 409,
   variant_group_closed: 409,
@@ -607,6 +610,23 @@ export function createApp(options: AppOptions): Hono {
   api.post("/projects/:id/runs/:runId/resume", async (c) => {
     const project = await registry.get(c.req.param("id"));
     return c.json({ run: await runsOf().resume(project, c.req.param("runId")) });
+  });
+
+  /**
+   * The human asks for a review of a succeeded run (RUN-29): `{agent?}`, else the project's
+   * reviewer, reviews it read-only and leaves a `review` note; the task stays in review.
+   */
+  api.post("/projects/:id/runs/:runId/review", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const body = ReviewBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!body.success) {
+      return c.json(
+        { error: { code: "bad_request", message: "Send {agent?} as JSON, or nothing" } },
+        400,
+      );
+    }
+    const run = await runsOf().review(project, c.req.param("runId"), body.data.agent);
+    return c.json({ run }, 201);
   });
 
   /**

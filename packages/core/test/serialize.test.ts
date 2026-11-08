@@ -292,3 +292,51 @@ describe("project.templates (CORE-10)", () => {
     expect(parse(text)).toBeTruthy();
   });
 });
+
+describe("reviewer and review notes (CORE-13, RUN-29)", () => {
+  it("keeps project.reviewer and a review note's verdict through serialization", () => {
+    const at = "2026-11-02T10:00:00Z";
+    const doc: TasksDocument = {
+      schema: "konsora/2",
+      project: {
+        name: "P",
+        base_branch: "main",
+        reviewer: { launch: "auto", agent: { model: "gpt-5", provider: "codex" } },
+      },
+      groups: [{ id: "BE", name: "Backend" }],
+      seq: { BE: 1 },
+      tasks: [
+        {
+          id: "BE-01",
+          title: "T",
+          state: "review",
+          group: "BE",
+          rank: "a",
+          created: { at, by: "human" },
+          updated_at: at,
+          notes: [
+            {
+              id: "n1",
+              at,
+              by: "agent:codex",
+              kind: "review",
+              text: "ok",
+              run: "r-01JC8Z3K2Q",
+              verdict: "approve",
+            },
+          ],
+        },
+      ],
+    };
+    const text = serializeDocument(doc);
+    const back = JSON.parse(text) as TasksDocument;
+    expect(back.project.reviewer).toEqual({
+      agent: { provider: "codex", model: "gpt-5" },
+      launch: "auto",
+    });
+    expect(Object.keys(back.project.reviewer ?? {})).toEqual(["agent", "launch"]);
+    expect(back.tasks[0]?.notes?.[0]).toEqual(doc.tasks[0]?.notes?.[0]);
+    expect(validateDocument(back).ok).toBe(true);
+    expect(serializeDocument(back)).toBe(text);
+  });
+});

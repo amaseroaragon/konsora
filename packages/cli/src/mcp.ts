@@ -52,6 +52,13 @@ function instructions(env: NodeJS.ProcessEnv): string {
     );
   }
   if (!scope.task) return GUIDE;
+  if (scope.review) {
+    return (
+      `${GUIDE}\n\nYou are inside Konsora review run ${scope.run ?? "(unnamed)"}, reviewing the work on ` +
+      `${scope.task}. It is read-only: read the work, then call review once with your verdict and ` +
+      `reasons, and stop. Every other write is out of scope.`
+    );
+  }
   return (
     `${GUIDE}\n\nYou are inside Konsora run ${scope.run ?? "(unnamed)"}, working on ${scope.task}. ` +
     `It is already started: record progress with note, ask the human with ask, and end with ` +

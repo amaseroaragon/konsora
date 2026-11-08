@@ -16,7 +16,12 @@ import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 import { createInterface } from "node:readline";
-import { DEFAULT_PROFILE_COMMANDS, EffortSchema } from "@konsora/core";
+import {
+  DEFAULT_PROFILE_COMMANDS,
+  EffortSchema,
+  READONLY_PROFILE,
+  READONLY_PROFILE_COMMANDS,
+} from "@konsora/core";
 import {
   AdapterError,
   type AgentAdapter,
@@ -55,15 +60,41 @@ const DEFAULT_TOOLS = [
   ),
 ];
 
-/** `--allowedTools` for a permission profile. Only `default` exists for now. */
-export function claudeAllowedTools(spec: Pick<RunSpec, "agent" | "checks">): string[] {
+/**
+ * The `readonly` profile (review runs, RUN-29): reading tools, Konsora's MCP and read-only git
+ * commands. Every tool that writes files is disallowed outright, and any other command is denied
+ * by the run's permission tool without asking the human.
+ */
+const READONLY_TOOLS = [
+  "Read",
+  "Glob",
+  "Grep",
+  "TodoWrite",
+  "mcp__konsora",
+  ...READONLY_PROFILE_COMMANDS.map(({ command, prefix }) =>
+    prefix ? `Bash(${command}:*)` : `Bash(${command})`,
+  ),
+];
+
+/** Tools a `readonly` run never gets (`--disallowedTools`). */
+export const READONLY_DISALLOWED_TOOLS = ["Edit", "MultiEdit", "Write", "NotebookEdit"];
+
+const PROFILES = ["default", READONLY_PROFILE];
+
+function profileOf(spec: Pick<RunSpec, "agent">): string {
   const profile = spec.agent.permissions ?? "default";
-  if (profile !== "default") {
+  if (!PROFILES.includes(profile)) {
     throw new AdapterError(
       "unsupported_profile",
-      `Permission profile "${profile}" is not available for Claude yet; use "default"`,
+      `Permission profile "${profile}" is not available for Claude; use ${PROFILES.join(" or ")}`,
     );
   }
+  return profile;
+}
+
+/** `--allowedTools` for a permission profile: `default` or `readonly`. */
+export function claudeAllowedTools(spec: Pick<RunSpec, "agent" | "checks">): string[] {
+  if (profileOf(spec) === READONLY_PROFILE) return [...READONLY_TOOLS];
   const checks = (spec.checks ?? [])
     .map((check) => check.run.trim())
     // A rule cannot hold these; such checks still run, the agent just has to ask first.
@@ -89,11 +120,13 @@ export function claudeArgs(spec: RunSpec, mcpConfigPath: string): string[] {
     model,
   ];
   if (effort) args.push("--effort", EffortSchema.parse(effort));
+  const readonly = profileOf(spec) === READONLY_PROFILE;
   args.push(
     "--permission-mode",
-    "acceptEdits",
+    readonly ? "default" : "acceptEdits",
     "--allowedTools",
     claudeAllowedTools(spec).join(","),
+    ...(readonly ? ["--disallowedTools", READONLY_DISALLOWED_TOOLS.join(",")] : []),
     "--strict-mcp-config",
     "--mcp-config",
     mcpConfigPath,
@@ -443,7 +476,7 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions = {}): AgentAd
   let usageUnsupported: UsageUnsupportedError | null = null;
   return {
     id: "claude",
-    profiles: ["default"],
+    profiles: [...PROFILES],
     // Claude Code takes full model ids (claude-opus-5-5…) besides these aliases.
     openModels: true,
     detect: () => detectClaude(command, prefix, claudeEnv(baseEnv)),

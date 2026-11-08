@@ -34,6 +34,7 @@ import { agentEnv } from "../env.ts";
 import { detectCodex } from "./detect.ts";
 import { startCodexExec } from "./exec.ts";
 import { CodexNormalizer, clip, codexRateLimits, shellCommand } from "./normalize.ts";
+import { CODEX_PROFILES, CODEX_READONLY_SANDBOX, codexReadonly } from "./profile.ts";
 import type { InitializeParams, InitializeResponse, v2 } from "./protocol/index.ts";
 
 const KILL_GRACE_MS = 5000;
@@ -53,13 +54,7 @@ export function codexInitializeParams(): InitializeParams {
 }
 
 function checkProfile(spec: RunSpec): void {
-  const profile = spec.agent.permissions ?? "default";
-  if (profile !== "default") {
-    throw new AdapterError(
-      "unsupported_profile",
-      `Permission profile "${profile}" is not available for Codex yet; use "default"`,
-    );
-  }
+  codexReadonly(spec);
   if (!spec.agent.model.trim()) throw new AdapterError("invalid_spec", "A Codex model is required");
 }
 
@@ -73,7 +68,7 @@ export function codexThreadParams(
   const common: v2.ThreadStartParams = {
     model: spec.agent.model,
     cwd: spec.cwd,
-    sandbox: CODEX_SANDBOX,
+    sandbox: codexReadonly(spec) ? CODEX_READONLY_SANDBOX : CODEX_SANDBOX,
     approvalPolicy: CODEX_APPROVAL_POLICY,
     config: {
       mcp_servers: {
@@ -92,6 +87,8 @@ export function codexThreadParams(
  * branch without asking), no network, and Codex's usual temporary folders.
  */
 export function codexSandboxPolicy(spec: RunSpec): v2.SandboxPolicy {
+  // `readonly`: nothing in the worktree (nor its git paths) is writable.
+  if (codexReadonly(spec)) return { type: "readOnly", networkAccess: false };
   return {
     type: "workspaceWrite",
     writableRoots: [...(spec.gitWritePaths ?? [])],
@@ -243,7 +240,7 @@ export function createCodexAdapter(options: CodexAdapterOptions = {}): AgentAdap
   };
   return {
     id: "codex",
-    profiles: ["default"],
+    profiles: [...CODEX_PROFILES],
     detect: async () => {
       const found = await detectCodex({ command, prefixArgs: prefix, env });
       if (!found.installed) return found;

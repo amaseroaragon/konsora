@@ -26,7 +26,9 @@ const ORDER = {
     "checks",
     "check_retries",
     "templates",
+    "reviewer",
   ],
+  reviewer: ["agent", "launch"],
   recommended: ["low", "medium", "high"],
   template: ["id", "name", "desc", "acceptance", "labels", "difficulty"],
   criterion: ["text", "check"],
@@ -53,7 +55,7 @@ const ORDER = {
   ],
   acceptance: ["id", "text", "check"],
   created: ["at", "by"],
-  note: ["id", "at", "by", "kind", "text", "run", "edited"],
+  note: ["id", "at", "by", "kind", "text", "verdict", "run", "edited"],
 } as const;
 
 /** Optional fields dropped when empty. Required arrays (`groups`, `tasks`) are always kept. */
@@ -159,6 +161,10 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
               return (v as Obj[]).map((c) => ordered(c, ORDER.check));
             case "templates":
               return (v as Obj[]).map(template);
+            case "reviewer":
+              return ordered(v as Obj, ORDER.reviewer, (rk, rv) =>
+                rk === "agent" ? agent(rv) : rv,
+              );
             default:
               return v;
           }

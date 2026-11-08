@@ -36,6 +36,7 @@ import { createCodexAdapter } from "../src/codex/adapter.ts";
 import { gitEnv } from "../src/git.ts";
 import { integrateRun } from "../src/integrate.ts";
 import { recoverRuns } from "../src/recover.ts";
+import { startReviewRun } from "../src/review.ts";
 import { RunStore } from "../src/run-store.ts";
 import {
   RunError,
@@ -1602,7 +1603,7 @@ describe("variants of a task (RUN-28)", () => {
   }
 
   function opener(): { gate: Promise<void>; open: () => void } {
-    let open = () => undefined as void;
+    let open: () => void = () => {};
     const gate = new Promise<void>((resolve) => {
       open = resolve;
     });
@@ -1682,5 +1683,139 @@ describe("variants of a task (RUN-28)", () => {
     const after = await taskIn("BE-01");
     expect(after.state).toBe("todo");
     expect(after.notes?.at(-1)?.text).toContain("none of the 2 variants");
+  });
+});
+
+describe("review runs (RUN-29)", () => {
+  /** BE-01 done by a run that reached review, with feature.txt on its branch. */
+  async function reviewed(): Promise<Run> {
+    const session = await startRun(
+      options(
+        fakeAdapter(
+          (spec, emit) => {
+            emit({ t: "started", session: "s-1", model: "fake" });
+            writeFileSync(join(spec.cwd, "feature.txt"), "feature\n");
+            konsora(spec, "finish", "BE-01", "--summary", "Added feature.txt.");
+          },
+          { exit: { code: 0, signal: null } },
+        ),
+      ),
+      { task: "BE-01" },
+    );
+    const run = await session.done;
+    expect(run.state).toBe("succeeded");
+    expect((await taskIn("BE-01")).state).toBe("review");
+    return run;
+  }
+
+  const codexReviewer = { provider: "claude" as const, model: "fake" };
+
+  function reviewer(script: Script, seen: RunSpec[] = []) {
+    return fakeAdapter(script, { seen, exit: { code: 0, signal: null } });
+  }
+
+  const status = (cwd: string) => git(cwd, "status", "--porcelain", "--untracked-files=all");
+
+  it("leaves a review note, the task stays in review and the worktree is untouched", async () => {
+    const work = await reviewed();
+    const head = git(work.worktree as string, "rev-parse", "HEAD");
+    const seen: RunSpec[] = [];
+    const permissions: PermissionDecision[] = [];
+    const adapter = reviewer((spec, emit) => {
+      emit({ t: "started", session: "s-r", model: "fake" });
+      // Anything that needs an approval is denied on the spot.
+      emit({ t: "permission", id: "p-1", tool: "Bash", detail: "rm -rf src" });
+      konsora(spec, "review", "BE-01", "--verdict", "changes", "-m", "ac2 lacks a test.");
+    }, seen);
+    const start = adapter.start.bind(adapter);
+    adapter.start = (spec, io) => {
+      const handle = start(spec, io);
+      handle.answerPermission = (_id, decision) => void permissions.push(decision);
+      return handle;
+    };
+    const session = await startReviewRun(options(adapter), { run: work.id, agent: codexReviewer });
+    expect(session.run).toMatchObject({
+      kind: "review",
+      review_of: work.id,
+      worktree: work.worktree,
+      agent: { permissions: "readonly" },
+    });
+    const run = await session.done;
+
+    expect(run).toMatchObject({ state: "succeeded", summary: "changes: ac2 lacks a test." });
+    expect(seen[0]?.cwd).toBe(work.worktree);
+    expect(seen[0]?.agent.permissions).toBe("readonly");
+    expect(seen[0]?.mcp.env.KONSORA_REVIEW).toBe("1");
+    expect(seen[0]?.checks).toBeUndefined();
+    expect(seen[0]?.prompt).toBe(run.prompt);
+    expect(run.prompt).toContain("+feature");
+    expect(run.prompt).toContain("Added feature.txt.");
+    expect(permissions).toEqual([
+      { behavior: "deny", message: expect.stringContaining("read-only review run") },
+    ]);
+    const task = await taskIn("BE-01");
+    expect(task.state).toBe("review");
+    expect(task.notes?.at(-1)).toMatchObject({
+      kind: "review",
+      verdict: "changes",
+      run: run.id,
+      text: "ac2 lacks a test.",
+    });
+    expect(git(work.worktree as string, "rev-parse", "HEAD")).toBe(head);
+    expect(status(work.worktree as string)).toBe("");
+    expect(await store.readChecks(run.id)).toBeNull();
+    // The reviewed run is still the one accept integrates.
+    expect((await store.read(work.id)).integration).toBeUndefined();
+  });
+
+  it("can do nothing else in the plan: note, finish and ask are out of scope", async () => {
+    const work = await reviewed();
+    const refused: string[] = [];
+    const adapter = reviewer((spec, emit) => {
+      emit({ t: "started", model: "fake" });
+      for (const args of [
+        ["note", "BE-01", "x"],
+        ["finish", "BE-01", "--summary", "x"],
+        ["ask", "BE-01", "x"],
+      ]) {
+        try {
+          konsora(spec, ...args);
+        } catch (error) {
+          refused.push(String((error as { stderr?: string }).stderr));
+        }
+      }
+    });
+    const run = await (
+      await startReviewRun(options(adapter), { run: work.id, agent: codexReviewer })
+    ).done;
+    expect(refused).toHaveLength(3);
+    for (const message of refused) expect(message).toMatch(/out_of_scope|only leave your review/);
+    expect(run.state).toBe("failed"); // it never left its review
+    expect((await taskIn("BE-01")).state).toBe("review");
+  });
+
+  it("fails, with a Konsora note, if the worktree changed anyway", async () => {
+    const work = await reviewed();
+    const adapter = reviewer((spec, emit) => {
+      emit({ t: "started", model: "fake" });
+      writeFileSync(join(spec.cwd, "fixed.txt"), "x\n");
+      konsora(spec, "review", "BE-01", "--verdict", "approve", "-m", "Fine.");
+    });
+    const run = await (
+      await startReviewRun(options(adapter), { run: work.id, agent: codexReviewer })
+    ).done;
+    expect(run.state).toBe("failed");
+    const task = await taskIn("BE-01");
+    expect(task.state).toBe("review");
+    expect(task.notes?.at(-1)?.text).toContain("changed the worktree");
+  });
+
+  it("refuses a run that is not a succeeded, unintegrated run of a task in review", async () => {
+    const work = await reviewed();
+    await human({ op: "send-back", task: "BE-01", feedback: "Again." });
+    await expect(
+      startReviewRun(options(reviewer(() => undefined)), { run: work.id, agent: codexReviewer }),
+    ).rejects.toMatchObject({ code: "not_reviewable" });
+    expect((await store.list()).runs).toHaveLength(1);
   });
 });

@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { OpSchema } from "../src/op-schema.ts";
 import { applyOp, type Op, type OpContext, type OpResult } from "../src/ops.ts";
-import { createRunIdGenerator, type Run, RunSchema } from "../src/run.ts";
+import { canTransitionRun, createRunIdGenerator, type Run, RunSchema } from "../src/run.ts";
 import {
   ReviewerSchema,
   reviewerAgent,
@@ -247,5 +247,14 @@ describe("properties (ac3)", () => {
       ),
       { numRuns: 200 },
     );
+  });
+});
+
+describe("review run states (RUN-29)", () => {
+  it("a review run succeeds straight from running; a work run goes through its checks", () => {
+    expect(canTransitionRun("running", "succeeded", "review")).toBe(true);
+    expect(canTransitionRun("running", "succeeded", "work")).toBe(false);
+    expect(canTransitionRun("running", "succeeded")).toBe(false);
+    expect(canTransitionRun("starting", "succeeded", "review")).toBe(false);
   });
 });

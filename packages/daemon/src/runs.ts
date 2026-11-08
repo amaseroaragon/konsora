@@ -19,12 +19,15 @@ import {
   chooseVariant,
   integrableRun,
   isActiveRunState,
+  isReviewRun,
   MAX_VARIANTS,
   MIN_VARIANTS,
   type Provider,
+  READONLY_PROFILE,
   type Run,
   type RunId,
   RunIdSchema,
+  reviewerAgent,
   runAgentFor,
   type VariantError,
 } from "@konsora/core";
@@ -50,6 +53,7 @@ import {
   type SupervisorOptions,
   settleVariants,
   startRebaseRun,
+  startReviewRun,
   startRun,
 } from "@konsora/runner";
 import { AgentCatalog } from "./agents.ts";
@@ -329,10 +333,52 @@ export class RunManager {
     return this.#track(project, run.task, session);
   }
 
+  /**
+   * A review run (RUN-29): `agent`, else the project's reviewer, reviews a succeeded run's work in
+   * its worktree with the `readonly` profile, and leaves a `review` note. Resolves once started.
+   */
+  async review(project: Project, id: string, requested?: AgentSpec): Promise<Run> {
+    const reviewed = await this.get(project, id);
+    const plan = await readTasks(project.path);
+    const reviewer = plan.ok ? plan.document.project.reviewer : undefined;
+    const chosen = requested ?? (reviewer ? reviewerAgent(reviewer) : undefined);
+    if (!chosen) {
+      throw new RunManagerError(
+        "invalid_agent",
+        "Choose an agent for the review, or set the project's reviewer",
+      );
+    }
+    const agent: AgentSpec = { ...chosen, permissions: READONLY_PROFILE };
+    const adapter = this.#adapters[agent.provider];
+    if (!adapter)
+      throw new RunManagerError("no_adapter", `Konsora cannot run ${agent.provider} yet`);
+    const check = checkAgent(agent, await this.catalog.entry(agent.provider));
+    if (!check.ok) throw new RunManagerError("invalid_agent", check.reason);
+    const session = await startReviewRun(this.#supervisorOptions(project, adapter), {
+      run: reviewed.id,
+      agent,
+    });
+    return this.#track(project, reviewed.task, session);
+  }
+
+  /**
+   * With `project.reviewer.launch = auto`, a run whose task has just reached review gets one
+   * review run. Variants wait for the human's choice; review runs are never reviewed.
+   */
+  async #autoReview(project: Project, run: Run): Promise<void> {
+    if (run.state !== "succeeded" || isReviewRun(run) || run.variant_of) return;
+    const plan = await readTasks(project.path);
+    if (!plan.ok || plan.document.project.reviewer?.launch !== "auto") return;
+    const task = plan.document.tasks.find((t) => t.id === run.task);
+    if (task?.state !== "review") return;
+    await this.review(project, run.id);
+  }
+
   #track(project: Project, task: string, session: RunSession): Run {
     const id = session.run.id;
     this.#sessions.set(id, { project: project.id, task, session });
     void session.done
+      .then((run) => this.#autoReview(project, run))
       .catch(() => undefined)
       .finally(() => {
         this.#sessions.delete(id);

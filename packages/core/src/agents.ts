@@ -28,6 +28,20 @@ export const DEFAULT_PROFILE_COMMANDS: readonly { command: string; prefix: boole
   { command: "git commit", prefix: true },
 ];
 
+/**
+ * The shell commands the `readonly` profile (review runs, CORE-13) lets the agent use without
+ * asking: reading the repository only. Nothing that writes runs in a review: anything else is
+ * denied without asking the human.
+ */
+export const READONLY_PROFILE_COMMANDS: readonly { command: string; prefix: boolean }[] = [
+  { command: "git status", prefix: true },
+  { command: "git diff", prefix: true },
+  { command: "git log", prefix: true },
+  { command: "git show", prefix: true },
+  { command: "git blame", prefix: true },
+  { command: "ls", prefix: true },
+];
+
 export type AgentModel = { id: string; label: string; efforts: string[] };
 
 export type AgentCatalogEntry = {

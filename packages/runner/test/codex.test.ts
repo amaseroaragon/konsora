@@ -368,6 +368,21 @@ describe("what Konsora sends to codex", () => {
     });
   });
 
+  it("runs the readonly profile in Codex's read-only sandbox, with nothing writable (RUN-29)", async () => {
+    const readonly = { ...spec, agent: { ...spec.agent, permissions: "readonly" } };
+    expect(codexThreadParams(readonly).params).toMatchObject({
+      sandbox: "read-only",
+      approvalPolicy: CODEX_APPROVAL_POLICY,
+    });
+    const { adapter: codex, dumpFile } = adapter("patch");
+    await collect(codex.start({ ...readonly, gitWritePaths: ["/repo/.git/objects"] }));
+    const turn = read(dumpFile).received.find((m) => m.method === "turn/start");
+    expect(turn?.params).toMatchObject({
+      sandboxPolicy: { type: "readOnly", networkAccess: false },
+    });
+    expect(JSON.stringify(turn?.params)).not.toMatch(/writableRoots|workspaceWrite/);
+  });
+
   it("refuses profiles it does not implement", async () => {
     const { adapter: codex } = adapter("patch");
     const { events } = await collect(
@@ -376,7 +391,7 @@ describe("what Konsora sends to codex", () => {
     expect(events).toEqual([
       {
         t: "error",
-        message: 'Permission profile "trusted" is not available for Codex yet; use "default"',
+        message: 'Permission profile "trusted" is not available for Codex; use default or readonly',
         retryable: false,
       },
       { t: "finished", ok: false },

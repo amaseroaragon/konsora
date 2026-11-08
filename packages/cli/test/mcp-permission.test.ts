@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -190,6 +190,37 @@ describe("the MCP permission tool", () => {
     });
     expect(res.status).toBe(403);
     expect((await answer).behavior).toBe("deny");
+    await close();
+  });
+});
+
+describe("review runs (RUN-29)", () => {
+  it("denies every permission without asking the human, and only review writes", async () => {
+    const { client, permission, close } = await connect(runEnv({ KONSORA_REVIEW: "1" }));
+    const answer = await permission({ command: "git status" });
+    expect(answer).toEqual({
+      behavior: "deny",
+      message: "Konsora denied Bash: this review run is read-only.",
+    });
+    expect(daemon.approvals.pending()).toEqual([]);
+    expect((await client.listTools()).tools.map((t) => t.name)).toContain("review");
+
+    const text = (r: unknown) => JSON.stringify((r as CallToolResult).content);
+    const note = await client.callTool({ name: "note", arguments: { id: "BE-01", text: "x" } });
+    expect((note as CallToolResult).isError).toBe(true);
+    expect(text(note)).toContain("out_of_scope");
+    const review = await client.callTool({
+      name: "review",
+      arguments: { id: "BE-01", verdict: "changes", text: "Missing a test for ac1." },
+    });
+    expect((review as CallToolResult).isError).toBeFalsy();
+    const saved = JSON.parse(readFileSync(join(root, ".konsora", "tasks.json"), "utf8"));
+    expect(saved.tasks[0].state).toBe(plan.tasks[0]?.state);
+    expect(saved.tasks[0].notes.at(-1)).toMatchObject({
+      kind: "review",
+      verdict: "changes",
+      run: RUN,
+    });
     await close();
   });
 });
