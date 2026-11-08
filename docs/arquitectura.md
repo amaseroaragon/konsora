@@ -233,6 +233,12 @@ Konsora **no lee, guarda ni transmite credenciales**: ejecuta el CLI oficial con
 
 Una cola persistente en `~/.local/share/konsora/projects/<id>/queue.json` con las tareas seleccionadas. Una tarea es elegible cuando está `ready`. Límites: `max_parallel` global (por defecto 2) y otro por proveedor. Los runs de una cadena YOLO se encadenan solos porque la integración automática desbloquea a los dependientes; fuera de YOLO, la cola espera tu `accept`. La cola nunca añade tareas por su cuenta: **solo ejecuta lo que tú seleccionas**, aunque una dependencia sin seleccionar quede bloqueada (se muestra como bloqueo).
 
+El modelo vive en `core` (`queue.ts`), sin ejecutar nada:
+- `queue.json` (`QueueFileSchema`): `{version: 1, state: "running" | "paused", entries: [{task, agent, added_at, run?}]}`. Cada entrada lleva el agente elegido al encolar y, una vez lanzada, el id de su run; sigue en la cola hasta que ese run termina. Un archivo ausente es una cola vacía en marcha y los campos ausentes toman su valor por defecto. Al arrancar, `queueOnStartup` pausa una cola que no esté vacía.
+- `settings.json` del daemon (`DaemonSettingsSchema`), en el directorio de datos y no en el plan: `parallel.max_parallel` (por defecto 2, de 1 a 16), común a todos los proyectos del daemon, y `parallel.per_provider` opcional. Solo ocupan hueco los runs con proceso (`queued`, `starting`, `running`, `waiting_approval`, `checking`); un run `interrupted` ocupa su tarea, pero no un hueco.
+- `nextRuns` devuelve lo que hay que lanzar ahora: entradas cuya tarea está `ready` (todas sus dependencias en `done`, es decir, integradas), sin run activo y dentro de los límites, en orden topológico del plan y después por rank (el orden de la cola no cambia lo que se lanza). Con la cola en pausa no devuelve nada. `queueStatus` da el motivo de espera de cada entrada (`running`, `paused`, `blocked` con sus dependencias, `slot` global o de proveedor, `busy` si la tarea no está en `todo` o tiene un run que no lanzó la cola, o `launch`).
+- `queueExits` dice qué entradas salen y por qué: su run terminó (`succeeded`, `failed` o `cancelled`; la cola nunca reintenta por su cuenta), la tarea ya no existe (`missing`), volvió a propuesta (`not_approved`) o llegó a `review` o `done` sin un run de la cola (`settled`). `removed` es la acción del humano.
+
 ## 6. Canal agente ↔ Konsora
 
 La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salida `--json` en la CLI:
