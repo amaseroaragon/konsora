@@ -60,11 +60,12 @@ export function storeError(error: StoreError, root: string): never {
   }
 }
 
-export type RunScope = { task?: string; run?: string };
+export type RunScope = { task?: string; run?: string; plan?: boolean };
 
 /**
  * Inside a Konsora run the runner sets KONSORA_TASK (KONSORA_RUN_TASK is accepted as an alias)
  * and KONSORA_RUN: an agent may then only work on that task, and its notes carry the run id.
+ * In a planning session KONSORA_PLAN=1 limits the agent to proposals.
  */
 export function runScope(env: NodeJS.ProcessEnv): RunScope {
   const task = env.KONSORA_TASK?.trim().toUpperCase() || undefined;
@@ -80,6 +81,8 @@ export function runScope(env: NodeJS.ProcessEnv): RunScope {
   const runTask = task ?? alias;
   if (runTask) scope.task = runTask;
   if (env.KONSORA_RUN?.trim()) scope.run = env.KONSORA_RUN.trim();
+  // `konsora plan` starts its MCP server with KONSORA_PLAN=1: proposals only (CLI-05).
+  if (env.KONSORA_PLAN === "1") scope.plan = true;
   return scope;
 }
 

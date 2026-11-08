@@ -44,6 +44,13 @@ function scopeOf(env: NodeJS.ProcessEnv): RunScope {
 
 function instructions(env: NodeJS.ProcessEnv): string {
   const scope = scopeOf(env);
+  if (scope.plan) {
+    return (
+      `${GUIDE}\n\nThis is a planning session: interview the human, then propose tasks with ` +
+      `propose or batch. You may revise or withdraw proposals with edit and withdraw; every ` +
+      `other write is refused, and nothing is started.`
+    );
+  }
   if (!scope.task) return GUIDE;
   return (
     `${GUIDE}\n\nYou are inside Konsora run ${scope.run ?? "(unnamed)"}, working on ${scope.task}. ` +

@@ -15,6 +15,8 @@ If this session has Konsora's MCP server (tools named like `mcp__konsora__status
 
 Inside a Konsora run (the server's instructions say so), the task is already started: use only `note`, `ask` and `finish` on the run's task, or `propose` follow-ups. Everything else is refused as out of scope.
 
+In a planning session (`konsora plan`; the server's instructions say so), interview the human, then propose with `batch`; you may only revise or withdraw proposals, and nothing is started.
+
 ## Roles
 
 | You (agent) may | Only the human may |

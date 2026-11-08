@@ -11,6 +11,7 @@ import { issuesText, STATES, showText, statusText, type TaskView, taskTable } fr
 import { serveStdio } from "./mcp.ts";
 import { CONFIG_TARGETS, type ConfigTarget, configHint, configSnippet } from "./mcp-config.ts";
 import { registerMigrate } from "./migrate.ts";
+import { registerPlan } from "./plan.ts";
 import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
@@ -218,6 +219,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
 
   registerWriteCommands(program, io, root);
   registerMigrate(program, io, root);
+  registerPlan(program, io, root);
   registerSkill(program, io, root);
   registerUi(program, io, root);
 

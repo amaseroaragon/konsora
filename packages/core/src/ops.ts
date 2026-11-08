@@ -53,6 +53,11 @@ export type OpContext = {
   runTask?: string;
   /** Run id, recorded on notes written during a run. */
   run?: string;
+  /**
+   * An agent in a planning session (`konsora plan`, CLI-05): it may only propose tasks and
+   * revise or withdraw proposals; it starts nothing and touches no approved work.
+   */
+  plan?: boolean;
 };
 
 /** Precondition: hash (see `taskHash`) of each task the client based the op on. */
@@ -208,6 +213,9 @@ const EDITABLE = [
   "rank",
 ] as const;
 
+/** All an agent in a planning session may do. */
+const PLAN_OPS: ReadonlySet<OpName> = new Set(["propose", "batch", "edit", "withdraw"]);
+
 /** Ops an agent inside a run may apply to tasks other than its own. */
 const RUN_SCOPE_FREE: ReadonlySet<OpName> = new Set(["propose", "batch"]);
 /** All an agent inside a run may do: note, ask and finish its own task, or propose new tasks. */
@@ -275,6 +283,24 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         "out_of_scope",
         `Inside a run you can only note, ask and finish ${ctx.runTask}, or propose new tasks; ${op.op} is not available`,
         "task" in op ? { task: op.task } : {},
+      );
+    }
+  }
+
+  if (ctx.plan && role === "agent") {
+    if (!PLAN_OPS.has(op.op)) {
+      fail(
+        "out_of_scope",
+        `In a planning session you can only propose tasks and revise or withdraw proposals; ${op.op} is not available`,
+        "task" in op ? { task: op.task } : {},
+      );
+    }
+    const target = "task" in op ? original.get(op.task) : undefined;
+    if (target && target.state !== "proposed") {
+      fail(
+        "out_of_scope",
+        `In a planning session you can only change proposals; ${target.id} is ${target.state}`,
+        { task: target.id },
       );
     }
   }

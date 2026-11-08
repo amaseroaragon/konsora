@@ -834,3 +834,42 @@ describe("templates (CORE-10)", () => {
     ).toBe("unknown_template");
   });
 });
+
+describe("planning sessions (CLI-05)", () => {
+  const planner: OpContext = { ...agent, plan: true };
+  const d = doc(task("BE-01", "todo"), task("BE-02", "proposed"), task("BE-03", "doing"));
+
+  it("lets the agent propose and revise or withdraw proposals", () => {
+    expect(err(applyOp(d, { op: "propose", title: "N", group: "BE" }, planner))).toBe("ok");
+    expect(err(applyOp(d, { op: "batch", tasks: [{ title: "N", group: "BE" }] }, planner))).toBe(
+      "ok",
+    );
+    expect(
+      err(applyOp(d, { op: "edit", task: "BE-02", changes: { title: "Better" } }, planner)),
+    ).toBe("ok");
+    expect(err(applyOp(d, { op: "withdraw", task: "BE-02" }, planner))).toBe("ok");
+  });
+
+  it("refuses everything else, and any change to approved work", () => {
+    const refused: Op[] = [
+      { op: "start", task: "BE-01" },
+      { op: "note", task: "BE-02", text: "x" },
+      { op: "note", task: "BE-03", text: "x" },
+      { op: "ask", task: "BE-03", text: "x" },
+      { op: "finish", task: "BE-03", summary: "x" },
+      { op: "pause", task: "BE-03" },
+      { op: "depend", task: "BE-02", on: "BE-01" },
+      { op: "undepend", task: "BE-02", on: "BE-01" },
+      { op: "add-group", id: "OPS", name: "Ops" },
+      { op: "edit", task: "BE-01", changes: { title: "Hijack" } },
+      { op: "withdraw", task: "BE-03" },
+    ];
+    for (const op of refused) expect(err(applyOp(d, op, planner)), op.op).toBe("out_of_scope");
+    const r = applyOp(d, { op: "start", task: "BE-01" }, planner);
+    expect(r.ok ? "" : r.error.message).toContain("planning session");
+  });
+
+  it("does not limit humans or Konsora", () => {
+    expect(err(applyOp(d, { op: "approve", task: "BE-02" }, { ...human, plan: true }))).toBe("ok");
+  });
+});

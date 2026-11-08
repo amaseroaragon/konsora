@@ -10,6 +10,7 @@ export * from "./migrate.ts";
 export * from "./moves.ts";
 export * from "./op-schema.ts";
 export * from "./ops.ts";
+export * from "./plan-prompt.ts";
 export * from "./queue.ts";
 export * from "./rank.ts";
 export * from "./run.ts";

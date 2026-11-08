@@ -27,8 +27,8 @@ export const OP_HINTS: Partial<Record<OpError["code"], Hint>> = {
     mcp: "Pass summary with what you did and how it meets the acceptance criteria.",
   },
   out_of_scope: {
-    cli: "Inside a Konsora run you may only act on the run's task (you can still propose new tasks).",
-    mcp: "Inside a Konsora run you may only act on the run's task (you can still propose new tasks).",
+    cli: "Inside a Konsora run you may only act on the run's task, and in a planning session only on proposals; you can always propose new tasks.",
+    mcp: "Inside a Konsora run you may only act on the run's task, and in a planning session only on proposals; you can always propose new tasks.",
   },
   has_dependents: {
     cli: "Remove the dependency from the dependent proposals first (`konsora undepend`).",

@@ -208,6 +208,7 @@ export async function runOp(
   const scope = runScope(io.env);
   if (scope.task) ctx.runTask = scope.task;
   if (scope.run) ctx.run = scope.run;
+  if (scope.plan) ctx.plan = true;
   const result = await mutate(root, op, ctx);
   if (result.ok)
     return {
