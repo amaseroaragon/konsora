@@ -207,3 +207,68 @@ function fence(text: string): string {
   const marks = "`".repeat(longest + 1);
   return `${marks}\n${text}\n${marks}`;
 }
+
+export type RebasePromptInput = {
+  /** The run's branch (the conflicting run's, reused). */
+  branch: string;
+  /** The tip of `base_branch` to rebase onto (a full commit id). */
+  onto: string;
+  /** The files that conflict, as `git merge-tree` lists them. */
+  files: readonly string[];
+};
+
+/**
+ * The prompt of a rebase run: the task's branch no longer integrates into `base_branch`, and the
+ * agent rebases it onto the current tip and resolves the conflicts. Deterministic: the same task,
+ * branch, tip and files always give the same text (files are sorted).
+ */
+export function buildRebasePrompt(
+  document: TasksDocument,
+  taskId: string,
+  input: RebasePromptInput,
+): string {
+  const task = indexTasks(document).get(taskId);
+  if (!task) throw new RangeError(`Task ${taskId} does not exist`);
+  const base = document.project.base_branch;
+  const files = [...new Set(input.files)].sort();
+  const checks = document.project.checks ?? [];
+  return [
+    `You are working on task ${task.id} of the project "${document.project.name}", planned with Konsora.`,
+    "",
+    section(`Task ${task.id}: ${task.title}`, task.desc?.trim() || "(no description)"),
+    "",
+    section(
+      "Why you are here",
+      [
+        `The work on the branch \`${input.branch}\` is done, but it no longer integrates into \`${base}\`: \`${base}\` moved on and both change the same lines. The human asked you to rebase the branch and resolve the conflicts.`,
+        "",
+        files.length > 0
+          ? ["Files that conflict:", ...files.map((file) => `- \`${file}\``)].join("\n")
+          : "Git did not name the conflicting files; find them while rebasing.",
+      ].join("\n"),
+    ),
+    "",
+    section(
+      "What to do",
+      [
+        `1. In this worktree, on \`${input.branch}\`, run \`git rebase ${input.onto}\` (the current tip of \`${base}\`).`,
+        `2. Resolve each conflict keeping both intents: what ${task.id} does and what \`${base}\` changed since. Do not drop either side to make the conflict go away. \`git add\` each file and \`git rebase --continue\` until the rebase is complete.`,
+        `3. Make sure the result still meets the task's acceptance criteria${checks.length > 0 ? ` and that the project checks pass (${checks.map((c) => `\`${c.run}\``).join(", ")})` : ""}.`,
+        `4. Call \`finish\` on ${task.id} with a summary of how you resolved each conflict. Konsora then runs the checks again and the task goes back to review.`,
+        "",
+        `If you cannot resolve a conflict without a decision from the human, \`ask\` on ${task.id} and wait. If the rebase goes wrong, \`git rebase --abort\` and start again.`,
+      ].join("\n"),
+    ),
+    "",
+    section(
+      "Rules",
+      [
+        `- Stay on \`${input.branch}\` and leave the rebase finished: never check out, reset, commit to, push or force-update \`${base}\`.`,
+        "- Never push anything and never use `--force`: the rebase only rewrites your own branch, locally.",
+        "- Do not create, edit or delete anything under `.konsora/`: the plan changes only through Konsora's tools.",
+        "- You cannot approve tasks, accept work or mark anything done; the human reviews your result.",
+      ].join("\n"),
+    ),
+    "",
+  ].join("\n");
+}

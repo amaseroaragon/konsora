@@ -24,6 +24,7 @@ import {
   type AgentSpec,
   blockers,
   buildAnswerMessage,
+  buildRebasePrompt,
   buildRetryPrompt,
   buildRunPrompt,
   type CheckAttempt,
@@ -46,6 +47,7 @@ import {
   type RunState,
   runAgentFor,
   type Task,
+  type TasksDocument,
   taskHash,
 } from "@konsora/core";
 import { mutate, readTasks } from "@konsora/core/store";
@@ -134,6 +136,10 @@ export class RunError extends Error {
     | "invalid_plan"
     /** `deliverAnswer` found no answer to the agent's question in the plan. */
     | "no_answer"
+    /** `startRebaseRun`: the run is not a succeeded run whose integration conflicts. */
+    | "not_rebasable"
+    /** `startRebaseRun`: the run's branch integrates cleanly now; integrate it again instead. */
+    | "no_conflict"
     /** The run was created but could not start; it is left `failed`. */
     | "launch_failed";
   constructor(code: RunError["code"], message: string) {
@@ -219,6 +225,148 @@ export async function startRun(
     throw error;
   }
 
+  return launchRun(options, store, git, now, plan.document, run, {
+    taskOp: { op: "start", task: task.id, text: `Konsora run ${id} started.` },
+    setup: plannedSetup(plan.document),
+  });
+}
+
+/**
+ * Asks the agent to rebase a run whose integration conflicts (M9, RUN-24): a new run of the same
+ * task on the same branch and worktree, resuming the agent's session when there is one, with
+ * `buildRebasePrompt` (the conflicting files and the current tip of `base_branch`). The task goes
+ * from review to doing; the checks run as in any run and it comes back to review. No setup: the
+ * worktree is already prepared. If this run succeeds, the conflicting run is discarded (its
+ * worktree and branch now belong to this one); if it fails or is cancelled, the task returns to
+ * review and the conflicting run stays as it was, to resolve by hand.
+ */
+export async function startRebaseRun(
+  options: SupervisorOptions,
+  input: { run: RunId },
+): Promise<RunSession> {
+  const store = options.store ?? new RunStore(options.root);
+  const git = options.git ?? systemGit;
+  const now = () => timestamp(options.now?.() ?? new Date());
+
+  const plan = await readTasks(options.root);
+  if (!plan.ok) throw new RunError("invalid_plan", plan.error.message);
+  const conflicted = await store.read(input.run);
+  const { worktree, branch, head_commit: head } = conflicted;
+  if (conflicted.state !== "succeeded" || conflicted.integration?.state !== "conflict") {
+    throw new RunError(
+      "not_rebasable",
+      `Run ${conflicted.id} has no integration conflict; only a conflicting run can be rebased`,
+    );
+  }
+  if (!worktree || !branch || !head) {
+    throw new RunError("not_rebasable", `Run ${conflicted.id} has no branch to rebase`);
+  }
+  const task = indexTasks(plan.document).get(conflicted.task);
+  if (!task) throw new RunError("not_found", `Task ${conflicted.task} does not exist`);
+  if (task.state !== "review") {
+    throw new RunError(
+      "not_ready",
+      `${task.id} is ${task.state}; a rebase run needs the task in review`,
+    );
+  }
+  if (conflicted.agent.provider !== options.adapter.id) {
+    throw new RunError(
+      "wrong_provider",
+      `Run ${conflicted.id} used ${conflicted.agent.provider}, but this runner uses ${options.adapter.id}`,
+    );
+  }
+  const onBranch = await git
+    .run(["symbolic-ref", "-q", "HEAD"], { cwd: worktree })
+    .catch(() => null);
+  if (onBranch?.code !== 0 || onBranch.stdout.trim() !== `refs/heads/${branch}`) {
+    throw new RunError(
+      "not_rebasable",
+      `The worktree of run ${conflicted.id} is gone or left its branch; resolve the conflict by hand`,
+    );
+  }
+  const baseBranch = plan.document.project.base_branch;
+  const tipResult = await git.run(
+    ["rev-parse", "--verify", "--quiet", `refs/heads/${baseBranch}^{commit}`],
+    { cwd: options.root },
+  );
+  if (tipResult.code !== 0) {
+    throw new RunError("not_rebasable", `Base branch "${baseBranch}" does not exist`);
+  }
+  const tip = tipResult.stdout.trim();
+  const merged = await git.run(
+    ["merge-tree", "--write-tree", "--name-only", "--no-messages", tip, head],
+    { cwd: options.root },
+  );
+  if (merged.code === 0) {
+    throw new RunError(
+      "no_conflict",
+      `Run ${conflicted.id} integrates cleanly into ${baseBranch} now; accept the task again`,
+    );
+  }
+  if (merged.code !== 1) {
+    throw new RunError("not_rebasable", "git could not compare the run with the base branch");
+  }
+  const files = merged.stdout.split("\n").slice(1).filter(Boolean);
+
+  const created = await store.create({
+    id: newRunId(),
+    task: task.id,
+    task_hash: taskHash(task),
+    agent: conflicted.agent,
+    state: "queued",
+    rebase_of: conflicted.id,
+  });
+  await store.transition(created.id, "starting", { started_at: now() });
+  const run = await store.update(created.id, {
+    worktree,
+    branch,
+    base_commit: tip,
+    prompt: buildRebasePrompt(plan.document, task.id, { branch, onto: tip, files }),
+  });
+  return launchRun(options, store, git, now, plan.document, run, {
+    taskOp: {
+      op: "rebase",
+      task: task.id,
+      text: `Konsora run ${run.id} rebases run ${conflicted.id} onto ${baseBranch} to resolve its conflict${files.length ? ` in ${files.join(", ")}` : ""}.`,
+    },
+    setup: null,
+    ...(conflicted.session_id ? { resume: conflicted.session_id } : {}),
+    rebaseOf: conflicted.id,
+  });
+}
+
+type LaunchPlan = {
+  /** What moves the task to doing: `start` (todo) or `rebase` (review). */
+  taskOp: { op: "start" | "rebase"; task: string; text: string };
+  setup: { command: string; timeout_s: number } | null;
+  /** A session to resume on the first launch. */
+  resume?: string;
+  rebaseOf?: RunId;
+};
+
+/** Registers a prepared (`starting`) run, moves its task to doing and supervises the agent. */
+async function launchRun(
+  options: SupervisorOptions,
+  store: RunStore,
+  git: Git,
+  now: () => string,
+  document: TasksDocument,
+  prepared: Run,
+  how: LaunchPlan,
+): Promise<RunSession> {
+  const run = prepared;
+  const id = run.id;
+  const task = { id: run.task };
+  const runAgent = run.agent;
+  const plan = { document };
+  const privateDir = join(options.privateDir, id);
+  const abort = async (message: string): Promise<never> => {
+    await store.appendEvent(id, { at: now(), t: "error", message, retryable: false });
+    await store.transition(id, "failed", { finished_at: now() });
+    await rm(privateDir, { recursive: true, force: true });
+    throw new RunError("launch_failed", message);
+  };
+
   // ── Launch ─────────────────────────────────────────────────────────────────
   const gitWritePaths = await runGitWritePaths(run.worktree as string, run.branch as string, git);
   let registered: { url: string; token: string } | null = null;
@@ -229,11 +377,7 @@ export async function startRun(
   } catch {
     return abort("The daemon could not register the run for permission approvals");
   }
-  const started = await mutate(
-    options.root,
-    { op: "start", task: task.id, text: `Konsora run ${id} started.` },
-    { actor: ACTOR, at: now(), run: id },
-  );
+  const started = await mutate(options.root, how.taskOp, { actor: ACTOR, at: now(), run: id });
   if (!started.ok) {
     if (registered) options.registry?.unregister(id);
     return abort(`${task.id} could not move to doing: ${started.error.message}`);
@@ -268,7 +412,7 @@ export async function startRun(
   };
   // The checks as approved now, at launch: later edits to the plan do not change this run's.
   const checks = plannedChecks(plan.document, task.id);
-  const setup = plannedSetup(plan.document);
+  const setup = how.setup;
   const retries = checkRetries(plan.document.project);
   const supervision = new Supervision(
     options,
@@ -281,6 +425,8 @@ export async function startRun(
     checks,
     setup,
     retries,
+    how.resume,
+    how.rebaseOf,
   );
   return {
     run,
@@ -337,6 +483,10 @@ class Supervision {
   #lastChecks: RunCheckResult[] = [];
   /** Summary notes already checked: after a retry, only a new `finish` counts. */
   readonly #checkedSummaries = new Set<string>();
+  /** The session the first launch resumes (a rebase run continues the conflicting run's). */
+  readonly #firstResume: string | undefined;
+  /** For a rebase run: the run whose conflict it resolves. */
+  readonly #rebaseOf: RunId | undefined;
 
   constructor(
     options: SupervisorOptions,
@@ -349,7 +499,11 @@ class Supervision {
     checks: readonly PlannedCheck[],
     setup: { command: string; timeout_s: number } | null,
     retries: number,
+    resume?: string,
+    rebaseOf?: RunId,
   ) {
+    this.#firstResume = resume;
+    this.#rebaseOf = rebaseOf;
     this.#retries = retries;
     this.#release = release;
     this.#checks = checks;
@@ -387,7 +541,7 @@ class Supervision {
       }
     }
     let prompt = this.#prompt;
-    let resume: string | undefined;
+    let resume: string | undefined = this.#firstResume;
     for (;;) {
       const handle = this.#launch(prompt, resume);
       this.#handle = handle;
@@ -673,6 +827,7 @@ class Supervision {
       }
       const run = await this.#store.transition(this.#id, "succeeded", checked);
       this.#state = run.state;
+      await this.#supersede();
       return run;
     }
 
@@ -687,14 +842,8 @@ class Supervision {
           : `the agent exited with code ${exit.code} before calling finish`;
     await this.#log({ t: "error", message: `Run failed: ${reason}`, retryable: false });
     if (task?.state === "doing") {
-      await mutate(
-        this.#options.root,
-        {
-          op: "pause",
-          task: this.#task,
-          text: `Konsora run ${this.#id} failed: ${reason}. Its work is kept on its branch for review.`,
-        },
-        { actor: ACTOR, at: this.#now(), run: this.#id },
+      await this.#returnTask(
+        `Konsora run ${this.#id} failed: ${reason}. Its work is kept on its branch for review.`,
       );
     }
     const run = await this.#store.transition(this.#id, "failed", fields);
@@ -706,19 +855,44 @@ class Supervision {
   async #closeCancelled(task: Task | null, fields: Parameters<RunStore["transition"]>[2]) {
     await this.#log({ t: "cancelled" });
     if (task?.state === "doing") {
-      await mutate(
-        this.#options.root,
-        {
-          op: "pause",
-          task: this.#task,
-          text: `Konsora run ${this.#id} was cancelled. Its work is kept on its branch.`,
-        },
-        { actor: ACTOR, at: this.#now(), run: this.#id },
+      await this.#returnTask(
+        `Konsora run ${this.#id} was cancelled. Its work is kept on its branch.`,
       );
     }
     const run = await this.#store.transition(this.#id, "cancelled", fields);
     this.#state = run.state;
     return run;
+  }
+
+  /**
+   * The run ends without the agent's work being checked: the task goes back to todo, or, for a
+   * rebase run, back to review, where the conflicting run is still waiting.
+   */
+  async #returnTask(text: string): Promise<void> {
+    const rebase = this.#rebaseOf;
+    await mutate(
+      this.#options.root,
+      rebase
+        ? {
+            op: "rebase-abort",
+            task: this.#task,
+            text: `${text} The task is back in review with run ${rebase}'s conflict: resolve it by hand or ask for another rebase.`,
+          }
+        : { op: "pause", task: this.#task, text },
+      { actor: ACTOR, at: this.#now(), run: this.#id },
+    );
+  }
+
+  /**
+   * A rebase run succeeded: the conflicting run is discarded. Its worktree and branch are not
+   * removed, because they are this run's now.
+   */
+  async #supersede(): Promise<void> {
+    if (!this.#rebaseOf) return;
+    const old = await this.#store.read(this.#rebaseOf).catch(() => null);
+    if (old?.integration?.state !== "conflict") return;
+    await this.#store.integrate(old.id, "discarded").catch(() => undefined);
+    await this.#log({ t: "superseded", run: old.id });
   }
 
   /**
@@ -800,14 +974,8 @@ class Supervision {
     await this.#log({ t: "error", message: `Run failed: ${reason}`, retryable: false });
     const task = await this.#readTask();
     if (task?.state === "doing") {
-      await mutate(
-        this.#options.root,
-        {
-          op: "pause",
-          task: this.#task,
-          text: `Konsora run ${this.#id} failed before launching the agent: ${reason}. Its output is in the run's log. Fix project.setup or the project, then run the task again.`,
-        },
-        { actor: ACTOR, at: this.#now(), run: this.#id },
+      await this.#returnTask(
+        `Konsora run ${this.#id} failed before launching the agent: ${reason}. Its output is in the run's log. Fix project.setup or the project, then run the task again.`,
       );
     }
     const run = await this.#store.transition(this.#id, "failed", {

@@ -405,6 +405,11 @@ export const RunSchema = z
     /** How many times the checks ran (1 + the retries used). */
     check_attempts: z.int().min(0).max(MAX_ATTEMPTS).optional(),
     integration: z.strictObject({ state: IntegrationStateSchema }).optional(),
+    /**
+     * A rebase run (M9): the run whose integration conflicted. This run works on that run's
+     * branch and worktree, rebasing it onto the current tip of `base_branch`.
+     */
+    rebase_of: RunIdSchema.optional(),
   })
   .superRefine((run, ctx) => {
     if (run.integration && !isFinishedRunState(run.state)) {

@@ -25,8 +25,15 @@ import {
 import { createClaudeAdapter } from "../src/claude.ts";
 import { createCodexAdapter } from "../src/codex/adapter.ts";
 import { gitEnv } from "../src/git.ts";
+import { integrateRun } from "../src/integrate.ts";
 import { RunStore } from "../src/run-store.ts";
-import { RunError, type RunRegistry, type SupervisorOptions, startRun } from "../src/supervisor.ts";
+import {
+  RunError,
+  type RunRegistry,
+  type SupervisorOptions,
+  startRebaseRun,
+  startRun,
+} from "../src/supervisor.ts";
 
 const cliBin = fileURLToPath(new URL("../../cli/src/bin.ts", import.meta.url));
 const fakeClaude = fileURLToPath(new URL("./fixtures/fake-claude.ts", import.meta.url));
@@ -1163,5 +1170,165 @@ describe("the fix loop with failed checks (RUN-19)", () => {
     await setChecks([{ id: "unit", run: "true" }]);
     await (await startRun(options(yoloAgent([])), { task: "BE-03" })).done;
     expect((await taskIn("BE-03")).state).toBe("done");
+  });
+});
+
+describe("rebase runs for an integration conflict (RUN-24)", () => {
+  /** BE-01 changes readme.txt on its branch, and main changes the same line meanwhile. */
+  async function conflictingRun() {
+    const first = await startRun(
+      options(
+        fakeAdapter(
+          (spec, emit) => {
+            emit({ t: "started", session: "s-1", model: "fake" });
+            writeFileSync(join(spec.cwd, "readme.txt"), "hello from BE-01\n");
+            konsora(spec, "finish", "BE-01", "--summary", "Greets from BE-01.");
+          },
+          { exit: { code: 0, signal: null } },
+        ),
+      ),
+      { task: "BE-01" },
+    );
+    const run = await first.done;
+    expect(run.state).toBe("succeeded");
+    writeFileSync(join(root, "readme.txt"), "hello from main\n");
+    git(root, "add", "readme.txt");
+    git(root, "commit", "-q", "-m", "main moves on");
+    const doc = await readTasks(root);
+    if (!doc.ok) throw new Error(doc.error.message);
+    const integration = await integrateRun({
+      root,
+      worktreesDir: join(data, "worktrees", "p-1"),
+      document: doc.document,
+      runId: run.id,
+      store,
+    });
+    expect(integration).toMatchObject({ status: "conflict", files: ["readme.txt"] });
+    return run;
+  }
+
+  /** An agent that rebases onto the tip named in its prompt and keeps both lines. */
+  function rebasingAgent(seen: RunSpec[], finish = true) {
+    return fakeAdapter(
+      (spec, emit) => {
+        emit({ t: "started", session: spec.resume ?? "s-2", model: "fake" });
+        const onto = /git rebase ([0-9a-f]{40})/.exec(spec.prompt)?.[1] as string;
+        try {
+          execFileSync("git", ["rebase", onto], { cwd: spec.cwd, env: gitEnv(), stdio: "pipe" });
+        } catch {
+          // The conflict: resolve it keeping both sides.
+        }
+        writeFileSync(join(spec.cwd, "readme.txt"), "hello from main\nhello from BE-01\n");
+        git(spec.cwd, "add", "readme.txt");
+        execFileSync("git", ["rebase", "--continue"], {
+          cwd: spec.cwd,
+          env: { ...gitEnv(), GIT_EDITOR: "true" },
+          stdio: "pipe",
+        });
+        if (finish) konsora(spec, "finish", "BE-01", "--summary", "Rebased; kept both greetings.");
+      },
+      { seen, exit: { code: 0, signal: null } },
+    );
+  }
+
+  it("rebases the conflicting run's branch in a new run, which then integrates cleanly", async () => {
+    const conflicted = await conflictingRun();
+    const tip = git(root, "rev-parse", "main");
+    const seen: RunSpec[] = [];
+    const session = await startRebaseRun(options(rebasingAgent(seen)), { run: conflicted.id });
+    expect(session.run).toMatchObject({
+      task: "BE-01",
+      rebase_of: conflicted.id,
+      worktree: conflicted.worktree,
+      branch: conflicted.branch,
+      base_commit: tip,
+      agent: conflicted.agent,
+    });
+    expect((await taskIn("BE-01")).state).toBe("doing");
+    const run = await session.done;
+
+    // Same branch and worktree, the agent's session resumed, the files listed in the prompt.
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.cwd).toBe(conflicted.worktree);
+    expect(seen[0]?.resume).toBe("s-1");
+    expect(seen[0]?.prompt).toContain("Files that conflict:\n- `readme.txt`");
+    expect(seen[0]?.prompt).toBe(run.prompt);
+    expect(run).toMatchObject({ state: "succeeded", checks: [{ id: "test", exit_code: 0 }] });
+    expect(await store.readDiff(run.id)).toContain("+hello from BE-01");
+
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(
+      after.notes?.some(
+        (n) => n.by === "konsora" && n.text.includes(`rebases run ${conflicted.id}`),
+      ),
+    ).toBe(true);
+    // The conflicting run is superseded, but its worktree is the new run's now.
+    expect((await store.read(conflicted.id)).integration?.state).toBe("discarded");
+    expect(existsSync(conflicted.worktree as string)).toBe(true);
+
+    const doc = await readTasks(root);
+    if (!doc.ok) throw new Error(doc.error.message);
+    const merged = await integrateRun({
+      root,
+      worktreesDir: join(data, "worktrees", "p-1"),
+      document: doc.document,
+      runId: run.id,
+      store,
+    });
+    expect(merged.status).toBe("merged");
+    expect(readFileSync(join(root, "readme.txt"), "utf8")).toBe(
+      "hello from main\nhello from BE-01\n",
+    );
+    expect(git(root, "log", "-1", "--format=%B")).toContain(`Konsora-Run: ${run.id}`);
+  });
+
+  it("a rebase run that fails returns the task to review with the conflict intact", async () => {
+    const conflicted = await conflictingRun();
+    const run = await (
+      await startRebaseRun(options(rebasingAgent([], false)), { run: conflicted.id })
+    ).done;
+    expect(run.state).toBe("failed");
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(after.notes?.at(-1)?.text).toContain(`run ${conflicted.id}'s conflict`);
+    expect((await store.read(conflicted.id)).integration?.state).toBe("conflict");
+  });
+
+  it("refuses runs without a conflict, and conflicts that are gone", async () => {
+    const conflicted = await conflictingRun();
+    const other = (await store.list()).runs.find((r) => r.id !== conflicted.id);
+    expect(other).toBeUndefined();
+    // main goes back to what the run started from: nothing conflicts now.
+    git(root, "revert", "--no-edit", "HEAD");
+    await expect(
+      startRebaseRun(options(rebasingAgent([])), { run: conflicted.id }),
+    ).rejects.toMatchObject({ code: "no_conflict" });
+    await human({ op: "send-back", task: "BE-01", feedback: "Redo." });
+    const plain = await (
+      await startRun(
+        options(
+          fakeAdapter(
+            (spec) => {
+              konsora(spec, "finish", "BE-01", "--summary", "x");
+            },
+            {
+              exit: { code: 0, signal: null },
+            },
+          ),
+        ),
+        { task: "BE-01" },
+      )
+    ).done;
+    await expect(
+      startRebaseRun(options(rebasingAgent([])), { run: plain.id }),
+    ).rejects.toBeInstanceOf(RunError);
+    await expect(
+      startRebaseRun(options(rebasingAgent([])), { run: plain.id }),
+    ).rejects.toMatchObject({
+      code: "not_rebasable",
+    });
+    // No rebase run was created by the refusals.
+    expect((await store.list()).runs.filter((r) => r.rebase_of)).toEqual([]);
   });
 });

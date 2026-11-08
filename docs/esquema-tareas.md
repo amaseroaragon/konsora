@@ -145,6 +145,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 | `todo` → `doing` | A, K | `start`. Rechazado si está `blocked`. Dentro de un run, la tarea la empieza el runner: el agente solo puede hacer `note`, `ask` y `finish` sobre su tarea, o proponer tareas nuevas (`out_of_scope` en otro caso). |
 | `doing` → `todo` | A, K, H | `pause` (opcionalmente con nota), cancelación o fallo de un run. |
 | `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, `finish` solo añade el `summary` (con su `run`) y la tarea sigue en `doing`; cuando acaban los checks (§6), Konsora aplica `complete` `{checks_passed, text?}`, que la pasa a `review` (o a `done` en una cadena YOLO, solo con todos los checks en verde) y puede añadir una nota de Konsora. `complete` es solo de Konsora y exige un `summary` de ese run. Si un check falla y quedan reintentos, el agente recibe el fallo y vuelve a llamar a `finish`. |
+| `review` → `doing` → `review` | K | `rebase` y `rebase-abort`: solo Konsora, cuando el humano pide al agente que rebase un run en conflicto (ver `arquitectura.md` §5). Si el run de rebase falla o se cancela, `rebase-abort` devuelve la tarea a `review`. |
 | `review` → `done` | **H** | `accept`. Si la tarea tiene un run, integra su rama (squash, ver `arquitectura.md`). |
 | `review` → `todo` | **H** | `send-back` con una nota `feedback`, que el agente leerá. |
 | `done` → `todo` | **H** | `reopen`. |
@@ -278,7 +279,7 @@ succeeded, failed, cancelled: finales
 
 `interrupted` corresponde a un run que estaba vivo cuando el daemon se cerró: al volver a arrancar **no se reanuda solo**; el humano decide si lo reanuda (con `--resume`, usando el `session_id`) o lo descarta.
 
-`integration.state` solo existe en runs finales: `pending → merged | conflict | discarded` y `conflict → merged | discarded`. Solo un run `succeeded` puede quedar `pending`; cualquier run final se puede descartar directamente.
+Un run de rebase lleva `rebase_of` con el id del run en conflicto cuya rama y worktree reutiliza. `integration.state` solo existe en runs finales: `pending → merged | conflict | discarded` y `conflict → merged | discarded`. Solo un run `succeeded` puede quedar `pending`; cualquier run final se puede descartar directamente.
 
 Cada tarea puede tener muchos runs, pero como máximo **uno activo**: en `queued`, `starting`, `running`, `waiting_approval`, `checking` o `interrupted` (que aún se puede reanudar, así que hay que descartarlo antes de lanzar otro). Las notas que genera un run llevan `run` para enlazarlas.
 

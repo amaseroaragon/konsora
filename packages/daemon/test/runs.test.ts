@@ -44,7 +44,15 @@ const konsora = (spec: RunSpec, ...args: string[]) =>
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-type Behaviour = "finish" | "hang" | "ask" | "noop" | "permission" | "limits";
+type Behaviour =
+  | "finish"
+  | "hang"
+  | "ask"
+  | "noop"
+  | "permission"
+  | "limits"
+  | "rebase"
+  | "rebase-stop";
 let behaviour: Behaviour = "finish";
 const seen: RunSpec[] = [];
 /** What the fake was told about its approval requests ("permission" behaviour). */
@@ -98,6 +106,22 @@ const fake: AgentAdapter = {
           },
         });
         konsora(spec, "finish", "BE-01", "--summary", "Reported usage.");
+      }
+      if (mode === "rebase" || mode === "rebase-stop") {
+        // Rebase onto the tip named in the prompt and keep both sides of the conflict.
+        const onto = /git rebase ([0-9a-f]{40})/.exec(spec.prompt)?.[1] as string;
+        try {
+          execFileSync("git", ["rebase", onto], { cwd: spec.cwd, env: gitEnv(), stdio: "pipe" });
+        } catch {
+          writeFileSync(join(spec.cwd, "app.txt"), "from the human\nfrom the agent\n");
+          execFileSync("git", ["add", "app.txt"], { cwd: spec.cwd, env: gitEnv() });
+          execFileSync("git", ["rebase", "--continue"], {
+            cwd: spec.cwd,
+            env: { ...gitEnv(), GIT_EDITOR: "true" },
+            stdio: "pipe",
+          });
+        }
+        if (mode === "rebase") konsora(spec, "finish", "BE-01", "--summary", "Rebased.");
       }
       if (mode === "finish") {
         writeFileSync(join(spec.cwd, "app.txt"), "from the agent\n");
@@ -873,5 +897,77 @@ describe("the agent catalog", () => {
     });
     expect(res.status).toBe(201);
     expect((await settled(res.body.run.id)).state).toBe("succeeded");
+  });
+});
+
+describe("asking the agent to rebase a conflict (RUN-24)", () => {
+  async function conflict(): Promise<Run> {
+    const run = await settled((await launch()).id);
+    writeFileSync(join(root, "app.txt"), "from the human\n");
+    git(root, "commit", "-q", "-m", "human", "--", "app.txt");
+    const res = await api<{ error: { code: string } }>(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({ op: "accept", task: "BE-01" }),
+    });
+    expect(res.body.error.code).toBe("integration_conflict");
+    return run;
+  }
+
+  it("rebases in a new run on the same branch, and accept then integrates it", async () => {
+    const conflicted = await conflict();
+    behaviour = "rebase";
+    const res = await api<{ run: Run }>(`/projects/${projectId}/runs/${conflicted.id}/rebase`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.run).toMatchObject({ rebase_of: conflicted.id, branch: conflicted.branch });
+    const rebased = await settled(res.body.run.id);
+    expect(rebased.state).toBe("succeeded");
+    expect(seen.at(-1)?.prompt).toContain("- `app.txt`");
+    expect(await taskState("BE-01")).toBe("review");
+
+    const before = git(root, "rev-parse", "main");
+    const accepted = await api<{ integrated: { run: string } }>(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({ op: "accept", task: "BE-01" }),
+    });
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.integrated.run).toBe(rebased.id);
+    expect(git(root, "rev-list", "--count", `${before}..main`)).toBe("1");
+    expect(readFileSync(join(root, "app.txt"), "utf8")).toBe("from the human\nfrom the agent\n");
+    const old = await api<{ run: Run }>(`/projects/${projectId}/runs/${conflicted.id}`);
+    expect(old.body.run.integration).toEqual({ state: "discarded" });
+    expect(git(root, "branch", "--list", "konsora/*")).toBe("");
+  });
+
+  it("after a failed rebase the conflict is still there, and discarding the rebase keeps its branch", async () => {
+    const conflicted = await conflict();
+    behaviour = "rebase-stop";
+    const res = await api<{ run: Run }>(`/projects/${projectId}/runs/${conflicted.id}/rebase`, {
+      method: "POST",
+    });
+    const failed = await settled(res.body.run.id);
+    expect(failed.state).toBe("failed");
+    expect(await taskState("BE-01")).toBe("review");
+
+    const accept = await api<{ error: { code: string; run: string } }>(
+      `/projects/${projectId}/ops`,
+      { method: "POST", body: JSON.stringify({ op: "accept", task: "BE-01" }) },
+    );
+    expect(accept.body.error).toMatchObject({ code: "integration_conflict", run: conflicted.id });
+
+    await api(`/projects/${projectId}/runs/${failed.id}/discard`, { method: "POST" });
+    expect(existsSync(conflicted.worktree as string)).toBe(true);
+    expect(git(root, "branch", "--list", "konsora/*")).not.toBe("");
+  });
+
+  it("refuses to rebase a run that is not in conflict", async () => {
+    const run = await settled((await launch()).id);
+    const res = await api<{ error: { code: string } }>(
+      `/projects/${projectId}/runs/${run.id}/rebase`,
+      { method: "POST" },
+    );
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("not_rebasable");
   });
 });

@@ -582,3 +582,28 @@ describe("checks (CORE-07)", () => {
     expect(err(applyOp(d, twice, human))).toBe("invalid");
   });
 });
+
+describe("rebase (RUN-24)", () => {
+  const d = doc(task("BE-01", "review"), task("BE-02", "doing"), task("BE-03", "todo"));
+
+  it("only Konsora takes a task in review back to doing for a rebase run, and back", () => {
+    expect(err(applyOp(d, { op: "rebase", task: "BE-01" }, human))).toBe("forbidden");
+    expect(err(applyOp(d, { op: "rebase", task: "BE-01" }, agent))).toBe("forbidden");
+    const started = ok(applyOp(d, { op: "rebase", task: "BE-01", text: "rebasing" }, runner));
+    expect(state(started, "BE-01")).toBe("doing");
+    expect(started.document.tasks[0]?.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      text: "rebasing",
+    });
+    const back = applyOp(started.document, { op: "rebase-abort", task: "BE-01" }, runner);
+    expect(state(back, "BE-01")).toBe("review");
+    expect(err(applyOp(d, { op: "rebase-abort", task: "BE-01" }, agent))).toBe("forbidden");
+  });
+
+  it("needs review to start and doing to abort", () => {
+    expect(err(applyOp(d, { op: "rebase", task: "BE-03" }, runner))).toBe("invalid_transition");
+    expect(err(applyOp(d, { op: "rebase-abort", task: "BE-03" }, runner))).toBe(
+      "invalid_transition",
+    );
+  });
+});

@@ -1,5 +1,38 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`buildRebasePrompt (RUN-24) > is deterministic and lists the conflicting files, sorted and once 1`] = `
+"You are working on task BE-01 of the project "tiempo", planned with Konsora.
+
+## Task BE-01: Forecast client
+
+(no description)
+
+## Why you are here
+
+The work on the branch \`konsora/BE-01/01JABCDEFGHJ\` is done, but it no longer integrates into \`main\`: \`main\` moved on and both change the same lines. The human asked you to rebase the branch and resolve the conflicts.
+
+Files that conflict:
+- \`src/a.ts\`
+- \`src/b.ts\`
+
+## What to do
+
+1. In this worktree, on \`konsora/BE-01/01JABCDEFGHJ\`, run \`git rebase aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\` (the current tip of \`main\`).
+2. Resolve each conflict keeping both intents: what BE-01 does and what \`main\` changed since. Do not drop either side to make the conflict go away. \`git add\` each file and \`git rebase --continue\` until the rebase is complete.
+3. Make sure the result still meets the task's acceptance criteria and that the project checks pass (\`npm test\`, \`npm run lint\`).
+4. Call \`finish\` on BE-01 with a summary of how you resolved each conflict. Konsora then runs the checks again and the task goes back to review.
+
+If you cannot resolve a conflict without a decision from the human, \`ask\` on BE-01 and wait. If the rebase goes wrong, \`git rebase --abort\` and start again.
+
+## Rules
+
+- Stay on \`konsora/BE-01/01JABCDEFGHJ\` and leave the rebase finished: never check out, reset, commit to, push or force-update \`main\`.
+- Never push anything and never use \`--force\`: the rebase only rewrites your own branch, locally.
+- Do not create, edit or delete anything under \`.konsora/\`: the plan changes only through Konsora's tools.
+- You cannot approve tasks, accept work or mark anything done; the human reviews your result.
+"
+`;
+
 exports[`buildRunPrompt > includes every part of the task and the protocol 1`] = `
 "You are working on task BE-02 of the project "tiempo", planned with Konsora.
 

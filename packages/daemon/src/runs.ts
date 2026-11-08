@@ -41,6 +41,8 @@ import {
   RunStoreError,
   recoverRuns,
   removeWorktree,
+  type SupervisorOptions,
+  startRebaseRun,
   startRun,
 } from "@konsora/runner";
 import { AgentCatalog } from "./agents.ts";
@@ -195,46 +197,72 @@ export class RunManager {
       const check = checkAgent(agent, await this.catalog.entry(agent.provider));
       if (!check.ok) throw new RunManagerError("invalid_agent", check.reason);
     }
-    const store = this.store(project);
-    const { approvals } = this.#options;
-    const session = await startRun(
-      {
-        root: project.path,
-        worktreesDir: this.worktreesDir(project),
-        privateDir: join(this.#options.dataDir, "projects", project.id, "runs"),
-        adapter,
-        mcp: this.#options.mcp,
-        store,
-        registry: {
-          register: async ({ run, task: id }) => ({
-            url: this.#options.daemonUrl(),
-            token: approvals.registerRun({ run, project: project.id, task: id }),
-          }),
-          unregister: (run) => approvals.endRun(run),
-          requestPermission: async ({ run, task: id, tool, input, tool_use_id }) => {
-            if (!approvals.isRegistered(run)) {
-              return { behavior: "deny", message: "The run has ended." };
-            }
-            const { decision } = await approvals.request(
-              { run, project: project.id, task: id },
-              { tool_name: tool, input, ...(tool_use_id ? { tool_use_id } : {}) },
-              this.#options.permissionWaitMs ?? PERMISSION_WAIT_MS,
-            );
-            return decision;
-          },
-        },
-        ...(this.#options.git ? { git: this.#options.git } : {}),
-        ...(this.#options.now ? { now: this.#options.now } : {}),
-        ...(this.#options.interruptGraceMs !== undefined
-          ? { interruptGraceMs: this.#options.interruptGraceMs }
-          : {}),
-      },
-      { task: input.task, ...(input.agent ? { agent: input.agent } : {}) },
-    );
+    const session = await startRun(this.#supervisorOptions(project, adapter), {
+      task: input.task,
+      ...(input.agent ? { agent: input.agent } : {}),
+    });
+    return this.#track(project, input.task, session);
+  }
+
+  /**
+   * The human asks the agent to rebase a run whose integration conflicts (RUN-24): a new run of
+   * the same task, on the same branch and worktree, with the same agent. Resolves once started.
+   */
+  async rebase(project: Project, id: string): Promise<Run> {
+    const conflicted = await this.get(project, id);
+    const adapter = this.#adapters[conflicted.agent.provider];
+    if (!adapter) {
+      throw new RunManagerError(
+        "no_adapter",
+        `Konsora cannot run ${conflicted.agent.provider} yet`,
+      );
+    }
+    const session = await startRebaseRun(this.#supervisorOptions(project, adapter), {
+      run: conflicted.id,
+    });
+    return this.#track(project, conflicted.task, session);
+  }
+
+  #track(project: Project, task: string, session: RunSession): Run {
     const id = session.run.id;
-    this.#sessions.set(id, { project: project.id, task: input.task, session });
+    this.#sessions.set(id, { project: project.id, task, session });
     void session.done.catch(() => undefined).finally(() => this.#sessions.delete(id));
     return session.run;
+  }
+
+  #supervisorOptions(project: Project, adapter: AgentAdapter): SupervisorOptions {
+    const { approvals } = this.#options;
+    return {
+      root: project.path,
+      worktreesDir: this.worktreesDir(project),
+      privateDir: join(this.#options.dataDir, "projects", project.id, "runs"),
+      adapter,
+      mcp: this.#options.mcp,
+      store: this.store(project),
+      registry: {
+        register: async ({ run, task: id }) => ({
+          url: this.#options.daemonUrl(),
+          token: approvals.registerRun({ run, project: project.id, task: id }),
+        }),
+        unregister: (run) => approvals.endRun(run),
+        requestPermission: async ({ run, task: id, tool, input, tool_use_id }) => {
+          if (!approvals.isRegistered(run)) {
+            return { behavior: "deny", message: "The run has ended." };
+          }
+          const { decision } = await approvals.request(
+            { run, project: project.id, task: id },
+            { tool_name: tool, input, ...(tool_use_id ? { tool_use_id } : {}) },
+            this.#options.permissionWaitMs ?? PERMISSION_WAIT_MS,
+          );
+          return decision;
+        },
+      },
+      ...(this.#options.git ? { git: this.#options.git } : {}),
+      ...(this.#options.now ? { now: this.#options.now } : {}),
+      ...(this.#options.interruptGraceMs !== undefined
+        ? { interruptGraceMs: this.#options.interruptGraceMs }
+        : {}),
+    };
   }
 
   async list(project: Project, task?: string): Promise<Run[]> {
@@ -281,13 +309,16 @@ export class RunManager {
     const plan = await readTasks(project.path);
     const task = plan.ok ? plan.document.tasks.find((t) => t.id === run.task) : undefined;
     if (task?.state === "doing") {
+      const text = `Konsora run ${run.id} was cancelled. Its work is kept on its branch.`;
       await mutate(
         project.path,
-        {
-          op: "pause",
-          task: run.task,
-          text: `Konsora run ${run.id} was cancelled. Its work is kept on its branch.`,
-        },
+        run.rebase_of
+          ? {
+              op: "rebase-abort",
+              task: run.task,
+              text: `${text} The task is back in review with run ${run.rebase_of}'s conflict: resolve it by hand or ask for another rebase.`,
+            }
+          : { op: "pause", task: run.task, text },
         { actor: "konsora", at, run: run.id },
       );
     }
@@ -306,10 +337,17 @@ export class RunManager {
     return false;
   }
 
-  /** The run whose work `accept` must integrate: the task's latest succeeded, unintegrated run. */
+  /**
+   * The run whose work `accept` must integrate: the task's latest succeeded, unintegrated run. A
+   * rebase run that did not succeed leaves the run it rebased (still in conflict) as the one.
+   */
   async integrable(project: Project, task: string): Promise<Run | null> {
     const runs = await this.list(project, task);
-    const run = runs.at(-1);
+    let run = runs.at(-1);
+    if (run?.rebase_of && run.state !== "succeeded") {
+      const of = run.rebase_of;
+      run = runs.find((r) => r.id === of);
+    }
     if (run?.state !== "succeeded") return null;
     const state = run.integration?.state;
     return state === "merged" || state === "discarded" ? null : run;
@@ -347,7 +385,8 @@ export class RunManager {
       );
     }
     // Worktree and branch first (idempotent): if that fails, the run can be discarded again.
-    if (run.worktree && run.branch) {
+    // A rebase run shares them with the run it rebases: keep them while the other needs them.
+    if (run.worktree && run.branch && !(await this.#sharedWorktree(project, run))) {
       await removeWorktree({
         root: project.path,
         worktreesDir: this.worktreesDir(project),
@@ -357,6 +396,17 @@ export class RunManager {
       });
     }
     return this.store(project).integrate(run.id, "discarded");
+  }
+
+  /** Another run of the task uses the same worktree and still needs it. */
+  async #sharedWorktree(project: Project, run: Run): Promise<boolean> {
+    const runs = await this.list(project, run.task);
+    return runs.some((other) => {
+      if (other.id === run.id || other.worktree !== run.worktree) return false;
+      if (isActiveRunState(other.state)) return true;
+      const state = other.integration?.state;
+      return other.state === "succeeded" && state !== "merged" && state !== "discarded";
+    });
   }
 
   /** Discards a run by id (the human's "Discard" on a finished, unintegrated run). */

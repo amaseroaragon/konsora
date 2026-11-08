@@ -94,6 +94,13 @@ export type Op = Base &
      */
     | { op: "complete"; task: string; checks_passed: boolean; text?: string }
     /**
+     * Konsora takes a task in review whose integration conflicts back to `doing`, for a run that
+     * rebases its branch (the human asked for it). `rebase-abort` returns it to `review` if that
+     * run fails or is cancelled, so the conflicting work can still be resolved by hand.
+     */
+    | { op: "rebase"; task: string; text?: string }
+    | { op: "rebase-abort"; task: string; text?: string }
+    /**
      * The human sets the project's checks, how many times a run retries them and the setup
      * command of new worktrees. A field left out is kept; `checks: []`, `check_retries: null`
      * and `setup: null` remove them.
@@ -158,6 +165,8 @@ const ROLES: Record<OpName, readonly Role[]> = {
   answer: ["human"],
   finish: ["agent", "konsora"],
   complete: ["konsora"],
+  rebase: ["konsora"],
+  "rebase-abort": ["konsora"],
   "set-checks": ["human"],
   accept: ["human"],
   "send-back": ["human"],
@@ -482,6 +491,18 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       const covered = !task.yolo && yoloCovering(task.id, input).length > 0;
       transition(task, ["doing"], covered && op.checks_passed ? "done" : "review");
       if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
+      if (op.text?.trim()) addNote(task, "note", op.text);
+      break;
+    }
+    case "rebase": {
+      const task = get(op.task);
+      transition(task, ["review"], "doing");
+      if (op.text?.trim()) addNote(task, "note", op.text);
+      break;
+    }
+    case "rebase-abort": {
+      const task = get(op.task);
+      transition(task, ["doing"], "review");
       if (op.text?.trim()) addNote(task, "note", op.text);
       break;
     }

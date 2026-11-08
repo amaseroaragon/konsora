@@ -57,6 +57,8 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   invalid_plan: 409,
   launch_failed: 409,
   no_answer: 409,
+  not_rebasable: 409,
+  no_conflict: 409,
   invalid_id: 404,
   active_run: 409,
   not_active: 409,
@@ -513,6 +515,15 @@ export function createApp(options: AppOptions): Hono {
   api.get("/projects/:id/runs/:runId/checks", async (c) => {
     const project = await registry.get(c.req.param("id"));
     return c.json({ checks: await runsOf().checks(project, c.req.param("runId")) });
+  });
+
+  /**
+   * The human asks the agent to rebase a run whose integration conflicts (RUN-24): a new run on
+   * the same branch, whose task goes from review to doing and comes back to review.
+   */
+  api.post("/projects/:id/runs/:runId/rebase", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ run: await runsOf().rebase(project, c.req.param("runId")) }, 201);
   });
 
   api.post("/projects/:id/runs/:runId/cancel", async (c) => {

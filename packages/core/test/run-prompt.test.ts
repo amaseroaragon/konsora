@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAnswerMessage, buildRunPrompt } from "../src/run-prompt.ts";
+import { buildAnswerMessage, buildRebasePrompt, buildRunPrompt } from "../src/run-prompt.ts";
 import type { Note, Task, TasksDocument } from "../src/schema.ts";
 
 const at = "2026-11-02T10:00:00Z";
@@ -160,5 +160,38 @@ describe("buildAnswerMessage", () => {
         notes: [note("question", "Q1?"), note("answer", "A1"), note("question", "Q2?")],
       }),
     ).toBeNull();
+  });
+});
+
+describe("buildRebasePrompt (RUN-24)", () => {
+  const input = {
+    branch: "konsora/BE-01/01JABCDEFGHJ",
+    onto: "a".repeat(40),
+    files: ["src/b.ts", "src/a.ts", "src/b.ts"],
+  };
+
+  it("is deterministic and lists the conflicting files, sorted and once", () => {
+    const first = buildRebasePrompt(document, "BE-01", input);
+    expect(
+      buildRebasePrompt(document, "BE-01", { ...input, files: ["src/a.ts", "src/b.ts"] }),
+    ).toBe(first);
+    expect(first).toContain("- `src/a.ts`\n- `src/b.ts`\n");
+    expect(first).toContain(`git rebase ${"a".repeat(40)}`);
+    expect(first).toContain("konsora/BE-01/01JABCDEFGHJ");
+    expect(first).toContain("`npm test`");
+    expect(first).toMatchSnapshot();
+  });
+
+  it("forbids pushing and forcing, and touching base_branch", () => {
+    const text = buildRebasePrompt(document, "BE-01", input);
+    expect(text).toContain("never check out, reset, commit to, push or force-update `main`");
+    expect(text).toContain("Never push anything and never use `--force`");
+    expect(text).toContain("`.konsora/`");
+  });
+
+  it("says so when git named no files", () => {
+    expect(buildRebasePrompt(document, "BE-01", { ...input, files: [] })).toContain(
+      "Git did not name the conflicting files",
+    );
   });
 });
