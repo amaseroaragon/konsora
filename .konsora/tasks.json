@@ -1187,7 +1187,7 @@
     {
       "id": "DMN-08",
       "title": "Cola persistente y scheduler en el daemon",
-      "state": "todo",
+      "state": "review",
       "group": "DMN",
       "deps": [
         "CORE-08"
@@ -1215,7 +1215,23 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:16:33Z"
+      "updated_at": "2026-11-08T11:04:28Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T10:59:49Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Scheduler en el daemon: queue.json por proyecto y settings.json global (validados con los esquemas de core, escritura atómica), arranque en pausa, nextRuns/queueExits en cada cambio (fin de run, plan, cola, reanudar), API REST de la cola y de los límites, eventos WS queue.*. Tests con adaptador falso."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T11:04:28Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit c035561. Nueva clase Scheduler en packages/daemon/src/queue.ts. Guarda queue.json en <data>/projects/<id>/ y settings.json en <data>/, validados con los esquemas de core y escritos de forma atómica con permisos 0600. Hace un tick serializado (queueExits y después nextRuns, contando los runs de todos los proyectos) al cerrarse un run (nuevo onRunClosed del RunManager), al cambiar el plan (watchTasks por cada proyecto con cola no vacía), al cambiar la cola o los límites y al reanudar. Un lanzamiento que falla saca la entrada con launch_failed (motivo nuevo en core) y no se reintenta. API: GET/POST /projects/:id/queue, DELETE /queue/:task, POST /queue/clear|pause|resume y GET/PUT /settings/parallel. Documentado en arquitectura.md.\n- ac1: test 'launches at most max_parallel…' con 4 tareas y max_parallel 2: nunca más de 2 a la vez; BE-03 arranca al liberarse un hueco; BE-04 espera a que acepte BE-01 y a que haya hueco. Test 'respects the per-provider limit' con claude:1 y max 3: BE-02 espera en slot/provider.\n- ac2: test 'survives a restart paused': tras cerrar y arrancar el daemon con 2 runs vivos, la cola queda en pausa con sus 3 entradas, los runs pasan a interrupted y no se lanza nada. Al reanudar, solo arranca BE-03 (interrupted ocupa la tarea, no el hueco).\n- ac3: las respuestas de la API llevan queue/status/limits/usage; el test de WebSocket recibe queue.updated, queue.launched, queue.exited (succeeded) y queue.limits.\nTambién: solo se lanza lo encolado, las propuestas se rechazan (409 not_approved) y funcionan pausar, quitar y vaciar (test). Comprobado: npm run check en verde (889 tests); los tests de la cola pasaron 5 veces seguidas."
+        }
+      ]
     },
     {
       "id": "UI-01",
@@ -3711,7 +3727,7 @@
     {
       "id": "RUN-23",
       "title": "Integrar automáticamente las tareas intermedias de una cadena YOLO",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "CORE-08"
@@ -3739,7 +3755,7 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T10:59:42Z",
+      "updated_at": "2026-11-08T11:02:41Z",
       "notes": [
         {
           "id": "n1",
