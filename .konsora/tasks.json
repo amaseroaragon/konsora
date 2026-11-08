@@ -3943,7 +3943,7 @@
     {
       "id": "RUN-26",
       "title": "Evitar que una cadena YOLO desatendida se pare en cada aprobación de Bash",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "rank": "zzzzzzzzz",
       "desc": "Decisión del humano (2026-11-08): no se amplían los permisos del perfil default. En la verificación de M9 con Claude Code real, el agente encadenó comandos Bash (mkdir, printf, test, git add y git commit con &&) que el perfil default manda al humano, así que una cadena YOLO desatendida se paraba 5 minutos en cada uno. Dos cambios: (1) el protocolo del prompt del run (y el de rebase) pide crear y leer ficheros con las herramientas de edición y lectura del agente, y ejecutar cada comando por separado, usando sin pedir permiso solo los que el perfil ya permite (git status, diff, log, add y commit, los checks del proyecto, npm run/test); el resto de comandos pide aprobación, que es lo esperado. (2) La UI destaca los runs que esperan una aprobación: en la vista de cola (un motivo de espera propio en sus runs activos) y en las tarjetas del tablero, con un enlace a la aprobación. Sin cambios en --allowedTools.",
@@ -3968,7 +3968,7 @@
         "at": "2026-11-08T12:15:25Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:23:23Z"
+      "updated_at": "2026-11-08T12:23:53Z"
     },
     {
       "id": "DESK-01",
