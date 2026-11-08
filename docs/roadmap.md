@@ -49,10 +49,10 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 Ejecución de `project.checks` y `acceptance[].check` en el worktree, con timeout; `checks.json`; bucle de corrección (devolver al agente con la salida de los checks fallidos, hasta N reintentos configurables).
 ✅ Una tarea fixture con un test que falla al principio la corrige el agente en el reintento, y la revisión muestra el historial de checks. Si se agotan los reintentos, la tarea llega a `review` con los checks en rojo, nunca en verde.
 
-## M9 — Ejecución paralela
+## M9 — Ejecución paralela ✔ (2026-11-08)
 
 🔧 Cola persistente, scheduler DAG con `max_parallel` global y por proveedor, encadenado YOLO con integración automática, vista de runs activos, detección de conflictos de integración y flujo para pedir rebase al agente.
-✅ Un fixture con un DAG de 6 tareas (2 ramas independientes y un nodo final) en YOLO, con `max_parallel = 2`, se ejecuta sin superar nunca 2 runs a la vez y sin empezar ninguna tarea antes de integrar sus dependencias; termina con 6 commits en orden topológico y la tarea final en `review`. Reiniciar el daemon a mitad marca los runs vivos como `interrupted` y no lanza nada por su cuenta.
+✅ Un fixture con un DAG de 6 tareas (2 ramas independientes y un nodo final) en YOLO, con `max_parallel = 2`, se ejecuta sin superar nunca 2 runs a la vez y sin empezar ninguna tarea antes de integrar sus dependencias; termina con las 5 tareas intermedias integradas en orden topológico y la tarea final en `review` (6 commits en orden topológico al aceptarla). Reiniciar el daemon a mitad marca los runs vivos como `interrupted` y no lanza nada por su cuenta. Verificado con un agente falso (`packages/daemon/test/m9.test.ts`, también con un conflicto resuelto por el run de rebase) y con Claude Code real (`RUN-25`).
 
 ## M10 — Escritorio
 

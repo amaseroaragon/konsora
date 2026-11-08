@@ -41,15 +41,20 @@
     {
       "id": "RUN",
       "name": "Runner"
+    },
+    {
+      "id": "DESK",
+      "name": "Escritorio"
     }
   ],
   "seq": {
     "CORE": 8,
     "CLI": 4,
-    "DMN": 8,
+    "DMN": 9,
     "UI": 18,
     "MCP": 6,
-    "RUN": 26
+    "RUN": 26,
+    "DESK": 5
   },
   "tasks": [
     {
@@ -1232,6 +1237,36 @@
           "text": "Commit c035561. Nueva clase Scheduler en packages/daemon/src/queue.ts. Guarda queue.json en <data>/projects/<id>/ y settings.json en <data>/, validados con los esquemas de core y escritos de forma atómica con permisos 0600. Hace un tick serializado (queueExits y después nextRuns, contando los runs de todos los proyectos) al cerrarse un run (nuevo onRunClosed del RunManager), al cambiar el plan (watchTasks por cada proyecto con cola no vacía), al cambiar la cola o los límites y al reanudar. Un lanzamiento que falla saca la entrada con launch_failed (motivo nuevo en core) y no se reintenta. API: GET/POST /projects/:id/queue, DELETE /queue/:task, POST /queue/clear|pause|resume y GET/PUT /settings/parallel. Documentado en arquitectura.md.\n- ac1: test 'launches at most max_parallel…' con 4 tareas y max_parallel 2: nunca más de 2 a la vez; BE-03 arranca al liberarse un hueco; BE-04 espera a que acepte BE-01 y a que haya hueco. Test 'respects the per-provider limit' con claude:1 y max 3: BE-02 espera en slot/provider.\n- ac2: test 'survives a restart paused': tras cerrar y arrancar el daemon con 2 runs vivos, la cola queda en pausa con sus 3 entradas, los runs pasan a interrupted y no se lanza nada. Al reanudar, solo arranca BE-03 (interrupted ocupa la tarea, no el hueco).\n- ac3: las respuestas de la API llevan queue/status/limits/usage; el test de WebSocket recibe queue.updated, queue.launched, queue.exited (succeeded) y queue.limits.\nTambién: solo se lanza lo encolado, las propuestas se rechazan (409 not_approved) y funcionan pausar, quitar y vaciar (test). Comprobado: npm run check en verde (889 tests); los tests de la cola pasaron 5 veces seguidas."
         }
       ]
+    },
+    {
+      "id": "DMN-09",
+      "title": "Apagado limpio del daemon sin procesos huérfanos",
+      "state": "proposed",
+      "group": "DMN",
+      "rank": "zzzzzzzzzi",
+      "desc": "Hoy, al cerrar el daemon (SIGTERM o `close()`), los runs vivos siguen con sus procesos de agente y de checks: solo al arrancar otra vez pasan a `interrupted`. Para M10 (cerrar la ventana no deja huérfanos), el apagado debe parar el scheduler, marcar los runs vivos como `interrupted` (sin tocar el plan más allá de lo que ya hace `recoverRuns`), terminar el grupo de procesos de cada agente, check o setup (SIGINT, después SIGTERM y SIGKILL tras un plazo) y cerrar el WebSocket y el servidor. La cola queda guardada y al volver a arrancar se carga en pausa, como ya ocurre.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Tras SIGTERM al daemon con un run vivo de un proceso real que ignora SIGINT, no queda ningún proceso de ese run y el run está interrupted (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "La cola y los runs terminados no cambian, y el siguiente arranque no lanza nada (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "El apagado acaba en un tiempo acotado aunque un agente no responda (test con plazo)"
+        }
+      ],
+      "labels": [
+        "m10"
+      ],
+      "created": {
+        "at": "2026-11-08T12:22:38Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:22:38Z"
     },
     {
       "id": "UI-01",
@@ -3927,6 +3962,170 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-08T12:15:25Z"
+    },
+    {
+      "id": "DESK-01",
+      "title": "Esqueleto de apps/desktop con Tauri 2",
+      "state": "proposed",
+      "group": "DESK",
+      "rank": "zzzzzzzzzr",
+      "desc": "Crea `apps/desktop` con Tauri 2 (Rust): una ventana que, de momento, carga una página local. Añade los scripts `desktop:dev` y `desktop:build` sin que `npm run check` pase a necesitar Rust (el check de Rust va aparte: `cargo fmt --check`, `cargo clippy` y `cargo test` en `apps/desktop`). Documenta en `arquitectura.md` (tabla de dependencias) Tauri 2 y sus requisitos en Ubuntu 24.04 (Rust estable, webkit2gtk-4.1, libsoup-3) y por qué no Electron (ADR 3). La máquina de desarrollo aún no tiene Rust: instalarlo es una acción del humano.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`npm run desktop:dev` abre una ventana de Konsora en Ubuntu 24.04"
+        },
+        {
+          "id": "ac2",
+          "text": "`npm run check` no requiere Rust; `npm run desktop:check` pasa fmt, clippy sin avisos y los tests de Rust"
+        },
+        {
+          "id": "ac3",
+          "text": "Las dependencias nuevas están justificadas en arquitectura.md"
+        }
+      ],
+      "labels": [
+        "m10"
+      ],
+      "created": {
+        "at": "2026-11-08T12:22:38Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:22:38Z"
+    },
+    {
+      "id": "DESK-02",
+      "title": "La app arranca o reutiliza el daemon y carga la UI",
+      "state": "proposed",
+      "group": "DESK",
+      "deps": [
+        "DESK-01",
+        "DMN-09"
+      ],
+      "rank": "zzzzzzzzzv",
+      "desc": "Al abrirse, la app busca un daemon vivo en `daemon.json` del directorio de datos (como `konsora ui`, reiniciándolo si ejecuta código más antiguo) o lo lanza con el Node del usuario (≥ 22.18, buscado en PATH y en las rutas habituales de nvm; si no lo encuentra, una pantalla que explica cómo instalarlo). La ventana navega a la URL del daemon en loopback con el token en el fragmento (`#token=…`), igual que `konsora ui`, así que el origen es el del daemon y la validación de Host y Origin no cambia. El token nunca se escribe en logs ni en la línea de comandos. Al cerrar la ventana: si la app lanzó el daemon, lo para con el apagado limpio y espera a que termine; si lo reutilizó, lo deja vivo.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con un daemon ya vivo, la app lo reutiliza y al cerrarla sigue vivo (test o comprobación anotada)"
+        },
+        {
+          "id": "ac2",
+          "text": "Sin daemon, la app lo lanza, carga el tablero autenticado y al cerrarla no queda ningún proceso de Konsora ni de sus runs"
+        },
+        {
+          "id": "ac3",
+          "text": "Sin Node ≥ 22.18, la app muestra un mensaje accionable en español en lugar de fallar"
+        }
+      ],
+      "labels": [
+        "m10"
+      ],
+      "created": {
+        "at": "2026-11-08T12:22:38Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:22:38Z"
+    },
+    {
+      "id": "DESK-03",
+      "title": "Notificaciones nativas de preguntas, aprobaciones y runs terminados",
+      "state": "proposed",
+      "group": "DESK",
+      "deps": [
+        "DESK-02"
+      ],
+      "rank": "zzzzzzzzzx",
+      "desc": "La app escucha el WebSocket del daemon y muestra una notificación nativa (tauri-plugin-notification) cuando un agente pregunta (`question.asked`), cuando un run espera una aprobación (`permission.requested`) y cuando un run termina (succeeded, failed o cancelled, con el estado de sus checks). Al pulsarla, la ventana se enfoca y abre esa tarea. Una notificación por evento, sin repetir al reconectar, solo con la ventana sin foco, y con textos en español por i18n. Nunca incluye el contenido de prompts ni rutas privadas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada uno de los tres eventos produce una notificación con el proyecto y la tarea, y al pulsarla se abre esa tarea"
+        },
+        {
+          "id": "ac2",
+          "text": "Reconectar el WebSocket no repite notificaciones ya mostradas (test del modelo)"
+        },
+        {
+          "id": "ac3",
+          "text": "Con la ventana enfocada no se notifica"
+        }
+      ],
+      "labels": [
+        "m10"
+      ],
+      "created": {
+        "at": "2026-11-08T12:22:38Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:22:38Z"
+    },
+    {
+      "id": "DESK-04",
+      "title": "Paquete .deb de Konsora",
+      "state": "proposed",
+      "group": "DESK",
+      "deps": [
+        "DESK-02"
+      ],
+      "rank": "zzzzzzzzzy",
+      "desc": "`npm run desktop:build` genera un `.deb` para Ubuntu 24.04 (amd64) con la app, el código de `packages/*` que ejecuta el daemon (el TS se ejecuta con el Node del usuario, sin paso de build) y la web compilada, más el lanzador `.desktop` y el icono. Declara las dependencias de sistema de webkit2gtk-4.1; Node no se empaqueta (es requisito, como dice el roadmap). Solo para uso personal: sin firma, repositorio ni distribución pública.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El .deb se instala con apt en Ubuntu 24.04 y aparece Konsora en el menú de aplicaciones"
+        },
+        {
+          "id": "ac2",
+          "text": "El paquete no contiene node_modules de desarrollo, tests ni el directorio .konsora del repo"
+        },
+        {
+          "id": "ac3",
+          "text": "Desinstalarlo no borra los datos de ~/.local/share/konsora"
+        }
+      ],
+      "labels": [
+        "m10"
+      ],
+      "created": {
+        "at": "2026-11-08T12:22:38Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:22:38Z"
+    },
+    {
+      "id": "DESK-05",
+      "title": "Verificación de M10: .deb en Ubuntu 24.04 limpio",
+      "state": "proposed",
+      "group": "DESK",
+      "deps": [
+        "DESK-03",
+        "DESK-04"
+      ],
+      "rank": "zzzzzzzzzz",
+      "desc": "Cierra el hito con el criterio del roadmap: en un Ubuntu 24.04 limpio (VM o contenedor con escritorio) con Node instalado, se instala el .deb, se abre la app, se vincula un proyecto fixture y se ejecuta el flujo de M6 con el claude real (Ejecutar, log en vivo, revisión, aceptar con un commit). Al cerrar la ventana no queda ningún proceso huérfano. Preparar el entorno limpio y usar el agente real requieren la autorización del humano.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Instalado el .deb en un Ubuntu 24.04 limpio, se abre la app, se vincula un proyecto y el flujo de M6 termina con un commit en main"
+        },
+        {
+          "id": "ac2",
+          "text": "Al cerrar la ventana, `ps` no muestra procesos de Konsora, de sus agentes ni de sus checks"
+        },
+        {
+          "id": "ac3",
+          "text": "Los pasos, las versiones y lo observado quedan anotados en la tarea"
+        }
+      ],
+      "labels": [
+        "m10"
+      ],
+      "created": {
+        "at": "2026-11-08T12:22:38Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:22:38Z"
     }
   ]
 }
