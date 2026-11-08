@@ -87,6 +87,7 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   launch_failed: 409,
   no_answer: 409,
   not_rebasable: 409,
+  not_resumable: 409,
   no_conflict: 409,
   invalid_id: 404,
   active_run: 409,
@@ -566,6 +567,15 @@ export function createApp(options: AppOptions): Hono {
   api.post("/projects/:id/runs/:runId/rebase", async (c) => {
     const project = await registry.get(c.req.param("id"));
     return c.json({ run: await runsOf().rebase(project, c.req.param("runId")) }, 201);
+  });
+
+  /**
+   * The human resumes a run left `interrupted` when the daemon stopped (RUN-27): the same run, in
+   * its worktree and session; its task stays doing. 200: no new run is created.
+   */
+  api.post("/projects/:id/runs/:runId/resume", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ run: await runsOf().resume(project, c.req.param("runId")) });
   });
 
   api.post("/projects/:id/runs/:runId/cancel", async (c) => {

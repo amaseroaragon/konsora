@@ -1,7 +1,8 @@
 /**
  * Daemon start-up (docs/esquema-tareas.md §6): runs that were alive when the daemon stopped are
- * marked `interrupted`. Nothing is resumed or launched: the human decides whether to resume one
- * (`--resume` with its `session_id`) or discard it. The plan is not touched either.
+ * marked `interrupted`, with an `interrupted` event that keeps the state they were in. Nothing is
+ * resumed or launched: the human decides whether to resume one (`resumeRun`) or discard it. The
+ * plan is not touched either.
  *
  * A `queued` run only exists while a launch is in progress, so a leftover one is `cancelled`.
  */

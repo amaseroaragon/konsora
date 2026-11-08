@@ -337,6 +337,21 @@ describe("the queue (DMN-08)", { timeout: 30_000 }, () => {
     await until(() => started.includes("BE-03"));
     await quiet();
     expect(started).toEqual(["BE-03"]);
+
+    // Resuming BE-01's interrupted run (RUN-27) keeps its queue entry linked to the same run.
+    const be01 = runs.find((r) => r.task === "BE-01") as Run;
+    const resumed = await api<{ run: Run }>(`/projects/${projectId}/runs/${be01.id}/resume`, {
+      method: "POST",
+    });
+    expect(resumed.status).toBe(200);
+    expect(resumed.body.run.id).toBe(be01.id);
+    await until(() => started.includes("BE-01"));
+    const after = await view();
+    expect(after.queue.entries.find((e) => e.task === "BE-01")?.run).toBe(be01.id);
+    expect(after.status.find((s) => s.task === "BE-01")?.wait).toEqual({
+      kind: "running",
+      run: be01.id,
+    });
   });
 
   it("tells subscribers about the queue over WebSocket", async () => {

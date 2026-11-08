@@ -147,6 +147,17 @@ export function isActiveRunState(state: RunState): boolean {
   return ACTIVE_RUN_STATES.includes(state);
 }
 
+/**
+ * What resuming an `interrupted` run does, from the state it was in when the daemon stopped: one
+ * interrupted while `checking` had already finished its agent, so only the checks run again;
+ * any other gets its agent back (in its session when it has one).
+ */
+export type ResumeStep = "agent" | "checks";
+
+export function resumeStep(interruptedFrom: RunState | undefined): ResumeStep {
+  return interruptedFrom === "checking" ? "checks" : "agent";
+}
+
 /** Final states: nothing follows them. Only finished runs can be integrated or discarded. */
 export function isFinishedRunState(state: RunState): boolean {
   return RUN_TRANSITIONS[state].length === 0;

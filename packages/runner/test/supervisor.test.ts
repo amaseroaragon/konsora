@@ -10,7 +10,16 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Op, Task, TasksDocument } from "@konsora/core";
+import {
+  buildResumePrompt,
+  buildRunPrompt,
+  newRunId,
+  type Op,
+  type Run,
+  type Task,
+  type TasksDocument,
+  taskHash,
+} from "@konsora/core";
 import { initTasks, mutate, readTasks } from "@konsora/core/store";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -26,14 +35,17 @@ import { createClaudeAdapter } from "../src/claude.ts";
 import { createCodexAdapter } from "../src/codex/adapter.ts";
 import { gitEnv } from "../src/git.ts";
 import { integrateRun } from "../src/integrate.ts";
+import { recoverRuns } from "../src/recover.ts";
 import { RunStore } from "../src/run-store.ts";
 import {
   RunError,
   type RunRegistry,
+  resumeRun,
   type SupervisorOptions,
   startRebaseRun,
   startRun,
 } from "../src/supervisor.ts";
+import { prepareWorktree } from "../src/worktree.ts";
 
 const cliBin = fileURLToPath(new URL("../../cli/src/bin.ts", import.meta.url));
 const fakeClaude = fileURLToPath(new URL("./fixtures/fake-claude.ts", import.meta.url));
@@ -1423,5 +1435,154 @@ describe("YOLO chains integrate their intermediate tasks (RUN-23)", () => {
     expect(run.integration).toBeUndefined();
     expect((await taskIn("BE-03")).state).toBe("review");
     expect(existsSync(join(root, "be03.txt"))).toBe(false);
+  });
+});
+
+describe("resuming an interrupted run (RUN-27)", () => {
+  /**
+   * A run of BE-01 that was alive when the daemon stopped, built as the supervisor leaves it: its
+   * worktree has the agent's uncommitted work, a usage event is logged, and (from `checking`) the
+   * agent had called finish. Then the next daemon's start-up marks it interrupted.
+   */
+  async function interrupted(
+    from: "running" | "checking",
+    session: string | null = "s-1",
+  ): Promise<Run> {
+    const doc = await readTasks(root);
+    if (!doc.ok) throw new Error(doc.error.message);
+    const id = newRunId();
+    await store.create({
+      id,
+      task: "BE-01",
+      task_hash: taskHash(doc.document.tasks[0] as Task),
+      agent: { provider: "claude", model: "fake", permissions: "default" },
+      state: "queued",
+    });
+    await store.transition(id, "starting", { started_at: at });
+    const prepared = await prepareWorktree({
+      root,
+      worktreesDir: join(data, "worktrees", "p-1"),
+      document: doc.document,
+      task: "BE-01",
+      runId: id,
+      store,
+    });
+    await store.update(id, {
+      ...prepared,
+      prompt: buildRunPrompt(doc.document, "BE-01", { branch: prepared.branch }),
+      ...(session ? { session_id: session } : {}),
+    });
+    const ctx = { actor: "konsora", at, run: id };
+    const started = await mutate(root, { op: "start", task: "BE-01", text: "Started." }, ctx);
+    if (!started.ok) throw new Error(started.error.message);
+    await store.transition(id, "running");
+    await store.appendEvent(id, { at, t: "usage", input_tokens: 10, output_tokens: 5 });
+    writeFileSync(join(prepared.worktree, "feature.txt"), "feature\n");
+    if (from === "checking") {
+      const finished = await mutate(
+        root,
+        { op: "finish", task: "BE-01", summary: "Added feature.txt." },
+        { actor: "agent:claude", at, run: id },
+      );
+      if (!finished.ok) throw new Error(finished.error.message);
+      await store.transition(id, "checking");
+    }
+    await recoverRuns(store);
+    const run = await store.read(id);
+    expect(run.state).toBe("interrupted");
+    return run;
+  }
+
+  const finishing = (seen: RunSpec[]) =>
+    fakeAdapter(
+      (spec, emit) => {
+        emit({ t: "started", session: spec.resume ?? "s-new", model: "fake" });
+        emit({ t: "usage", input_tokens: 1, output_tokens: 2 });
+        konsora(spec, "finish", "BE-01", "--summary", "Added feature.txt after the restart.");
+      },
+      { seen, exit: { code: 0, signal: null } },
+    );
+
+  it("resumes the agent's session in the same worktree, and the run reaches review", async () => {
+    const before = await interrupted("running");
+    const seen: RunSpec[] = [];
+    const session = await resumeRun(options(finishing(seen)), { run: before.id });
+    expect(session.run).toMatchObject({ id: before.id, state: "starting" });
+    const run = await session.done;
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.cwd).toBe(before.worktree);
+    expect(seen[0]?.resume).toBe("s-1");
+    expect(seen[0]?.prompt).toBe(buildResumePrompt("BE-01"));
+    expect(run).toMatchObject({
+      id: before.id,
+      state: "succeeded",
+      worktree: before.worktree,
+      branch: before.branch,
+      prompt: before.prompt,
+      checks: [{ id: "test", exit_code: 0 }],
+      usage: { input_tokens: 11, output_tokens: 7 },
+    });
+    expect(await store.readDiff(run.id)).toContain("+feature");
+    expect((await store.list()).runs).toHaveLength(1);
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(after.notes?.some((n) => n.by === "konsora" && /resumed/.test(n.text))).toBe(true);
+    const events = (await store.readEvents(run.id)) as { t: string }[];
+    expect(events.find((e) => e.t === "resumed")).toMatchObject({ from: "running", step: "agent" });
+  });
+
+  it("without a session, the agent starts over with the run's own prompt", async () => {
+    const before = await interrupted("running", null);
+    const seen: RunSpec[] = [];
+    const run = await (await resumeRun(options(finishing(seen)), { run: before.id })).done;
+    expect(seen[0]?.resume).toBeUndefined();
+    expect(seen[0]?.prompt).toBe(before.prompt);
+    expect(run.state).toBe("succeeded");
+  });
+
+  it("interrupted while checking, only the checks run again, without the agent", async () => {
+    const before = await interrupted("checking");
+    const seen: RunSpec[] = [];
+    const run = await (await resumeRun(options(finishing(seen)), { run: before.id })).done;
+    expect(seen).toHaveLength(0);
+    expect(run).toMatchObject({
+      state: "succeeded",
+      check_attempts: 1,
+      checks: [{ id: "test", exit_code: 0 }],
+      summary: "Added feature.txt.",
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+    expect((await store.readChecks(run.id))?.attempts).toHaveLength(1);
+    expect((await taskIn("BE-01")).state).toBe("review");
+  });
+
+  it("refuses a run that is not interrupted, changing nothing", async () => {
+    const before = await interrupted("running");
+    await store.transition(before.id, "cancelled", { finished_at: at });
+    const seen: RunSpec[] = [];
+    await expect(resumeRun(options(finishing(seen)), { run: before.id })).rejects.toMatchObject({
+      code: "not_resumable",
+      message: expect.stringContaining("only an interrupted run can be resumed"),
+    });
+    expect(seen).toHaveLength(0);
+    expect((await store.read(before.id)).state).toBe("cancelled");
+    expect((await store.list()).runs).toHaveLength(1);
+  });
+
+  it("refuses a run whose worktree is gone, changing nothing", async () => {
+    const before = await interrupted("running");
+    git(root, "worktree", "remove", "--force", before.worktree as string);
+    const seen: RunSpec[] = [];
+    const error = await resumeRun(options(finishing(seen)), { run: before.id }).catch((e) => e);
+    expect(error).toBeInstanceOf(RunError);
+    expect(error).toMatchObject({
+      code: "not_resumable",
+      message: expect.stringContaining("discard the run"),
+    });
+    expect(seen).toHaveLength(0);
+    expect((await store.read(before.id)).state).toBe("interrupted");
+    expect((await store.list()).runs).toHaveLength(1);
+    expect((await taskIn("BE-01")).state).toBe("doing");
   });
 });

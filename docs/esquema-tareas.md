@@ -284,7 +284,7 @@ interrupted      → starting (reanudar) | cancelled (descartar)
 succeeded, failed, cancelled: finales
 ```
 
-`interrupted` corresponde a un run que estaba vivo cuando el daemon se cerró: al volver a arrancar **no se reanuda solo**; el humano decide si lo reanuda (con `--resume`, usando el `session_id`) o lo descarta.
+`interrupted` corresponde a un run que estaba vivo cuando el daemon se cerró: al volver a arrancar **no se reanuda solo**; el humano decide si lo reanuda o lo descarta. Reanudar (`resumeRun`, RUN-27) es el mismo run, no uno nuevo: vuelve a `starting` en su worktree y su rama, con su agente, y su tarea sigue en `doing`. Lo que hace depende del estado en que se interrumpió (`resumeStep`, en el evento `interrupted` de `events.jsonl`): desde `checking` el agente ya había terminado y **solo se repiten los checks**; desde cualquier otro, el agente reanuda su sesión (`session_id`) con `buildResumePrompt`, un mensaje determinista que le explica que Konsora se reinició y que siga con la tarea, o, sin sesión, empieza de nuevo con el prompt original del run. `setup` solo se repite si no había terminado. Los intentos de checks, los resúmenes ya comprobados y el uso anteriores se conservan. Se rechaza (`not_resumable`, sin cambiar nada) si el run no está `interrupted`, si su worktree ya no existe o salió de su rama, o si su tarea ya no está en `doing`. Una entrada de la cola enlazada al run sigue enlazada a él.
 
 Un run de rebase lleva `rebase_of` con el id del run en conflicto cuya rama y worktree reutiliza. `integration.state` solo existe en runs finales: `pending → merged | conflict | discarded` y `conflict → merged | discarded`. Solo un run `succeeded` puede quedar `pending`; cualquier run final se puede descartar directamente.
 

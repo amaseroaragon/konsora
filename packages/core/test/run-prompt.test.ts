@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildAnswerMessage, buildRebasePrompt, buildRunPrompt } from "../src/run-prompt.ts";
+import {
+  buildAnswerMessage,
+  buildRebasePrompt,
+  buildResumePrompt,
+  buildRunPrompt,
+} from "../src/run-prompt.ts";
 import type { Note, Task, TasksDocument } from "../src/schema.ts";
 
 const at = "2026-11-02T10:00:00Z";
@@ -213,5 +218,14 @@ describe("tool guidance (RUN-26)", () => {
       expect(prompt).toContain("`npm ci`,");
       expect(prompt).toContain("any other command may wait for the human's approval");
     }
+  });
+});
+
+describe("buildResumePrompt (RUN-27)", () => {
+  it("is deterministic and tells the agent that Konsora restarted and to go on with the task", () => {
+    const text = buildResumePrompt("BE-01");
+    expect(buildResumePrompt("BE-01")).toBe(text);
+    expect(text).toContain("Konsora stopped while you were working on BE-01");
+    expect(text).toContain("call `finish`");
   });
 });

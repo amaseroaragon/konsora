@@ -158,6 +158,19 @@ export function buildAnswerMessage(task: Task): string | null {
   ].join("\n");
 }
 
+/**
+ * The message that resumes the session of a run interrupted because Konsora stopped (RUN-27).
+ * Deterministic: it depends only on the task id.
+ */
+export function buildResumePrompt(taskId: string): string {
+  return [
+    `Konsora stopped while you were working on ${taskId}, and the human has resumed this run. You are in the same worktree, on the same branch, and everything you committed or left in it is still there.`,
+    "",
+    `Check where you left off (\`git status\`, \`git log\`) and continue with ${taskId}. Anything you were waiting for when Konsora stopped (a command, an approval) did not finish: run it again if you still need it. When the task is done, call \`finish\` with your summary.`,
+    "",
+  ].join("\n");
+}
+
 /** How much of each failed check's output the retry prompt carries: its last characters. */
 export const RETRY_OUTPUT_MAX = 4000;
 

@@ -25,6 +25,7 @@ import {
   blockers,
   buildAnswerMessage,
   buildRebasePrompt,
+  buildResumePrompt,
   buildRetryPrompt,
   buildRunPrompt,
   type CheckAttempt,
@@ -45,6 +46,8 @@ import {
   type RunId,
   type RunSetupResult,
   type RunState,
+  RunStateSchema,
+  resumeStep,
   runAgentFor,
   skipsReview,
   type Task,
@@ -142,6 +145,8 @@ export class RunError extends Error {
     | "not_rebasable"
     /** `startRebaseRun`: the run's branch integrates cleanly now; integrate it again instead. */
     | "no_conflict"
+    /** `resumeRun`: the run is not interrupted, or its worktree or task cannot take it back. */
+    | "not_resumable"
     /** The run was created but could not start; it is left `failed`. */
     | "launch_failed";
   constructor(code: RunError["code"], message: string) {
@@ -152,6 +157,7 @@ export class RunError extends Error {
 }
 
 const ACTOR = "konsora";
+const NO_EXIT = { code: null, signal: null };
 const timestamp = (date: Date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
 
 export async function startRun(
@@ -338,13 +344,141 @@ export async function startRebaseRun(
 }
 
 type LaunchPlan = {
-  /** What moves the task to doing: `start` (todo) or `rebase` (review). */
-  taskOp: { op: "start" | "rebase"; task: string; text: string };
+  /**
+   * What moves the task to doing: `start` (todo) or `rebase` (review); a resumed run only notes
+   * it (`note`), since its task is still doing.
+   */
+  taskOp: { op: "start" | "rebase" | "note"; task: string; text: string };
   setup: { command: string; timeout_s: number } | null;
   /** A session to resume on the first launch. */
   resume?: string;
   rebaseOf?: RunId;
+  /** What a resumed run carries over from before its interruption. */
+  resumed?: Resumed;
 };
+
+/** A resumed run (RUN-27): where it goes back to, and what it had done so far. */
+type Resumed = {
+  /** `checks`: the agent had finished, only the checks run again. */
+  step: "agent" | "checks";
+  /** The first message to the agent (`buildResumePrompt`, or the run's own prompt). */
+  prompt: string;
+  /** Check attempts already in `checks.json`, and the summary of the last one. */
+  attempts: number;
+  lastChecks: RunCheckResult[];
+  /** Summary notes that a recorded check attempt already checked. */
+  checkedSummaries: string[];
+  /** The `usage` events logged before the interruption. */
+  usage: Extract<RunEvent, { t: "usage" }>[];
+  exit: { code: number | null; signal: string | null };
+};
+
+/**
+ * Resumes a run left `interrupted` by a daemon that stopped (RUN-27), for the human: in the same
+ * worktree and branch, with the same agent. Its task must still be doing. If it was interrupted
+ * while `checking`, the agent had finished and only the checks run again; otherwise the agent
+ * resumes its session with `buildResumePrompt` (or, with no session, starts over with the run's
+ * own prompt). `project.setup` runs again only if it had not finished. Nothing changes when the
+ * run cannot be resumed.
+ */
+export async function resumeRun(
+  options: SupervisorOptions,
+  input: { run: RunId },
+): Promise<RunSession> {
+  const store = options.store ?? new RunStore(options.root);
+  const git = options.git ?? systemGit;
+  const now = () => timestamp(options.now?.() ?? new Date());
+
+  const plan = await readTasks(options.root);
+  if (!plan.ok) throw new RunError("invalid_plan", plan.error.message);
+  const run = await store.read(input.run);
+  if (run.state !== "interrupted") {
+    throw new RunError(
+      "not_resumable",
+      `Run ${run.id} is ${run.state}; only an interrupted run can be resumed`,
+    );
+  }
+  const { worktree, branch, base_commit: base, prompt } = run;
+  if (!worktree || !branch || !base || !prompt) {
+    throw new RunError(
+      "not_resumable",
+      `Run ${run.id} was interrupted before its worktree was ready; discard it and run the task again`,
+    );
+  }
+  const onBranch = await git
+    .run(["symbolic-ref", "-q", "HEAD"], { cwd: worktree })
+    .catch(() => null);
+  if (onBranch?.code !== 0 || onBranch.stdout.trim() !== `refs/heads/${branch}`) {
+    throw new RunError(
+      "not_resumable",
+      `The worktree of run ${run.id} is gone or left its branch; discard the run and run the task again`,
+    );
+  }
+  const task = indexTasks(plan.document).get(run.task);
+  if (!task) throw new RunError("not_found", `Task ${run.task} does not exist`);
+  if (task.state !== "doing") {
+    throw new RunError(
+      "not_resumable",
+      `${task.id} is ${task.state}, no longer doing; discard run ${run.id} instead`,
+    );
+  }
+  if (run.agent.provider !== options.adapter.id) {
+    throw new RunError(
+      "wrong_provider",
+      `Run ${run.id} used ${run.agent.provider}, but this runner uses ${options.adapter.id}`,
+    );
+  }
+
+  // What the run had done before it stopped: its log, its check attempts and its summaries.
+  const events = (await store.readEvents(run.id)) as Record<string, unknown>[];
+  const stopped = events.findLast((e) => e.t === "interrupted");
+  const from = RunStateSchema.safeParse(stopped?.from);
+  const step = resumeStep(from.success ? from.data : undefined);
+  const checksFile = await store.readChecks(run.id);
+  const attempts = checksFile?.attempts ?? [];
+  const lastAttempt = attempts.at(-1);
+  const checkedSummaries = lastAttempt
+    ? (task.notes ?? [])
+        .filter((n) => n.kind === "summary" && n.run === run.id && n.at <= lastAttempt.started_at)
+        .map((n) => n.id)
+    : [];
+  const usage = events.filter((e) => e.t === "usage") as Extract<RunEvent, { t: "usage" }>[];
+  const session = run.session_id;
+  const message = session ? buildResumePrompt(task.id) : prompt;
+  const setup =
+    !run.setup && !run.rebase_of && step === "agent" ? plannedSetup(plan.document) : null;
+
+  const started = await store.transition(run.id, "starting");
+  await store.appendEvent(run.id, {
+    at: now(),
+    t: "resumed",
+    from: from.success ? from.data : null,
+    step,
+    ...(step === "agent" ? { prompt: message, ...(session ? { session } : {}) } : {}),
+  });
+  return launchRun(options, store, git, now, plan.document, started, {
+    taskOp: {
+      op: "note",
+      task: task.id,
+      text:
+        step === "checks"
+          ? `Konsora run ${run.id} resumed after Konsora restarted: its checks run again.`
+          : `Konsora run ${run.id} resumed after Konsora restarted${session ? ", in the agent's session" : ", from its prompt (the agent had no session to resume)"}.`,
+    },
+    setup,
+    ...(session ? { resume: session } : {}),
+    ...(run.rebase_of ? { rebaseOf: run.rebase_of } : {}),
+    resumed: {
+      step,
+      prompt: message,
+      attempts: attempts.length,
+      lastChecks: run.checks ?? (lastAttempt ? checkSummary(lastAttempt) : []),
+      checkedSummaries,
+      usage,
+      exit: run.exit ?? { code: null, signal: null },
+    },
+  });
+}
 
 /** Registers a prepared (`starting`) run, moves its task to doing and supervises the agent. */
 async function launchRun(
@@ -429,6 +563,7 @@ async function launchRun(
     retries,
     how.resume,
     how.rebaseOf,
+    how.resumed,
   );
   return {
     run,
@@ -489,6 +624,8 @@ class Supervision {
   readonly #firstResume: string | undefined;
   /** For a rebase run: the run whose conflict it resolves. */
   readonly #rebaseOf: RunId | undefined;
+  /** For a resumed run: where it goes back to and what it had done (RUN-27). */
+  readonly #resumed: Resumed | undefined;
 
   constructor(
     options: SupervisorOptions,
@@ -503,7 +640,15 @@ class Supervision {
     retries: number,
     resume?: string,
     rebaseOf?: RunId,
+    resumed?: Resumed,
   ) {
+    this.#resumed = resumed;
+    if (resumed) {
+      this.#attempts = resumed.attempts;
+      this.#lastChecks = resumed.lastChecks;
+      for (const id of resumed.checkedSummaries) this.#checkedSummaries.add(id);
+      for (const event of resumed.usage) this.#usage.add(event);
+    }
     this.#firstResume = resume;
     this.#rebaseOf = rebaseOf;
     this.#retries = retries;
@@ -542,8 +687,17 @@ class Supervision {
         return this.#serial(() => this.#failSetup(setup));
       }
     }
-    let prompt = this.#prompt;
+    let prompt = this.#resumed?.prompt ?? this.#prompt;
     let resume: string | undefined = this.#firstResume;
+    if (this.#resumed?.step === "checks") {
+      // Interrupted while checking: the agent had finished, so only the checks run again.
+      const closed = await this.#serial(() =>
+        this.#close(this.#resumed?.exit ?? NO_EXIT, undefined),
+      );
+      if (!("retry" in closed)) return closed;
+      prompt = closed.retry;
+      resume = this.#session;
+    }
     for (;;) {
       const handle = this.#launch(prompt, resume);
       this.#handle = handle;

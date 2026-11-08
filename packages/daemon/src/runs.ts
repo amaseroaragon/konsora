@@ -41,6 +41,7 @@ import {
   RunStoreError,
   recoverRuns,
   removeWorktree,
+  resumeRun,
   type SupervisorOptions,
   startRebaseRun,
   startRun,
@@ -219,6 +220,20 @@ export class RunManager {
       run: conflicted.id,
     });
     return this.#track(project, conflicted.task, session);
+  }
+
+  /**
+   * The human resumes a run left `interrupted` by an earlier daemon (RUN-27): the same run, in its
+   * worktree, with its agent. A queue entry linked to it stays linked. Resolves once started.
+   */
+  async resume(project: Project, id: string): Promise<Run> {
+    const run = await this.get(project, id);
+    const adapter = this.#adapters[run.agent.provider];
+    if (!adapter) {
+      throw new RunManagerError("no_adapter", `Konsora cannot run ${run.agent.provider} yet`);
+    }
+    const session = await resumeRun(this.#supervisorOptions(project, adapter), { run: run.id });
+    return this.#track(project, run.task, session);
   }
 
   #track(project: Project, task: string, session: RunSession): Run {

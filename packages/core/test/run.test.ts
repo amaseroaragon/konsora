@@ -12,6 +12,7 @@ import {
   RunSchema,
   type RunState,
   RunStateSchema,
+  resumeStep,
   runIdTime,
   transitionIntegration,
   transitionRun,
@@ -375,5 +376,14 @@ describe("providerLimits", () => {
     expect(
       providerLimits("claude", { at: "2026-11-06T19:00:00Z", windows: [] }, fromRun).source,
     ).toBe("run");
+  });
+});
+
+describe("resumeStep (RUN-27)", () => {
+  it("repeats only the checks of a run interrupted while checking, and resumes the agent otherwise", () => {
+    expect(resumeStep("checking")).toBe("checks");
+    for (const from of ["starting", "running", "waiting_approval", undefined] as const) {
+      expect(resumeStep(from)).toBe("agent");
+    }
   });
 });

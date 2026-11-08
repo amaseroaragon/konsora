@@ -807,6 +807,35 @@ describe("daemon start-up", () => {
     expect(res.body.run.state).toBe("interrupted");
     expect(seen).toHaveLength(count);
   });
+
+  it("resumes an interrupted run on request, in its session, and refuses it twice (RUN-27)", async () => {
+    behaviour = "hang";
+    const run = await launch();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await daemon.close();
+    daemon = await startDaemon({ dataDir: data, adapters: { claude: fake } });
+    behaviour = "finish";
+    const count = seen.length;
+
+    const res = await api<{ run: Run }>(`/projects/${projectId}/runs/${run.id}/resume`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.run).toMatchObject({ id: run.id, state: "starting" });
+    const done = await settled(run.id);
+    expect(done.state).toBe("succeeded");
+    expect(await taskState("BE-01")).toBe("review");
+    expect(seen).toHaveLength(count + 1);
+    expect(seen.at(-1)).toMatchObject({ cwd: run.worktree, resume: "s-1" });
+    expect((await api<{ runs: Run[] }>(`/projects/${projectId}/runs`)).body.runs).toHaveLength(1);
+
+    const again = await api<{ error: { code: string } }>(
+      `/projects/${projectId}/runs/${run.id}/resume`,
+      { method: "POST" },
+    );
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("not_resumable");
+  });
 });
 
 describe("the agent catalog", () => {
