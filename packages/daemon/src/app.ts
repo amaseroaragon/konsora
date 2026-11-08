@@ -8,6 +8,8 @@ import {
   dependentsOf,
   deriveFlags,
   indexTasks,
+  MAX_VARIANTS,
+  MIN_VARIANTS,
   parseOp,
   type Task,
   TaskIdSchema,
@@ -69,13 +71,17 @@ const QUEUE_STATUS: Record<QueueError["code"], 404 | 409 | 422> = {
   not_queued: 404,
 };
 
-const RunBody = z.strictObject({
-  task: z
-    .string()
-    .transform((id) => id.toUpperCase())
-    .pipe(TaskIdSchema),
-  agent: AgentSpecSchema.optional(),
-});
+const RunBody = z
+  .strictObject({
+    task: z
+      .string()
+      .transform((id) => id.toUpperCase())
+      .pipe(TaskIdSchema),
+    agent: AgentSpecSchema.optional(),
+    /** Variants (RUN-28): one run per agent, from 2 to 3, instead of `agent`. */
+    agents: z.array(AgentSpecSchema).min(MIN_VARIANTS).max(MAX_VARIANTS).optional(),
+  })
+  .refine((body) => !(body.agent && body.agents), "Send agent or agents, not both");
 
 /** HTTP status for the runner's errors (the body carries code and message). */
 const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
@@ -89,6 +95,11 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   not_rebasable: 409,
   not_resumable: 409,
   variant_not_chosen: 409,
+  variants_running: 409,
+  variant_group_closed: 409,
+  not_a_variant: 409,
+  not_choosable: 409,
+  no_slots: 409,
   no_conflict: 409,
   invalid_id: 404,
   active_run: 409,
@@ -520,9 +531,28 @@ export function createApp(options: AppOptions): Hono {
     const body = RunBody.safeParse(await c.req.json().catch(() => null));
     if (!body.success)
       return c.json(
-        { error: { code: "bad_request", message: "Send {task, agent?} as JSON" } },
+        {
+          error: {
+            code: "bad_request",
+            message:
+              "Send {task, agent?} as JSON, or {task, agents} with 2 or 3 agents for variants",
+          },
+        },
         400,
       );
+    if (body.data.agents) {
+      // Variants start at once: they must all fit within max_parallel now.
+      const full = await options.scheduler?.fits(
+        project,
+        body.data.agents.map((a) => a.provider),
+      );
+      if (full) throw new RunManagerError("no_slots", full);
+      const runs = await runsOf().startVariants(project, {
+        task: body.data.task,
+        agents: body.data.agents,
+      });
+      return c.json({ runs }, 201);
+    }
     const run = await runsOf().start(project, {
       task: body.data.task,
       ...(body.data.agent ? { agent: body.data.agent } : {}),
@@ -577,6 +607,15 @@ export function createApp(options: AppOptions): Hono {
   api.post("/projects/:id/runs/:runId/resume", async (c) => {
     const project = await registry.get(c.req.param("id"));
     return c.json({ run: await runsOf().resume(project, c.req.param("runId")) });
+  });
+
+  /**
+   * The human chooses the winning variant (RUN-28): the others are discarded, with their
+   * worktrees and branches; their runs and diffs stay. Accepting the task integrates the winner.
+   */
+  api.post("/projects/:id/runs/:runId/choose", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({ run: await runsOf().choose(project, c.req.param("runId")) });
   });
 
   api.post("/projects/:id/runs/:runId/cancel", async (c) => {

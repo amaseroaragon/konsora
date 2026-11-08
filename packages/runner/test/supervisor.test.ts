@@ -1586,3 +1586,101 @@ describe("resuming an interrupted run (RUN-27)", () => {
     expect((await taskIn("BE-01")).state).toBe("doing");
   });
 });
+
+describe("variants of a task (RUN-28)", () => {
+  /** An agent that writes `file`, then finishes once `gate` opens (or stops without finishing). */
+  function variantAgent(file: string, gate: Promise<void> = Promise.resolve(), finish = true) {
+    return fakeAdapter(
+      async (spec, emit) => {
+        emit({ t: "started", session: `s-${file}`, model: spec.agent.model });
+        writeFileSync(join(spec.cwd, file), `${file}\n`);
+        await gate;
+        if (finish) konsora(spec, "finish", "BE-01", "--summary", `Wrote ${file}.`);
+      },
+      { exit: { code: 0, signal: null } },
+    );
+  }
+
+  function opener(): { gate: Promise<void>; open: () => void } {
+    let open = () => undefined as void;
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    return { gate, open };
+  }
+
+  it("runs two variants in separate worktrees; the task reaches review only when both close", async () => {
+    const second = opener();
+    const a = await startRun(options(variantAgent("a.txt")), {
+      task: "BE-01",
+      agent: { provider: "claude", model: "fake" },
+      variant: "first",
+    });
+    const b = await startRun(options(variantAgent("b.txt", second.gate)), {
+      task: "BE-01",
+      agent: { provider: "claude", model: "other" },
+      variant: a.run.id,
+    });
+    expect(a.run.variant_of).toBe(a.run.id);
+    expect(b.run.variant_of).toBe(a.run.id);
+    expect(b.run.worktree).not.toBe(a.run.worktree);
+    expect(b.run.branch).not.toBe(a.run.branch);
+
+    const first = await a.done;
+    expect(first.state).toBe("succeeded");
+    expect((await taskIn("BE-01")).state).toBe("doing");
+    // No other run of the task may start meanwhile.
+    await expect(startRun(options(variantAgent("c.txt")), { task: "BE-01" })).rejects.toMatchObject(
+      { code: "not_ready" },
+    );
+
+    second.open();
+    const last = await b.done;
+    expect(last.state).toBe("succeeded");
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("review");
+    expect(after.notes?.filter((n) => n.kind === "summary").map((n) => n.run)).toEqual([
+      a.run.id,
+      b.run.id,
+    ]);
+    expect(after.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      text: expect.stringContaining("Choose the winner"),
+    });
+    expect(await store.readDiff(a.run.id)).toContain("+a.txt");
+    expect(await store.readDiff(b.run.id)).toContain("+b.txt");
+    expect(await store.readDiff(b.run.id)).not.toContain("a.txt");
+  });
+
+  it("a failed variant does not return the task while another one runs; all failing does", async () => {
+    const second = opener();
+    const a = await startRun(options(variantAgent("a.txt", Promise.resolve(), false)), {
+      task: "BE-01",
+      variant: "first",
+    });
+    const b = await startRun(options(variantAgent("b.txt", second.gate)), {
+      task: "BE-01",
+      variant: a.run.id,
+    });
+    expect((await a.done).state).toBe("failed");
+    expect((await taskIn("BE-01")).state).toBe("doing");
+    second.open();
+    expect((await b.done).state).toBe("succeeded");
+    expect((await taskIn("BE-01")).state).toBe("review");
+  });
+
+  it("when no variant succeeds, the task goes back to todo", async () => {
+    const a = await startRun(options(variantAgent("a.txt", Promise.resolve(), false)), {
+      task: "BE-01",
+      variant: "first",
+    });
+    const b = await startRun(options(variantAgent("b.txt", Promise.resolve(), false)), {
+      task: "BE-01",
+      variant: a.run.id,
+    });
+    await Promise.all([a.done, b.done]);
+    const after = await taskIn("BE-01");
+    expect(after.state).toBe("todo");
+    expect(after.notes?.at(-1)?.text).toContain("none of the 2 variants");
+  });
+});

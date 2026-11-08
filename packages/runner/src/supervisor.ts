@@ -67,6 +67,7 @@ import { type Git, systemGit } from "./git.ts";
 import { IntegrationError, integrateRun } from "./integrate.ts";
 import { RunStore } from "./run-store.ts";
 import { UsageTally } from "./usage.ts";
+import { settleVariants } from "./variants.ts";
 import { prepareWorktree, removeWorktree, runGitWritePaths, WorktreeError } from "./worktree.ts";
 
 /** Where the daemon registers runs for permission approvals (`Approvals.registerRun`). */
@@ -162,7 +163,15 @@ const timestamp = (date: Date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
 
 export async function startRun(
   options: SupervisorOptions,
-  input: { task: string; agent?: AgentSpec },
+  input: {
+    task: string;
+    agent?: AgentSpec;
+    /**
+     * A variant (RUN-28): `first` founds a group (the task goes to doing), a run id joins that
+     * run's group while the task is doing. Each variant has its own worktree, prompt and checks.
+     */
+    variant?: "first" | RunId;
+  },
 ): Promise<RunSession> {
   const store = options.store ?? new RunStore(options.root);
   const git = options.git ?? systemGit;
@@ -174,7 +183,15 @@ export async function startRun(
   const index = indexTasks(plan.document);
   const task = index.get(input.task);
   if (!task) throw new RunError("not_found", `Task ${input.task} does not exist`);
-  if (!isReady(task, index)) {
+  const joins = input.variant !== undefined && input.variant !== "first";
+  if (joins) {
+    if (task.state !== "doing") {
+      throw new RunError(
+        "not_ready",
+        `${task.id} is ${task.state}; a variant joins its group while the task is doing`,
+      );
+    }
+  } else if (!isReady(task, index)) {
     const waiting = blockers(task, index);
     throw new RunError(
       "not_ready",
@@ -195,12 +212,15 @@ export async function startRun(
   }
   const runAgent: AgentSpec = { ...agent, permissions: agent.permissions ?? "default" };
 
+  const newId = newRunId();
+  const variantOf = input.variant === "first" ? newId : input.variant;
   const created = await store.create({
-    id: newRunId(),
+    id: newId,
     task: task.id,
     task_hash: taskHash(task),
     agent: runAgent,
     state: "queued",
+    ...(variantOf ? { variant_of: variantOf } : {}),
   });
   const id = created.id;
   let run = await store.transition(id, "starting", { started_at: now() });
@@ -234,7 +254,19 @@ export async function startRun(
   }
 
   return launchRun(options, store, git, now, plan.document, run, {
-    taskOp: { op: "start", task: task.id, text: `Konsora run ${id} started.` },
+    taskOp: joins
+      ? {
+          op: "note",
+          task: task.id,
+          text: `Konsora run ${id} started as a variant of run ${variantOf}.`,
+        }
+      : {
+          op: "start",
+          task: task.id,
+          text: variantOf
+            ? `Konsora run ${id} started, the first of a group of variants.`
+            : `Konsora run ${id} started.`,
+        },
     setup: plannedSetup(plan.document),
   });
 }
@@ -626,6 +658,8 @@ class Supervision {
   readonly #rebaseOf: RunId | undefined;
   /** For a resumed run: where it goes back to and what it had done (RUN-27). */
   readonly #resumed: Resumed | undefined;
+  /** For a variant (RUN-28): its group. The task is settled by the group, not by this run. */
+  readonly #variantOf: RunId | undefined;
 
   constructor(
     options: SupervisorOptions,
@@ -643,6 +677,7 @@ class Supervision {
     resumed?: Resumed,
   ) {
     this.#resumed = resumed;
+    this.#variantOf = run.variant_of;
     if (resumed) {
       this.#attempts = resumed.attempts;
       this.#lastChecks = resumed.lastChecks;
@@ -830,6 +865,9 @@ class Supervision {
    */
   #expectsAnswer(task: Task): boolean {
     if (task.state !== "doing") return false;
+    // With variants, each waits only for the answer to its own question.
+    const question = (task.notes ?? []).findLast((n) => n.kind === "question");
+    if (question?.run !== undefined && question.run !== this.#id) return false;
     if (isWaiting(task)) return true;
     const answer = latestAnswer(task);
     return answer !== undefined && !this.#delivered.has(answer.id);
@@ -961,6 +999,14 @@ class Supervision {
       if (!passed && used < this.#retries && mayRetry && resumable && task?.state === "doing") {
         return this.#retry(attempt.attempt, checked);
       }
+      if (this.#variantOf) {
+        if (!passed) {
+          await this.#note(
+            this.#failedChecksNote(attempt.attempt, used, used < this.#retries && !resumable, true),
+          );
+        }
+        return this.#closeVariant("succeeded", checked);
+      }
       // An intermediate task of a YOLO chain with every check green is integrated before
       // `complete` takes it to done, so its dependents start from a base with its commit. Only a
       // succeeded run can be integrated, so in that case the run succeeds first.
@@ -1007,6 +1053,12 @@ class Supervision {
           ? `the agent was stopped by ${exit.signal} before calling finish`
           : `the agent exited with code ${exit.code} before calling finish`;
     await this.#log({ t: "error", message: `Run failed: ${reason}`, retryable: false });
+    if (this.#variantOf) {
+      await this.#note(
+        `Konsora run ${this.#id} (a variant) failed: ${reason}. Its work is kept on its branch.`,
+      );
+      return this.#closeVariant("failed", fields);
+    }
     if (task?.state === "doing") {
       await this.#returnTask(
         `Konsora run ${this.#id} failed: ${reason}. Its work is kept on its branch for review.`,
@@ -1020,6 +1072,7 @@ class Supervision {
   /** Cancelled: the task goes back to todo (its work stays on the branch), the run `cancelled`. */
   async #closeCancelled(task: Task | null, fields: Parameters<RunStore["transition"]>[2]) {
     await this.#log({ t: "cancelled" });
+    if (this.#variantOf) return this.#closeVariant("cancelled", fields);
     if (task?.state === "doing") {
       await this.#returnTask(
         `Konsora run ${this.#id} was cancelled. Its work is kept on its branch.`,
@@ -1028,6 +1081,29 @@ class Supervision {
     const run = await this.#store.transition(this.#id, "cancelled", fields);
     this.#state = run.state;
     return run;
+  }
+
+  /**
+   * A variant closes on its own (RUN-28): the task is left to its group, which the last variant
+   * to close settles (`settleVariants`).
+   */
+  async #closeVariant(
+    to: "succeeded" | "failed" | "cancelled",
+    fields: Parameters<RunStore["transition"]>[2],
+  ): Promise<Run> {
+    const run = await this.#store.transition(this.#id, to, fields);
+    this.#state = run.state;
+    await settleVariants({ root: this.#options.root, store: this.#store, run, at: this.#now() });
+    return run;
+  }
+
+  /** A Konsora note on the task, from this run (it never changes the task's state). */
+  async #note(text: string): Promise<void> {
+    await mutate(
+      this.#options.root,
+      { op: "note", task: this.#task, text },
+      { actor: ACTOR, at: this.#now(), run: this.#id },
+    );
   }
 
   /**
@@ -1195,6 +1271,12 @@ class Supervision {
     const reason = `the setup command \`${setup.command}\` ${how}`;
     await this.#log({ t: "error", message: `Run failed: ${reason}`, retryable: false });
     const task = await this.#readTask();
+    if (this.#variantOf) {
+      await this.#note(
+        `Konsora run ${this.#id} (a variant) failed before launching the agent: ${reason}. Its output is in the run's log.`,
+      );
+      return this.#closeVariant("failed", { finished_at: this.#now(), setup });
+    }
     if (task?.state === "doing") {
       await this.#returnTask(
         `Konsora run ${this.#id} failed before launching the agent: ${reason}. Its output is in the run's log. Fix project.setup or the project, then run the task again.`,
@@ -1246,13 +1328,21 @@ class Supervision {
   }
 
   /** The Konsora note on a task whose checks failed for good. */
-  #failedChecksNote(attempt: CheckAttempt, used: number, noSession: boolean): string {
+  #failedChecksNote(
+    attempt: CheckAttempt,
+    used: number,
+    noSession: boolean,
+    variant = false,
+  ): string {
     const why = noSession
       ? " The agent's session could not be resumed to retry them."
       : used > 0
         ? ` They still fail after ${used} ${used === 1 ? "retry" : "retries"}.`
         : "";
-    return `Konsora run ${this.#id}: checks failed: ${this.#failedList(attempt).join(", ")}.${why} The task is in review with its checks failing.`;
+    const where = variant
+      ? " This variant ends with its checks failing."
+      : " The task is in review with its checks failing.";
+    return `Konsora run ${this.#id}: checks failed: ${this.#failedList(attempt).join(", ")}.${why}${where}`;
   }
 
   /**

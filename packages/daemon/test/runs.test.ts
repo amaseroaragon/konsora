@@ -131,7 +131,8 @@ const fake: AgentAdapter = {
         if (mode === "rebase") await konsora(spec, "finish", "BE-01", "--summary", "Rebased.");
       }
       if (mode === "finish") {
-        writeFileSync(join(spec.cwd, "app.txt"), "from the agent\n");
+        const author = spec.agent.provider === "codex" ? "codex" : "the agent";
+        writeFileSync(join(spec.cwd, "app.txt"), `from ${author}\n`);
         queue.push({ t: "file", path: "app.txt", change: "modify" });
         await konsora(spec, "finish", "BE-01", "--summary", "Changed app.txt.");
         queue.push({ t: "message", text: "Done.", final: true });
@@ -1017,5 +1018,112 @@ describe("asking the agent to rebase a conflict (RUN-24)", () => {
     );
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("not_rebasable");
+  });
+});
+
+describe("variants of a task (RUN-28)", () => {
+  const codexFake: AgentAdapter = { ...fake, id: "codex" };
+  const agents = [
+    { provider: "claude", model: "fake" },
+    { provider: "codex", model: "fake" },
+  ];
+
+  async function withCodex(): Promise<void> {
+    await daemon.close();
+    daemon = await startDaemon({
+      dataDir: data,
+      adapters: { claude: fake, codex: codexFake },
+      interruptGraceMs: 100,
+    });
+  }
+
+  /** The group settles the task right after its last variant closes. */
+  async function taskBecomes(state: string): Promise<void> {
+    const deadline = Date.now() + 5000;
+    while ((await taskState("BE-01")) !== state) {
+      if (Date.now() > deadline) throw new Error(`BE-01 never became ${state}`);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
+  async function launchVariants(): Promise<Run[]> {
+    const res = await api<{ runs: Run[] }>(`/projects/${projectId}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ task: "BE-01", agents }),
+    });
+    expect(res.status).toBe(201);
+    return res.body.runs;
+  }
+
+  it("runs two agents in separate worktrees and the task reaches review with both", async () => {
+    await withCodex();
+    const [a, b] = (await launchVariants()) as [Run, Run];
+    expect(a.variant_of).toBe(a.id);
+    expect(b.variant_of).toBe(a.id);
+    expect([a.agent.provider, b.agent.provider]).toEqual(["claude", "codex"]);
+    expect(a.worktree).not.toBe(b.worktree);
+    const done = [await settled(a.id), await settled(b.id)];
+    expect(done.map((r) => r.state)).toEqual(["succeeded", "succeeded"]);
+    await taskBecomes("review");
+    expect(readFileSync(join(a.worktree as string, "app.txt"), "utf8")).toBe("from the agent\n");
+    expect(readFileSync(join(b.worktree as string, "app.txt"), "utf8")).toBe("from codex\n");
+  });
+
+  it("choosing one and accepting leaves one commit with its work and removes both worktrees", async () => {
+    await withCodex();
+    const [a, b] = (await launchVariants()) as [Run, Run];
+    await settled(a.id);
+    await settled(b.id);
+    await taskBecomes("review");
+    const head = git(root, "rev-parse", "main");
+
+    const early = await api<{ error: { code: string; message: string } }>(
+      `/projects/${projectId}/ops`,
+      { method: "POST", body: JSON.stringify({ op: "accept", task: "BE-01" }) },
+    );
+    expect(early.status).toBe(409);
+    expect(early.body.error.code).toBe("variant_not_chosen");
+    expect(await taskState("BE-01")).toBe("review");
+
+    const chosen = await api<{ run: Run }>(`/projects/${projectId}/runs/${b.id}/choose`, {
+      method: "POST",
+    });
+    expect(chosen.status).toBe(200);
+    expect(chosen.body.run.integration).toEqual({ state: "pending" });
+    const loser = (await api<{ run: Run }>(`/projects/${projectId}/runs/${a.id}`)).body.run;
+    expect(loser.integration).toEqual({ state: "discarded" });
+    expect(existsSync(a.worktree as string)).toBe(false);
+    expect(
+      (await api<{ diff: string }>(`/projects/${projectId}/runs/${a.id}/diff`)).body.diff,
+    ).toContain("+from the agent");
+
+    const accepted = await api<{ integrated: { run: string } }>(`/projects/${projectId}/ops`, {
+      method: "POST",
+      body: JSON.stringify({ op: "accept", task: "BE-01" }),
+    });
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.integrated.run).toBe(b.id);
+    expect(git(root, "rev-list", "--count", `${head}..main`)).toBe("1");
+    expect(readFileSync(join(root, "app.txt"), "utf8")).toBe("from codex\n");
+    expect(existsSync(b.worktree as string)).toBe(false);
+    expect(git(root, "branch", "--list", "konsora/*")).toBe("");
+    expect(await taskState("BE-01")).toBe("done");
+  });
+
+  it("refuses variants that do not fit in max_parallel, creating nothing", async () => {
+    await withCodex();
+    await api("/settings/parallel", { method: "PUT", body: JSON.stringify({ max_parallel: 1 }) });
+    const res = await api<{ error: { code: string } }>(`/projects/${projectId}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ task: "BE-01", agents }),
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("no_slots");
+    expect((await api<{ runs: Run[] }>(`/projects/${projectId}/runs`)).body.runs).toEqual([]);
+    const one = await api(`/projects/${projectId}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ task: "BE-01", agents: [agents[0]] }),
+    });
+    expect(one.status).toBe(400);
   });
 });

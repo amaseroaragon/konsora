@@ -5,6 +5,7 @@ import {
   DEFAULT_MAX_PARALLEL,
   emptyQueue,
   enqueue,
+  fitsSlots,
   launchOrder,
   markLaunched,
   nextRuns,
@@ -408,5 +409,15 @@ describe("enqueue", () => {
       ok: false,
       code: "unknown_task",
     });
+  });
+});
+
+describe("fitsSlots (RUN-28)", () => {
+  const limits = { max_parallel: 3, per_provider: { codex: 1 } };
+  it("lets variants start only if all of them fit now, overall and per provider", () => {
+    const usage = { total: 1, per_provider: { claude: 1 } };
+    expect(fitsSlots(usage, limits, ["claude", "codex"])).toBeNull();
+    expect(fitsSlots(usage, limits, ["claude", "codex", "claude"])).toMatch(/2 of 3 are free/);
+    expect(fitsSlots(usage, limits, ["codex", "codex"])).toMatch(/codex slots, and 1 of 1/);
   });
 });

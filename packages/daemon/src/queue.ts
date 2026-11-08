@@ -16,11 +16,13 @@ import {
   type AgentSpec,
   type DaemonSettings,
   enqueue,
+  fitsSlots,
   isActiveRunState,
   markLaunched,
   nextRuns,
   type ParallelLimits,
   ParallelLimitsSchema,
+  type Provider,
   parseDaemonSettings,
   parseQueueFile,
   type QueueEntryStatus,
@@ -114,6 +116,19 @@ export class Scheduler {
     this.#closed = true;
     for (const stop of this.#watchers.values()) stop();
     this.#watchers.clear();
+  }
+
+  /**
+   * Whether runs of `providers` fit in the free slots of every project now (variants, RUN-28):
+   * `null` if they do, else why not.
+   */
+  async fits(project: Project, providers: readonly Provider[]): Promise<string | null> {
+    const { runs, elsewhere } = await this.#runs(project);
+    return fitsSlots(
+      slotUsage([...runs, ...elsewhere]),
+      (await this.settings()).parallel,
+      providers,
+    );
   }
 
   // ── Settings ───────────────────────────────────────────────────────────────

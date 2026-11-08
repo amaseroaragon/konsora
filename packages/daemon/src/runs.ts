@@ -16,13 +16,17 @@ import {
   type AgentSpec,
   type ChecksFile,
   checkAgent,
+  chooseVariant,
   integrableRun,
   isActiveRunState,
+  MAX_VARIANTS,
+  MIN_VARIANTS,
   type Provider,
   type Run,
   type RunId,
   RunIdSchema,
   runAgentFor,
+  type VariantError,
 } from "@konsora/core";
 import { mutate, readTasks } from "@konsora/core/store";
 import {
@@ -44,6 +48,7 @@ import {
   removeWorktree,
   resumeRun,
   type SupervisorOptions,
+  settleVariants,
   startRebaseRun,
   startRun,
 } from "@konsora/runner";
@@ -93,7 +98,8 @@ export class RunManagerError extends Error {
     | "no_adapter"
     | "not_discardable"
     | "invalid_agent"
-    | "variant_not_chosen";
+    | "no_slots"
+    | VariantError["code"];
   constructor(code: RunManagerError["code"], message: string) {
     super(message);
     this.name = "RunManagerError";
@@ -230,6 +236,86 @@ export class RunManager {
   }
 
   /**
+   * Launches 2 or 3 variants of `task` (RUN-28), one per agent, each in its own worktree with its
+   * own prompt and checks: the first founds the group and moves the task to doing, the others
+   * join it. Every agent is checked first, so nothing is created if one is not available. A
+   * variant that fails to start is left `failed`; the others go on. Resolves once all started.
+   */
+  async startVariants(
+    project: Project,
+    input: { task: string; agents: readonly AgentSpec[] },
+  ): Promise<Run[]> {
+    if (input.agents.length < MIN_VARIANTS || input.agents.length > MAX_VARIANTS) {
+      throw new RunManagerError(
+        "invalid_agent",
+        `Choose from ${MIN_VARIANTS} to ${MAX_VARIANTS} agents for the variants of ${input.task}`,
+      );
+    }
+    const adapters: AgentAdapter[] = [];
+    for (const agent of input.agents) {
+      const adapter = this.#adapters[agent.provider];
+      if (!adapter)
+        throw new RunManagerError("no_adapter", `Konsora cannot run ${agent.provider} yet`);
+      const check = checkAgent(agent, await this.catalog.entry(agent.provider));
+      if (!check.ok) throw new RunManagerError("invalid_agent", check.reason);
+      adapters.push(adapter);
+    }
+    const [firstAgent, ...rest] = input.agents as [AgentSpec, ...AgentSpec[]];
+    const first = await startRun(this.#supervisorOptions(project, adapters[0] as AgentAdapter), {
+      task: input.task,
+      agent: firstAgent,
+      variant: "first",
+    });
+    const runs = [this.#track(project, input.task, first)];
+    for (const [i, agent] of rest.entries()) {
+      try {
+        const session = await startRun(
+          this.#supervisorOptions(project, adapters[i + 1] as AgentAdapter),
+          { task: input.task, agent, variant: first.run.id },
+        );
+        runs.push(this.#track(project, input.task, session));
+      } catch (error) {
+        if (!(error instanceof RunError) || error.code !== "launch_failed") throw error;
+        const failed = (await this.list(project, input.task)).findLast(
+          (r) => r.variant_of === first.run.id && r.state === "failed",
+        );
+        if (failed) runs.push(failed);
+      }
+    }
+    return runs;
+  }
+
+  /**
+   * The human chooses the winning variant (RUN-28): it waits for integration (`pending`), the
+   * other variants are discarded and their worktrees and branches removed; their runs and diffs
+   * stay. Accepting the task then integrates the winner.
+   */
+  async choose(project: Project, id: string): Promise<Run> {
+    const winner = await this.get(project, id);
+    const runs = await this.list(project, winner.task);
+    const chosen = chooseVariant(runs, winner.id);
+    if (!chosen.ok) throw new RunManagerError(chosen.error.code, chosen.error.message);
+    const store = this.store(project);
+    let result = winner;
+    for (const run of chosen.runs) {
+      const state = run.integration?.state;
+      if (!state) continue;
+      if (state === "discarded" && run.worktree && run.branch) {
+        await removeWorktree({
+          root: project.path,
+          worktreesDir: this.worktreesDir(project),
+          worktree: run.worktree,
+          branch: run.branch,
+          ...(this.#options.git ? { git: this.#options.git } : {}),
+        });
+      }
+      const written = await store.integrate(run.id, state);
+      if (run.id === winner.id) result = written;
+    }
+    return result;
+  }
+
+  /**
    * The human resumes a run left `interrupted` by an earlier daemon (RUN-27): the same run, in its
    * worktree, with its agent. A queue entry linked to it stays linked. Resolves once started.
    */
@@ -331,6 +417,13 @@ export class RunManager {
     }
     this.#options.approvals.endRun(run.id);
     const at = this.#at();
+    if (run.variant_of) {
+      // A variant leaves the task to its group: the last one to close settles it.
+      await store.appendEvent(run.id, { at, t: "cancelled" });
+      const closed = await store.transition(run.id, "cancelled", { finished_at: at });
+      await settleVariants({ root: project.path, store, run: closed, at });
+      return closed;
+    }
     const plan = await readTasks(project.path);
     const task = plan.ok ? plan.document.tasks.find((t) => t.id === run.task) : undefined;
     if (task?.state === "doing") {
@@ -353,13 +446,17 @@ export class RunManager {
 
   /** After the human answers `task`'s question: deliver it to the task's live run, if any. */
   async deliverAnswer(project: Project, task: string): Promise<boolean> {
-    for (const live of this.#sessions.values()) {
-      if (live.project === project.id && live.task === task) {
-        await live.session.deliverAnswer();
-        return true;
-      }
-    }
-    return false;
+    // With variants, the answer goes to the run that asked.
+    const plan = await readTasks(project.path);
+    const notes = plan.ok ? plan.document.tasks.find((t) => t.id === task)?.notes : undefined;
+    const asker = notes?.findLast((n) => n.kind === "question")?.run;
+    const lives = [...this.#sessions.values()].filter(
+      (live) => live.project === project.id && live.task === task,
+    );
+    const live = lives.find((l) => l.session.run.id === asker) ?? lives[0];
+    if (!live) return false;
+    await live.session.deliverAnswer();
+    return true;
   }
 
   /**

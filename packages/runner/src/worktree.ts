@@ -15,6 +15,7 @@ import { lstat, mkdir, readdir, realpath, rm } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   blockers,
+  canAddRun,
   indexTasks,
   isActiveRunState,
   isReady,
@@ -86,7 +87,17 @@ export async function prepareWorktree(input: PrepareWorktreeInput): Promise<Prep
   const index = indexTasks(input.document);
   const task = index.get(input.task);
   if (!task) throw new WorktreeError("not_found", `Task ${input.task} does not exist`);
-  if (!isReady(task, index)) {
+  // A variant that joins its group (CORE-12) finds the task already doing, started by the first.
+  const self = await input.store.read(input.runId).catch(() => null);
+  const joins = self?.variant_of !== undefined && self.variant_of !== self.id;
+  if (joins) {
+    if (task.state !== "doing") {
+      throw new WorktreeError(
+        "not_ready",
+        `${task.id} is ${task.state}; a variant joins its group while the task is doing`,
+      );
+    }
+  } else if (!isReady(task, index)) {
     const waiting = blockers(task, index);
     throw new WorktreeError(
       "not_ready",
@@ -95,11 +106,15 @@ export async function prepareWorktree(input: PrepareWorktreeInput): Promise<Prep
         : `${task.id} is ${task.state}; only a ready todo task can be run`,
     );
   }
-  const active = await input.store.activeRun(task.id);
-  if (active && active.id !== input.runId) {
+  const { runs } = await input.store.list({ task: task.id });
+  const allowed = canAddRun(runs, self ?? { id: input.runId });
+  if (!allowed.ok) {
+    const active = runs.find((run) => run.id === allowed.error.run);
     throw new WorktreeError(
       "active_run",
-      `${task.id} already has an active run (${active.id}, ${active.state}); wait for it or cancel it`,
+      active
+        ? `${task.id} already has an active run (${active.id}, ${active.state}); wait for it or cancel it`
+        : allowed.error.message,
     );
   }
 

@@ -12,4 +12,5 @@ export * from "./recover.ts";
 export * from "./run-store.ts";
 export * from "./supervisor.ts";
 export * from "./usage.ts";
+export * from "./variants.ts";
 export * from "./worktree.ts";

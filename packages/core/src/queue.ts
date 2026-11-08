@@ -156,6 +156,31 @@ export function slotUsage(runs: readonly ScheduledRun[]): SlotUsage {
   return usage;
 }
 
+/**
+ * Whether runs of `providers` (one per run, e.g. the variants of a task) fit in the free slots
+ * now: `null` if they do, else why not, for the human.
+ */
+export function fitsSlots(
+  usage: SlotUsage,
+  limits: ParallelLimits,
+  providers: readonly Provider[],
+): string | null {
+  const free = limits.max_parallel - usage.total;
+  if (providers.length > free) {
+    return `${providers.length} runs need ${providers.length} free slots, and ${Math.max(0, free)} of ${limits.max_parallel} are free; wait for a run to finish or raise max_parallel`;
+  }
+  for (const provider of new Set(providers)) {
+    const max = limits.per_provider[provider];
+    if (max === undefined) continue;
+    const want = providers.filter((p) => p === provider).length;
+    const left = max - (usage.per_provider[provider] ?? 0);
+    if (want > left) {
+      return `${want} ${provider} runs need ${want} free ${provider} slots, and ${Math.max(0, left)} of ${max} are free; wait for one to finish or raise its limit`;
+    }
+  }
+  return null;
+}
+
 export type SchedulerInput = {
   queue: QueueFile;
   plan: Pick<TasksDocument, "tasks">;
