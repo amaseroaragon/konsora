@@ -69,7 +69,11 @@ const result = (text: string) =>
     usage: { input_tokens: 1, output_tokens: 2 },
   });
 
-if (mode === "stubborn") process.on("SIGTERM", () => undefined);
+if (mode === "stubborn") {
+  process.on("SIGTERM", () => undefined);
+  // Only now does it ignore SIGTERM: the test waits for this before killing it.
+  out({ type: "system", subtype: "init", session_id: "s-stubborn", model: "fake" });
+}
 if (mode === "ignore-int") {
   // Ignores SIGINT and leaves a grandchild in its process group; only a group kill ends both.
   process.on("SIGINT", () => undefined);

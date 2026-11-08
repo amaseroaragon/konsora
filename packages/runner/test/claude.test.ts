@@ -371,11 +371,24 @@ describe("the adapter with a fake claude", () => {
 
   it("kill() escalates to SIGKILL when SIGTERM is ignored", async () => {
     const handle = adapter("stubborn", {}, 300).start(spec);
-    const events = collect(handle);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Kill it only once it ignores SIGTERM (it says so with its init line), not after a fixed
+    // wait that a loaded machine may not honour (DMN-10).
+    const events: RunEvent[] = [];
+    let ready: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      ready = resolve;
+    });
+    const read = (async () => {
+      for await (const event of handle.events) {
+        events.push(event);
+        if (event.t === "started") ready();
+      }
+    })();
+    await started;
     await handle.kill();
     expect(await handle.exited).toEqual({ code: null, signal: "SIGKILL" });
-    expect((await events).at(-1)).toMatchObject({ t: "finished", ok: false });
+    await read;
+    expect(events.at(-1)).toMatchObject({ t: "finished", ok: false });
   });
 
   it("detects the installed version", async () => {
