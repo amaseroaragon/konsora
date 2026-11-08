@@ -731,7 +731,7 @@
     {
       "id": "CORE-13",
       "title": "Modelo del revisor automático",
-      "state": "review",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzx",
       "desc": "Un run de revisión (`kind: review` en run.json) lo hace un segundo agente sobre el trabajo de un run terminado, con permisos de solo lectura: no cambia ficheros ni el estado de la tarea, solo deja notas en ella (nueva clase de nota `review` con su veredicto: aprobaría o pediría cambios, con los motivos). Nunca acepta ni devuelve. `project.reviewer` (solo el humano) fija el agente y si se lanza solo al llegar a review o solo a mano. Perfil de permisos `readonly`. Docs en esquema-tareas.md.",
@@ -756,7 +756,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T19:54:55Z",
+      "updated_at": "2026-11-08T19:55:19Z",
       "notes": [
         {
           "id": "n1",
@@ -4622,7 +4622,7 @@
     {
       "id": "RUN-28",
       "title": "Lanzar variantes en paralelo y elegir la ganadora",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "CORE-12"
@@ -4646,12 +4646,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:01:48Z"
+      "updated_at": "2026-11-08T20:00:52Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T19:56:55Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "startRun con variant (fundar/unirse), cierre por variante y settleVariants (la última aplica complete con variants o pause), preguntas y respuestas ligadas a su run, startVariants en el daemon con comprobación de huecos (fitsSlots en core), POST …/runs/:run/choose que descarta y limpia las demás; tests con adaptador falso."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T20:00:52Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Runner: startRun acepta variant ('first' funda el grupo y aplica start; un id de run se une con una nota mientras la tarea está en doing). prepareWorktree usa canAddRun. Cada variante cierra su run sin tocar la tarea (fallos y checks rojos como notas) y settleVariants aplica complete con variants (a review) o pause (si ninguna terminó bien) cuando no queda ninguna activa. Una pregunta solo retiene a la variante que la hizo, y el daemon entrega la respuesta al run que preguntó. Daemon: POST /projects/:id/runs con {task, agents} (2-3) comprueba antes los agentes en el catálogo y que todas quepan en max_parallel (fitsSlots en core; 409 no_slots sin crear nada); POST …/runs/:run/choose deja la ganadora pending, descarta las demás y borra sus worktrees y ramas; cancelar una variante interrumpida asienta el grupo. ac1: test del supervisor (dos variantes, la tarea sigue en doing hasta que se cierra la segunda; una fallida no la devuelve; todas fallidas → todo) y test del daemon con claude y codex falsos en worktrees separados → review. ac2: aceptar antes de elegir → 409 variant_not_chosen; elegir codex y aceptar deja 1 commit con su trabajo, borra los dos worktrees y las ramas konsora/*, y conserva el diff de la perdedora. Docs en arquitectura.md y esquema-tareas.md. npm run check: 989 tests en verde."
+        }
+      ]
     },
     {
       "id": "RUN-29",
       "title": "Ejecutar revisiones con permisos de solo lectura",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "CORE-13"
@@ -4679,7 +4695,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:03:34Z"
+      "updated_at": "2026-11-08T20:11:34Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T20:01:09Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Perfil readonly en Claude (sin Edit/Write/NotebookEdit, Bash solo de lectura) y Codex (sandbox read-only), startReviewRun en el supervisor (worktree del run revisado sin tocarlo, buildReviewPrompt determinista, sin checks ni complete), herramienta review en el MCP en modo revisión, lanzamiento automático o POST …/runs/:run/review en el daemon."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T20:11:34Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Perfil readonly: Claude con --permission-mode default, solo Read/Glob/Grep/TodoWrite/mcp__konsora y Bash de lectura (git status/diff/log/show/blame, ls; READONLY_PROFILE_COMMANDS en core) y --disallowedTools Edit,MultiEdit,Write,NotebookEdit; Codex con sandbox read-only en el hilo, readOnly en cada turno y -s read-only en exec, sin rutas escribibles. Ambos adaptadores declaran default y readonly. startReviewRun (runner/review.ts) lanza la revisión en el worktree del run revisado con buildReviewPrompt (determinista: tarea, criterios, resumen, checks y diff), sin setup, checks ni complete y en un solo turno; deniega cualquier aprobación; acaba succeeded (running → succeeded, permitido solo a runs de revisión) si dejó su nota review, o failed, y falla con nota de Konsora si cambia HEAD o ficheros. MCP/CLI: KONSORA_REVIEW=1 activa ctx.review, la herramienta review y konsora review --verdict, y la herramienta permission deniega sin preguntar. Daemon: POST …/runs/:run/review {agent?} y lanzamiento automático con project.reviewer.launch=auto (uno por run, no en variantes). ac1: tests del supervisor (nota review con veredicto, tarea en review, HEAD y status intactos, permiso denegado, note/finish/ask fuera de ámbito, cambio en el worktree → failed) y del MCP. ac2: tests de argumentos de Claude, Codex app-server y Codex exec. ac3: test del daemon (con reviewer auto se lanza exactamente un run de revisión; en manual ninguno hasta el POST). Arreglo además el serializador canónico, que descartaba project.reviewer y verdict (fallo de CORE-13), con test de ida y vuelta. Docs en arquitectura.md y esquema-tareas.md. npm run check: 1001 tests en verde."
+        }
+      ]
     },
     {
       "id": "RUN-30",
