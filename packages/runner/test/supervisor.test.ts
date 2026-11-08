@@ -520,6 +520,8 @@ describe("startRun", () => {
       settled = true;
     });
     await until(async () => (await taskIn("BE-01")).notes?.at(-1)?.kind === "question");
+    // Wait for the state, not a fixed time: a loaded machine may write it later (DMN-10).
+    await until(async () => (await store.read(session.run.id)).state === "running");
     await new Promise((resolve) => setTimeout(resolve, 200));
     // The turn ended with an open question: the run is still alive, waiting.
     expect(settled).toBe(false);
