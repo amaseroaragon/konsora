@@ -500,7 +500,7 @@
     {
       "id": "CORE-08",
       "title": "Modelo de la cola y del scheduler en core",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzz",
       "desc": "Todo lo que M9 necesita de core, sin ejecutar nada:\n- El esquema de `queue.json` (`~/.local/share/konsora/projects/<id>/queue.json`): las tareas que el humano seleccionó, en orden, con el agente elegido y cuándo se añadieron, y si la cola está en marcha o en pausa.\n- Los límites de paralelismo: `max_parallel` global (por defecto 2) y uno opcional por proveedor, guardados en los ajustes del daemon (`settings.json` en el directorio de datos), no en el plan.\n- Una función pura `nextRuns(cola, plan, runs activos, límites)` que dice qué tareas lanzar ahora: solo las de la cola que estén ready (dependencias en done, es decir, integradas), sin run activo y sin superar ningún límite, en orden topológico y por rank. Nunca añade tareas que no estén en la cola.\n- Qué entradas salen de la cola y por qué (terminada, cancelada, quitada por el humano, tarea que ya no existe o ya no está aprobada).",
@@ -525,7 +525,23 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:16:19Z"
+      "updated_at": "2026-11-08T10:53:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T10:45:50Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Módulo queue.ts en core: esquemas zod de queue.json y settings.json con valores por defecto, nextRuns puro (límites global y por proveedor, solo tareas ready de la cola, orden topológico+rank), salidas de la cola con motivo y estado de espera de cada entrada para la UI. Tests de propiedades con fast-check."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T10:48:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Nuevo packages/core/src/queue.ts (commit 7b45c72), documentado en arquitectura.md §Scheduler.\n- ac1: QueueFileSchema (queue.json: version, state running|paused, entries {task, agent, added_at, run?}, sin duplicados) y DaemonSettingsSchema (settings.json: parallel.max_parallel 1..16 por defecto 2, per_provider opcional) en zod estricto; parseQueueFile/parseDaemonSettings devuelven valores por defecto para archivo ausente o campos ausentes (tests). queueOnStartup pausa una cola no vacía.\n- ac2: nextRuns solo devuelve entradas de la cola en todo con todas sus deps en done, sin run activo y dentro de max_parallel y del límite de su proveedor (contando también los runs de otros proyectos vía elsewhere; interrupted ocupa la tarea pero no hueco). Test de propiedades con fast-check sobre documentos aleatorios, más tests de casos.\n- ac3: launchOrder sigue topoOrder del plan (deps, rank, id); el orden de la cola no cambia lo lanzado (tests, y la propiedad comprueba el orden topológico).\nExtra para DMN-08/UI-18: queueStatus (motivo de espera por entrada), queueExits (succeeded, failed, cancelled, missing, not_approved, settled; removed lo hace el humano), enqueue, markLaunched, withoutEntries.\nComprobado: npm run check en verde (869 tests)."
+        }
+      ]
     },
     {
       "id": "CLI-01",
@@ -3728,7 +3744,7 @@
     {
       "id": "RUN-24",
       "title": "Pedir al agente que resuelva un conflicto de integración",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzzzzzv",
       "desc": "Cuando la integración de un run choca con la rama base (`integration = conflict`), el humano puede pedir al agente que rebase su rama sobre la punta actual de `base_branch` y resuelva los conflictos: un run nuevo de la misma tarea sobre la misma rama y worktree, que reanuda la sesión del agente si se puede, con un prompt determinista que lista los ficheros en conflicto. Al terminar se ejecutan los checks como en cualquier run y la tarea vuelve a review para integrarla de nuevo. La alternativa, resolver a mano, sigue disponible.",
@@ -3753,7 +3769,23 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:16:39Z"
+      "updated_at": "2026-11-08T10:55:07Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T10:50:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Run de rebase: core (rebase_of en run.json, ops konsora rebase/rebase-abort, buildRebasePrompt determinista), runner (startRebaseRun en el supervisor sobre la misma rama y worktree, reanudando la sesión, sin setup, checks normales; al terminar el run en conflicto pasa a discarded sin borrar el worktree compartido; si falla o se cancela la tarea vuelve a review), daemon (POST runs/:run/rebase, integrable y discard conscientes del worktree compartido)."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T10:55:07Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit feaee5d. Un run de rebase (rebase_of en run.json) reutiliza la rama y el worktree del run en conflicto, con el mismo agente, reanuda su sesión si la hay y lleva base_commit = punta actual de base_branch. La tarea pasa review→doing con la op konsora 'rebase' y vuelve a review con complete tras los checks normales (sin setup). Si falla o se cancela, 'rebase-abort' la devuelve a review y el run en conflicto sigue integrable a mano. Si sale bien, el run en conflicto pasa a discarded sin borrar el worktree compartido. Daemon: POST /projects/:id/runs/:run/rebase; accept integra el run de rebase, o el run en conflicto si el rebase falló; discard no borra un worktree que otro run necesita. Docs en arquitectura.md §5 y esquema-tareas.md.\n- ac1: supervisor.test 'rebases the conflicting run's branch…' con adaptador falso: mismo cwd/rama, resume s-1, prompt con 'Files that conflict: readme.txt'. Lo mismo e2e en daemon runs.test.\n- ac2: el mismo test en un repo con conflicto real (readme.txt cambiado en main y en la rama): tras el rebase y los checks la tarea está en review, integrateRun da merged con ambas líneas y un commit con trailers. En el daemon, accept integra un commit.\n- ac3: buildRebasePrompt es puro y ordena y deduplica los ficheros (test con snapshot). Prohíbe tocar, hacer push o forzar base_branch y usar --force (test).\nFuera de alcance (UI-18): los botones de la revisión. Comprobado: npm run check en verde (880 tests)."
+        }
+      ]
     },
     {
       "id": "RUN-25",
