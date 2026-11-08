@@ -54,6 +54,11 @@ Leyenda: 🔧 entregables · ✅ hecho cuando…
 🔧 Cola persistente, scheduler DAG con `max_parallel` global y por proveedor, encadenado YOLO con integración automática, vista de runs activos, detección de conflictos de integración y flujo para pedir rebase al agente.
 ✅ Un fixture con un DAG de 6 tareas (2 ramas independientes y un nodo final) en YOLO, con `max_parallel = 2`, se ejecuta sin superar nunca 2 runs a la vez y sin empezar ninguna tarea antes de integrar sus dependencias; termina con las 5 tareas intermedias integradas en orden topológico y la tarea final en `review` (6 commits en orden topológico al aceptarla). Reiniciar el daemon a mitad marca los runs vivos como `interrupted` y no lanza nada por su cuenta. Verificado con un agente falso (`packages/daemon/test/m9.test.ts`, también con un conflicto resuelto por el run de rebase) y con Claude Code real (`RUN-25`).
 
+## M9b — Mejoras antes del escritorio
+
+🔧 Retomar un run interrumpido; pistas del MCP con sus herramientas; retirar la maqueta y el muestrario; el test intermitente arreglado. Dificultad estimada en las tareas con agente recomendado por dificultad; plantillas de tarea; coste acumulado por tarea y por grupo; planificación por entrevista (`konsora plan`, en la sesión interactiva del CLI oficial, sin chat propio); variantes de una tarea con varios agentes y elección de la mejor (best-of-N); revisor automático de solo lectura que deja notas y nunca acepta.
+✅ En un repo fixture con agentes reales: `konsora plan` propone un lote con dificultad y plantilla; una tarea con dos variantes (Claude y Codex) se compara, se elige una y queda un solo commit; el revisor deja su nota con veredicto sin cambiar la tarea; un run interrumpido por un reinicio se retoma y termina; la UI muestra el coste acumulado, que coincide con la suma de los runs. `npm run check` pasa 20 veces seguidas.
+
 ## M10 — Escritorio
 
 🔧 `apps/desktop` (Tauri 2): arranca o reutiliza el daemon y carga la UI; notificaciones nativas (pregunta de un agente, run terminado); paquete `.deb`.

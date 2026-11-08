@@ -48,12 +48,12 @@
     }
   ],
   "seq": {
-    "CORE": 8,
-    "CLI": 4,
-    "DMN": 9,
-    "UI": 18,
-    "MCP": 6,
-    "RUN": 26,
+    "CORE": 13,
+    "CLI": 5,
+    "DMN": 10,
+    "UI": 25,
+    "MCP": 7,
+    "RUN": 30,
     "DESK": 5
   },
   "tasks": [
@@ -549,6 +549,152 @@
       ]
     },
     {
+      "id": "CORE-09",
+      "title": "Dificultad estimada y agente recomendado por dificultad",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzz",
+      "desc": "Campo opcional `difficulty` en la tarea (`low`, `medium`, `high`): un agente lo pone al proponer (y lo cambia en sus propuestas) y el humano en el trabajo aprobado. En el proyecto, `project.recommended` asigna a cada dificultad un agente (proveedor, modelo, esfuerzo), y solo lo cambia el humano. `runAgentFor` resuelve: el agente pedido, después el de la tarea, después el recomendado por su dificultad y por último `project.defaults`. CLI y MCP: `--difficulty` y `difficulty` en propose, batch y edit. La skill y el prompt de entrevista piden estimarla. Esquema JSON regenerado y docs de esquema-tareas.md.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "difficulty y project.recommended se validan, se serializan canónicamente y respetan los roles (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "runAgentFor elige por ese orden (tests con cada caso)"
+        },
+        {
+          "id": "ac3",
+          "text": "Se puede proponer y editar la dificultad por CLI y por MCP (tests)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "CORE-10",
+      "title": "Plantillas de tarea",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzr",
+      "desc": "`project.templates`: plantillas con id, nombre, descripción base, criterios (con su check opcional), etiquetas y dificultad, que solo define el humano (op `set-templates`). Al proponer con una plantilla (`--template <id>` en CLI y `template` en MCP, propose y batch), la tarea toma sus valores y lo que se pase explícitamente los completa o sustituye (criterios: los de la plantilla y después los propios). Las plantillas se listan en `status` y en el MCP. Esquema regenerado y docs.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "set-templates es solo del humano y valida ids únicos (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "propose y batch con plantilla, por CLI y por MCP, crean la tarea con los valores combinados (tests)"
+        },
+        {
+          "id": "ac3",
+          "text": "Una plantilla inexistente da un error con pista (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "CORE-11",
+      "title": "Coste acumulado por tarea y por grupo",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzx",
+      "desc": "Función pura que suma el uso de todos los runs de una tarea (incluidos reintentos, rebases, variantes y revisiones) y de un grupo: tokens de entrada, salida, caché y razonamiento, coste cuando el proveedor lo da, número de runs, y desglose por proveedor y modelo. Un coste desconocido (Codex) se indica como tal y no se suma como cero.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La suma por tarea y por grupo coincide con la de sus runs y separa lo que no tiene coste (tests de propiedades)"
+        },
+        {
+          "id": "ac2",
+          "text": "El desglose por proveedor y modelo es correcto (tests)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "CORE-12",
+      "title": "Modelo de variantes de una tarea (best-of-N)",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzzi",
+      "desc": "Permitir varias ejecuciones simultáneas de la misma tarea con distintos agentes (de 2 a 3), cada una en su worktree: las variantes de un grupo (`variant_of` en run.json, el id del primer run) cuentan como un solo run activo frente a la regla de uno por tarea. La tarea pasa a review cuando todas han terminado sus checks. Elegir la ganadora deja las demás `discarded` (se conservan su run y su diff) y solo la ganadora se integra al aceptar. Reglas y transiciones en core, con docs en esquema-tareas.md.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Las variantes de un grupo pueden estar activas a la vez y ningún otro run de la tarea puede (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "La tarea solo llega a review con todas las variantes cerradas, y elegir una descarta las otras sin borrar sus datos (tests)"
+        },
+        {
+          "id": "ac3",
+          "text": "Aceptar sin haber elegido es un error accionable (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "CORE-13",
+      "title": "Modelo del revisor automático",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzzx",
+      "desc": "Un run de revisión (`kind: review` en run.json) lo hace un segundo agente sobre el trabajo de un run terminado, con permisos de solo lectura: no cambia ficheros ni el estado de la tarea, solo deja notas en ella (nueva clase de nota `review` con su veredicto: aprobaría o pediría cambios, con los motivos). Nunca acepta ni devuelve. `project.reviewer` (solo el humano) fija el agente y si se lanza solo al llegar a review o solo a mano. Perfil de permisos `readonly`. Docs en esquema-tareas.md.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un agente en un run de revisión solo puede añadir notas review a su tarea (tests de roles)"
+        },
+        {
+          "id": "ac2",
+          "text": "project.reviewer y el perfil readonly se validan y solo el humano los cambia (tests)"
+        },
+        {
+          "id": "ac3",
+          "text": "Ninguna op del revisor cambia el estado de la tarea (test de propiedades)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
       "id": "CLI-01",
       "title": "Esqueleto de la CLI, init y comandos de lectura",
       "state": "done",
@@ -799,6 +945,36 @@
           "text": "Accepted under the human's standing authorization in chat (2026-10-31): \"De momento, hasta que no tengamos la UI real funcionando puedes dar por aceptadas todas las tareas. Puedes seguir.\""
         }
       ]
+    },
+    {
+      "id": "CLI-05",
+      "title": "Planificación por entrevista",
+      "state": "proposed",
+      "group": "CLI",
+      "rank": "zzzzzzzzzzzz",
+      "desc": "`konsora plan [--agent claude|codex] [--model …]` abre en la terminal una sesión interactiva del CLI oficial del usuario (no un chat de Konsora), con un prompt de entrevista: pregunta el objetivo, el alcance y las restricciones, lee el plan y el código, y termina proponiendo un lote con `batch` (con criterios verificables, dependencias, dificultad y plantillas si las hay). Su MCP va en modo plan: solo lecturas y propose, batch, edit y withdraw de sus propuestas; nada de start ni de otras tareas (regla en core). El resultado son propuestas que el humano aprueba o no.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "En modo plan, el MCP rechaza start, note, finish y cualquier escritura que no sea sobre propuestas (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "konsora plan lanza el CLI elegido con el prompt de entrevista y el MCP en modo plan, sin flags --dangerously-* (test con un CLI falso)"
+        },
+        {
+          "id": "ac3",
+          "text": "El prompt de entrevista es determinista y pide criterios verificables y dificultad (test con snapshot)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
     },
     {
       "id": "DMN-01",
@@ -1267,6 +1443,32 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-08T12:38:58Z"
+    },
+    {
+      "id": "DMN-10",
+      "title": "Encontrar y arreglar el test intermitente de la suite",
+      "state": "proposed",
+      "group": "DMN",
+      "rank": "zzzzzzzzzzy",
+      "desc": "En RUN-26 falló un test en 1 de 13 pasadas de `npm run check` y no se capturó cuál. Ejecuta la suite completa repetidamente, guardando la salida, hasta identificarlo (y cualquier otro intermitente), encuentra la causa (carrera, plazo o limpieza de un test anterior) y arréglala en el código si es un fallo real, o en el test si es del test.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La causa del fallo intermitente queda identificada y anotada en la tarea"
+        },
+        {
+          "id": "ac2",
+          "text": "npm run check pasa 20 veces seguidas sin fallos ni errores no capturados (anotado)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
     },
     {
       "id": "UI-01",
@@ -2287,6 +2489,214 @@
       ]
     },
     {
+      "id": "UI-19",
+      "title": "Botón Retomar en un run interrumpido",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "RUN-27"
+      ],
+      "rank": "zzzzzzzzzzr",
+      "desc": "En la sección del run de una tarea con su run `interrupted`, junto a Descartar, el botón Retomar llama al endpoint de reanudación y el log sigue en vivo. La vista de cola muestra el mismo botón en sus runs activos interrumpidos. Textos por i18n.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run interrupted ofrece Retomar y Descartar; tras Retomar, la sección muestra el run en marcha sin recargar (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los errores del endpoint se muestran en español y son accionables (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "UI-20",
+      "title": "Retirar la maqueta y el muestrario de la web",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzx",
+      "desc": "La maqueta de UI-04 (`#/maqueta`, `src/app`, `src/mock`) y el muestrario (`#/muestrario`, `src/gallery`) ya no los usa la app real. Bórralos con sus rutas, estilos, textos de i18n que nadie use y la excepción del test de literales para `gallery/`. Actualiza CLAUDE.md y los docs que los mencionan.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "No quedan src/app, src/mock ni src/gallery, ni rutas #/maqueta y #/muestrario; esos hashes llevan a la lista de proyectos"
+        },
+        {
+          "id": "ac2",
+          "text": "No quedan claves de i18n sin usar (test que lo comprueba) y npm run check y la build pasan"
+        },
+        {
+          "id": "ac3",
+          "text": "Ningún doc menciona la maqueta ni el muestrario como vigentes"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "UI-21",
+      "title": "Dificultad y modelo recomendado en la UI",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "CORE-09"
+      ],
+      "rank": "zzzzzzzzzzzi",
+      "desc": "La tarjeta y el panel muestran la dificultad. El editor del trabajo aprobado permite cambiarla. Los ajustes del proyecto permiten asignar un agente a cada dificultad. Al seleccionar tareas, la barra de selección y Ejecutar dicen con qué agente se ejecutará cada una y por qué («Recomendado para dificultad alta: claude · opus · high»), y si las seleccionadas piden agentes distintos, cada una usa el suyo salvo que el humano elija uno para todas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La barra de selección muestra el agente recomendado de cada tarea según su dificultad (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Ejecutar y Encolar usan el recomendado de cada tarea salvo que el humano elija otro (test de la petición)"
+        },
+        {
+          "id": "ac3",
+          "text": "Dificultad y recomendaciones se editan desde la UI con textos por i18n (tests)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "UI-22",
+      "title": "Gestionar plantillas desde los ajustes del proyecto",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "CORE-10"
+      ],
+      "rank": "zzzzzzzzzzzv",
+      "desc": "En los ajustes del proyecto, una sección para crear, editar, reordenar y borrar plantillas (nombre, descripción base, criterios con check, etiquetas, dificultad), guardada con `set-templates` y con la misma validación que en core.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Crear, editar y borrar una plantilla desde la UI cambia project.templates (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los errores de validación se muestran por campo, en español (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "UI-23",
+      "title": "Mostrar el coste acumulado en la UI",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "CORE-11"
+      ],
+      "rank": "zzzzzzzzzzzy",
+      "desc": "El panel de tarea muestra el uso acumulado de todos sus runs. La cabecera de cada grupo en el tablero y una sección del proyecto muestran el de cada grupo y el total, con el desglose por proveedor y modelo. Se actualiza en vivo al cerrarse un run.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El panel, los grupos y el total muestran tokens y coste acumulados, y dicen cuándo un proveedor no da coste (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cerrar un run actualiza las sumas sin recargar (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "UI-24",
+      "title": "Comparar variantes en la revisión",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "RUN-28"
+      ],
+      "rank": "zzzzzzzzzzzzv",
+      "desc": "Ejecutar ofrece «Ejecutar con varios agentes» (de 2 a 3 en el selector). En la revisión, las variantes se comparan una al lado de la otra: agente, checks, uso y coste, resumen y diff, con Elegir esta en cada una. Tras elegir, la revisión normal con Aceptar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Se lanzan variantes desde el panel con agentes distintos (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "La revisión muestra cada variante con checks, uso y diff, y Elegir llama al endpoint (tests)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "UI-25",
+      "title": "Revisor en la UI",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "RUN-29"
+      ],
+      "rank": "zzzzzzzzzzzzz",
+      "desc": "En los ajustes del proyecto: el agente revisor y si revisa solo o a mano. En la revisión de un run: «Pedir revisión» y las notas review destacadas con su veredicto, el agente que la hizo y su uso. Textos por i18n.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El revisor se configura desde los ajustes (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "La revisión muestra el veredicto y los motivos de cada nota review, y Pedir revisión lanza el run (tests)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
       "id": "MCP-01",
       "title": "Servidor konsora mcp (stdio) con las herramientas de lectura",
       "state": "done",
@@ -2608,6 +3018,32 @@
           "text": "Verificación real de M5 sobre un proyecto de prueba desechable. El detalle (pasos, versiones, costes y observaciones) está en la nota anterior.\n- ac1: una sesión de Claude Code 2.1.316 (sonnet) con el MCP configurado a partir de `konsora mcp --print-config claude` hizo ready, start, note y finish de DEMO-01 solo con herramientas MCP. DEMO-01 está en review con las notas de agent:claude en tasks.json y en el tablero (GET /board del daemon, sin cambios externos marcados).\n- ac2: lo mismo con codex-cli 0.166.0 (`codex exec` con el fragmento de `--print-config codex` pasado con -c, sin tocar ~/.codex) sobre DEMO-02, con las notas de agent:codex.\n- ac3: los pasos, las versiones y lo observado están en la nota de esta tarea.\n- ac4: lo cubre el test de MCP-03. Además se comprobó en real: en modo run, note sobre otra tarea devolvió out_of_scope. La herramienta permission de MCP-04 llevó un Write de Claude hasta el daemon, el humano lo permitió por HTTP y Claude escribió el archivo. Las notas se escribieron en el checkout principal con el id del run.\nNo hay cambios de código en esta tarea. Coste total aproximado: 0,18 $ de Claude y una sesión corta de Codex."
         }
       ]
+    },
+    {
+      "id": "MCP-07",
+      "title": "Pistas de error del MCP con nombres de herramientas",
+      "state": "proposed",
+      "group": "MCP",
+      "rank": "zzzzzzzzzzv",
+      "desc": "Las pistas (`Hint:`) que devuelve el MCP son las de la CLI y nombran comandos y opciones (`konsora ready`, `--summary`). En el MCP deben nombrar las herramientas y sus parámetros (`ready`, `summary`). Las reglas siguen compartidas: solo cambia cómo se formula la pista según el canal.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada error con pista devuelto por el MCP nombra herramientas y parámetros del MCP, nunca comandos de la CLI ni opciones con -- (test sobre todas las pistas)"
+        },
+        {
+          "id": "ac2",
+          "text": "La CLI sigue dando sus pistas actuales (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
     },
     {
       "id": "RUN-01",
@@ -3985,6 +4421,140 @@
           "text": "Commit 91194d6. Aplicada la decisión: prompt más aviso, sin ampliar permisos.\n- ac1: los comandos del perfil default pasan a core (DEFAULT_PROFILE_COMMANDS). buildRunPrompt y buildRebasePrompt incluyen la guía: crear, cambiar y leer ficheros con las herramientas de edición y lectura, ejecutar los comandos uno a uno sin &&, ; ni tuberías, y lista de los que no piden permiso (npm run/test/ci, git status/diff/log/add/commit y los checks del proyecto). Test explícito en los dos prompts y snapshots actualizados.\n- ac2: tarjeta del tablero con la marca «Espera tu aprobación» (k-card--approval) cuando su run está en waiting_approval o hay una aprobación pendiente de la tarea; al abrirla se ve la aprobación. En #/cola, la entrada dice «Espera tu aprobación (r-…)» y el run activo lleva la marca y el enlace «abre la tarea para decidir». Tests de UI.\n- ac3: claudeAllowedTools se construye desde la constante y un test fija la lista exacta, igual que antes.\nNota: el prompt de rebase pide git rebase, que sigue necesitando aprobación; es lo esperado, porque el rebase lo pide el humano. Comprobado: npm run check 13 veces, 12 en verde (909 tests). Una tuvo un fallo intermitente que no capturé y no se repitió en las 11 siguientes."
         }
       ]
+    },
+    {
+      "id": "RUN-27",
+      "title": "Retomar un run interrumpido",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzzzzzzi",
+      "desc": "Hoy un run `interrupted` (vivo cuando se paró el daemon) solo se puede descartar. El modelo ya admite `interrupted → starting`: falta hacerlo. El runner lo relanza en su mismo worktree y rama, reanudando la sesión del agente si tiene `session_id` con un mensaje determinista que explica que Konsora se reinició y que siga con la tarea (sin sesión, con el prompt original del run). La tarea sigue en `doing`. Si el run se interrumpió durante `checking`, solo repite los checks. Nuevo `POST /projects/:id/runs/:run/resume` (solo el humano). Si el run pertenece a una entrada de la cola, la entrada sigue enlazada a él.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run interrupted se reanuda en su worktree con su sesión y termina en review como cualquier run (test con adaptador falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "Interrumpido durante checking, solo se repiten los checks, sin relanzar al agente (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Reanudar un run que no está interrupted, o cuyo worktree ya no existe, da un error accionable sin crear nada (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "RUN-28",
+      "title": "Lanzar variantes en paralelo y elegir la ganadora",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "CORE-12"
+      ],
+      "rank": "zzzzzzzzzzzzr",
+      "desc": "Runner y daemon: `POST /projects/:id/runs` con `agents: [...]` (de 2 a 3) lanza las variantes de una tarea, cada una con su worktree y rama, su prompt y sus checks, respetando max_parallel. `POST …/runs/:run/choose` elige la ganadora y descarta y limpia las demás. La integración al aceptar usa la ganadora. Una sola tarea en doing, con cada finish ligado a su variante.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Dos variantes con agentes distintos terminan en worktrees separados y la tarea llega a review con las dos (test con adaptador falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "Elegir una y aceptar deja un commit con su trabajo y borra los worktrees de las dos (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "RUN-29",
+      "title": "Ejecutar revisiones con permisos de solo lectura",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "CORE-13"
+      ],
+      "rank": "zzzzzzzzzzzzy",
+      "desc": "Perfil `readonly` en los dos adaptadores (Claude: sin Edit ni Write y solo Bash de lectura; Codex: sandbox read-only). El supervisor lanza el run de revisión en el worktree del run revisado (que no se toca), con un prompt determinista (la tarea, sus criterios, el diff, los checks y el resumen) y sin checks ni complete. El daemon lo lanza solo al llegar una tarea a review si project.reviewer lo pide, o con `POST …/runs/:run/review`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El run de revisión deja una nota review y la tarea sigue en review, sin cambios en el worktree (test con adaptador falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "Con el perfil readonly, Claude no recibe Edit, Write ni Bash de escritura, y Codex va con sandbox read-only (tests de argumentos)"
+        },
+        {
+          "id": "ac3",
+          "text": "Con revisión automática, llegar a review lanza un solo run de revisión (test)"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
+    },
+    {
+      "id": "RUN-30",
+      "title": "Verificación de M9b con agentes reales",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "CLI-05",
+        "DMN-10",
+        "MCP-07",
+        "UI-19",
+        "UI-20",
+        "UI-21",
+        "UI-22",
+        "UI-23",
+        "UI-24",
+        "UI-25"
+      ],
+      "rank": "zzzzzzzzzzzzzi",
+      "desc": "Cierra el hito en un repo fixture con agentes reales (si el humano lo autoriza): una sesión de konsora plan que propone un lote con dificultad y plantilla, una tarea con dos variantes (Claude y Codex) de la que se elige una y se integra, una revisión automática con su nota, un run interrumpido por un reinicio y retomado, y el coste acumulado de todo ello en la UI.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada uno de los cinco recorridos termina como se describe, con los pasos anotados"
+        },
+        {
+          "id": "ac2",
+          "text": "El coste acumulado de la tarea coincide con la suma de sus runs"
+        },
+        {
+          "id": "ac3",
+          "text": "Versiones, costes y lo observado quedan anotados en la tarea"
+        }
+      ],
+      "labels": [
+        "m9b"
+      ],
+      "created": {
+        "at": "2026-11-08T12:50:48Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:50:48Z"
     },
     {
       "id": "DESK-01",
