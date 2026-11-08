@@ -265,6 +265,8 @@ Los checks de un run son, en orden, los `project.checks` y después los `accepta
 
 `usage` lleva siempre `input_tokens` (toda la entrada, caché incluida), `output_tokens` y `cost_usd` (`null` si el proveedor no da precio). Si el proveedor los da, añade `cache_read_tokens` y `cache_write_tokens` (parte de la entrada leída o escrita en la caché), `reasoning_tokens` (parte de la salida) y `rate_limits`, la última foto de cada ventana de la cuenta: `{ "window": "five_hour", "status": "allowed", "utilization": 0.68, "resets_at": "2026-11-01T13:20:00Z" }`, con `utilization` como fracción usada. Los `run.json` anteriores, sin estos campos, siguen siendo válidos.
 
+El coste acumulado de una tarea o de un grupo (`taskCost`, `groupCost` en `core/cost.ts`) suma el `usage` de todos sus runs, incluidos reintentos, rebases, variantes y revisiones: tokens de cada tipo, número de runs y coste, con un desglose por proveedor y modelo. Un coste desconocido no se suma como cero: los runs sin él se cuentan en `cost_unknown_runs`, y `cost_usd` es `null` si ninguno lo da. Un grupo cuenta las tareas que tiene ahora.
+
 Estados de un run (`core` rechaza cualquier otra transición con un error `invalid_transition`):
 
 ```
