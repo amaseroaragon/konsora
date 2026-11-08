@@ -293,3 +293,20 @@ describe("integrateRun", () => {
     );
   });
 });
+
+describe("parallel integrations (RUN-25)", () => {
+  it("two runs finishing together both integrate, one after the other", async () => {
+    const before = git(root, "rev-parse", "main");
+    const first = await succeededRun({ "a.txt": "a\n" });
+    const second = await succeededRun({ "b.txt": "b\n" });
+    const results = await Promise.all(
+      [first, second].map((run) =>
+        integrateRun({ root, worktreesDir, document: plan, runId: run.id, store }),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual(["merged", "merged"]);
+    expect(git(root, "rev-list", "--count", `${before}..main`)).toBe("2");
+    expect(git(root, "show", "main:a.txt")).toBe("a");
+    expect(git(root, "show", "main:b.txt")).toBe("b");
+  });
+});

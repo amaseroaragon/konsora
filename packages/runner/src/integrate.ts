@@ -82,7 +82,27 @@ export function integrationMessage(document: TasksDocument, run: Run): string {
   ].join("\n");
 }
 
-export async function integrateRun(input: IntegrateInput): Promise<IntegrationResult> {
+/** The integration in progress per main checkout, so two never race on the same base branch. */
+const inProgress = new Map<string, Promise<unknown>>();
+
+/**
+ * Integrates a run's work into the base branch. Integrations into the same checkout run one at a
+ * time (parallel runs of a YOLO chain finish together): each reads the base branch's tip only once
+ * the previous one has moved it, so none fails with `moved` because of another.
+ */
+export function integrateRun(input: IntegrateInput): Promise<IntegrationResult> {
+  const key = input.root;
+  const previous = inProgress.get(key) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(() => integrateNow(input));
+  const settled = next.catch(() => undefined);
+  inProgress.set(key, settled);
+  void settled.then(() => {
+    if (inProgress.get(key) === settled) inProgress.delete(key);
+  });
+  return next;
+}
+
+async function integrateNow(input: IntegrateInput): Promise<IntegrationResult> {
   const git = input.git ?? systemGit;
   const root = input.root;
   let run = await input.store.read(input.runId);
