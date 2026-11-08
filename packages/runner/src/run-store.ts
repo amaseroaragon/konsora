@@ -20,6 +20,7 @@ import {
   canAddRun,
   type IntegrationState,
   isActiveRunState,
+  isReviewRun,
   type Run,
   type RunId,
   RunIdSchema,
@@ -200,17 +201,19 @@ export class RunStore {
     return listing;
   }
 
-  /** The active run of a task (at most one), or `null`. */
+  /** The active run that occupies a task (review runs never do), or `null`. */
   async activeRun(task: string): Promise<Run | null> {
     const { runs } = await this.list({ task });
-    return runs.find((run) => isActiveRunState(run.state)) ?? null;
+    return runs.find((run) => isActiveRunState(run.state) && !isReviewRun(run)) ?? null;
   }
 
   /** The active run of every task that has one. */
   async activeRuns(): Promise<Map<string, Run>> {
     const { runs } = await this.list();
     const active = new Map<string, Run>();
-    for (const run of runs) if (isActiveRunState(run.state)) active.set(run.task, run);
+    for (const run of runs) {
+      if (isActiveRunState(run.state) && !isReviewRun(run)) active.set(run.task, run);
+    }
     return active;
   }
 

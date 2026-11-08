@@ -79,7 +79,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
-**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `recommended` (opcional, `{low?, medium?, high?}` con un `AgentSpec` cada uno: el agente que el proyecto recomienda para cada dificultad; solo lo cambia el humano, con la operación `set-recommended`, que sustituye el mapa entero y lo quita con `null` o `{}`), `setup` (opcional, `{run, timeout_s?}`: el comando que prepara cada worktree nuevo antes de lanzar al agente, p. ej. `npm ci`; timeout por defecto 600 s), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `setup`, `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `setup: null`, `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`. `templates` (opcional, `Template[]` con ids únicos) son las plantillas de tarea; solo las define el humano, con `set-templates`, que las sustituye todas (`[]` las quita).
+**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `recommended` (opcional, `{low?, medium?, high?}` con un `AgentSpec` cada uno: el agente que el proyecto recomienda para cada dificultad; solo lo cambia el humano, con la operación `set-recommended`, que sustituye el mapa entero y lo quita con `null` o `{}`), `setup` (opcional, `{run, timeout_s?}`: el comando que prepara cada worktree nuevo antes de lanzar al agente, p. ej. `npm ci`; timeout por defecto 600 s), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `setup`, `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `setup: null`, `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`. `templates` (opcional, `Template[]` con ids únicos) son las plantillas de tarea; solo las define el humano, con `set-templates`, que las sustituye todas (`[]` las quita). `reviewer` (opcional, `{agent, launch}`) es el revisor automático (§6, «Revisiones»): `agent` es un `AgentSpec` cuyo perfil, si se da, solo puede ser `readonly` (sus runs lo usan siempre, `reviewerAgent`), y `launch` es `auto` (se lanza solo cuando una tarea llega a `review`) o `manual` (solo cuando el humano lo pide). Solo lo cambia el humano, con `set-reviewer` (`null` lo quita); un valor inválido da `invalid`.
 
 **`Template`**: `id` (slug en minúsculas, único), `name` (1–60), `desc` (opcional), `acceptance` (opcional, `{text, check?}[]`, sin id), `labels` (opcional) y `difficulty` (opcional). Al proponer con una plantilla (`template` en `propose` y en cada tarea de `batch`; `--template <id>` en la CLI), la tarea toma sus valores y lo que se pasa explícitamente los completa o sustituye: `desc` y `difficulty` propias sustituyen a las de la plantilla, los criterios son los de la plantilla (con su `check`) y después los propios, numerados `ac1…`, y las etiquetas se unen. Una plantilla inexistente da `unknown_template`. `konsora status` (y la herramienta `status` del MCP, en `project.templates`) las lista.
 
@@ -113,7 +113,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 
 **`Check`**: `id`, `run` (comando), `timeout_s` (por defecto 600).
 
-**`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB), `run` (opcional: run que la produjo), `edited` (opcional: fecha). Tipos de `kind`:
+**`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB), `run` (opcional: run que la produjo), `edited` (opcional: fecha), `verdict` (solo en las notas `review`, que siempre lo llevan: `approve` o `changes`). Tipos de `kind`:
 
 | `kind` | Quién | Significado |
 |---|---|---|
@@ -122,6 +122,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 | `answer` | humano | Responde a la última `question`. |
 | `feedback` | humano | Motivo de una devolución (`review → todo`) o de una petición de cambios en una propuesta. **Sustituye a los prefijos de texto de Kanvas** ("Sent back:"). |
 | `summary` | agente o runner | Resumen al terminar (`doing → review`). Obligatorio. |
+| `review` | agente revisor | Veredicto de un run de revisión (§6) sobre el trabajo de otro run: aprobaría (`approve`) o pediría cambios (`changes`), con los motivos en `text`. Es solo una opinión: no cambia el estado de la tarea. |
 
 **Actores (`by`)**: `human`, `agent:<provider>` (por ejemplo, `agent:claude`), `konsora` (el runner o una migración). Un agente lanzado por Konsora recibe su identidad del run; uno en una sesión manual se identifica con `--as` o con `KONSORA_AGENT` (por defecto, `agent:unknown`).
 
@@ -151,6 +152,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 | `doing` → `todo` | A, K, H | `pause` (opcionalmente con nota), cancelación o fallo de un run. |
 | `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, `finish` solo añade el `summary` (con su `run`) y la tarea sigue en `doing`; cuando acaban los checks (§6), Konsora aplica `complete` `{checks_passed, integrated?, text?}`, que la pasa a `review` (o a `done` en una cadena YOLO, solo con todos los checks en verde y su trabajo ya integrado, `integrated: true`) y puede añadir una nota de Konsora. `complete` es solo de Konsora y exige un `summary` de ese run. Si un check falla y quedan reintentos, el agente recibe el fallo y vuelve a llamar a `finish`. |
 | `review` → `doing` → `review` | K | `rebase` y `rebase-abort`: solo Konsora, cuando el humano pide al agente que rebase un run en conflicto (ver `arquitectura.md` §5). Si el run de rebase falla o se cancela, `rebase-abort` devuelve la tarea a `review`. |
+| nota `review` | A (revisor) | `review` `{verdict, text}`: solo el agente de un run de revisión, sobre la tarea de su run, y es lo único que puede hacer (`out_of_scope` en otro caso; fuera de un run de revisión, `forbidden`). Añade la nota con su `run` y nunca cambia el estado de la tarea: ni acepta ni devuelve. |
 | `review` → `done` | **H** | `accept`. Si la tarea tiene un run, integra su rama (squash, ver `arquitectura.md`). |
 | `review` → `todo` | **H** | `send-back` con una nota `feedback`, que el agente leerá. |
 | `done` → `todo` | **H** | `reopen`. |
@@ -289,6 +291,10 @@ succeeded, failed, cancelled: finales
 Un run de rebase lleva `rebase_of` con el id del run en conflicto cuya rama y worktree reutiliza. `integration.state` solo existe en runs finales: `pending → merged | conflict | discarded` y `conflict → merged | discarded`. Solo un run `succeeded` puede quedar `pending`; cualquier run final se puede descartar directamente.
 
 Cada tarea puede tener muchos runs, pero como máximo **uno activo**: en `queued`, `starting`, `running`, `waiting_approval`, `checking` o `interrupted` (que aún se puede reanudar, así que hay que descartarlo antes de lanzar otro). Las notas que genera un run llevan `run` para enlazarlas.
+
+### Revisiones
+
+Un **run de revisión** (`kind: "review"`, CORE-13) lo hace un segundo agente sobre el trabajo de un run terminado, `review_of`. Siempre usa el perfil de permisos `readonly` (el agente lee el worktree y ejecuta comandos de solo lectura, sin cambiar nada; cada adaptador lo traduce a sus restricciones) y no puede ser variante ni run de rebase. En el plan solo puede añadir notas `review` a su tarea con la op `review` (el MCP lo marca con `review` en el contexto de la op): ninguna otra op, y ninguna cambia el estado de la tarea. Un run de revisión **no ocupa su tarea** (no cuenta frente a la regla de un run activo, ni para `RunStore.activeRun`), nunca se integra (`integrableRun` lo ignora) y solo puede haber uno activo por run revisado. Qué agente revisa y cuándo se lanza lo fija `project.reviewer`. Un run sin `kind` es un run de trabajo (`kind: "work"`).
 
 ### Variantes (best-of-N)
 

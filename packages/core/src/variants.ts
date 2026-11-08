@@ -16,6 +16,7 @@
 import {
   isActiveRunState,
   isFinishedRunState,
+  isReviewRun,
   type Run,
   type RunId,
   transitionIntegration,
@@ -62,10 +63,24 @@ export function variantGroup(runs: readonly Run[], group: RunId): Run[] {
  */
 export function canAddRun(
   taskRuns: readonly Run[],
-  candidate: Pick<Run, "id" | "variant_of">,
+  candidate: Pick<Run, "id" | "variant_of" | "kind" | "review_of">,
 ): VariantResult<object> {
+  // Review runs (CORE-13) never occupy the task: one at a time per reviewed run.
+  const live = (run: Run) => run.id !== candidate.id && isActiveRunState(run.state);
+  if (isReviewRun(candidate)) {
+    const twin = taskRuns.find(
+      (run) => live(run) && isReviewRun(run) && run.review_of === candidate.review_of,
+    );
+    return twin
+      ? fail({
+          code: "active_run",
+          message: `Run ${candidate.review_of} is already being reviewed by ${twin.id}`,
+          run: twin.id,
+        })
+      : { ok: true };
+  }
   const group = candidate.variant_of;
-  const active = taskRuns.filter((run) => run.id !== candidate.id && isActiveRunState(run.state));
+  const active = taskRuns.filter((run) => live(run) && !isReviewRun(run));
   const other = active.find((run) => group === undefined || run.variant_of !== group);
   if (other) {
     return fail({
@@ -175,8 +190,11 @@ export function chooseVariant(
  * The run whose work `accept` integrates: the task's latest succeeded, unintegrated run (`null`
  * if there is none). A rebase run that did not succeed leaves the run it rebased as the one. In a
  * variant group, the only candidate left; with more than one, the human must choose first.
+ * Review runs are left out.
  */
-export function integrableRun(taskRuns: readonly Run[]): VariantResult<{ run: Run | null }> {
+export function integrableRun(runs: readonly Run[]): VariantResult<{ run: Run | null }> {
+  // Review runs (CORE-13) only leave notes: they are never integrated.
+  const taskRuns = runs.filter((r) => !isReviewRun(r));
   let run = taskRuns.at(-1);
   if (run?.rebase_of && run.state !== "succeeded") {
     const of = run.rebase_of;

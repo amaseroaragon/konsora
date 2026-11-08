@@ -252,6 +252,7 @@ export const es = {
   "note.answer": "respuesta",
   "note.feedback": "comentario",
   "note.summary": "resumen",
+  "note.review": "revisión",
   "review.files": "{n} archivos",
   "review.summary": "Resumen del agente",
   "review.diff": "Cambios del run",

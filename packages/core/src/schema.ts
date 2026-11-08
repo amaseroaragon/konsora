@@ -70,6 +70,36 @@ export const AgentSpecSchema = strict({
   permissions: z.string().regex(slug, "Permission profile must be a lowercase slug").optional(),
 });
 
+/**
+ * The permission profile of review runs (CORE-13): the agent reads the worktree and runs
+ * read-only commands, and changes nothing. Each adapter turns it into its own restrictions.
+ */
+export const READONLY_PROFILE = "readonly";
+
+/**
+ * The automatic reviewer (CORE-13): a second agent that reviews a finished run's work, always
+ * with the `readonly` profile, and leaves its verdict as a `review` note. `launch: auto` starts it
+ * when a task reaches review; `manual`, only when the human asks. Only the human sets it.
+ */
+export const ReviewerSchema = strict({
+  agent: AgentSpecSchema,
+  launch: z.enum(["auto", "manual"]),
+}).superRefine((reviewer, ctx) => {
+  const profile = reviewer.agent.permissions;
+  if (profile !== undefined && profile !== READONLY_PROFILE) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["agent", "permissions"],
+      message: `The reviewer always runs with the "${READONLY_PROFILE}" profile, not "${profile}"`,
+    });
+  }
+});
+
+/** The reviewer's agent as its runs use it: always with the `readonly` profile. */
+export function reviewerAgent(reviewer: Reviewer): AgentSpec {
+  return { ...reviewer.agent, permissions: READONLY_PROFILE };
+}
+
 /** The agent the project recommends for each difficulty. Only the human sets it. */
 export const RecommendedSchema = strict({
   low: AgentSpecSchema.optional(),
@@ -129,6 +159,7 @@ export const ProjectSchema = strict({
   /** How many times a run's agent gets the failed checks back to fix them (default 2). */
   check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).optional(),
   templates: z.array(TemplateSchema).max(100).optional(),
+  reviewer: ReviewerSchema.optional(),
 });
 
 export const GroupSchema = strict({
@@ -142,7 +173,17 @@ export const AcceptanceSchema = strict({
   check: z.string().min(1).max(1000).optional(),
 });
 
-export const NoteKindSchema = z.enum(["note", "question", "answer", "feedback", "summary"]);
+export const NoteKindSchema = z.enum([
+  "note",
+  "question",
+  "answer",
+  "feedback",
+  "summary",
+  "review",
+]);
+
+/** A reviewer's verdict (CORE-13): it would approve the work, or ask for changes. */
+export const ReviewVerdictSchema = z.enum(["approve", "changes"]);
 
 export const NoteSchema = strict({
   id: z.string().regex(/^n\d+$/, "Note id must look like n1"),
@@ -155,6 +196,19 @@ export const NoteSchema = strict({
     .regex(/^r-[0-9A-Z]{6,26}$/, "Run id must look like r-01JC8Z3K2Q")
     .optional(),
   edited: TimestampSchema.optional(),
+  /** Only on `review` notes, which always have it. */
+  verdict: ReviewVerdictSchema.optional(),
+}).superRefine((note, ctx) => {
+  if ((note.kind === "review") !== (note.verdict !== undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["verdict"],
+      message:
+        note.kind === "review"
+          ? "A review note needs a verdict"
+          : "Only review notes have a verdict",
+    });
+  }
 });
 
 export const TaskSchema = strict({
@@ -198,6 +252,8 @@ export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type Check = z.infer<typeof CheckSchema>;
 export type Setup = z.infer<typeof SetupSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
+export type Reviewer = z.infer<typeof ReviewerSchema>;
+export type ReviewVerdict = z.infer<typeof ReviewVerdictSchema>;
 
 /** `project.check_retries`, or its default when absent. */
 export function checkRetries(project: Pick<Project, "check_retries">): number {

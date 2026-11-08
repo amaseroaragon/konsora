@@ -9,6 +9,7 @@ import {
   AgentSpecSchema,
   DEFAULT_CHECK_TIMEOUT_S,
   MAX_CHECK_RETRIES,
+  READONLY_PROFILE,
   TaskIdSchema,
   type TasksDocument,
   TimestampSchema,
@@ -383,6 +384,15 @@ export function plannedChecks(document: TasksDocument, taskId: string): PlannedC
   ];
 }
 
+/** What a run does: the task's work (the default), or a review of another run's work (CORE-13). */
+export const RunKindSchema = z.enum(["work", "review"]);
+export type RunKind = z.infer<typeof RunKindSchema>;
+
+/** A review run: it never occupies its task, never runs checks and is never integrated. */
+export function isReviewRun(run: Pick<Run, "kind">): boolean {
+  return run.kind === "review";
+}
+
 /**
  * `run.json`. Only the identity and the state are required: the rest is filled in as the run goes
  * (worktree and branch when it starts, `session_id` from the provider, commits, exit, usage and
@@ -426,8 +436,43 @@ export const RunSchema = z
      * The group's runs run at once with different agents; the human chooses the winner.
      */
     variant_of: RunIdSchema.optional(),
+    /**
+     * `review` (CORE-13): a second agent reviews the work of `review_of`, a finished run, with
+     * the `readonly` profile. It leaves `review` notes and nothing else. Absent: a work run.
+     */
+    kind: RunKindSchema.optional(),
+    review_of: RunIdSchema.optional(),
   })
   .superRefine((run, ctx) => {
+    if (run.kind === "review") {
+      if (!run.review_of) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["review_of"],
+          message: "A review run needs review_of",
+        });
+      }
+      if (run.agent.permissions !== READONLY_PROFILE) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["agent", "permissions"],
+          message: `A review run always uses the "${READONLY_PROFILE}" profile`,
+        });
+      }
+      if (run.variant_of || run.rebase_of) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["kind"],
+          message: "A review run cannot be a variant or a rebase run",
+        });
+      }
+    } else if (run.review_of) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["review_of"],
+        message: "Only a review run has review_of",
+      });
+    }
     if (run.variant_of && run.rebase_of) {
       ctx.addIssue({
         code: "custom",

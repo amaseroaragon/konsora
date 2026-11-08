@@ -27,6 +27,8 @@ import type {
   Note,
   NoteKind,
   Recommended,
+  Reviewer,
+  ReviewVerdict,
   SchemaIssue,
   Setup,
   Task,
@@ -58,6 +60,11 @@ export type OpContext = {
    * revise or withdraw proposals; it starts nothing and touches no approved work.
    */
   plan?: boolean;
+  /**
+   * An agent in a review run (CORE-13): it may only leave `review` notes on `runTask`, and it
+   * never changes the state of anything.
+   */
+  review?: boolean;
 };
 
 /** Precondition: hash (see `taskHash`) of each task the client based the op on. */
@@ -105,6 +112,11 @@ export type Op = Base &
     | { op: "answer"; task: string; text: string }
     | { op: "finish"; task: string; summary: string }
     /**
+     * The agent of a review run leaves its verdict on the task as a `review` note (CORE-13): it
+     * would approve the work, or ask for changes, and why. It never accepts or sends back.
+     */
+    | { op: "review"; task: string; verdict: ReviewVerdict; text: string }
+    /**
      * Konsora closes a run's task once its checks are done: to `review`, or to `done` for an
      * intermediate task of a YOLO chain whose checks all passed and whose work is already
      * integrated into the base branch (`integrated`). `text` adds a Konsora note.
@@ -141,6 +153,8 @@ export type Op = Base &
     | { op: "set-recommended"; recommended: Recommended | null }
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
     | { op: "set-templates"; templates: Template[] }
+    /** The human sets the project's automatic reviewer (CORE-13); `null` removes it. */
+    | { op: "set-reviewer"; reviewer: Reviewer | null }
     | { op: "accept"; task: string }
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
@@ -200,12 +214,14 @@ const ROLES: Record<OpName, readonly Role[]> = {
   ask: ["agent"],
   answer: ["human"],
   finish: ["agent", "konsora"],
+  review: ["agent"], // only inside a review run (checked below)
   complete: ["konsora"],
   rebase: ["konsora"],
   "rebase-abort": ["konsora"],
   "set-checks": ["human"],
   "set-recommended": ["human"],
   "set-templates": ["human"],
+  "set-reviewer": ["human"],
   accept: ["human"],
   "send-back": ["human"],
   reopen: ["human"],
@@ -283,7 +299,22 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
   }
 
-  if (ctx.runTask && role === "agent") {
+  if (role === "agent" && (ctx.review || op.op === "review")) {
+    if (!ctx.review || !ctx.runTask) {
+      fail("forbidden", "Only the agent of a review run can review a task's work");
+    }
+    if (op.op !== "review") {
+      fail(
+        "out_of_scope",
+        `In a review run you can only leave your review of ${ctx.runTask}; ${op.op} is not available`,
+        "task" in op ? { task: op.task } : {},
+      );
+    } else if (op.task !== ctx.runTask) {
+      fail("out_of_scope", `This run reviews ${ctx.runTask}; it cannot review ${op.task}`, {
+        task: op.task,
+      });
+    }
+  } else if (ctx.runTask && role === "agent") {
     if ("task" in op && op.task !== ctx.runTask && !RUN_SCOPE_FREE.has(op.op)) {
       fail("out_of_scope", `This run works on ${ctx.runTask}; it cannot ${op.op} ${op.task}`, {
         task: op.task,
@@ -564,6 +595,13 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       addNote(task, "summary", summary);
       break;
     }
+    case "review": {
+      const task = get(op.task);
+      const text = requireText(op.text, "text_required", "the reasons for the verdict");
+      addNote(task, "review", text);
+      (task.notes?.at(-1) as Note).verdict = op.verdict;
+      break;
+    }
     case "complete": {
       const task = get(op.task);
       const notes = task.notes ?? [];
@@ -626,6 +664,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       if (recommended && Object.keys(recommended).length > 0)
         doc.project.recommended = structuredClone(recommended);
       else delete doc.project.recommended;
+      break;
+    }
+    case "set-reviewer": {
+      if (op.reviewer) doc.project.reviewer = structuredClone(op.reviewer);
+      else delete doc.project.reviewer;
       break;
     }
     case "set-templates": {
