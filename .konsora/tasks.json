@@ -997,7 +997,7 @@
     {
       "id": "CLI-05",
       "title": "Planificación por entrevista",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzzzzzzz",
       "desc": "`konsora plan [--agent claude|codex] [--model …]` abre en la terminal una sesión interactiva del CLI oficial del usuario (no un chat de Konsora), con un prompt de entrevista: pregunta el objetivo, el alcance y las restricciones, lee el plan y el código, y termina proponiendo un lote con `batch` (con criterios verificables, dependencias, dificultad y plantillas si las hay). Su MCP va en modo plan: solo lecturas y propose, batch, edit y withdraw de sus propuestas; nada de start ni de otras tareas (regla en core). El resultado son propuestas que el humano aprueba o no.",
@@ -1022,7 +1022,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:01:42Z"
+      "updated_at": "2026-11-08T14:49:54Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:43:56Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Modo plan en core (OpContext.plan: solo propose, batch, edit y withdraw de propuestas), KONSORA_PLAN en la CLI y el MCP, prompt de entrevista determinista en core (plan-prompt.ts) y konsora plan que lanza claude o codex interactivo con el MCP en modo plan, sin flags --dangerously-*."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:49:10Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit f022f61.\n- core: OpContext.plan. Un agente en una sesión de planificación solo puede propose, batch, edit y withdraw, y edit/withdraw solo sobre propuestas; el resto da out_of_scope (la regla está en core, así que CLI y MCP la comparten). buildPlanPrompt (core/plan-prompt.ts) es el prompt de entrevista: objetivo, alcance y restricciones de uno en uno, leer el plan y el código, resumir y proponer con un solo batch con criterios verificables, deps, dificultad, grupo y plantilla si encaja; incluye grupos, recuento de tareas y plantillas, y el objetivo si se da.\n- cli: KONSORA_PLAN=1 pone la CLI y el MCP en modo plan, con instrucciones propias. konsora plan [objetivo] [--agent claude|codex] [--model id] abre el CLI oficial en interactivo, en la carpeta del proyecto: Claude con --strict-mcp-config, --mcp-config (solo konsora, en modo plan) y --allowedTools de lecturas y propuestas; Codex con -c mcp_servers.konsora.* (sustituye un konsora de la configuración del usuario). Sin -p/exec ni flags --dangerously-*. Avisa si el CLI no está instalado y propaga un código de salida distinto de 0.\nac1: test/plan.test.ts conecta un cliente MCP con KONSORA_PLAN=1: start, note, finish, ask, pause, depend, undepend, edit y withdraw de tareas aprobadas dan out_of_scope sin escribir nada; propose, batch, edit y withdraw de propuestas funcionan. ops.test.ts cubre la regla en core.\nac2: plan.test.ts con claude y codex falsos en el PATH: comprueba el CLI elegido, el prompt (igual a buildPlanPrompt), el MCP solo en modo plan y la ausencia de --dangerously-*/bypass.\nac3: plan-prompt.test.ts: determinismo, snapshot y que pide criterios verificables y dificultad.\nDocs: arquitectura.md §6, CLAUDE.md y la skill (qué hacer en una sesión de planificación).\nNo probado: una sesión real con claude o codex (queda para RUN-30)."
+        }
+      ]
     },
     {
       "id": "DMN-01",
@@ -1495,7 +1511,7 @@
     {
       "id": "DMN-10",
       "title": "Encontrar y arreglar el test intermitente de la suite",
-      "state": "todo",
+      "state": "review",
       "group": "DMN",
       "rank": "zzzzzzzzzzy",
       "desc": "En RUN-26 falló un test en 1 de 13 pasadas de `npm run check` y no se capturó cuál. Ejecuta la suite completa repetidamente, guardando la salida, hasta identificarlo (y cualquier otro intermitente), encuentra la causa (carrera, plazo o limpieza de un test anterior) y arréglala en el código si es un fallo real, o en el test si es del test.",
@@ -1516,7 +1532,30 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:00:05Z"
+      "updated_at": "2026-11-08T15:04:33Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:28:15Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Ejecutar npm run check en bucle en un worktree aislado guardando cada salida, localizar el test intermitente y su causa, y arreglarlo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:43:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Causa (ac1). En 40 pasadas previstas de npm run check sobre el código anterior (paradas en la 19 para probar el arreglo) fallaron la 2, 8, 17 y 19, siempre en packages/daemon/test/m9.test.ts:\n1) El agente falso llamaba a la CLI con execFileSync desde el mismo proceso que ejecuta el daemon. Si el daemon tenía el lock de tasks.json a medio escribir, la llamada síncrona congelaba su bucle de eventos: el daemon no podía soltar el lock y la CLI se rendía a los 5 s (\"tasks.json is locked by pid …\"). El bucle de reintentos del test también era síncrono, así que no servía; el test acababa en timeout a los 60 s y el siguiente heredaba runs vivos (expected ['BE-04','BE-01','BE-04']). Es un fallo del test, no del código: un agente real es otro proceso. queue.test.ts y runs.test.ts tenían el mismo patrón latente.\n2) El test del DAG suponía que BE-04 arranca antes de que BE-01 termine sus 300 ms de trabajo; con la máquina cargada no pasaba (maxLive 1).\nArreglo (commit b761776): llamadas asíncronas a la CLI en los agentes falsos de m9, queue y runs, y en el test del DAG ambas raíces esperan hasta que las dos están en marcha. supervisor.test.ts usa el mismo patrón síncrono, pero allí no hay daemon en el proceso; no ha fallado y lo dejo igual."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-08T15:04:33Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1 (causa, anotada también en la nota anterior). No era un solo test, sino cuatro suposiciones de plazo o de concurrencia en los tests, ninguna en el código:\n1) m9.test.ts (la más frecuente; 4 de 19 pasadas): el agente falso llamaba a la CLI con execFileSync desde el proceso del daemon, lo que congelaba al daemon mientras tenía el lock de tasks.json, y la CLI se rendía a los 5 s. Lo mismo, latente, en queue.test.ts y runs.test.ts. Arreglo: llamadas asíncronas (b761776).\n2) m9.test.ts: suponía que BE-04 arrancaba antes de que BE-01 acabase sus 300 ms (maxLive 1). Ahora retiene ambas raíces hasta que las dos corren (b761776).\n3) claude.test.ts: mataba al falso \"stubborn\" a los 300 ms fijos, a veces antes de que ignorase SIGTERM. Ahora espera a su línea init (dedc234).\n4) supervisor.test.ts: esperaba el estado running 200 ms después de la pregunta; con carga llegaba más tarde, y la limpieza del test chocaba con esa escritura (ENOENT en rename). Ahora espera el estado (f8f7da9).\nac2: con f022f61, 22 pasadas seguidas de npm run check en un worktree aislado, sin nada más ejecutándose: la 1 y de la 3 a la 22 pasaron (20 seguidas, 953 tests cada una, sin errores no capturados). La 2 falló: la causa 4 (arreglada después en f8f7da9) y dos timeouts de 5 s en tests que tardan 187 y 308 ms (recover.test y mcp-write.test), a la vez y en paquetes distintos, lo que apunta a un parón de la máquina. Después del arreglo, npm run check pasa (953).\nPendiente: los timeouts por parón de la máquina no se arreglan con código. Si vuelven a aparecer, habría que subir el testTimeout por defecto de vitest (5 s). Tampoco he repetido las 20 pasadas después de f8f7da9."
+        }
+      ]
     },
     {
       "id": "UI-01",
@@ -2568,7 +2607,7 @@
     {
       "id": "UI-20",
       "title": "Retirar la maqueta y el muestrario de la web",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzx",
       "desc": "La maqueta de UI-04 (`#/maqueta`, `src/app`, `src/mock`) y el muestrario (`#/muestrario`, `src/gallery`) ya no los usa la app real. Bórralos con sus rutas, estilos, textos de i18n que nadie use y la excepción del test de literales para `gallery/`. Actualiza CLAUDE.md y los docs que los mencionan.",
@@ -2593,7 +2632,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:59:59Z"
+      "updated_at": "2026-11-08T14:39:25Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:33:56Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Borrar src/app, src/mock y src/gallery con sus rutas; los estilos de app.css que usa la app real pasan a shell/base.css; quitar claves de i18n sin uso con un test que lo vigila; docs."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:36:16Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit c6e6488.\nac1: borrados src/app, src/mock, src/gallery y test/app.test.ts; parseRoute ya no tiene gallery ni mock, y #/maqueta y #/muestrario llevan a la lista de proyectos (shell.test.ts). La app real usaba muchas reglas de app/app.css (a-app, a-header, a-detail, a-note, md…): pasan a src/shell/base.css y solo se quitan las de clases que nadie usa (tabla de runs, grafo de la maqueta, búsqueda y uso de la cabecera…), teniendo en cuenta las clases que se construyen con plantillas (a-run-state--*, a-note--*, md-h*).\nac2: quitadas 103 claves de i18n sin uso; test/i18n-keys.test.ts falla si una clave no aparece literal en src/ ni encaja con el prefijo de una clave dinámica (run.file.${…}). El test de literales ya no exime gallery/. Pasan vitest de web (277), tsc, biome y vite build.\nac3: CLAUDE.md ya no menciona #/maqueta; el único otro texto es el de M9b en roadmap.md, que lo describe como tarea.\nLimitación: no he revisado la app en el navegador; la retirada de CSS se basa en que esas clases no aparecen en el código."
+        }
+      ]
     },
     {
       "id": "UI-21",
@@ -3070,7 +3125,7 @@
     {
       "id": "MCP-07",
       "title": "Pistas de error del MCP con nombres de herramientas",
-      "state": "todo",
+      "state": "done",
       "group": "MCP",
       "rank": "zzzzzzzzzzv",
       "desc": "Las pistas (`Hint:`) que devuelve el MCP son las de la CLI y nombran comandos y opciones (`konsora ready`, `--summary`). En el MCP deben nombrar las herramientas y sus parámetros (`ready`, `summary`). Las reglas siguen compartidas: solo cambia cómo se formula la pista según el canal.",
@@ -3091,7 +3146,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:59:41Z"
+      "updated_at": "2026-11-08T14:39:21Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:30:45Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Catálogo de pistas por canal (cli/mcp) en packages/cli/src/hints.ts; CliError guarda la pista de cada canal y el MCP usa la suya."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:31:02Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 192a6e9. Todas las pistas están en un catálogo, packages/cli/src/hints.ts: OP_HINTS (rechazos de las ops de core) y HINTS (errores propios de la CLI que el MCP también puede dar: sin plan, plan inválido, sin proyecto, --root en un run, tarea inexistente, forma del batch, nada que cambiar, nombre de agente), cada una con su texto para cli y para mcp. CliError guarda la pista por canal (hint = la de la CLI, hintFor('mcp')); guarded() y las escrituras del MCP usan la del MCP. Las reglas siguen compartidas.\nac1: test/hints.test.ts recorre todas las pistas y comprueba que la versión MCP no nombra comandos konsora ni opciones --; mcp-write.test.ts y mcp.test.ts comprueban pistas reales del MCP (edit sin cambios, start bloqueado, show de una tarea inexistente, proyecto inexistente).\nac2: los tests de la CLI siguen pasando sin cambios, y hints.test.ts fija varias pistas de la CLI.\nNota: mcp.test.ts esperaba la pista de la CLI ('Run konsora init') en el MCP; la actualicé a la nueva."
+        }
+      ]
     },
     {
       "id": "RUN-01",
