@@ -3943,7 +3943,7 @@
     {
       "id": "RUN-26",
       "title": "Evitar que una cadena YOLO desatendida se pare en cada aprobación de Bash",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "rank": "zzzzzzzzz",
       "desc": "Decisión del humano (2026-11-08): no se amplían los permisos del perfil default. En la verificación de M9 con Claude Code real, el agente encadenó comandos Bash (mkdir, printf, test, git add y git commit con &&) que el perfil default manda al humano, así que una cadena YOLO desatendida se paraba 5 minutos en cada uno. Dos cambios: (1) el protocolo del prompt del run (y el de rebase) pide crear y leer ficheros con las herramientas de edición y lectura del agente, y ejecutar cada comando por separado, usando sin pedir permiso solo los que el perfil ya permite (git status, diff, log, add y commit, los checks del proyecto, npm run/test); el resto de comandos pide aprobación, que es lo esperado. (2) La UI destaca los runs que esperan una aprobación: en la vista de cola (un motivo de espera propio en sus runs activos) y en las tarjetas del tablero, con un enlace a la aprobación. Sin cambios en --allowedTools.",
@@ -3968,7 +3968,23 @@
         "at": "2026-11-08T12:15:25Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:23:53Z"
+      "updated_at": "2026-11-08T12:36:06Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T12:24:27Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Protocolo del prompt de run y de rebase con la guía de herramientas; motivo de espera 'approval' en la vista de cola y marca en la tarjeta del tablero con enlace a la aprobación; test que fija allowedTools."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T12:36:06Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 91194d6. Aplicada la decisión: prompt más aviso, sin ampliar permisos.\n- ac1: los comandos del perfil default pasan a core (DEFAULT_PROFILE_COMMANDS). buildRunPrompt y buildRebasePrompt incluyen la guía: crear, cambiar y leer ficheros con las herramientas de edición y lectura, ejecutar los comandos uno a uno sin &&, ; ni tuberías, y lista de los que no piden permiso (npm run/test/ci, git status/diff/log/add/commit y los checks del proyecto). Test explícito en los dos prompts y snapshots actualizados.\n- ac2: tarjeta del tablero con la marca «Espera tu aprobación» (k-card--approval) cuando su run está en waiting_approval o hay una aprobación pendiente de la tarea; al abrirla se ve la aprobación. En #/cola, la entrada dice «Espera tu aprobación (r-…)» y el run activo lleva la marca y el enlace «abre la tarea para decidir». Tests de UI.\n- ac3: claudeAllowedTools se construye desde la constante y un test fija la lista exacta, igual que antes.\nNota: el prompt de rebase pide git rebase, que sigue necesitando aprobación; es lo esperado, porque el rebase lo pide el humano. Comprobado: npm run check 13 veces, 12 en verde (909 tests). Una tuvo un fallo intermitente que no capturé y no se repitió en las 11 siguientes."
+        }
+      ]
     },
     {
       "id": "DESK-01",
