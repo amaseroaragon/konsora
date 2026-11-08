@@ -2200,7 +2200,7 @@
     {
       "id": "UI-18",
       "title": "Vista de cola y runs activos",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-08",
@@ -2233,7 +2233,7 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T11:22:16Z",
+      "updated_at": "2026-11-08T11:39:34Z",
       "notes": [
         {
           "id": "n1",
