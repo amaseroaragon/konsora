@@ -16,7 +16,7 @@ import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
-import { queueableSelection } from "./queue-model.ts";
+import { awaitingApproval, queueableSelection } from "./queue-model.ts";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
@@ -78,18 +78,26 @@ export function ProjectView({
   const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
   const toast = useToast();
   const runs = useRuns(projectId).data;
-  // Cards in review whose latest run ended with checks in red stand out on the board.
+  const allApprovals = useApprovals().data;
+  const approvals = useMemo(
+    () => (allApprovals ?? []).filter((a) => a.project === projectId),
+    [allApprovals, projectId],
+  );
+  // Cards in review whose latest run ended with checks in red stand out on the board, and so do
+  // cards whose run waits for the human's approval.
   const marked = useMemo(() => {
     const failing = failingReviews(board.tasks, runs);
-    if (failing.size === 0) return board;
+    const asking = awaitingApproval(runs, approvals);
+    if (failing.size === 0 && asking.size === 0) return board;
     return {
       ...board,
-      tasks: board.tasks.map((task) =>
-        failing.has(task.id) ? { ...task, checks_failed: true } : task,
-      ),
+      tasks: board.tasks.map((task) => ({
+        ...task,
+        ...(failing.has(task.id) ? { checks_failed: true } : {}),
+        ...(asking.has(task.id) ? { awaiting_approval: true } : {}),
+      })),
     };
-  }, [board, runs]);
-  const approvals = (useApprovals().data ?? []).filter((a) => a.project === projectId);
+  }, [board, runs, approvals]);
   const startRun = useStartRun(projectId);
   const selection = useSelection(projectId);
   const selectedIds = visibleSelection(selection.selected, board.tasks);

@@ -11,6 +11,23 @@ import {
   type TasksDocument,
 } from "./schema.ts";
 
+/**
+ * The shell commands the `default` permission profile lets a run's agent use without asking the
+ * human (besides the project's checks): `prefix` commands take any arguments, the others only as
+ * written. Any other command waits for the human's approval. The Claude adapter turns them into
+ * `--allowedTools` rules and the run's prompt names them.
+ */
+export const DEFAULT_PROFILE_COMMANDS: readonly { command: string; prefix: boolean }[] = [
+  { command: "npm run", prefix: true },
+  { command: "npm test", prefix: true },
+  { command: "npm ci", prefix: false },
+  { command: "git status", prefix: true },
+  { command: "git diff", prefix: true },
+  { command: "git log", prefix: true },
+  { command: "git add", prefix: true },
+  { command: "git commit", prefix: true },
+];
+
 export type AgentModel = { id: string; label: string; efforts: string[] };
 
 export type AgentCatalogEntry = {

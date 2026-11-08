@@ -8,6 +8,7 @@
  * summaries of the dependencies, and the protocol. Ordinary notes, questions without an answer
  * and the agent's own summaries stay out: they are progress, not instructions.
  */
+import { DEFAULT_PROFILE_COMMANDS } from "./agents.ts";
 import { indexTasks } from "./graph.ts";
 import { type CheckAttempt, checkPassed, tailOutput } from "./run.ts";
 import type { Note, Task, TasksDocument } from "./schema.ts";
@@ -127,6 +128,7 @@ function protocol(task: Task, document: TasksDocument, options: RunPromptOptions
     `- You are in a git worktree of your own, on ${branch}, created from \`${document.project.base_branch}\`. Work only on this task.`,
     `- Commit your work on this branch in small commits. Never push, never switch branches and never rewrite the history of \`${document.project.base_branch}\`.`,
     "- Do not create, edit or delete anything under `.konsora/`: the plan changes only through Konsora's tools.",
+    toolGuidance(),
     `- Use the Konsora MCP tools on ${task.id}: \`note\` to record meaningful progress, \`ask\` when you need a decision from the human (then stop and wait for the answer), and \`finish\` with a summary of what you did and how it meets each acceptance criterion when you are done.`,
     "- You cannot approve tasks, accept work or mark anything done; the human reviews your result.",
   ].join("\n");
@@ -266,9 +268,22 @@ export function buildRebasePrompt(
         `- Stay on \`${input.branch}\` and leave the rebase finished: never check out, reset, commit to, push or force-update \`${base}\`.`,
         "- Never push anything and never use `--force`: the rebase only rewrites your own branch, locally.",
         "- Do not create, edit or delete anything under `.konsora/`: the plan changes only through Konsora's tools.",
+        toolGuidance(),
         "- You cannot approve tasks, accept work or mark anything done; the human reviews your result.",
       ].join("\n"),
     ),
     "",
   ].join("\n");
+}
+
+/**
+ * How to use tools so the run does not stop for approvals the human may not be there to give:
+ * files through the agent's own tools, and shell commands one at a time, naming those the
+ * `default` profile allows without asking.
+ */
+function toolGuidance(): string {
+  const allowed = DEFAULT_PROFILE_COMMANDS.map(({ command, prefix }) =>
+    prefix ? `\`${command} …\`` : `\`${command}\``,
+  ).join(", ");
+  return `- Create, change and read files with your file-editing and file-reading tools, not with shell commands. Run shell commands one at a time, never chained with \`&&\`, \`;\` or pipes. You can run ${allowed} and the project's checks without asking; any other command may wait for the human's approval, so use it only when you need it.`;
 }

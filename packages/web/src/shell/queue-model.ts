@@ -38,11 +38,36 @@ export function waitText(wait: QueueWait): string {
   }
 }
 
-/** The text for a provider-limit wait needs the entry's provider. */
-export function entryWaitText(wait: QueueWait, agent: Pick<AgentSpec, "provider">): string {
-  return wait.kind === "slot" && wait.limit === "provider"
-    ? t("queue.wait.slot.provider", { provider: providerName(agent.provider) })
-    : waitText(wait);
+/**
+ * The text for an entry: a provider-limit wait names the entry's provider, and a launched run
+ * that waits for the human's approval says so (it is not just running).
+ */
+export function entryWaitText(
+  wait: QueueWait,
+  agent: Pick<AgentSpec, "provider">,
+  runs: readonly Pick<Run, "id" | "state">[] = [],
+): string {
+  if (wait.kind === "slot" && wait.limit === "provider") {
+    return t("queue.wait.slot.provider", { provider: providerName(agent.provider) });
+  }
+  if (
+    wait.kind === "running" &&
+    runs.some((r) => r.id === wait.run && r.state === "waiting_approval")
+  ) {
+    return t("queue.wait.approval", { run: wait.run });
+  }
+  return waitText(wait);
+}
+
+/** Tasks whose run waits for the human: a pending approval, or a run in `waiting_approval`. */
+export function awaitingApproval(
+  runs: readonly Pick<Run, "task" | "state">[] | undefined,
+  approvals: readonly { task: string }[] | undefined,
+): Set<string> {
+  return new Set([
+    ...(runs ?? []).filter((run) => run.state === "waiting_approval").map((run) => run.task),
+    ...(approvals ?? []).map((approval) => approval.task),
+  ]);
 }
 
 export function agentText(agent: AgentSpec): string {

@@ -13,6 +13,8 @@ export type TaskCardProps = {
   external?: boolean;
   /** In review with its run's checks failing. */
   checksFailed?: boolean;
+  /** Its run waits for the human to approve something. */
+  awaitingApproval?: boolean;
   /** Elapsed time of the active run, e.g. "4:12". */
   running?: string;
   /** "claude · opus · alto" */
@@ -34,6 +36,7 @@ export function TaskCard({
   waiting = false,
   external = false,
   checksFailed = false,
+  awaitingApproval = false,
   running,
   agent,
   proposedBy,
@@ -56,6 +59,7 @@ export function TaskCard({
         running && "k-card--running",
         external && "k-card--external",
         checksFailed && "k-card--checks",
+        awaitingApproval && "k-card--approval",
         selected && "k-card--selected",
       )}
     >
@@ -69,6 +73,7 @@ export function TaskCard({
         {waiting && <StateBadge kind="waiting" />}
         {external && <StateBadge kind="external" />}
         {checksFailed && <StateBadge kind="checks" />}
+        {awaitingApproval && <StateBadge kind="approval" />}
         {state === "proposed" && proposedBy && (
           <StateBadge kind="proposed" label={t("card.proposedBy", { actor: proposedBy })} />
         )}

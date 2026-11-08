@@ -13,7 +13,7 @@ import {
 } from "../api/queue.ts";
 import { useRuns } from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
-import { Button, Field, Panel, useToast } from "../ui/index.ts";
+import { Button, Field, Panel, StateBadge, useToast } from "../ui/index.ts";
 import { providerName } from "./limits-model.ts";
 import {
   activeRuns,
@@ -193,6 +193,15 @@ export function ProjectQueueView({
                   </a>{" "}
                   · {t(RUN_STATE_KEY[run.state])} ·{" "}
                   <span className="s-muted">{agentText(run.agent)}</span>
+                  {run.state === "waiting_approval" && (
+                    <>
+                      {" "}
+                      <StateBadge kind="approval" />{" "}
+                      <a href={projectHref(project.id, { task: run.task })}>
+                        {t("queue.active.approval")}
+                      </a>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -221,7 +230,7 @@ export function ProjectQueueView({
                         </a>
                       </th>
                       <td>{agent ? agentText(agent) : ""}</td>
-                      <td>{agent ? entryWaitText(entry.wait, agent) : ""}</td>
+                      <td>{agent ? entryWaitText(entry.wait, agent, runs) : ""}</td>
                       <td>
                         <Button
                           size="sm"

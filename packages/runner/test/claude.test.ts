@@ -238,6 +238,27 @@ describe("arguments and environment", () => {
     expect(tools).not.toContain("Bash");
   });
 
+  it("keeps the default profile's tools exactly as they were (RUN-26: no new permissions)", () => {
+    expect(claudeAllowedTools({ agent: spec.agent })).toEqual([
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "TodoWrite",
+      "mcp__konsora",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npm ci)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+    ]);
+  });
+
   it("rejects other permission profiles and option-like values", () => {
     expect(() => claudeAllowedTools({ agent: { ...spec.agent, permissions: "trusted" } })).toThrow(
       /not available for Claude yet/,

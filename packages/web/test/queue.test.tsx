@@ -8,6 +8,7 @@ import { applyQueueMessage, parallelKey, type QueueView, queueKey } from "../src
 import { ProjectQueueView, QueueLink } from "../src/shell/QueuePage.tsx";
 import {
   activeRuns,
+  awaitingApproval,
   entryWaitText,
   limitsDraft,
   parseLimitsDraft,
@@ -17,7 +18,7 @@ import {
 import { parseRoute } from "../src/shell/route.ts";
 import { SelectionBar } from "../src/shell/SelectionBar.tsx";
 import { Shell } from "../src/shell/Shell.tsx";
-import { ToastProvider } from "../src/ui/index.ts";
+import { TaskCard, ToastProvider } from "../src/ui/index.ts";
 
 const at = "2026-11-08T10:00:00Z";
 const claude = { provider: "claude", model: "sonnet" } as const;
@@ -199,5 +200,39 @@ describe("queueing from the selection bar (UI-18 ac1)", () => {
     expect(html).toContain("Se encolarán 2: BE-01, BE-04.");
     expect(bar([])).toContain("Solo se pueden encolar tareas aprobadas en Por hacer.");
     expect(bar([])).toMatch(/disabled=""[^>]*>Encolar/);
+  });
+});
+
+describe("runs that wait for an approval stand out (RUN-26)", () => {
+  it("in the queue view: the entry and the active run say so, with a link to the task", () => {
+    const asking = { ...run("BE-01", "waiting_approval"), id: "r-01JC8Z3K2QX7M4V9T0B6N5R801" };
+    expect(entryWaitText({ kind: "running", run: asking.id }, claude, [asking])).toBe(
+      `Espera tu aprobación (${asking.id})`,
+    );
+    const html = render(
+      <ProjectQueueView project={{ id: "p-1", name: "demo" }} view={view} runs={[asking]} />,
+    );
+    expect(html).toContain(`Espera tu aprobación (${asking.id})`);
+    expect(html).toContain("k-badge--approval");
+    expect(html).toContain('href="#/p/p-1?task=BE-01">abre la tarea para decidir');
+  });
+
+  it("on the board: the card of a task whose run asks for approval is marked", () => {
+    expect(
+      [
+        ...awaitingApproval(
+          [run("BE-01", "waiting_approval"), run("BE-02", "running")],
+          [{ task: "BE-03" }],
+        ),
+      ].sort(),
+    ).toEqual(["BE-01", "BE-03"]);
+    const card = render(
+      <TaskCard id="BE-01" title="Caché" state="doing" awaitingApproval onOpen={() => {}} />,
+    );
+    expect(card).toContain("k-card--approval");
+    expect(card).toContain("Espera tu aprobación");
+    expect(render(<TaskCard id="BE-02" title="x" state="doing" />)).not.toContain(
+      "k-card--approval",
+    );
   });
 });

@@ -16,7 +16,7 @@ import { type ChildProcess, spawn as nodeSpawn } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 import { createInterface } from "node:readline";
-import { EffortSchema } from "@konsora/core";
+import { DEFAULT_PROFILE_COMMANDS, EffortSchema } from "@konsora/core";
 import {
   AdapterError,
   type AgentAdapter,
@@ -50,14 +50,9 @@ const DEFAULT_TOOLS = [
   "NotebookEdit",
   "TodoWrite",
   "mcp__konsora",
-  "Bash(npm run:*)",
-  "Bash(npm test:*)",
-  "Bash(npm ci)",
-  "Bash(git status:*)",
-  "Bash(git diff:*)",
-  "Bash(git log:*)",
-  "Bash(git add:*)",
-  "Bash(git commit:*)",
+  ...DEFAULT_PROFILE_COMMANDS.map(({ command, prefix }) =>
+    prefix ? `Bash(${command}:*)` : `Bash(${command})`,
+  ),
 ];
 
 /** `--allowedTools` for a permission profile. Only `default` exists for now. */

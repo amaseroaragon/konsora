@@ -13,6 +13,8 @@ export type BoardTask = Task &
     hash: string;
     /** Set by the page from the task's latest run: in review with checks failing (UI-16). */
     checks_failed?: boolean;
+    /** UI only: its run waits for the human's approval. */
+    awaiting_approval?: boolean;
   };
 export type ExternalFlag = {
   task: string;

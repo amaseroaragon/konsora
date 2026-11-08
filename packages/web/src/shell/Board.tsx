@@ -90,6 +90,7 @@ function Card({
       waiting={task.waiting}
       external={external}
       checksFailed={task.checks_failed === true}
+      awaitingApproval={task.awaiting_approval === true}
       {...(onOpen ? { onOpen } : {})}
       {...(agent ? { agent } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}

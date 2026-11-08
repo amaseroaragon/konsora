@@ -29,6 +29,7 @@ If you cannot resolve a conflict without a decision from the human, \`ask\` on B
 - Stay on \`konsora/BE-01/01JABCDEFGHJ\` and leave the rebase finished: never check out, reset, commit to, push or force-update \`main\`.
 - Never push anything and never use \`--force\`: the rebase only rewrites your own branch, locally.
 - Do not create, edit or delete anything under \`.konsora/\`: the plan changes only through Konsora's tools.
+- Create, change and read files with your file-editing and file-reading tools, not with shell commands. Run shell commands one at a time, never chained with \`&&\`, \`;\` or pipes. You can run \`npm run …\`, \`npm test …\`, \`npm ci\`, \`git status …\`, \`git diff …\`, \`git log …\`, \`git add …\`, \`git commit …\` and the project's checks without asking; any other command may wait for the human's approval, so use it only when you need it.
 - You cannot approve tasks, accept work or mark anything done; the human reviews your result.
 "
 `;
@@ -84,6 +85,7 @@ This task builds on these finished tasks:
 - You are in a git worktree of your own, on the branch \`konsora/BE-02/01JC8Z3K2QX7\`, created from \`main\`. Work only on this task.
 - Commit your work on this branch in small commits. Never push, never switch branches and never rewrite the history of \`main\`.
 - Do not create, edit or delete anything under \`.konsora/\`: the plan changes only through Konsora's tools.
+- Create, change and read files with your file-editing and file-reading tools, not with shell commands. Run shell commands one at a time, never chained with \`&&\`, \`;\` or pipes. You can run \`npm run …\`, \`npm test …\`, \`npm ci\`, \`git status …\`, \`git diff …\`, \`git log …\`, \`git add …\`, \`git commit …\` and the project's checks without asking; any other command may wait for the human's approval, so use it only when you need it.
 - Use the Konsora MCP tools on BE-02: \`note\` to record meaningful progress, \`ask\` when you need a decision from the human (then stop and wait for the answer), and \`finish\` with a summary of what you did and how it meets each acceptance criterion when you are done.
 - You cannot approve tasks, accept work or mark anything done; the human reviews your result.
 "

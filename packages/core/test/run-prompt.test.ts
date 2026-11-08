@@ -195,3 +195,23 @@ describe("buildRebasePrompt (RUN-24)", () => {
     );
   });
 });
+
+describe("tool guidance (RUN-26)", () => {
+  const guidance =
+    "Create, change and read files with your file-editing and file-reading tools, not with shell commands. Run shell commands one at a time, never chained with `&&`, `;` or pipes.";
+
+  it("tells the agent of a run and of a rebase how to avoid approvals, naming what it may run", () => {
+    const prompts = [
+      buildRunPrompt(document, "BE-02"),
+      buildRebasePrompt(document, "BE-01", { branch: "b", onto: "a".repeat(40), files: [] }),
+    ];
+    for (const prompt of prompts) {
+      expect(prompt).toContain(guidance);
+      expect(prompt).toContain(
+        "`git add …`, `git commit …` and the project's checks without asking",
+      );
+      expect(prompt).toContain("`npm ci`,");
+      expect(prompt).toContain("any other command may wait for the human's approval");
+    }
+  });
+});
