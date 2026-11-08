@@ -421,8 +421,20 @@ export const RunSchema = z
      * branch and worktree, rebasing it onto the current tip of `base_branch`.
      */
     rebase_of: RunIdSchema.optional(),
+    /**
+     * A variant (CORE-12, best-of-N): the id of the first run of its group, its own included.
+     * The group's runs run at once with different agents; the human chooses the winner.
+     */
+    variant_of: RunIdSchema.optional(),
   })
   .superRefine((run, ctx) => {
+    if (run.variant_of && run.rebase_of) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["variant_of"],
+        message: "A rebase run cannot be a variant",
+      });
+    }
     if (run.integration && !isFinishedRunState(run.state)) {
       ctx.addIssue({
         code: "custom",

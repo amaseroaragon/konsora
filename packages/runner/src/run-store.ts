@@ -17,6 +17,7 @@ import {
   type CheckAttempt,
   type ChecksFile,
   ChecksFileSchema,
+  canAddRun,
   type IntegrationState,
   isActiveRunState,
   type Run,
@@ -108,7 +109,7 @@ export class RunStore {
 
   /**
    * Creates a new run directory with its `run.json`. The run must be `queued`, and its task must
-   * have no other active run (`active_run` otherwise).
+   * have no other active run (`active_run` otherwise), except the variants of its own group.
    */
   async create(run: Run): Promise<Run> {
     const valid = validate(run);
@@ -117,12 +118,17 @@ export class RunStore {
     }
     await this.#ensureRunsDir();
     return this.#locked(async () => {
-      const active = await this.activeRun(valid.task);
-      if (active) {
+      // One active run per task; the variants of one group count as one (CORE-12).
+      const { runs } = await this.list({ task: valid.task });
+      const allowed = canAddRun(runs, valid);
+      if (!allowed.ok) {
+        const active = runs.find((r) => r.id === allowed.error.run);
         throw new RunStoreError(
-          "active_run",
-          `Task ${valid.task} already has an active run (${active.id}, ${active.state}); ` +
-            "wait for it to finish or cancel it first",
+          allowed.error.code === "active_run" ? "active_run" : "invalid",
+          allowed.error.code === "active_run"
+            ? `Task ${valid.task} already has an active run (${active?.id}, ${active?.state}); ` +
+                "wait for it to finish or cancel it first"
+            : allowed.error.message,
           active,
         );
       }

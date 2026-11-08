@@ -290,6 +290,15 @@ Un run de rebase lleva `rebase_of` con el id del run en conflicto cuya rama y wo
 
 Cada tarea puede tener muchos runs, pero como máximo **uno activo**: en `queued`, `starting`, `running`, `waiting_approval`, `checking` o `interrupted` (que aún se puede reanudar, así que hay que descartarlo antes de lanzar otro). Las notas que genera un run llevan `run` para enlazarlas.
 
+### Variantes (best-of-N)
+
+Una tarea puede ejecutarse a la vez con varios agentes, de 2 a 3 (`MIN_VARIANTS`, `MAX_VARIANTS`), cada uno en su worktree y su rama: son las **variantes** de un grupo. Cada run del grupo lleva `variant_of` con el id del primer run del grupo (el primero también, con su propio id); un run de rebase no puede ser variante. Las reglas están en `core` (`variants.ts`):
+
+- **Un grupo cuenta como un solo run activo** (`canAddRun`, que aplica `RunStore.create`): sus variantes pueden estar activas a la vez, y mientras alguna lo esté ningún otro run de la tarea puede empezar (`active_run`). Una variante funda el grupo o se une a uno que existe, aún sin decidir y con menos de 3 runs (`variant_group_closed`).
+- **La tarea sigue en `doing` hasta que todas las variantes se cierran** (`variantsOutcome`): `running` mientras alguna está activa; después `review` si al menos una terminó `succeeded`, o `failed` (la tarea vuelve a `todo`) si ninguna. Cada `finish` va ligado a su variante por `run`, y la última en cerrarse aplica `complete` con `variants` (los ids del grupo): el resumen puede ser de cualquiera de ellas y la tarea va siempre a `review`, también dentro de una cadena YOLO, porque la ganadora la elige el humano.
+- **Elegir la ganadora** (`chooseVariant`, solo con todas cerradas y sobre una variante `succeeded`) la deja con `integration = pending` y pasa las demás a `discarded`; sus runs y su `diff.patch` se conservan. Elegir otra después no es posible.
+- **Aceptar integra solo la ganadora** (`integrableRun`): con más de una candidata (variantes `succeeded` sin descartar ni integrar), `accept` responde `409 variant_not_chosen` con la lista de variantes, sin tocar nada. Si solo una terminó bien, es la que se integra sin elegir.
+
 ## 7. Migración v1 → v2
 
 Con `konsora migrate` (acción explícita; nunca automática al abrir):

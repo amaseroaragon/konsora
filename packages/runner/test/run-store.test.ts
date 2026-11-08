@@ -200,6 +200,24 @@ describe("active runs", () => {
     ]);
   });
 
+  it("lets the variants of one group be active together, and nothing else (CORE-12)", async () => {
+    const first = newRun("BE-02");
+    await store.create({ ...first, variant_of: first.id });
+    const second = await store.create(newRun("BE-02", { variant_of: first.id }));
+    expect(second.variant_of).toBe(first.id);
+    const plain = await rejection(store.create(newRun("BE-02")));
+    expect(plain.code).toBe("active_run");
+    expect(plain.activeRun?.id).toBe(first.id);
+    const other = newRun("BE-02");
+    expect((await rejection(store.create({ ...other, variant_of: other.id }))).code).toBe(
+      "active_run",
+    );
+    await store.create(newRun("BE-02", { variant_of: first.id }));
+    const fourth = await rejection(store.create(newRun("BE-02", { variant_of: first.id })));
+    expect(fourth.code).toBe("invalid");
+    expect(fourth.message).toMatch(/already has 3 runs/);
+  });
+
   it("lets only one of many concurrent creations for the same task win", async () => {
     const stores = [store, new RunStore(root), new RunStore(root)];
     const results = await Promise.allSettled(

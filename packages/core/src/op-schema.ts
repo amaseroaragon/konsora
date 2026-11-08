@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import type { Op } from "./ops.ts";
+import { RunIdSchema } from "./run.ts";
 import {
   AcceptanceSchema,
   AgentSpecSchema,
@@ -17,6 +18,7 @@ import {
   TaskSchema,
   TemplateSchema,
 } from "./schema.ts";
+import { MAX_VARIANTS, MIN_VARIANTS } from "./variants.ts";
 
 const expect = z.record(TaskIdSchema, z.string()).optional();
 const id = z.string().min(1).max(40);
@@ -85,6 +87,7 @@ export const OpSchema = z.discriminatedUnion("op", [
     checks_passed: z.boolean(),
     integrated: z.boolean().optional(),
     text: text.optional(),
+    variants: z.array(RunIdSchema).min(MIN_VARIANTS).max(MAX_VARIANTS).optional(),
   }),
   z.strictObject({ op: z.literal("rebase"), expect, task: id, text: text.optional() }),
   z.strictObject({ op: z.literal("rebase-abort"), expect, task: id, text: text.optional() }),

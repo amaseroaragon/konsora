@@ -109,7 +109,18 @@ export type Op = Base &
      * intermediate task of a YOLO chain whose checks all passed and whose work is already
      * integrated into the base branch (`integrated`). `text` adds a Konsora note.
      */
-    | { op: "complete"; task: string; checks_passed: boolean; integrated?: boolean; text?: string }
+    | {
+        op: "complete";
+        task: string;
+        checks_passed: boolean;
+        integrated?: boolean;
+        text?: string;
+        /**
+         * The runs of a variant group (CORE-12), once all have closed: the summary may come from
+         * any of them, and the task always goes to review, where the human chooses the winner.
+         */
+        variants?: string[];
+      }
     /**
      * Konsora takes a task in review whose integration conflicts back to `doing`, for a run that
      * rebases its branch (the human asked for it). `rebase-abort` returns it to `review` if that
@@ -556,8 +567,14 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     case "complete": {
       const task = get(op.task);
       const notes = task.notes ?? [];
-      const summary = notes.findLast((n) => n.kind === "summary");
-      if (!summary || (ctx.run !== undefined && summary.run !== ctx.run)) {
+      const variants = op.variants ?? [];
+      const ownRun = (run: string | undefined) =>
+        ctx.run === undefined || run === ctx.run || (run !== undefined && variants.includes(run));
+      const summary =
+        variants.length > 0
+          ? notes.findLast((n) => n.kind === "summary" && ownRun(n.run))
+          : notes.findLast((n) => n.kind === "summary");
+      if (!summary || !ownRun(summary.run)) {
         fail(
           "summary_required",
           `${task.id} has no summary from this run; the agent must finish first`,
@@ -568,7 +585,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       }
       // Only green checks and integrated work let an intermediate task of a YOLO chain skip
       // review: its dependents must start from a base that has its commit.
-      const toDone = skipsReview(input, task.id) && op.checks_passed && op.integrated === true;
+      const toDone =
+        variants.length === 0 &&
+        skipsReview(input, task.id) &&
+        op.checks_passed &&
+        op.integrated === true;
       transition(task, ["doing"], toDone ? "done" : "review");
       if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
       if (op.text?.trim()) addNote(task, "note", op.text);

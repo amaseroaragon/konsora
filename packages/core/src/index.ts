@@ -18,3 +18,4 @@ export * from "./run-prompt.ts";
 export * from "./schema.ts";
 export * from "./semantics.ts";
 export * from "./serialize.ts";
+export * from "./variants.ts";

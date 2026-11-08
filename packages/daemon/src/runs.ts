@@ -16,6 +16,7 @@ import {
   type AgentSpec,
   type ChecksFile,
   checkAgent,
+  integrableRun,
   isActiveRunState,
   type Provider,
   type Run,
@@ -86,7 +87,13 @@ export type RunManagerOptions = {
 const PERMISSION_WAIT_MS = 300_000;
 
 export class RunManagerError extends Error {
-  readonly code: "not_found" | "not_active" | "no_adapter" | "not_discardable" | "invalid_agent";
+  readonly code:
+    | "not_found"
+    | "not_active"
+    | "no_adapter"
+    | "not_discardable"
+    | "invalid_agent"
+    | "variant_not_chosen";
   constructor(code: RunManagerError["code"], message: string) {
     super(message);
     this.name = "RunManagerError";
@@ -357,18 +364,13 @@ export class RunManager {
 
   /**
    * The run whose work `accept` must integrate: the task's latest succeeded, unintegrated run. A
-   * rebase run that did not succeed leaves the run it rebased (still in conflict) as the one.
+   * rebase run that did not succeed leaves the run it rebased (still in conflict) as the one. In
+   * a variant group, the winner; accepting before choosing one is `variant_not_chosen` (CORE-12).
    */
   async integrable(project: Project, task: string): Promise<Run | null> {
-    const runs = await this.list(project, task);
-    let run = runs.at(-1);
-    if (run?.rebase_of && run.state !== "succeeded") {
-      const of = run.rebase_of;
-      run = runs.find((r) => r.id === of);
-    }
-    if (run?.state !== "succeeded") return null;
-    const state = run.integration?.state;
-    return state === "merged" || state === "discarded" ? null : run;
+    const result = integrableRun(await this.list(project, task));
+    if (!result.ok) throw new RunManagerError("variant_not_chosen", result.error.message);
+    return result.run;
   }
 
   async integrate(project: Project, run: Run): Promise<IntegrationResult> {

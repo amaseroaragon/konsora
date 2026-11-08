@@ -88,6 +88,7 @@ const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
   no_answer: 409,
   not_rebasable: 409,
   not_resumable: 409,
+  variant_not_chosen: 409,
   no_conflict: 409,
   invalid_id: 404,
   active_run: 409,
