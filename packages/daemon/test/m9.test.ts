@@ -9,7 +9,7 @@
  * Every run writes `<task>.txt` and records, when it starts, how many runs are alive and whether
  * its worktree already has its dependencies' files (that is, they were integrated first).
  */
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdtempSync,
@@ -21,6 +21,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import type { Run, Task, TasksDocument } from "@konsora/core";
 import { initTasks, readTasks } from "@konsora/core/store";
 import {
@@ -45,22 +46,18 @@ let projectId: string;
 const git = (cwd: string, ...args: string[]) =>
   execFileSync("git", args, { cwd, env: gitEnv(), encoding: "utf8", stdio: "pipe" }).trim();
 
-/** Like an agent, it tries again when the plan is locked for a moment ("try again shortly"). */
-function konsora(spec: RunSpec, ...args: string[]): string {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return execFileSync(process.execPath, [cliBin, ...args], {
-        cwd: spec.cwd,
-        env: { ...process.env, ...spec.mcp.env },
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch (error) {
-      const stderr = String((error as { stderr?: unknown }).stderr ?? "");
-      if (attempt >= 10 || !stderr.includes("is locked")) throw error;
-      execFileSync("sleep", ["0.2"]);
-    }
-  }
+/**
+ * The agent's plan writes, through the CLI as its MCP would. Asynchronous on purpose: the daemon
+ * runs in this same process, and a synchronous call would freeze it while it holds the plan's
+ * lock, so the CLI could never get it (DMN-10).
+ */
+async function konsora(spec: RunSpec, ...args: string[]): Promise<string> {
+  const { stdout } = await promisify(execFile)(process.execPath, [cliBin, ...args], {
+    cwd: spec.cwd,
+    env: { ...process.env, ...spec.mcp.env },
+    encoding: "utf8",
+  });
+  return stdout;
 }
 
 const DEPS: Record<string, string[]> = {
@@ -135,19 +132,19 @@ const fake: AgentAdapter = {
       resolveExit(exit);
     };
     queue.push({ t: "started", session: `s-${task}`, model: "fake" });
-    const work = () => {
+    const work = async () => {
       if (isRebase) rebase(spec);
       else {
         writeFileSync(join(spec.cwd, `${task}.txt`), `${task}\n`);
         extra(task, spec.cwd);
       }
-      konsora(spec, "finish", task, "--summary", `Did ${task}.`);
+      await konsora(spec, "finish", task, "--summary", `Did ${task}.`);
       queue.push({ t: "turn_end", ok: true });
     };
     void (async () => {
       await sleep(delay(task));
       if (hold.has(task) && !isRebase) held.set(task, work);
-      else work();
+      else await work();
     })();
     return {
       events: queue,
@@ -282,7 +279,14 @@ afterEach(async () => {
 
 describe("M9: a 6-task DAG in YOLO with max_parallel = 2 (RUN-25)", { timeout: 60_000 }, () => {
   it("never runs more than 2 at once, starts nothing before its deps are integrated, and ends with the final task in review", async () => {
+    // Both roots wait until the two are running, so the parallelism does not depend on how fast
+    // this machine starts a run (DMN-10).
+    hold = new Set(["BE-01", "BE-04"]);
     await enqueueAll();
+    await until(() => held.size === 2);
+    hold = new Set();
+    for (const work of held.values()) work();
+    held.clear();
     await until(async () => (await states())["BE-06"] === "review");
     expect(await states()).toEqual({
       "BE-01": "done",

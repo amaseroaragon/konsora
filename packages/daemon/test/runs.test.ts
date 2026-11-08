@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdtempSync,
@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { applyOp, type Op, type Run, type Task, type TasksDocument } from "@konsora/core";
 import { initTasks, readTasks } from "@konsora/core/store";
 import {
@@ -35,14 +36,19 @@ let projectId: string;
 const git = (cwd: string, ...args: string[]) =>
   execFileSync("git", args, { cwd, env: gitEnv(), encoding: "utf8" }).trim();
 
-/** The agent's own plan writes go through Konsora in run mode, like its MCP would. */
-const konsora = (spec: RunSpec, ...args: string[]) =>
-  execFileSync(process.execPath, [cliBin, ...args], {
-    cwd: spec.cwd,
-    env: { ...process.env, ...spec.mcp.env },
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+/**
+ * The agent's plan writes, through the CLI as its MCP would. Asynchronous on purpose: the daemon
+ * runs in this same process, and a synchronous call would freeze it while it holds the plan's
+ * lock, so the CLI could never get it (DMN-10).
+ */
+const konsora = async (spec: RunSpec, ...args: string[]) =>
+  (
+    await promisify(execFile)(process.execPath, [cliBin, ...args], {
+      cwd: spec.cwd,
+      env: { ...process.env, ...spec.mcp.env },
+      encoding: "utf8",
+    })
+  ).stdout;
 
 type Behaviour =
   | "finish"
@@ -81,6 +87,7 @@ const fake: AgentAdapter = {
     const mode = behaviour;
     void (async () => {
       queue.push({ t: "started", session: "s-1", model: "fake" });
+      if (mode === "ask") await konsora(spec, "ask", "BE-01", "Which TTL?");
       if (mode === "permission") {
         // Like Codex: it asks through its own protocol and waits for the decision.
         queue.push({
@@ -93,7 +100,7 @@ const fake: AgentAdapter = {
         return;
       }
       if (mode === "noop") {
-        konsora(spec, "finish", "BE-01", "--summary", "Checked: nothing to change.");
+        await konsora(spec, "finish", "BE-01", "--summary", "Checked: nothing to change.");
       }
       if (mode === "limits") {
         queue.push({
@@ -105,7 +112,7 @@ const fake: AgentAdapter = {
             windows: [{ window: "five_hour", utilization: 0.4, resets_at: 1794011580 }],
           },
         });
-        konsora(spec, "finish", "BE-01", "--summary", "Reported usage.");
+        await konsora(spec, "finish", "BE-01", "--summary", "Reported usage.");
       }
       if (mode === "rebase" || mode === "rebase-stop") {
         // Rebase onto the tip named in the prompt and keep both sides of the conflict.
@@ -121,26 +128,24 @@ const fake: AgentAdapter = {
             stdio: "pipe",
           });
         }
-        if (mode === "rebase") konsora(spec, "finish", "BE-01", "--summary", "Rebased.");
+        if (mode === "rebase") await konsora(spec, "finish", "BE-01", "--summary", "Rebased.");
       }
       if (mode === "finish") {
         writeFileSync(join(spec.cwd, "app.txt"), "from the agent\n");
         queue.push({ t: "file", path: "app.txt", change: "modify" });
-        konsora(spec, "finish", "BE-01", "--summary", "Changed app.txt.");
+        await konsora(spec, "finish", "BE-01", "--summary", "Changed app.txt.");
         queue.push({ t: "message", text: "Done.", final: true });
       }
       queue.push({ t: "turn_end", ok: true });
     })();
-    if (mode === "ask") {
-      konsora(spec, "ask", "BE-01", "Which TTL?");
-    }
     return {
       events: queue,
       exited,
       send: (text) => {
         queue.push({ t: "message", text, final: false });
-        konsora(spec, "finish", "BE-01", "--summary", "Used the answer.");
-        queue.push({ t: "turn_end", ok: true });
+        void konsora(spec, "finish", "BE-01", "--summary", "Used the answer.").then(() =>
+          queue.push({ t: "turn_end", ok: true }),
+        );
       },
       endInput: () => {
         if (mode !== "hang") end({ code: 0, signal: null });
@@ -149,8 +154,9 @@ const fake: AgentAdapter = {
         decisions.push({ id, ...decision });
         if (decision.behavior !== "allow") return;
         queue.push({ t: "tool", phase: "end", name: "shell", summary: "pushed", ok: true });
-        konsora(spec, "finish", "BE-01", "--summary", "Pushed after approval.");
-        queue.push({ t: "turn_end", ok: true });
+        void konsora(spec, "finish", "BE-01", "--summary", "Pushed after approval.").then(() =>
+          queue.push({ t: "turn_end", ok: true }),
+        );
       },
       interrupt: async () => end({ code: null, signal: "SIGINT" }),
       kill: async () => end({ code: null, signal: "SIGKILL" }),
@@ -208,6 +214,18 @@ async function settled(id: string): Promise<Run> {
     if (!["queued", "starting", "running", "waiting_approval", "checking"].includes(body.run.state))
       return body.run;
     if (Date.now() > deadline) throw new Error(`run still ${body.run.state}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
+/** Waits until the agent's question is in the plan (the fake agent asks asynchronously). */
+async function asked(id: string): Promise<void> {
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const result = await readTasks(root);
+    const notes = result.ok ? result.document.tasks.find((t) => t.id === id)?.notes : undefined;
+    if (notes?.some((n) => n.kind === "question")) return;
+    if (Date.now() > deadline) throw new Error(`${id} has no question`);
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 }
@@ -666,6 +684,7 @@ describe("answers and approvals", () => {
   it("delivers the human's answer to the run that asked", async () => {
     behaviour = "ask";
     const run = await launch();
+    await asked("BE-01");
     const res = await api(`/projects/${projectId}/ops`, {
       method: "POST",
       body: JSON.stringify({ op: "answer", task: "BE-01", text: "Ten minutes." }),

@@ -1,8 +1,9 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import type { QueueFile, Run, Task, TasksDocument } from "@konsora/core";
 import { initTasks, readTasks } from "@konsora/core/store";
 import {
@@ -28,13 +29,19 @@ let projectId: string;
 const git = (cwd: string, ...args: string[]) =>
   execFileSync("git", args, { cwd, env: gitEnv(), encoding: "utf8" }).trim();
 
-const konsora = (spec: RunSpec, ...args: string[]) =>
-  execFileSync(process.execPath, [cliBin, ...args], {
-    cwd: spec.cwd,
-    env: { ...process.env, ...spec.mcp.env },
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+/**
+ * The agent's plan writes, through the CLI as its MCP would. Asynchronous on purpose: the daemon
+ * runs in this same process, and a synchronous call would freeze it while it holds the plan's
+ * lock, so the CLI could never get it (DMN-10).
+ */
+const konsora = async (spec: RunSpec, ...args: string[]) =>
+  (
+    await promisify(execFile)(process.execPath, [cliBin, ...args], {
+      cwd: spec.cwd,
+      env: { ...process.env, ...spec.mcp.env },
+      encoding: "utf8",
+    })
+  ).stdout;
 
 /** Agents that work until the test releases their task; they record how many run at once. */
 const gates = new Map<string, () => void>();
@@ -67,9 +74,9 @@ function gatedAdapter(id: "claude" | "codex"): AgentAdapter {
         resolveExit(exit);
       };
       queue.push({ t: "started", session: `s-${task}`, model: "fake" });
-      gates.set(task, () => {
+      gates.set(task, async () => {
         writeFileSync(join(spec.cwd, `${task}.txt`), `${task}\n`);
-        konsora(spec, "finish", task, "--summary", `Did ${task}.`);
+        await konsora(spec, "finish", task, "--summary", `Did ${task}.`);
         queue.push({ t: "turn_end", ok: true });
       });
       return {
