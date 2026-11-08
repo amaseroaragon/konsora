@@ -551,7 +551,7 @@
     {
       "id": "CORE-09",
       "title": "Dificultad estimada y agente recomendado por dificultad",
-      "state": "review",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzz",
       "desc": "Campo opcional `difficulty` en la tarea (`low`, `medium`, `high`): un agente lo pone al proponer (y lo cambia en sus propuestas) y el humano en el trabajo aprobado. En el proyecto, `project.recommended` asigna a cada dificultad un agente (proveedor, modelo, esfuerzo), y solo lo cambia el humano. `runAgentFor` resuelve: el agente pedido, después el de la tarea, después el recomendado por su dificultad y por último `project.defaults`. CLI y MCP: `--difficulty` y `difficulty` en propose, batch y edit. La skill y el prompt de entrevista piden estimarla. Esquema JSON regenerado y docs de esquema-tareas.md.",
@@ -576,7 +576,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T14:19:57Z",
+      "updated_at": "2026-11-08T14:26:51Z",
       "notes": [
         {
           "id": "n1",
@@ -597,7 +597,7 @@
     {
       "id": "CORE-10",
       "title": "Plantillas de tarea",
-      "state": "review",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzr",
       "desc": "`project.templates`: plantillas con id, nombre, descripción base, criterios (con su check opcional), etiquetas y dificultad, que solo define el humano (op `set-templates`). Al proponer con una plantilla (`--template <id>` en CLI y `template` en MCP, propose y batch), la tarea toma sus valores y lo que se pase explícitamente los completa o sustituye (criterios: los de la plantilla y después los propios). Las plantillas se listan en `status` y en el MCP. Esquema regenerado y docs.",
@@ -622,7 +622,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T14:19:58Z",
+      "updated_at": "2026-11-08T14:26:57Z",
       "notes": [
         {
           "id": "n1",
@@ -643,7 +643,7 @@
     {
       "id": "CORE-11",
       "title": "Coste acumulado por tarea y por grupo",
-      "state": "review",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzx",
       "desc": "Función pura que suma el uso de todos los runs de una tarea (incluidos reintentos, rebases, variantes y revisiones) y de un grupo: tokens de entrada, salida, caché y razonamiento, coste cuando el proveedor lo da, número de runs, y desglose por proveedor y modelo. Un coste desconocido (Codex) se indica como tal y no se suma como cero.",
@@ -664,7 +664,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T14:19:57Z",
+      "updated_at": "2026-11-08T14:26:53Z",
       "notes": [
         {
           "id": "n1",
