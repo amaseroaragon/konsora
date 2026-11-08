@@ -1241,7 +1241,7 @@
     {
       "id": "DMN-09",
       "title": "Apagado limpio del daemon sin procesos huérfanos",
-      "state": "proposed",
+      "state": "todo",
       "group": "DMN",
       "rank": "zzzzzzzzzi",
       "desc": "Hoy, al cerrar el daemon (SIGTERM o `close()`), los runs vivos siguen con sus procesos de agente y de checks: solo al arrancar otra vez pasan a `interrupted`. Para M10 (cerrar la ventana no deja huérfanos), el apagado debe parar el scheduler, marcar los runs vivos como `interrupted` (sin tocar el plan más allá de lo que ya hace `recoverRuns`), terminar el grupo de procesos de cada agente, check o setup (SIGINT, después SIGTERM y SIGKILL tras un plazo) y cerrar el WebSocket y el servidor. La cola queda guardada y al volver a arrancar se carga en pausa, como ya ocurre.",
@@ -1266,7 +1266,7 @@
         "at": "2026-11-08T12:22:38Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:22:38Z"
+      "updated_at": "2026-11-08T12:38:58Z"
     },
     {
       "id": "UI-01",
@@ -3943,7 +3943,7 @@
     {
       "id": "RUN-26",
       "title": "Evitar que una cadena YOLO desatendida se pare en cada aprobación de Bash",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "rank": "zzzzzzzzz",
       "desc": "Decisión del humano (2026-11-08): no se amplían los permisos del perfil default. En la verificación de M9 con Claude Code real, el agente encadenó comandos Bash (mkdir, printf, test, git add y git commit con &&) que el perfil default manda al humano, así que una cadena YOLO desatendida se paraba 5 minutos en cada uno. Dos cambios: (1) el protocolo del prompt del run (y el de rebase) pide crear y leer ficheros con las herramientas de edición y lectura del agente, y ejecutar cada comando por separado, usando sin pedir permiso solo los que el perfil ya permite (git status, diff, log, add y commit, los checks del proyecto, npm run/test); el resto de comandos pide aprobación, que es lo esperado. (2) La UI destaca los runs que esperan una aprobación: en la vista de cola (un motivo de espera propio en sus runs activos) y en las tarjetas del tablero, con un enlace a la aprobación. Sin cambios en --allowedTools.",
@@ -3968,7 +3968,7 @@
         "at": "2026-11-08T12:15:25Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:36:06Z",
+      "updated_at": "2026-11-08T12:38:43Z",
       "notes": [
         {
           "id": "n1",
@@ -3989,7 +3989,7 @@
     {
       "id": "DESK-01",
       "title": "Esqueleto de apps/desktop con Tauri 2",
-      "state": "proposed",
+      "state": "todo",
       "group": "DESK",
       "rank": "zzzzzzzzzr",
       "desc": "Crea `apps/desktop` con Tauri 2 (Rust): una ventana que, de momento, carga una página local. Añade los scripts `desktop:dev` y `desktop:build` sin que `npm run check` pase a necesitar Rust (el check de Rust va aparte: `cargo fmt --check`, `cargo clippy` y `cargo test` en `apps/desktop`). Documenta en `arquitectura.md` (tabla de dependencias) Tauri 2 y sus requisitos en Ubuntu 24.04 (Rust estable, webkit2gtk-4.1, libsoup-3) y por qué no Electron (ADR 3). La máquina de desarrollo aún no tiene Rust: instalarlo es una acción del humano.",
@@ -4014,12 +4014,12 @@
         "at": "2026-11-08T12:22:38Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:22:38Z"
+      "updated_at": "2026-11-08T12:39:06Z"
     },
     {
       "id": "DESK-02",
       "title": "La app arranca o reutiliza el daemon y carga la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "DESK",
       "deps": [
         "DESK-01",
@@ -4048,12 +4048,12 @@
         "at": "2026-11-08T12:22:38Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:22:38Z"
+      "updated_at": "2026-11-08T12:39:08Z"
     },
     {
       "id": "DESK-03",
       "title": "Notificaciones nativas de preguntas, aprobaciones y runs terminados",
-      "state": "proposed",
+      "state": "todo",
       "group": "DESK",
       "deps": [
         "DESK-02"
@@ -4081,12 +4081,12 @@
         "at": "2026-11-08T12:22:38Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:22:38Z"
+      "updated_at": "2026-11-08T12:39:17Z"
     },
     {
       "id": "DESK-04",
       "title": "Paquete .deb de Konsora",
-      "state": "proposed",
+      "state": "todo",
       "group": "DESK",
       "deps": [
         "DESK-02"
@@ -4114,12 +4114,12 @@
         "at": "2026-11-08T12:22:38Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:22:38Z"
+      "updated_at": "2026-11-08T12:39:13Z"
     },
     {
       "id": "DESK-05",
       "title": "Verificación de M10: .deb en Ubuntu 24.04 limpio",
-      "state": "proposed",
+      "state": "todo",
       "group": "DESK",
       "deps": [
         "DESK-03",
@@ -4148,7 +4148,7 @@
         "at": "2026-11-08T12:22:38Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:22:38Z"
+      "updated_at": "2026-11-08T12:39:52Z"
     }
   ]
 }
