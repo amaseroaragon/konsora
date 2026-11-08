@@ -3946,22 +3946,29 @@
       "state": "proposed",
       "group": "RUN",
       "rank": "zzzzzzzzz",
-      "desc": "En la verificación de M9 con Claude Code real, el agente usó comandos Bash compuestos (mkdir, printf, test, git add y git commit encadenados) que el perfil default no permite, así que cada uno esperó al humano 5 minutos. Opciones a decidir: ampliar el perfil default con comandos de solo lectura o de escritura dentro del worktree (mkdir, test, cat, ls, printf a ficheros del worktree), dar instrucciones en el prompt para usar Write/Read y comandos sueltos, o avisar de forma visible en la vista de cola cuando un run de la cola espera una aprobación. Requiere una decisión de producto sobre seguridad.",
+      "desc": "Decisión del humano (2026-11-08): no se amplían los permisos del perfil default. En la verificación de M9 con Claude Code real, el agente encadenó comandos Bash (mkdir, printf, test, git add y git commit con &&) que el perfil default manda al humano, así que una cadena YOLO desatendida se paraba 5 minutos en cada uno. Dos cambios: (1) el protocolo del prompt del run (y el de rebase) pide crear y leer ficheros con las herramientas de edición y lectura del agente, y ejecutar cada comando por separado, usando sin pedir permiso solo los que el perfil ya permite (git status, diff, log, add y commit, los checks del proyecto, npm run/test); el resto de comandos pide aprobación, que es lo esperado. (2) La UI destaca los runs que esperan una aprobación: en la vista de cola (un motivo de espera propio en sus runs activos) y en las tarjetas del tablero, con un enlace a la aprobación. Sin cambios en --allowedTools.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Un run de una cadena YOLO con tareas de solo crear ficheros no pide ninguna aprobación, o la vista de cola muestra claramente que espera una"
+          "text": "El prompt de run y el de rebase indican usar las herramientas de edición y lectura y comandos sueltos, citando los que el perfil permite (test con snapshot)"
         },
         {
           "id": "ac2",
-          "text": "Ningún comando fuera del worktree, de red, push o force queda permitido sin el humano (test)"
+          "text": "Un run en waiting_approval se ve como tal en la vista de cola y en su tarjeta del tablero, con acceso a la aprobación (tests de UI)"
+        },
+        {
+          "id": "ac3",
+          "text": "La lista de herramientas permitidas del perfil default no cambia (test)"
         }
+      ],
+      "labels": [
+        "m10"
       ],
       "created": {
         "at": "2026-11-08T12:15:25Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:15:25Z"
+      "updated_at": "2026-11-08T12:23:23Z"
     },
     {
       "id": "DESK-01",
