@@ -685,7 +685,7 @@
     {
       "id": "CORE-12",
       "title": "Modelo de variantes de una tarea (best-of-N)",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzi",
       "desc": "Permitir varias ejecuciones simultáneas de la misma tarea con distintos agentes (de 2 a 3), cada una en su worktree: las variantes de un grupo (`variant_of` en run.json, el id del primer run) cuentan como un solo run activo frente a la regla de uno por tarea. La tarea pasa a review cuando todas han terminado sus checks. Elegir la ganadora deja las demás `discarded` (se conservan su run y su diff) y solo la ganadora se integra al aceptar. Reglas y transiciones en core, con docs en esquema-tareas.md.",
@@ -710,12 +710,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:01:45Z"
+      "updated_at": "2026-11-08T19:51:36Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T19:47:43Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "variant_of en RunSchema; reglas en core/variants.ts (canAddRun, variantsOutcome, chooseVariant, integrableRun); complete con variants; RunStore.create y el accept del daemon usan las reglas; docs en esquema-tareas.md."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T19:50:41Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Modelo de variantes en core (variants.ts) y variant_of en RunSchema (id del primer run del grupo, también en el primero; incompatible con rebase_of). ac1: canAddRun deja activas a la vez las variantes de un grupo (de 2 a MAX_VARIANTS=3) y rechaza cualquier otro run de la tarea (active_run), una variante de otro grupo, la cuarta o un grupo ya decidido (variant_group_closed); RunStore.create la aplica bajo su lock (tests en core y en run-store). ac2: variantsOutcome devuelve running hasta que todas se cierran y luego review o failed; la op complete acepta variants (resumen de cualquier variante del grupo, siempre a review aunque haya YOLO); chooseVariant exige todas cerradas y una ganadora succeeded, la deja pending y descarta las demás sin cambiar ningún otro campo (tests). ac3: integrableRun devuelve variant_not_chosen con la lista de variantes si hay más de una candidata; el accept del daemon ya lo usa (409). Docs: esquema-tareas.md §6 «Variantes». Lanzar, el endpoint choose y la limpieza de worktrees quedan para RUN-28. npm run check: 974 tests en verde."
+        }
+      ]
     },
     {
       "id": "CORE-13",
       "title": "Modelo del revisor automático",
-      "state": "todo",
+      "state": "review",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzx",
       "desc": "Un run de revisión (`kind: review` en run.json) lo hace un segundo agente sobre el trabajo de un run terminado, con permisos de solo lectura: no cambia ficheros ni el estado de la tarea, solo deja notas en ella (nueva clase de nota `review` con su veredicto: aprobaría o pediría cambios, con los motivos). Nunca acepta ni devuelve. `project.reviewer` (solo el humano) fija el agente y si se lanza solo al llegar a review o solo a mano. Perfil de permisos `readonly`. Docs en esquema-tareas.md.",
@@ -740,7 +756,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:01:56Z"
+      "updated_at": "2026-11-08T19:54:55Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T19:50:56Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "kind/review_of en run.json, nota review con verdict, op review solo para un agente en un run de revisión (ctx.review), project.reviewer con set-reviewer (humano), perfil readonly; los runs de revisión no ocupan la tarea ni se integran. Tests de roles y de propiedades, docs."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T19:54:55Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Modelo del revisor en core. run.json: kind (work|review) y review_of; un run de revisión exige review_of y el perfil readonly, y no puede ser variante ni rebase. Notas: nueva clase review con verdict (approve|changes), obligatorio en ellas y prohibido en las demás. Op review {verdict, text}: solo para un agente con ctx.review y sobre su runTask; en un run de revisión cualquier otra op da out_of_scope (accept/send-back, forbidden). project.reviewer {agent, launch: auto|manual} con set-reviewer (solo humano, null lo quita); el perfil, si se da, solo puede ser readonly (READONLY_PROFILE, reviewerAgent). Los runs de revisión no ocupan la tarea (canAddRun, RunStore.activeRun/activeRuns), solo uno activo por run revisado, e integrableRun los ignora. ac1: tests de roles en core/test/review.test.ts. ac2: validación de ReviewerSchema, RunSchema y OpSchema, set-reviewer prohibido a agente, konsora y runs, invalid con perfil default. ac3: test de propiedades con fast-check (200 casos): ninguna op aceptada en contexto de revisor cambia estados, proyecto ni campos; solo añade notas review a su tarea. Esquema JSON regenerado, clave i18n note.review y docs en esquema-tareas.md (§1, §2 y §6 «Revisiones»). Adaptadores, MCP y lanzamiento quedan para RUN-29. npm run check: 982 tests en verde."
+        }
+      ]
     },
     {
       "id": "CLI-01",
@@ -1511,7 +1543,7 @@
     {
       "id": "DMN-10",
       "title": "Encontrar y arreglar el test intermitente de la suite",
-      "state": "review",
+      "state": "done",
       "group": "DMN",
       "rank": "zzzzzzzzzzy",
       "desc": "En RUN-26 falló un test en 1 de 13 pasadas de `npm run check` y no se capturó cuál. Ejecuta la suite completa repetidamente, guardando la salida, hasta identificarlo (y cualquier otro intermitente), encuentra la causa (carrera, plazo o limpieza de un test anterior) y arréglala en el código si es un fallo real, o en el test si es del test.",
@@ -1532,7 +1564,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T15:04:33Z",
+      "updated_at": "2026-11-08T15:05:27Z",
       "notes": [
         {
           "id": "n1",
@@ -4544,7 +4576,7 @@
     {
       "id": "RUN-27",
       "title": "Retomar un run interrumpido",
-      "state": "todo",
+      "state": "done",
       "group": "RUN",
       "rank": "zzzzzzzzzzi",
       "desc": "Hoy un run `interrupted` (vivo cuando se paró el daemon) solo se puede descartar. El modelo ya admite `interrupted → starting`: falta hacerlo. El runner lo relanza en su mismo worktree y rama, reanudando la sesión del agente si tiene `session_id` con un mensaje determinista que explica que Konsora se reinició y que siga con la tarea (sin sesión, con el prompt original del run). La tarea sigue en `doing`. Si el run se interrumpió durante `checking`, solo repite los checks. Nuevo `POST /projects/:id/runs/:run/resume` (solo el humano). Si el run pertenece a una entrada de la cola, la entrada sigue enlazada a él.",
@@ -4569,7 +4601,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:59:34Z"
+      "updated_at": "2026-11-08T19:49:20Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T19:43:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "resumeRun en el runner (mismo worktree, rama y sesión; solo checks si se interrumpió en checking), reglas en core (resumeStep, buildResumePrompt), POST …/runs/:run/resume en el daemon, tests con adaptador falso y docs."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T19:46:51Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "resumeRun (runner) relanza el mismo run interrupted en su worktree y rama, con su agente; la tarea sigue en doing con una nota de konsora. core: resumeStep (desde checking → solo checks; si no → agente) y buildResumePrompt (mensaje determinista). Con session_id reanuda la sesión con ese mensaje; sin ella, usa el prompt original. Conserva intentos de checks, resúmenes ya comprobados y uso; setup solo se repite si no terminó. Daemon: RunManager.resume y POST /projects/:id/runs/:run/resume (409 not_resumable). ac1: test del supervisor (adaptador falso, resume s-1, mismo worktree, succeeded y tarea en review) y test del daemon tras reiniciarlo. ac2: interrumpido en checking, el adaptador no se llama, check_attempts 1 y review. ac3: run cancelled y worktree borrado → RunError not_resumable sin cambiar el run ni crear otro; 409 al reanudar dos veces. Cola: la entrada de BE-01 sigue enlazada al mismo run tras reanudar (queue.test). Docs en esquema-tareas.md §6 y arquitectura.md. npm run check: 961 tests en verde. Commit 2e899e9."
+        }
+      ]
     },
     {
       "id": "RUN-28",
