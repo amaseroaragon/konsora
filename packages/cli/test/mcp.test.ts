@@ -188,7 +188,7 @@ describe("konsora mcp: read tools", () => {
     const missing = await call("status");
     expect(missing.isError).toBe(true);
     expect(missing.text).toMatch(/^Error: No \.konsora\/ folder found/);
-    expect(missing.text).toContain("Hint: Run `konsora init`");
+    expect(missing.text).toContain("Hint: Start the server from the project folder");
     seed();
     expect((await call("status")).isError).toBe(false);
     await close();

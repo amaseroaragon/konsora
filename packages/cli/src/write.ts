@@ -21,6 +21,7 @@ import { mutate } from "@konsora/core/store";
 import type { Command } from "commander";
 import { z } from "zod";
 import { showText, views } from "./format.ts";
+import { HINTS, opHint } from "./hints.ts";
 import {
   CliError,
   EXIT,
@@ -43,34 +44,15 @@ export function agentActor(value: string | undefined): string {
   if (raw === "human" || raw === "konsora") {
     throw new CliError(
       `The CLI always acts as an agent; "${raw}" is not allowed in --as.`,
-      "Humans approve, accept and send back work in the Konsora UI.",
+      HINTS.notAgent,
       EXIT.usage,
     );
   }
   if (!AGENT_NAME.test(raw)) {
-    throw new CliError(
-      `Invalid agent name "${value}".`,
-      "Use lowercase letters, digits, dots, dashes or underscores, e.g. --as claude.",
-      EXIT.usage,
-    );
+    throw new CliError(`Invalid agent name "${value}".`, HINTS.agentName, EXIT.usage);
   }
   return `agent:${raw}`;
 }
-
-const HINTS: Partial<Record<OpError["code"], string>> = {
-  forbidden:
-    "Agents propose, start, note, ask and finish; humans approve, accept and edit approved work in the Konsora UI.",
-  blocked: "Pick another task with `konsora ready`, or wait until its dependencies are done.",
-  invalid_transition: "Check the task's state with `konsora show <id>`.",
-  summary_required: "Pass --summary with what you did and how it meets the acceptance criteria.",
-  out_of_scope:
-    "Inside a Konsora run you may only act on the run's task (you can still propose new tasks).",
-  has_dependents: "Remove the dependency from the dependent proposals first (`konsora undepend`).",
-  not_found: "Use `konsora list` to see task ids and `konsora status` for groups.",
-  unknown_template:
-    "`konsora status` lists the project's templates; only the human defines them, in the Konsora UI.",
-  conflict: "Someone changed the task meanwhile; read it again with `konsora show <id>` and retry.",
-};
 
 type TextOptions = { message?: string; file?: string; stdin?: boolean };
 
@@ -156,7 +138,7 @@ export function batchOp(value: unknown): Op {
     const first = parsed.error.issues[0];
     throw new CliError(
       `Batch has the wrong shape at ${first?.path.join(".") || "(root)"}: ${first?.message}`,
-      "See `konsora batch --help` for the JSON format.",
+      HINTS.batchShape,
       EXIT.usage,
     );
   }
@@ -202,11 +184,7 @@ export function editOp(id: string, input: EditInput): Op {
       : {}),
   };
   if (Object.keys(changes).length === 0)
-    throw new CliError(
-      "Nothing to change.",
-      "Pass --title, --desc, --criterion, --labels, --group or --difficulty.",
-      EXIT.usage,
-    );
+    throw new CliError("Nothing to change.", HINTS.nothingToChange, EXIT.usage);
   return { op: "edit", task: id.toUpperCase(), changes };
 }
 
@@ -256,11 +234,6 @@ export function writeJson(outcome: Extract<WriteOutcome, { ok: true }>) {
       .filter((t) => affected.includes(t.id))
       .map((t) => ({ ...t, hash: taskHash(t) })),
   };
-}
-
-/** The actionable hint for a rule refusal, if there is one. */
-export function opHint(error: OpError): string | undefined {
-  return HINTS[error.code];
 }
 
 export function registerWriteCommands(

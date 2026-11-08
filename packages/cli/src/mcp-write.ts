@@ -11,9 +11,10 @@ import { DifficultySchema, type Op, type TasksDocument } from "@konsora/core";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { opHint } from "./hints.ts";
 import { failure, guarded, ok } from "./mcp-result.ts";
 import type { Io } from "./shared.ts";
-import { agentActor, BatchSchema, batchOp, editOp, opHint, runOp, writeJson } from "./write.ts";
+import { agentActor, BatchSchema, batchOp, editOp, runOp, writeJson } from "./write.ts";
 
 /** The agent for attribution: KONSORA_AGENT, else the first word of the MCP client's name. */
 export function mcpActor(env: NodeJS.ProcessEnv, clientName: string | undefined): string {
@@ -36,7 +37,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       const actor = mcpActor(io.env, server.server.getClientVersion()?.name);
       const outcome = await runOp(io, root, op, actor);
       if (!outcome.ok) {
-        const hint = opHint(outcome.error);
+        const hint = opHint(outcome.error, "mcp");
         return failure(
           `Error (${outcome.error.code}): ${outcome.error.message}${hint ? `\nHint: ${hint}` : ""}`,
         );

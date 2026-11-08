@@ -15,8 +15,10 @@ export async function guarded(body: () => Promise<CallToolResult>): Promise<Call
   try {
     return await body();
   } catch (error) {
-    if (error instanceof CliError)
-      return failure(`Error: ${error.message}${error.hint ? `\nHint: ${error.hint}` : ""}`);
+    if (error instanceof CliError) {
+      const hint = error.hintFor("mcp");
+      return failure(`Error: ${error.message}${hint ? `\nHint: ${hint}` : ""}`);
+    }
     return failure("Error: unexpected failure while handling the request.");
   }
 }

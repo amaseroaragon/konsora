@@ -4,6 +4,7 @@ import type { Readable, Writable } from "node:stream";
 import type { TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError, tasksPath } from "@konsora/core/store";
 import { issuesText } from "./format.ts";
+import { type Channel, HINTS, type Hint } from "./hints.ts";
 import { findRoot } from "./project.ts";
 
 export type Io = {
@@ -23,11 +24,19 @@ export const EXIT = { ok: 0, failure: 1, usage: 2 } as const;
 
 export class CliError extends Error {
   readonly exitCode: number;
-  readonly hint: string | undefined;
-  constructor(message: string, hint?: string, exitCode: number = EXIT.failure) {
+  /** A plain string is the same on every channel; a `Hint` is worded for each one. */
+  readonly #hint: string | Hint | undefined;
+  constructor(message: string, hint?: string | Hint, exitCode: number = EXIT.failure) {
     super(message);
-    this.hint = hint;
+    this.#hint = hint;
     this.exitCode = exitCode;
+  }
+  /** The hint as the CLI words it. */
+  get hint(): string | undefined {
+    return this.hintFor("cli");
+  }
+  hintFor(channel: Channel): string | undefined {
+    return typeof this.#hint === "string" ? this.#hint : this.#hint?.[channel];
   }
 }
 
@@ -40,14 +49,11 @@ export function timestamp(io: Io): string {
 export function storeError(error: StoreError, root: string): never {
   switch (error.code) {
     case "missing":
-      throw new CliError(
-        `No plan at ${tasksPath(root)}.`,
-        "Run `konsora init` in your project folder.",
-      );
+      throw new CliError(`No plan at ${tasksPath(root)}.`, HINTS.noPlan);
     case "invalid":
       throw new CliError(
         `The plan is invalid:\n${issuesText(error.issues ?? []).trimEnd()}`,
-        "Fix the file (see `konsora check`); Konsora never overwrites an invalid plan.",
+        HINTS.invalidPlan,
       );
     default:
       throw new CliError(error.message);
@@ -82,16 +88,13 @@ export function locate(io: Io, explicit: string | undefined): string {
   if (project && explicit && resolve(io.cwd, explicit) !== resolve(io.cwd, project)) {
     throw new CliError(
       "--root points to a different plan than KONSORA_PROJECT.",
-      "Inside a Konsora run the plan lives in the main checkout: drop --root.",
+      HINTS.rootMismatch,
       EXIT.usage,
     );
   }
   const root = findRoot(io.cwd, explicit, io.env);
   if (!root) {
-    throw new CliError(
-      `No .konsora/ folder found in ${io.cwd} or its parents.`,
-      "Run `konsora init` in your project folder, or pass --root <dir>.",
-    );
+    throw new CliError(`No .konsora/ folder found in ${io.cwd} or its parents.`, HINTS.noProject);
   }
   return root;
 }

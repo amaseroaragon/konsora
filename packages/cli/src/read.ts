@@ -5,6 +5,7 @@
 import type { TaskState, TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError } from "@konsora/core/store";
 import { STATES, type TaskView, views } from "./format.ts";
+import { HINTS } from "./hints.ts";
 import { CliError, EXIT } from "./shared.ts";
 
 export function statusData(doc: TasksDocument) {
@@ -65,8 +66,7 @@ export function listData(
 
 export function showData(doc: TasksDocument, id: string): TaskView {
   const view = views(doc).find((t) => t.id === id.toUpperCase());
-  if (!view)
-    throw new CliError(`Task ${id} does not exist.`, "Use `konsora list` to see task ids.");
+  if (!view) throw new CliError(`Task ${id} does not exist.`, HINTS.unknownTask);
   return view;
 }
 

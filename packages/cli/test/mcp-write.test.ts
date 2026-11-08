@@ -290,7 +290,15 @@ describe("konsora mcp: agent write tools", () => {
     const shape = await call("batch", { tasks: [] });
     expect(shape.isError).toBe(true);
     const nothing = await call("edit", { id: "FE-01" });
-    expect(nothing.text).toContain("Error: Nothing to change.");
+    expect(nothing.text).toBe(
+      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels, group or difficulty.",
+    );
+    const blocked = await call("start", { id: "BE-03" });
+    expect(blocked.text).toContain("Hint: Pick another task with the ready tool");
+    const unknown = await call("show", { id: "BE-99" });
+    expect(unknown.text).toBe(
+      "Error: Task BE-99 does not exist.\nHint: Use the list tool to see task ids.",
+    );
     const summary = await call("finish", { id: "BE-04" });
     expect(summary.isError).toBe(true);
     const template = await call("propose", { title: "X", group: "BE", template: "feature" });
@@ -303,6 +311,7 @@ describe("konsora mcp: agent write tools", () => {
     rmSync(join(dir, ".konsora"), { recursive: true });
     const missing = await call("note", { id: "BE-04", text: "x" });
     expect(missing.text).toMatch(/^Error: No \.konsora\/ folder found/);
+    expect(missing.text).not.toMatch(/konsora init|--root/);
     await close();
   });
 
