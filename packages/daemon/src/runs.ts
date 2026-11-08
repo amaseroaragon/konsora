@@ -77,6 +77,8 @@ export type RunManagerOptions = {
   catalogTtlMs?: number;
   /** How long an approval asked through the agent's own protocol (Codex) waits. Default 300 s. */
   permissionWaitMs?: number;
+  /** Called once a run this daemon supervises has closed (the scheduler looks again). */
+  onRunClosed?: (project: Project) => void;
 };
 
 /** The same default wait as the MCP `permission` tool's (`wait_s`). */
@@ -226,7 +228,12 @@ export class RunManager {
   #track(project: Project, task: string, session: RunSession): Run {
     const id = session.run.id;
     this.#sessions.set(id, { project: project.id, task, session });
-    void session.done.catch(() => undefined).finally(() => this.#sessions.delete(id));
+    void session.done
+      .catch(() => undefined)
+      .finally(() => {
+        this.#sessions.delete(id);
+        this.#options.onRunClosed?.(project);
+      });
     return session.run;
   }
 

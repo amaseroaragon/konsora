@@ -267,14 +267,22 @@ export const QueueExitReasonSchema = z.enum([
   "not_approved",
   /** The task reached review or done without a run of the queue (e.g. by hand). */
   "settled",
+  /** The scheduler could not launch its run (e.g. the agent is no longer available). */
+  "launch_failed",
 ]);
 export type QueueExitReason = z.infer<typeof QueueExitReasonSchema>;
 
-export type QueueExit = { task: string; reason: QueueExitReason; run?: string };
+export type QueueExit = {
+  task: string;
+  reason: QueueExitReason;
+  run?: string;
+  /** Why, for `launch_failed`. */
+  message?: string;
+};
 
 /**
- * The entries that leave the queue now and why. `removed` is never produced here: it is what the
- * human does through the API.
+ * The entries that leave the queue now and why. `removed` (the human) and `launch_failed` (the
+ * daemon) are never produced here.
  */
 export function queueExits(input: Pick<SchedulerInput, "queue" | "plan" | "runs">): QueueExit[] {
   const index = indexTasks(input.plan);

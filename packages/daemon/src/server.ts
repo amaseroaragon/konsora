@@ -15,6 +15,7 @@ import { EventHub } from "./events.ts";
 import { ensurePrivateDir, readJson, writePrivateFile } from "./files.ts";
 import { createOversights } from "./oversight.ts";
 import { codeStamp, DAEMON_FILE, dataDir as defaultDataDir, mcpCommand } from "./paths.ts";
+import { Scheduler } from "./queue.ts";
 import { Registry } from "./registry.ts";
 import { RunManager, type RunManagerOptions } from "./runs.ts";
 
@@ -50,6 +51,7 @@ export type RunningDaemon = DaemonInfo & {
   /** Runs register here to get the token their MCP uses to ask for permissions (M6). */
   approvals: Approvals;
   runs: RunManager;
+  scheduler: Scheduler;
   close: () => Promise<void>;
 };
 
@@ -115,6 +117,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
   let hub: EventHub | undefined;
   let runs: RunManager | undefined;
+  let scheduler: Scheduler | undefined;
   const approvals = new Approvals({
     onEvent: (event) => {
       hub?.publish(event.project, event);
@@ -130,6 +133,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     mcp: options.mcp ?? mcpCommand(),
     publish: (project, payload) => hub?.publish(project, payload),
     broadcast: (payload) => hub?.broadcast(payload),
+    onRunClosed: () => scheduler?.poke(),
     ...(options.adapters ? { adapters: options.adapters } : {}),
     ...(options.interruptGraceMs !== undefined
       ? { interruptGraceMs: options.interruptGraceMs }
@@ -137,12 +141,22 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   });
   // Runs that were alive when the last daemon stopped: interrupted, never resumed on their own.
   await runs.recover();
+  // Queues come back paused: nothing launches until the human resumes them.
+  scheduler = new Scheduler({
+    registry,
+    runs,
+    dataDir: dir,
+    publish: (project, payload) => hub?.publish(project, payload),
+    broadcast: (payload) => hub?.broadcast(payload),
+  });
+  await scheduler.init();
   app = createApp({
     ...auth,
     registry,
     oversight,
     approvals,
     runs,
+    scheduler,
     ...(options.webDir ? { webDir: options.webDir } : {}),
   });
   const events = new EventHub({ ...auth, registry, oversight });
@@ -163,7 +177,9 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     dataDir: dir,
     approvals,
     runs,
+    scheduler,
     close: async () => {
+      scheduler?.close();
       approvals.close();
       events.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -22,6 +22,7 @@ import { z } from "zod";
 import { Approvals } from "./approvals.ts";
 import { type AuthConfig, allowedHosts, guard } from "./auth.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
+import { QueueError, type Scheduler } from "./queue.ts";
 import { type Registry, RegistryError } from "./registry.ts";
 import { type RunManager, RunManagerError } from "./runs.ts";
 import { site } from "./site.ts";
@@ -38,6 +39,34 @@ export type AppOptions = AuthConfig & {
   approvals?: Approvals;
   /** Runs (DMN-04); without it the run routes answer 404. */
   runs?: RunManager;
+  /** The run queue (DMN-08); without it the queue routes answer 404. */
+  scheduler?: Scheduler;
+};
+
+const QueueBody = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        task: z
+          .string()
+          .transform((id) => id.toUpperCase())
+          .pipe(TaskIdSchema),
+        agent: AgentSpecSchema.optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+const QUEUE_STATUS: Record<QueueError["code"], 404 | 409 | 422> = {
+  invalid_queue: 409,
+  invalid_settings: 422,
+  unknown_task: 404,
+  not_approved: 409,
+  queue_full: 409,
+  no_agent: 422,
+  invalid_plan: 409,
+  not_queued: 404,
 };
 
 const RunBody = z.strictObject({
@@ -140,6 +169,18 @@ export function createApp(options: AppOptions): Hono {
       return c.json(
         { error: { code: error.code, message: error.message } },
         RUN_STATUS[error.code] ?? 409,
+      );
+    }
+    if (error instanceof QueueError) {
+      return c.json(
+        {
+          error: {
+            code: error.code,
+            message: error.message,
+            ...(error.task ? { task: error.task } : {}),
+          },
+        },
+        QUEUE_STATUS[error.code],
       );
     }
     if (error instanceof RegistryError) {
@@ -539,6 +580,70 @@ export function createApp(options: AppOptions): Hono {
     const project = await registry.get(c.req.param("id"));
     return c.json({ run: await runsOf().discardById(project, c.req.param("runId")) });
   });
+
+  // ── Queue (DMN-08) ─────────────────────────────────────────────────────────
+
+  const queueOf = (): Scheduler => {
+    if (!options.scheduler) throw new RunManagerError("not_found", "This daemon has no queue");
+    return options.scheduler;
+  };
+
+  /** The queue with why each entry waits, the limits and the slots in use. */
+  api.get("/projects/:id/queue", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json(await queueOf().view(project));
+  });
+
+  /** The human queues the selected tasks, each with its agent. Only what is queued ever runs. */
+  api.post("/projects/:id/queue", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const body = QueueBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json(
+        { error: { code: "bad_request", message: "Send {items: [{task, agent?}]} as JSON" } },
+        400,
+      );
+    }
+    const items = body.data.items.map((item) => ({
+      task: item.task,
+      ...(item.agent ? { agent: item.agent } : {}),
+    }));
+    const result = await queueOf().enqueue(project, items);
+    return c.json({ ...result, ...(await queueOf().view(project)) }, 201);
+  });
+
+  api.delete("/projects/:id/queue/:task", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    await queueOf().remove(project, [c.req.param("task").toUpperCase()]);
+    return c.json(await queueOf().view(project));
+  });
+
+  api.post("/projects/:id/queue/clear", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    await queueOf().clear(project);
+    return c.json(await queueOf().view(project));
+  });
+
+  api.post("/projects/:id/queue/pause", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    await queueOf().setState(project, "paused");
+    return c.json(await queueOf().view(project));
+  });
+
+  api.post("/projects/:id/queue/resume", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    await queueOf().setState(project, "running");
+    return c.json(await queueOf().view(project));
+  });
+
+  /** The parallelism limits, shared by every project of the daemon. */
+  api.get("/settings/parallel", async (c) =>
+    c.json({ limits: (await queueOf().settings()).parallel }),
+  );
+
+  api.put("/settings/parallel", async (c) =>
+    c.json({ limits: await queueOf().setLimits(await c.req.json().catch(() => null)) }),
+  );
 
   /** Konsora worktrees and `konsora/` branches no run needs any more. Read-only. */
   api.get("/projects/:id/worktrees/orphans", async (c) => {
