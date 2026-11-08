@@ -46,6 +46,7 @@ import {
   type RunSetupResult,
   type RunState,
   runAgentFor,
+  skipsReview,
   type Task,
   type TasksDocument,
   taskHash,
@@ -60,9 +61,10 @@ import type {
 } from "./adapter.ts";
 import { runCheck, runChecks } from "./checks.ts";
 import { type Git, systemGit } from "./git.ts";
+import { IntegrationError, integrateRun } from "./integrate.ts";
 import { RunStore } from "./run-store.ts";
 import { UsageTally } from "./usage.ts";
-import { prepareWorktree, runGitWritePaths, WorktreeError } from "./worktree.ts";
+import { prepareWorktree, removeWorktree, runGitWritePaths, WorktreeError } from "./worktree.ts";
 
 /** Where the daemon registers runs for permission approvals (`Approvals.registerRun`). */
 export interface RunRegistry {
@@ -805,27 +807,37 @@ class Supervision {
       if (!passed && used < this.#retries && mayRetry && resumable && task?.state === "doing") {
         return this.#retry(attempt.attempt, checked);
       }
+      // An intermediate task of a YOLO chain with every check green is integrated before
+      // `complete` takes it to done, so its dependents start from a base with its commit. Only a
+      // succeeded run can be integrated, so in that case the run succeeds first.
+      const integrate = task?.state === "doing" && passed && (await this.#skipsReview());
+      let run: Run | null = null;
+      if (integrate) {
+        run = await this.#store.transition(this.#id, "succeeded", checked);
+        this.#state = run.state;
+        await this.#supersede();
+      }
       if (task?.state === "doing") {
+        const integration = integrate ? await this.#integrate() : null;
+        const text = passed
+          ? integration && !integration.ok
+            ? integration.note
+            : undefined
+          : this.#failedChecksNote(attempt.attempt, used, used < this.#retries && !resumable);
         await mutate(
           this.#options.root,
           {
             op: "complete",
             task: this.#task,
             checks_passed: passed,
-            ...(passed
-              ? {}
-              : {
-                  text: this.#failedChecksNote(
-                    attempt.attempt,
-                    used,
-                    used < this.#retries && !resumable,
-                  ),
-                }),
+            ...(integration?.ok ? { integrated: true } : {}),
+            ...(text ? { text } : {}),
           },
           { actor: ACTOR, at: this.#now(), run: this.#id },
         );
       }
-      const run = await this.#store.transition(this.#id, "succeeded", checked);
+      if (run) return this.#store.read(this.#id);
+      run = await this.#store.transition(this.#id, "succeeded", checked);
       this.#state = run.state;
       await this.#supersede();
       return run;
@@ -881,6 +893,62 @@ class Supervision {
         : { op: "pause", task: this.#task, text },
       { actor: ACTOR, at: this.#now(), run: this.#id },
     );
+  }
+
+  async #skipsReview(): Promise<boolean> {
+    const plan = await readTasks(this.#options.root);
+    return plan.ok && skipsReview(plan.document, this.#task);
+  }
+
+  /**
+   * Integrates this (succeeded) run into the base branch, as `accept` does: one squashed commit
+   * with the trailers, then the worktree and branch go. A run that changed nothing is discarded.
+   * A conflict leaves `integration = conflict`; any failure returns the note that explains it.
+   */
+  async #integrate(): Promise<{ ok: true } | { ok: false; note: string }> {
+    const plan = await readTasks(this.#options.root);
+    if (!plan.ok) {
+      return { ok: false, note: this.#notIntegrated("the plan could not be read") };
+    }
+    const base = plan.document.project.base_branch;
+    try {
+      const result = await integrateRun({
+        root: this.#options.root,
+        worktreesDir: this.#options.worktreesDir,
+        document: plan.document,
+        runId: this.#id,
+        store: this.#store,
+        git: this.#git,
+      });
+      if (result.status === "merged") {
+        await this.#log({ t: "integrated", commit: result.commit });
+        return { ok: true };
+      }
+      await this.#log({ t: "integration_conflict", files: result.files });
+      return {
+        ok: false,
+        note: `Konsora run ${this.#id}: every check passed, but its work conflicts with ${base}${result.files.length ? ` in ${result.files.join(", ")}` : ""}. ${this.#task} is in review instead of done, and the YOLO chain waits for it: ask the agent to rebase it or resolve the conflict by hand.`,
+      };
+    } catch (error) {
+      if (error instanceof IntegrationError && error.code === "nothing_to_integrate") {
+        await this.#store.integrate(this.#id, "discarded");
+        await removeWorktree({
+          root: this.#options.root,
+          worktreesDir: this.#options.worktreesDir,
+          worktree: this.#worktree,
+          branch: this.#branch,
+          git: this.#git,
+        }).catch(() => undefined);
+        return { ok: true };
+      }
+      const why = error instanceof IntegrationError ? error.message : "git failed";
+      await this.#log({ t: "error", message: `Integration failed: ${why}`, retryable: true });
+      return { ok: false, note: this.#notIntegrated(why) };
+    }
+  }
+
+  #notIntegrated(why: string): string {
+    return `Konsora run ${this.#id}: every check passed, but its work could not be integrated (${why}). ${this.#task} is in review instead of done, and the YOLO chain waits for it: accept it to integrate it.`;
   }
 
   /**

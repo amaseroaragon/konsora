@@ -1,6 +1,13 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { applyOp, type Op, type OpContext, type OpResult, taskHash } from "../src/ops.ts";
+import {
+  applyOp,
+  type Op,
+  type OpContext,
+  type OpResult,
+  skipsReview,
+  taskHash,
+} from "../src/ops.ts";
 import type { Task, TaskState, TasksDocument } from "../src/schema.ts";
 import { validateDocument } from "../src/semantics.ts";
 import { documentArb } from "./arbitraries.ts";
@@ -523,19 +530,29 @@ describe("checks (CORE-07)", () => {
     expect(err(applyOp(doc(task("BE-01", "review")), op, runner))).toBe("summary_required");
   });
 
-  it("in a YOLO chain, an intermediate task goes to done only with every check green", () => {
+  it("in a YOLO chain, an intermediate task goes to done only with every check green and integrated", () => {
     const chain = doc(task("BE-01", "doing"), task("BE-02", "todo", ["BE-01"], { yolo: true }));
+    expect(skipsReview(chain, "BE-01")).toBe(true);
+    expect(skipsReview(chain, "BE-02")).toBe(false);
     const finished = ok(
       applyOp(chain, { op: "finish", task: "BE-01", summary: "ok" }, inRun),
     ).document;
-    const green = ok(
-      applyOp(finished, { op: "complete", task: "BE-01", checks_passed: true }, konsora),
-    );
-    expect(state(green, "BE-01")).toBe("done");
-    const red = ok(
-      applyOp(finished, { op: "complete", task: "BE-01", checks_passed: false }, konsora),
-    );
-    expect(state(red, "BE-01")).toBe("review");
+    const complete = (checks_passed: boolean, integrated?: boolean) =>
+      applyOp(
+        finished,
+        {
+          op: "complete",
+          task: "BE-01",
+          checks_passed,
+          ...(integrated !== undefined ? { integrated } : {}),
+        },
+        konsora,
+      );
+    expect(state(complete(true, true), "BE-01")).toBe("done");
+    // Not integrated (a conflict, or nobody integrated it): review, never done.
+    expect(state(complete(true, false), "BE-01")).toBe("review");
+    expect(state(complete(true), "BE-01")).toBe("review");
+    expect(state(complete(false, true), "BE-01")).toBe("review");
 
     // The YOLO task itself always goes to review, and YOLO ends there.
     const last = doc(task("BE-01", "done"), task("BE-02", "doing", ["BE-01"], { yolo: true }));

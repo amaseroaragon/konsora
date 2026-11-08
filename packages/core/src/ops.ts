@@ -90,9 +90,10 @@ export type Op = Base &
     | { op: "finish"; task: string; summary: string }
     /**
      * Konsora closes a run's task once its checks are done: to `review`, or to `done` for an
-     * intermediate task of a YOLO chain whose checks all passed. `text` adds a Konsora note.
+     * intermediate task of a YOLO chain whose checks all passed and whose work is already
+     * integrated into the base branch (`integrated`). `text` adds a Konsora note.
      */
-    | { op: "complete"; task: string; checks_passed: boolean; text?: string }
+    | { op: "complete"; task: string; checks_passed: boolean; integrated?: boolean; text?: string }
     /**
      * Konsora takes a task in review whose integration conflicts back to `doing`, for a run that
      * rebases its branch (the human asked for it). `rebase-abort` returns it to `review` if that
@@ -193,6 +194,15 @@ class OpFailure extends Error {
 const fail = (code: OpErrorCode, message: string, extra: Partial<OpError> = {}): never => {
   throw new OpFailure({ code, message, ...extra });
 };
+
+/**
+ * The task is an intermediate task of an active YOLO chain (not the YOLO task itself): a run
+ * that ends with every check green integrates it and takes it straight to `done`.
+ */
+export function skipsReview(doc: Pick<TasksDocument, "tasks">, id: string): boolean {
+  const task = doc.tasks.find((t) => t.id === id);
+  return task !== undefined && !task.yolo && yoloCovering(id, doc).length > 0;
+}
 
 export function applyOp(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
   try {
@@ -487,9 +497,10 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
           },
         );
       }
-      // Only green checks let an intermediate task of a YOLO chain skip review.
-      const covered = !task.yolo && yoloCovering(task.id, input).length > 0;
-      transition(task, ["doing"], covered && op.checks_passed ? "done" : "review");
+      // Only green checks and integrated work let an intermediate task of a YOLO chain skip
+      // review: its dependents must start from a base that has its commit.
+      const toDone = skipsReview(input, task.id) && op.checks_passed && op.integrated === true;
+      transition(task, ["doing"], toDone ? "done" : "review");
       if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
       if (op.text?.trim()) addNote(task, "note", op.text);
       break;

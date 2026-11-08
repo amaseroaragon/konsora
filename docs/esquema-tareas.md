@@ -144,7 +144,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 | editar `todo`/`review`/`done` | **H** | Los agentes no cambian trabajo aprobado; solo añaden notas y dependencias. |
 | `todo` → `doing` | A, K | `start`. Rechazado si está `blocked`. Dentro de un run, la tarea la empieza el runner: el agente solo puede hacer `note`, `ask` y `finish` sobre su tarea, o proponer tareas nuevas (`out_of_scope` en otro caso). |
 | `doing` → `todo` | A, K, H | `pause` (opcionalmente con nota), cancelación o fallo de un run. |
-| `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, `finish` solo añade el `summary` (con su `run`) y la tarea sigue en `doing`; cuando acaban los checks (§6), Konsora aplica `complete` `{checks_passed, text?}`, que la pasa a `review` (o a `done` en una cadena YOLO, solo con todos los checks en verde) y puede añadir una nota de Konsora. `complete` es solo de Konsora y exige un `summary` de ese run. Si un check falla y quedan reintentos, el agente recibe el fallo y vuelve a llamar a `finish`. |
+| `doing` → `review` | A, K | `finish` con `summary`. Dentro de un run, `finish` solo añade el `summary` (con su `run`) y la tarea sigue en `doing`; cuando acaban los checks (§6), Konsora aplica `complete` `{checks_passed, integrated?, text?}`, que la pasa a `review` (o a `done` en una cadena YOLO, solo con todos los checks en verde y su trabajo ya integrado, `integrated: true`) y puede añadir una nota de Konsora. `complete` es solo de Konsora y exige un `summary` de ese run. Si un check falla y quedan reintentos, el agente recibe el fallo y vuelve a llamar a `finish`. |
 | `review` → `doing` → `review` | K | `rebase` y `rebase-abort`: solo Konsora, cuando el humano pide al agente que rebase un run en conflicto (ver `arquitectura.md` §5). Si el run de rebase falla o se cancela, `rebase-abort` devuelve la tarea a `review`. |
 | `review` → `done` | **H** | `accept`. Si la tarea tiene un run, integra su rama (squash, ver `arquitectura.md`). |
 | `review` → `todo` | **H** | `send-back` con una nota `feedback`, que el agente leerá. |
@@ -157,7 +157,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP), K = runner de Ko
 - `waiting` = la última nota `question` no tiene un `answer` posterior.
 - `ready` = `todo` y no `blocked`.
 
-**YOLO** (adaptado de Kanvas): el humano activa `yolo` en una tarea T, lo que aprueba todas las propuestas de la cadena de T, es decir, T y sus dependencias transitivas. Cuando un run termina con los checks en verde, una tarea de la cadena que no sea T pasa directamente a `done` y se integra sin revisión; con algún check en rojo, va a `review`. T termina en `review`. El modo YOLO se desactiva cuando T llega a `review`. Así, una cadena puede ejecutarse entera en paralelo sin detenerse en cada revisión intermedia.
+**YOLO** (adaptado de Kanvas): el humano activa `yolo` en una tarea T, lo que aprueba todas las propuestas de la cadena de T, es decir, T y sus dependencias transitivas. Cuando un run termina con los checks en verde, una tarea de la cadena que no sea T se integra sin revisión (squash en `base_branch`, como `accept`) y solo después pasa a `done`, de modo que sus dependientes parten de una base con su commit; con algún check en rojo, o si la integración choca o falla, va a `review` con una nota de Konsora y la cadena espera ahí. T termina en `review`. El modo YOLO se desactiva cuando T llega a `review`. Así, una cadena puede ejecutarse entera en paralelo sin detenerse en cada revisión intermedia.
 
 ## 3. Validación
 

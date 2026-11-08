@@ -77,6 +77,7 @@ export const OpSchema = z.discriminatedUnion("op", [
     expect,
     task: id,
     checks_passed: z.boolean(),
+    integrated: z.boolean().optional(),
     text: text.optional(),
   }),
   z.strictObject({ op: z.literal("rebase"), expect, task: id, text: text.optional() }),

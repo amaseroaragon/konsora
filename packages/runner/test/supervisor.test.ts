@@ -1332,3 +1332,94 @@ describe("rebase runs for an integration conflict (RUN-24)", () => {
     expect((await store.list()).runs.filter((r) => r.rebase_of)).toEqual([]);
   });
 });
+
+describe("YOLO chains integrate their intermediate tasks (RUN-23)", () => {
+  /** BE-03 → BE-02 (YOLO): BE-03 is an intermediate task of the chain. */
+  function chainAgent(work: (spec: RunSpec) => void, seen: RunSpec[] = []) {
+    return fakeAdapter(
+      (spec, emit) => {
+        emit({ t: "started", session: "s-1", model: "fake" });
+        work(spec);
+        konsora(spec, "finish", spec.mcp.env.KONSORA_TASK as string, "--summary", "Done.");
+      },
+      { seen, exit: { code: 0, signal: null } },
+    );
+  }
+
+  it("a green intermediate task is integrated with one commit and goes to done; its worktree and branch go", async () => {
+    await human({ op: "set-yolo", task: "BE-02", value: true });
+    const before = git(root, "rev-parse", "main");
+    const run = await (
+      await startRun(
+        options(chainAgent((spec) => writeFileSync(join(spec.cwd, "be03.txt"), "from BE-03\n"))),
+        { task: "BE-03" },
+      )
+    ).done;
+
+    expect(run).toMatchObject({ state: "succeeded", integration: { state: "merged" } });
+    expect((await taskIn("BE-03")).state).toBe("done");
+    expect(git(root, "rev-list", "--count", `${before}..main`)).toBe("1");
+    const message = git(root, "log", "-1", "--format=%B", "main");
+    expect(message).toContain("BE-03: Task BE-03");
+    expect(message).toContain(`Konsora-Run: ${run.id}`);
+    expect(readFileSync(join(root, "be03.txt"), "utf8")).toBe("from BE-03\n");
+    expect(existsSync(run.worktree as string)).toBe(false);
+    expect(git(root, "branch", "--list", "konsora/*")).toBe("");
+    const events = (await store.readEvents(run.id)) as { t: string; commit?: string }[];
+    expect(events.find((e) => e.t === "integrated")?.commit).toBe(git(root, "rev-parse", "main"));
+
+    // ac3: the dependent starts from a base that already has BE-03's commit.
+    const seen: RunSpec[] = [];
+    const next = await startRun(options(chainAgent(() => undefined, seen)), { task: "BE-02" });
+    expect(next.run.base_commit).toBe(git(root, "rev-parse", "main"));
+    await next.done;
+    expect(existsSync(join(seen[0]?.cwd as string, "be03.txt"))).toBe(true);
+    // The YOLO task itself still goes to review, without integrating.
+    expect((await taskIn("BE-02")).state).toBe("review");
+    expect((await store.read(next.run.id)).integration).toBeUndefined();
+  });
+
+  it("an intermediate task whose work conflicts stays in review with a note, never done", async () => {
+    await human({ op: "set-yolo", task: "BE-02", value: true });
+    const run = await (
+      await startRun(
+        options(
+          chainAgent((spec) => {
+            writeFileSync(join(spec.cwd, "readme.txt"), "hello from BE-03\n");
+            // Meanwhile main changes the same line.
+            writeFileSync(join(root, "readme.txt"), "hello from main\n");
+            git(root, "commit", "-q", "-m", "main moves on", "--", "readme.txt");
+          }),
+        ),
+        { task: "BE-03" },
+      )
+    ).done;
+
+    expect(run).toMatchObject({ state: "succeeded", integration: { state: "conflict" } });
+    const after = await taskIn("BE-03");
+    expect(after.state).toBe("review");
+    expect(after.notes?.at(-1)).toMatchObject({
+      by: "konsora",
+      run: run.id,
+      text: expect.stringContaining("conflicts with main in readme.txt"),
+    });
+    expect(existsSync(run.worktree as string)).toBe(true);
+    expect(readFileSync(join(root, "readme.txt"), "utf8")).toBe("hello from main\n");
+    // The chain stops: BE-02 is blocked by BE-03 in review.
+    await expect(
+      startRun(options(chainAgent(() => undefined)), { task: "BE-02" }),
+    ).rejects.toMatchObject({ code: "not_ready" });
+  });
+
+  it("outside a YOLO chain nothing is integrated before accept", async () => {
+    const run = await (
+      await startRun(
+        options(chainAgent((spec) => writeFileSync(join(spec.cwd, "be03.txt"), "x\n"))),
+        { task: "BE-03" },
+      )
+    ).done;
+    expect(run.integration).toBeUndefined();
+    expect((await taskIn("BE-03")).state).toBe("review");
+    expect(existsSync(join(root, "be03.txt"))).toBe(false);
+  });
+});
