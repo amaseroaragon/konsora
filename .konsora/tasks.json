@@ -1187,7 +1187,7 @@
     {
       "id": "DMN-08",
       "title": "Cola persistente y scheduler en el daemon",
-      "state": "review",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "CORE-08"
@@ -1215,7 +1215,7 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T11:04:28Z",
+      "updated_at": "2026-11-08T11:08:10Z",
       "notes": [
         {
           "id": "n1",
@@ -2200,7 +2200,7 @@
     {
       "id": "UI-18",
       "title": "Vista de cola y runs activos",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "DMN-08",
@@ -2233,7 +2233,23 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:16:35Z"
+      "updated_at": "2026-11-08T11:22:16Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T11:08:25Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Botón Encolar en la barra de selección; vista #/cola por proyecto con runs activos, entradas y motivo de espera, límites con ocupación, pausar/reanudar/quitar/vaciar y cambiar max_parallel, en vivo por WS queue.*; en la revisión de un run en conflicto, botón para pedir el rebase al agente."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T11:22:16Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 61a3cf3, más e7fa6cd: un arreglo del daemon que salió al pasar la suite completa. Nueva vista #/cola (enlace «Cola» en la cabecera) con un panel por proyecto: runs activos, entradas de la cola con su agente y el motivo de espera (core queueStatus en español), botones Pausar/Reanudar, Vaciar y Quitar por entrada, y la ocupación de huecos global y por proveedor. Encima, el panel Paralelismo para editar max_parallel y el máximo por proveedor (1..16; vacío = sin límite). En vivo con queue.*, run.state y board.changed.\n- ac1: la barra de selección ofrece Encolar junto a Ejecutar, con las tareas aprobadas en todo (también las bloqueadas) y el agente del selector. Tests: queueableSelection, render del botón con su texto y deshabilitado sin tareas, y vista con 'Bloqueada por BE-01', 'esperando un hueco de Codex' y 'En ejecución (r-…)'.\n- ac2: pausar, reanudar, quitar, vaciar y guardar límites llaman a la API, y la respuesta sustituye a la caché. applyQueueMessage invalida solo la cola de su proyecto y queue.limits actualiza los límites, sin recargar (tests).\n- ac3: en la revisión de un run en conflicto aparece 'Pedir al agente que haga rebase' (POST runs/:run/rebase), con el texto para resolverlo a mano en la rama. Si el rebase falla, la revisión sigue mostrando el run en conflicto (reviewRun) y el run fallido queda como run anterior descartable (tests).\n- ac4: todos los textos pasan por i18n (el test i18n-literals está en verde). Todo son botones, enlaces y campos nativos con etiqueta y aria-label (Quitar BE-02 de la cola), así que se maneja con teclado.\nComprobado: npm run check en verde tres veces seguidas (901 tests) y vite build correcto. Limitación: no lo he probado a mano en un navegador, solo con renderToStaticMarkup y la build."
+        }
+      ]
     },
     {
       "id": "MCP-01",
