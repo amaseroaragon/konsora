@@ -1,6 +1,6 @@
 export type ThemeChoice = "system" | "light" | "dark";
 
-/** Reads `?theme=light|dark` (used by the gallery and screenshots); defaults to the OS setting. */
+/** Reads `?theme=light|dark` (used for screenshots); defaults to the OS setting. */
 export function initialThemeChoice(search: string = window.location.search): ThemeChoice {
   const requested = new URLSearchParams(search).get("theme");
   return requested === "light" || requested === "dark" ? requested : "system";

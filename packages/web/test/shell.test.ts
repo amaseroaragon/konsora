@@ -64,8 +64,8 @@ describe("routes", () => {
       "#/p/p-0123456789ab?view=nope&task=",
       { name: "project", id: "p-0123456789ab", view: "board", task: null },
     ],
-    ["#/muestrario", { name: "gallery" }],
-    ["#/maqueta", { name: "mock" }],
+    ["#/muestrario", { name: "projects" }],
+    ["#/maqueta", { name: "projects" }],
     ["#/whatever", { name: "projects" }],
   ])("%s", (hash, route) => expect(parseRoute(hash)).toEqual(route));
 

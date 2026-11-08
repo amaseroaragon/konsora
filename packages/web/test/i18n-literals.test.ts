@@ -3,8 +3,7 @@
  * checked for JSX text, string children and text-bearing attributes that contain letters; those
  * must come from `t()` (src/i18n). Symbols such as "✕" or "·" are allowed.
  *
- * Exempt: the brand name, and `gallery/` (the dev-only component showcase at #/muestrario, whose
- * sample tasks stand in for plan content, which is user data rather than UI text).
+ * Exempt: the brand name.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -30,7 +29,6 @@ const TEXT_PROPS = new Set([
 ]);
 const LETTERS = /\p{L}/u;
 const ALLOWED = new Set(["KONSORA"]);
-const EXEMPT_DIRS = ["gallery"];
 
 type Node = { type: string; start: number; [key: string]: unknown };
 
@@ -81,8 +79,7 @@ export function findLiterals(code: string): { at: number; text: string }[] {
 function components(dir: string): string[] {
   return readdirSync(dir, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".tsx"))
-    .map((entry) => join(entry.parentPath, entry.name))
-    .filter((file) => !EXEMPT_DIRS.some((exempt) => relative(dir, file).startsWith(`${exempt}/`)));
+    .map((entry) => join(entry.parentPath, entry.name));
 }
 
 describe("no user-facing string literals in components", () => {
