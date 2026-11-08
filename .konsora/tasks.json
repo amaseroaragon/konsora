@@ -3711,7 +3711,7 @@
     {
       "id": "RUN-23",
       "title": "Integrar automáticamente las tareas intermedias de una cadena YOLO",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "CORE-08"
@@ -3739,12 +3739,28 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:16:23Z"
+      "updated_at": "2026-11-08T10:59:42Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T10:55:33Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "core: complete acepta integrated y solo pasa a done una tarea intermedia YOLO con checks en verde e integrada (skipsReview como helper). runner: al cerrar un run en verde de una tarea intermedia, el supervisor integra con integrateRun (squash, trailers, borra worktree y rama) y después aplica complete; si choca o no se puede integrar, review con integration=conflict y nota. Tests en repo real."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T10:59:42Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Hecho en el commit 9e3c292. core: complete acepta integrated y solo lleva a done una tarea intermedia de una cadena YOLO con los checks en verde e integrated: true. Nuevo helper skipsReview. runner: con todo en verde en una tarea intermedia, el supervisor pasa el run a succeeded, lo integra con integrateRun (squash en base_branch, un commit con trailers, borra worktree y rama; un run sin cambios se descarta) y después aplica complete. Fuera de YOLO se mantiene el orden anterior: complete y luego succeeded. Docs en esquema-tareas.md (YOLO y complete) y arquitectura.md (Cierre).\n- ac1: test 'a green intermediate task is integrated…': BE-03 en done, 1 commit nuevo en main con 'BE-03: Task BE-03' y Konsora-Run, integración merged, worktree y rama konsora/ borrados, evento integrated.\n- ac2: test '…conflicts stays in review…': main cambia readme.txt mientras tanto. Resultado: integration=conflict, BE-03 en review con una nota de konsora que nombra readme.txt, y BE-02 rechazado por not_ready. En core, complete(true,false) y complete(true) dan review.\n- ac3: en el mismo test que ac1, BE-02 arranca con base_commit = punta de main y su worktree contiene be03.txt.\nComprobado: npm run check en verde (883 tests)."
+        }
+      ]
     },
     {
       "id": "RUN-24",
       "title": "Pedir al agente que resuelva un conflicto de integración",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "rank": "zzzzzzzzv",
       "desc": "Cuando la integración de un run choca con la rama base (`integration = conflict`), el humano puede pedir al agente que rebase su rama sobre la punta actual de `base_branch` y resuelva los conflictos: un run nuevo de la misma tarea sobre la misma rama y worktree, que reanuda la sesión del agente si se puede, con un prompt determinista que lista los ficheros en conflicto. Al terminar se ejecutan los checks como en cualquier run y la tarea vuelve a review para integrarla de nuevo. La alternativa, resolver a mano, sigue disponible.",
@@ -3769,7 +3785,7 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T10:55:07Z",
+      "updated_at": "2026-11-08T10:56:43Z",
       "notes": [
         {
           "id": "n1",
