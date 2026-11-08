@@ -262,6 +262,7 @@ Más comandos de la CLI: `init`, `migrate`, `ui`, `mcp`, `run <ids…>`, `runs [
 - **Detalle**: descripción en markdown, criterios con estado de su check, notas como línea de tiempo, runs con log en vivo, y acciones según tu rol.
 - **Revisión**: diff por fichero, checks, resumen del agente, y las acciones `accept` (integra), `send back` (con feedback) y `retry with…` (otro modelo).
 - **Runs**: runs activos en paralelo, aprobaciones pendientes y uso o rate limits cuando el proveedor los expone.
+- **Cola** (`#/cola`, M9): por proyecto, los runs activos, lo que espera en la cola y por qué (bloqueada por una dependencia, esperando un hueco global o de un proveedor, cola en pausa), los límites de paralelismo con su ocupación, y pausar, reanudar, quitar, vaciar y cambiar `max_parallel` y el máximo por proveedor. Se actualiza en vivo con `queue.*` y `run.state`. La barra de selección ofrece **Encolar** (las tareas aprobadas en `todo`, también las bloqueadas, con el agente elegido) junto a Ejecutar. En la revisión de un run en conflicto, **Pedir al agente que haga rebase** lanza el run de rebase; la alternativa es resolverlo a mano en su rama y volver a aceptar.
 - **Barra de selección**: tareas seleccionadas → proveedor, modelo, esfuerzo y perfil → `Ejecutar`.
 - Atajos de teclado, paleta de comandos, modo claro y oscuro. Textos en español a través de una capa i18n, para no tenerlos incrustados en el código.
 

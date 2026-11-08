@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyLimitsMessage } from "./limits.ts";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
+import { applyQueueMessage, queueKey } from "./queue.ts";
 import { applyRunMessage } from "./runs.ts";
 import { reconnectDelay, TOKEN_KEY } from "./session.ts";
 
@@ -157,7 +158,11 @@ export function useBoardEvents(projectId: string): LiveState {
         } else if (message.project !== projectId) {
           return;
         } else if (message.type.startsWith("board.")) refresh();
-        else if (message.type.startsWith("run.")) applyRunMessage(client, projectId, message);
+        else if (message.type.startsWith("run.")) {
+          applyRunMessage(client, projectId, message);
+          if (message.type === "run.state")
+            client.invalidateQueries({ queryKey: queueKey(projectId) });
+        } else if (message.type.startsWith("queue.")) applyQueueMessage(client, message);
         else if (message.type.startsWith("permission."))
           client.invalidateQueries({ queryKey: ["approvals"] });
       };

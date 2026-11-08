@@ -139,7 +139,7 @@ const run = (extra: Partial<Run> = {}): Run => ({
   ...extra,
 });
 
-function panel(r: Run) {
+function panel(r: Run, runs: Run[] = [r], readOnly = false) {
   const client = new QueryClient();
   client.setQueryData(runDiffKey("p", r.id), PATCH);
   client.setQueryData(runEventsKey("p", r.id), []);
@@ -153,8 +153,8 @@ function panel(r: Run) {
             doc={doc}
             groupName="Backend"
             external={[]}
-            readOnly={false}
-            runs={[r]}
+            readOnly={readOnly}
+            runs={runs}
             onClose={() => {}}
             onOpen={() => {}}
           />
@@ -258,5 +258,42 @@ describe("accepting (UI-12 ac2)", () => {
     expect(integrationErrorText("conflict", "BE-01")).toBeNull();
     // Accept is not optimistic: the task the panel shows is still in review.
     expect(panel(run())).toContain("En revisión");
+  });
+});
+
+describe("asking the agent to rebase a conflict (UI-18 ac3)", () => {
+  const branch = "konsora/BE-01/01JC8Z3K2QX7";
+  it("offers the rebase in the review of a conflicting run, naming its branch for a manual fix", () => {
+    const out = panel(run({ integration: { state: "conflict" }, branch }));
+    expect(out).toContain(">Pedir al agente que haga rebase<");
+    expect(out).toContain(`resolverlo a mano en la rama ${branch}`);
+    expect(panel(run({ branch }))).not.toContain("Pedir al agente que haga rebase");
+    expect(
+      panel(run({ integration: { state: "conflict" }, branch }), undefined, true),
+    ).not.toContain("Pedir al agente que haga rebase");
+  });
+
+  it("after a failed rebase run, the review is still about the conflicting run", () => {
+    const conflicted = run({ integration: { state: "conflict" }, branch });
+    const failed = run({
+      id: "r-01JC8Z3K2QX7M4V9T0B6N5R8PX",
+      state: "failed",
+      rebase_of: conflicted.id,
+      branch,
+    });
+    const out = panel(failed, [conflicted, failed]);
+    expect(out).toContain(">Pedir al agente que haga rebase<");
+    expect(out).toContain("Resumen del agente");
+  });
+
+  it("calls the rebase endpoint", async () => {
+    const calls: string[] = [];
+    const fetch = (async (url: string, init: RequestInit) => {
+      calls.push(`${init.method} ${url}`);
+      return new Response(JSON.stringify({ run: run({ rebase_of: runId }) }), { status: 201 });
+    }) as unknown as typeof globalThis.fetch;
+    const api = createApi("ab".repeat(32), { fetch });
+    await api.post(`/projects/p/runs/${runId}/rebase`);
+    expect(calls).toEqual([`POST /api/projects/p/runs/${runId}/rebase`]);
   });
 });

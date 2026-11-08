@@ -21,6 +21,7 @@ export class ApiError extends Error {
 export type Api = {
   get: <T>(path: string) => Promise<T>;
   post: <T>(path: string, body?: unknown) => Promise<T>;
+  put: <T>(path: string, body?: unknown) => Promise<T>;
   del: (path: string) => Promise<void>;
 };
 
@@ -73,6 +74,7 @@ export function createApi(
   return {
     get: (path) => request("GET", path),
     post: (path, body) => request("POST", path, body),
+    put: (path, body) => request("PUT", path, body),
     del: (path) => request("DELETE", path),
   };
 }

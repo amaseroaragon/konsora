@@ -4,6 +4,7 @@ import { useAgents } from "../api/agents.ts";
 import { useApprovals } from "../api/approvals.ts";
 import { type BoardOk, type LiveState, toDocument } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
+import { useEnqueue } from "../api/queue.ts";
 import { useRuns, useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Segmented, StateBadge, useToast } from "../ui/index.ts";
@@ -15,6 +16,7 @@ import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
+import { queueableSelection } from "./queue-model.ts";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
@@ -120,13 +122,15 @@ export function ProjectView({
   );
   const open = useCallback((id: string) => go({ task: id }), [go]);
   const runnable = runnableSelection(selectedIds, board.tasks, { readOnly, runs });
+  const queueable = queueableSelection(selectedIds, board.tasks, readOnly);
+  const enqueue = useEnqueue(projectId);
   const catalog = useAgents().data;
   const [chosenAgent, setChosenAgent] = useState<AgentSpec | undefined>(undefined);
   const batchAgent =
     chosenAgent ??
     (catalog
       ? initialBatchAgent(
-          board.tasks.filter((task) => runnable.includes(task.id)),
+          board.tasks.filter((task) => runnable.includes(task.id) || queueable.includes(task.id)),
           board.plan.project,
           catalog,
         )
@@ -150,6 +154,27 @@ export function ProjectView({
       toast.show(t("selection.run.started", { n: started }), "success");
       dispatchSelection({ type: "clear" });
     }
+  };
+  /** Adds the selected tasks to the queue with the chosen agent; it launches them when ready. */
+  const queueSelected = (ids: readonly string[]) => {
+    enqueue.mutate(
+      ids.map((task) => ({ task, agent: catalog ? batchAgent : undefined })),
+      {
+        onSuccess: (result) => {
+          toast.show(
+            result.already.length > 0
+              ? `${t("selection.queue.done", { n: result.added.length })} ${t("selection.queue.already", { ids: result.already.join(", ") })}`
+              : t("selection.queue.done", { n: result.added.length }),
+            "success",
+          );
+          dispatchSelection({ type: "clear" });
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.unauthorized) return;
+          toast.show(t("queue.error", { message: error.message }), "error");
+        },
+      },
+    );
   };
   useEffect(() => {
     if (!openId) return;
@@ -261,6 +286,9 @@ export function ProjectView({
           catalog={catalog}
           onAgent={setChosenAgent}
           onRun={(ids) => void runSelected(ids)}
+          queueable={queueable}
+          queueBusy={enqueue.isPending}
+          onQueue={queueSelected}
           onClear={() => dispatchSelection({ type: "clear" })}
         />
       )}

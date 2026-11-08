@@ -23,7 +23,7 @@ import { OlderRuns } from "./OlderRuns.tsx";
 import { ReviewSection } from "./ReviewSection.tsx";
 import { RunSection } from "./RunSection.tsx";
 import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
-import { canRun, latestRun, olderDiscardable, runErrorText } from "./run-model.ts";
+import { canRun, latestRun, olderDiscardable, reviewRun, runErrorText } from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
@@ -265,7 +265,7 @@ export function TaskPanel({
   const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
-  const run = latestRun(runs, task.id);
+  const run = task.state === "review" ? reviewRun(runs, task.id) : latestRun(runs, task.id);
   const criteria = criterionResults(run);
   const checksFailed = task.state === "review" && runChecksFailed(run);
   const runnable = runs !== undefined && canRun(task, { readOnly, runs, id: task.id });
@@ -318,6 +318,7 @@ export function TaskPanel({
               <ReviewSection
                 projectId={projectId}
                 run={run}
+                readOnly={readOnly}
                 summary={
                   [...(task.notes ?? [])]
                     .reverse()
@@ -329,7 +330,7 @@ export function TaskPanel({
         )}
         <OlderRuns
           projectId={projectId}
-          runs={olderDiscardable(runs, task.id)}
+          runs={olderDiscardable(runs, task.id, run?.id)}
           readOnly={readOnly}
         />
         {onSelectWithDeps && (

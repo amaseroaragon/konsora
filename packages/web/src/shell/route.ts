@@ -1,5 +1,6 @@
 /**
- * Hash routes: `#/` projects, `#/p/<id>` a project, `#/limites` the usage limits,
+ * Hash routes: `#/` projects, `#/p/<id>` a project, `#/limites` the usage limits, `#/cola` the
+ * run queue and active runs,
  * `#/muestrario` gallery, `#/maqueta` mock.
  * A project route carries its view and open task as a query, so both survive a reload and can be
  * linked: `#/p/<id>?view=graph&task=UI-05`.
@@ -13,6 +14,7 @@ export type Route =
   | { name: "projects" }
   | { name: "project"; id: string; view: ProjectViewName; task: string | null }
   | { name: "limits" }
+  | { name: "queue" }
   | { name: "gallery" }
   | { name: "mock" };
 
@@ -24,6 +26,7 @@ export function parseRoute(hash: string): Route {
   if (path === "/muestrario") return { name: "gallery" };
   if (path === "/maqueta") return { name: "mock" };
   if (path === "/limites") return { name: "limits" };
+  if (path === "/cola") return { name: "queue" };
   const project = /^\/p\/([^/]+)$/.exec(path);
   if (project?.[1]) {
     const view = query.get("view");

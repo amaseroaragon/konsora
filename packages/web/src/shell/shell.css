@@ -645,6 +645,36 @@
   max-inline-size: 30vw;
 }
 
+/* Queue view (UI-18) */
+.s-queue__limits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: var(--k-space-4);
+  align-items: end;
+}
+.s-queue__save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.s-queue__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+  margin-bottom: var(--k-space-4);
+}
+.s-queue__runs {
+  margin: var(--k-space-2) 0 var(--k-space-4);
+  padding-left: var(--k-space-5);
+}
+.s-queue__table caption {
+  text-align: left;
+  margin-bottom: var(--k-space-2);
+}
+
 /* Check history (UI-16) */
 .b-checks {
   display: flex;

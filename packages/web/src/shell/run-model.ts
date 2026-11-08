@@ -38,6 +38,18 @@ export function latestRun(runs: readonly Run[] | undefined, task: string): Run |
   return [...(runs ?? [])].reverse().find((run) => run.task === task);
 }
 
+/**
+ * The run the task's review is about: its latest run, except that a rebase run that did not
+ * succeed leaves the conflicting run it tried to rebase (the one `accept` integrates).
+ */
+export function reviewRun(runs: readonly Run[] | undefined, task: string): Run | undefined {
+  const latest = latestRun(runs, task);
+  if (!latest?.rebase_of || latest.state === "succeeded" || isActiveRunState(latest.state)) {
+    return latest;
+  }
+  return (runs ?? []).find((run) => run.id === latest.rebase_of) ?? latest;
+}
+
 export function activeRun(runs: readonly Run[] | undefined, task: string): Run | undefined {
   return (runs ?? []).find((run) => run.task === task && isActiveRunState(run.state));
 }
@@ -358,7 +370,11 @@ export function folderName(path: string): string {
 }
 
 /** The task's earlier runs that still hold a worktree and branch (all but the latest), newest first. */
-export function olderDiscardable(runs: readonly Run[] | undefined, task: string): Run[] {
-  const mine = (runs ?? []).filter((run) => run.task === task);
-  return mine.slice(0, -1).filter(canDiscard).reverse();
+export function olderDiscardable(
+  runs: readonly Run[] | undefined,
+  task: string,
+  shown: string | undefined = latestRun(runs, task)?.id,
+): Run[] {
+  const mine = (runs ?? []).filter((run) => run.task === task && run.id !== shown);
+  return mine.filter(canDiscard).reverse();
 }

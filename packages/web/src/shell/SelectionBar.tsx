@@ -19,6 +19,9 @@ export function SelectionBar({
   onAgent,
   onRun,
   onClear,
+  queueable = [],
+  queueBusy = false,
+  onQueue,
 }: {
   ids: readonly string[];
   /** The selected tasks Run would launch. */
@@ -32,8 +35,14 @@ export function SelectionBar({
   onAgent?: (agent: AgentSpec) => void;
   onRun: (ids: readonly string[]) => void;
   onClear: () => void;
+  /** The selected tasks Queue would add (approved, to do; blocked ones too). */
+  queueable?: readonly string[];
+  queueBusy?: boolean;
+  /** Without it there is no Queue button. */
+  onQueue?: (ids: readonly string[]) => void;
 }) {
   const hint = useId();
+  const queueHint = useId();
   const problem = catalog ? agentProblem(agent, catalog) : null;
   const disabled = readOnly || runnable.length === 0 || problem !== null;
   return (
@@ -48,7 +57,7 @@ export function SelectionBar({
           {t("app.selection.clear")}
         </Button>
       </div>
-      {catalog && onAgent && !readOnly && runnable.length > 0 && (
+      {catalog && onAgent && !readOnly && (runnable.length > 0 || queueable.length > 0) && (
         <AgentPicker agent={agent} catalog={catalog} onChange={onAgent} />
       )}
       <div className="a-selection__controls">
@@ -59,6 +68,25 @@ export function SelectionBar({
               ? t("selection.run.none")
               : t("selection.run.ready", { n: runnable.length, ids: runnable.join(", ") })}
         </p>
+        {onQueue && (
+          <>
+            <p id={queueHint} className="b-selection__hint s-muted">
+              {readOnly
+                ? t("selection.run.readonly")
+                : queueable.length === 0
+                  ? t("selection.queue.none")
+                  : t("selection.queue.ready", { n: queueable.length, ids: queueable.join(", ") })}
+            </p>
+            <Button
+              disabled={readOnly || queueable.length === 0 || problem !== null}
+              busy={queueBusy}
+              aria-describedby={queueHint}
+              onClick={() => onQueue(queueable)}
+            >
+              {t("selection.queue")}
+            </Button>
+          </>
+        )}
         <Button
           variant="primary"
           className="a-selection__run"
