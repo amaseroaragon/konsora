@@ -15,6 +15,7 @@ import {
   SetupSchema,
   TaskIdSchema,
   TaskSchema,
+  TemplateSchema,
 } from "./schema.ts";
 
 const expect = z.record(TaskIdSchema, z.string()).optional();
@@ -30,6 +31,7 @@ const NewTask = {
   labels: z.array(z.string()).optional(),
   difficulty: DifficultySchema.optional(),
   agent: AgentSpecSchema.optional(),
+  template: z.string().min(1).max(31).optional(),
 };
 
 export const OpSchema = z.discriminatedUnion("op", [
@@ -97,6 +99,11 @@ export const OpSchema = z.discriminatedUnion("op", [
     op: z.literal("set-recommended"),
     expect,
     recommended: RecommendedSchema.nullable(),
+  }),
+  z.strictObject({
+    op: z.literal("set-templates"),
+    expect,
+    templates: z.array(TemplateSchema).max(100),
   }),
   z.strictObject({ op: z.literal("accept"), expect, task: id }),
   z.strictObject({ op: z.literal("send-back"), expect, task: id, feedback: text }),

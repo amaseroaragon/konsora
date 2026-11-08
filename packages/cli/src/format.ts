@@ -76,7 +76,23 @@ export function statusText(doc: TasksDocument, file: string): string {
       "Proposed (needs approval)",
       list.filter((t) => t.state === "proposed"),
     ),
+    templatesText(doc),
   ].join("");
+}
+
+/** The project's templates, for `propose --template <id>`. */
+function templatesText(doc: TasksDocument): string {
+  const templates = doc.project.templates ?? [];
+  if (templates.length === 0) return "";
+  const rows = templates.map((t) => {
+    const details = [
+      t.difficulty,
+      t.acceptance?.length ? `${t.acceptance.length} criteria` : undefined,
+      t.labels?.length ? `labels ${t.labels.join(", ")}` : undefined,
+    ].filter(Boolean);
+    return `  ${t.id.padEnd(9)} ${t.name}${details.length ? `  [${details.join("; ")}]` : ""}`;
+  });
+  return `\nTemplates (propose --template <id>):\n${rows.join("\n")}\n`;
 }
 
 export function showText(doc: TasksDocument, view: TaskView): string {

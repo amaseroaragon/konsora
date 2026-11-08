@@ -6,8 +6,8 @@
  * - keys in the order of the spec, then `x-*` extension keys in alphabetical order;
  * - optional fields that are empty are omitted (`deps: []`, `desc: ""`, `notes: []`…);
  * - tasks ordered by the order of `groups`, then by id number; `seq` keys by `groups` order;
- * - `deps` in natural id order and `labels` alphabetically; notes, criteria, groups and checks
- *   keep their order (it is meaningful);
+ * - `deps` in natural id order and `labels` (of tasks and templates) alphabetically; notes,
+ *   criteria, groups, checks and templates keep their order (it is meaningful);
  * - 2-space indentation, LF line endings, trailing newline, UTF-8 without BOM.
  */
 import type { TasksDocument } from "./schema.ts";
@@ -17,8 +17,19 @@ type Obj = Record<string, unknown>;
 
 const ORDER = {
   root: ["$schema", "schema", "project", "groups", "seq", "tasks"],
-  project: ["name", "base_branch", "defaults", "recommended", "setup", "checks", "check_retries"],
+  project: [
+    "name",
+    "base_branch",
+    "defaults",
+    "recommended",
+    "setup",
+    "checks",
+    "check_retries",
+    "templates",
+  ],
   recommended: ["low", "medium", "high"],
+  template: ["id", "name", "desc", "acceptance", "labels", "difficulty"],
+  criterion: ["text", "check"],
   setup: ["run", "timeout_s"],
   agent: ["provider", "model", "effort", "permissions"],
   check: ["id", "run", "timeout_s"],
@@ -46,7 +57,15 @@ const ORDER = {
 } as const;
 
 /** Optional fields dropped when empty. Required arrays (`groups`, `tasks`) are always kept. */
-const OMIT_WHEN_EMPTY = new Set(["deps", "desc", "acceptance", "labels", "notes", "checks"]);
+const OMIT_WHEN_EMPTY = new Set([
+  "deps",
+  "desc",
+  "acceptance",
+  "labels",
+  "notes",
+  "checks",
+  "templates",
+]);
 
 function isEmpty(value: unknown): boolean {
   return value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
@@ -86,6 +105,14 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
   const groupOrder = new Map(doc.groups.map((g, i) => [g.id, i]));
   const rankOf = (group: string) => groupOrder.get(group) ?? Number.MAX_SAFE_INTEGER;
   const agent = (value: unknown) => ordered(value as Obj, ORDER.agent);
+  const template = (value: Obj) =>
+    ordered(value, ORDER.template, (key, v) =>
+      key === "acceptance"
+        ? (v as Obj[]).map((c) => ordered(c, ORDER.criterion))
+        : key === "labels"
+          ? [...(v as string[])].sort()
+          : v,
+    );
 
   const tasks = [...doc.tasks]
     .sort((a, b) => rankOf(a.group) - rankOf(b.group) || compareTaskIds(a.id, b.id))
@@ -120,17 +147,22 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
   return ordered(doc as Obj, ORDER.root, (key, value) => {
     switch (key) {
       case "project":
-        return ordered(value as Obj, ORDER.project, (k, v) =>
-          k === "defaults"
-            ? agent(v)
-            : k === "recommended"
-              ? ordered(v as Obj, ORDER.recommended, (_, spec) => agent(spec))
-              : k === "setup"
-                ? ordered(v as Obj, ORDER.setup)
-                : k === "checks"
-                  ? (v as Obj[]).map((c) => ordered(c, ORDER.check))
-                  : v,
-        );
+        return ordered(value as Obj, ORDER.project, (k, v) => {
+          switch (k) {
+            case "defaults":
+              return agent(v);
+            case "recommended":
+              return ordered(v as Obj, ORDER.recommended, (_, spec) => agent(spec));
+            case "setup":
+              return ordered(v as Obj, ORDER.setup);
+            case "checks":
+              return (v as Obj[]).map((c) => ordered(c, ORDER.check));
+            case "templates":
+              return (v as Obj[]).map(template);
+            default:
+              return v;
+          }
+        });
       case "groups":
         return (value as Obj[]).map((g) => ordered(g, ORDER.group));
       case "seq":

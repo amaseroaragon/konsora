@@ -35,6 +35,25 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
       ),
   );
 
+  checkUnique(
+    doc.project.templates?.map((t) => t.id),
+    (j, id) =>
+      add(
+        ["project", "templates", j, "id"],
+        "duplicate_template_id",
+        `Template ${id} is defined twice`,
+      ),
+  );
+  doc.project.templates?.forEach((template, j) => {
+    checkUnique(template.labels, (k, label) =>
+      add(
+        ["project", "templates", j, "labels", k],
+        "duplicate_label",
+        `Template ${template.id} repeats label ${label}`,
+      ),
+    );
+  });
+
   const groups = new Set<string>();
   doc.groups.forEach((group, i) => {
     if (groups.has(group.id))

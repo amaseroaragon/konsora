@@ -399,6 +399,10 @@ describe("properties", () => {
         check_retries: fc.integer({ min: 0, max: 5 }),
       }),
       fc.record({
+        op: fc.constant("set-templates" as const),
+        templates: fc.constant([{ id: "bug", name: "Bug" }]),
+      }),
+      fc.record({
         op: fc.constant("set-recommended" as const),
         recommended: fc.constant({ high: { provider: "claude" as const, model: "opus" } }),
       }),
@@ -691,5 +695,142 @@ describe("difficulty and recommended agents (CORE-09)", () => {
       recommended: { extreme: opus },
     } as unknown as Op;
     expect(err(applyOp(d, bad, human))).toBe("invalid");
+  });
+});
+
+describe("templates (CORE-10)", () => {
+  const bug = {
+    id: "bug",
+    name: "Bug fix",
+    desc: "Reproduce, fix and cover with a test.",
+    acceptance: [{ text: "A test reproduces the bug", check: "npm test" }, { text: "Fixed" }],
+    labels: ["bug", "fix"],
+    difficulty: "medium" as const,
+  };
+  const base = doc(task("BE-01", "todo"));
+  const withTemplates = ok(
+    applyOp(base, { op: "set-templates", templates: [bug] }, human),
+  ).document;
+
+  it("set-templates is the human's only, replaces them all and [] removes them", () => {
+    const op: Op = { op: "set-templates", templates: [bug] };
+    expect(err(applyOp(base, op, agent))).toBe("forbidden");
+    expect(err(applyOp(base, op, runner))).toBe("forbidden");
+    expect(withTemplates.project.templates).toEqual([bug]);
+    const other = { id: "spike", name: "Spike" };
+    expect(
+      ok(applyOp(withTemplates, { op: "set-templates", templates: [other] }, human)).document
+        .project.templates,
+    ).toEqual([other]);
+    expect(
+      ok(applyOp(withTemplates, { op: "set-templates", templates: [] }, human)).document.project,
+    ).not.toHaveProperty("templates");
+  });
+
+  it("set-templates validates unique ids and the templates' fields", () => {
+    const dup = applyOp(
+      base,
+      { op: "set-templates", templates: [bug, { ...bug, name: "Other" }] },
+      human,
+    );
+    expect(err(dup)).toBe("invalid");
+    expect(dup.ok ? [] : dup.error.issues?.map((i) => i.code)).toContain("duplicate_template_id");
+    const badId = {
+      op: "set-templates",
+      templates: [{ id: "Bug Fix", name: "x" }],
+    } as unknown as Op;
+    expect(err(applyOp(base, badId, human))).toBe("invalid");
+    const badLabels = { ...bug, labels: ["bug", "bug"] };
+    expect(err(applyOp(base, { op: "set-templates", templates: [badLabels] }, human))).toBe(
+      "invalid",
+    );
+  });
+
+  it("propose with a template takes its values; explicit ones complete or replace them", () => {
+    const plain = ok(
+      applyOp(
+        withTemplates,
+        { op: "propose", title: "Crash", group: "BE", template: "bug" },
+        agent,
+      ),
+    ).document.tasks.at(-1);
+    expect(plain).toMatchObject({
+      desc: bug.desc,
+      acceptance: [
+        { id: "ac1", text: "A test reproduces the bug", check: "npm test" },
+        { id: "ac2", text: "Fixed" },
+      ],
+      labels: ["bug", "fix"],
+      difficulty: "medium",
+    });
+    const mixed = ok(
+      applyOp(
+        withTemplates,
+        {
+          op: "propose",
+          title: "Crash",
+          group: "BE",
+          template: "bug",
+          desc: "Own description",
+          acceptance: ["No regression"],
+          labels: ["fix", "ui"],
+          difficulty: "high",
+        },
+        agent,
+      ),
+    ).document.tasks.at(-1);
+    expect(mixed).toMatchObject({
+      desc: "Own description",
+      acceptance: [
+        { id: "ac1", text: "A test reproduces the bug", check: "npm test" },
+        { id: "ac2", text: "Fixed" },
+        { id: "ac3", text: "No regression" },
+      ],
+      labels: ["bug", "fix", "ui"],
+      difficulty: "high",
+    });
+  });
+
+  it("batch tasks can each use a template", () => {
+    const batch = ok(
+      applyOp(
+        withTemplates,
+        {
+          op: "batch",
+          tasks: [
+            { title: "A", group: "BE", template: "bug" },
+            { title: "B", group: "BE", acceptance: ["Own"] },
+          ],
+        },
+        agent,
+      ),
+    ).document;
+    expect(batch.tasks.map((t) => t.acceptance?.length ?? 0)).toEqual([0, 2, 1]);
+    expect(batch.tasks[2]?.labels).toBeUndefined();
+  });
+
+  it("an unknown template is refused with its own code and writes nothing", () => {
+    const r = applyOp(
+      withTemplates,
+      { op: "propose", title: "X", group: "BE", template: "feature" },
+      agent,
+    );
+    expect(err(r)).toBe("unknown_template");
+    expect(r.ok ? "" : r.error.message).toBe('Template "feature" does not exist');
+    const b = applyOp(
+      withTemplates,
+      {
+        op: "batch",
+        tasks: [
+          { title: "A", group: "BE" },
+          { title: "B", group: "BE", template: "nope" },
+        ],
+      },
+      agent,
+    );
+    expect(err(b)).toBe("unknown_template");
+    expect(
+      err(applyOp(base, { op: "propose", title: "X", group: "BE", template: "bug" }, agent)),
+    ).toBe("unknown_template");
   });
 });

@@ -94,6 +94,24 @@ const recommendedArb = fc.record(
   { requiredKeys: [] },
 );
 
+const templatesArb = fc.uniqueArray(
+  fc.record(
+    {
+      id: fc.constantFrom("bug", "feature", "spike", "chore"),
+      name: text(20),
+      desc: text(40),
+      acceptance: fc.array(
+        fc.record({ text: text(20), check: text(20) }, { requiredKeys: ["text"] }),
+        { maxLength: 3 },
+      ),
+      labels: fc.uniqueArray(lowerString(1, 8), { maxLength: 3 }),
+      difficulty: fc.constantFrom("low", "medium", "high"),
+    },
+    { requiredKeys: ["id", "name"] },
+  ),
+  { selector: (t) => t.id, maxLength: 3 },
+);
+
 /** A valid document: unique ids, deps only on earlier tasks (so acyclic), seq ≥ max id. */
 export const documentArb: fc.Arbitrary<TasksDocument> = fc
   .record({
@@ -102,11 +120,12 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
     seqSlack: fc.integer({ min: 0, max: 3 }),
     withSchemaRef: fc.boolean(),
     recommended: fc.option(recommendedArb, { nil: undefined }),
+    templates: templatesArb,
     extension: fc.option(fc.dictionary(fc.constantFrom("x-editor", "x-color"), fc.integer()), {
       nil: undefined,
     }),
   })
-  .map(({ groups, specs, seqSlack, withSchemaRef, recommended, extension }) => {
+  .map(({ groups, specs, seqSlack, withSchemaRef, recommended, templates, extension }) => {
     const counters = new Map<string, number>();
     const tasks: Task[] = specs.map((spec) => {
       const group = groups[spec.groupPick % groups.length] as string;
@@ -145,6 +164,7 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
         name: "Generated",
         base_branch: "main",
         ...(recommended && Object.keys(recommended).length ? { recommended } : {}),
+        ...(templates.length ? { templates } : {}),
       },
       groups: groups.map((id) => ({ id, name: `Group ${id}` })),
       seq: Object.fromEntries(groups.map((g) => [g, (counters.get(g) ?? 0) + seqSlack])),

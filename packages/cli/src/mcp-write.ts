@@ -65,6 +65,13 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         difficulty: DifficultySchema.optional().describe(
           "estimated difficulty: low, medium or high",
         ),
+        template: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "id of a project template the task starts from (status lists them); explicit values complete or replace it",
+          ),
       },
       annotations: WRITE,
     },
@@ -79,6 +86,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           ...(args.deps ? { deps: args.deps.map((d) => d.toUpperCase()) } : {}),
           ...(args.labels ? { labels: args.labels } : {}),
           ...(args.difficulty ? { difficulty: args.difficulty } : {}),
+          ...(args.template ? { template: args.template.toLowerCase() } : {}),
         }),
         "The proposal is waiting for human approval.",
       ),

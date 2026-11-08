@@ -32,6 +32,7 @@ import type {
   Task,
   TaskState,
   TasksDocument,
+  Template,
 } from "./schema.ts";
 import { validateDocument } from "./semantics.ts";
 
@@ -67,6 +68,11 @@ export type NewTask = {
   labels?: string[];
   difficulty?: Difficulty;
   agent?: AgentSpec;
+  /**
+   * A template of `project.templates` the task starts from: its own desc and difficulty replace
+   * the template's, its criteria come after the template's and its labels join them.
+   */
+  template?: string;
 };
 
 export type Op = Base &
@@ -117,6 +123,8 @@ export type Op = Base &
      * whole map); `null` or `{}` removes it.
      */
     | { op: "set-recommended"; recommended: Recommended | null }
+    /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
+    | { op: "set-templates"; templates: Template[] }
     | { op: "accept"; task: string }
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
@@ -138,6 +146,7 @@ export type OpErrorCode =
   | "text_required"
   | "not_waiting"
   | "has_dependents"
+  | "unknown_template"
   | "invalid";
 
 export type OpError = {
@@ -180,6 +189,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   "rebase-abort": ["konsora"],
   "set-checks": ["human"],
   "set-recommended": ["human"],
+  "set-templates": ["human"],
   accept: ["human"],
   "send-back": ["human"],
   reopen: ["human"],
@@ -306,6 +316,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
   const createTask = (spec: NewTask, state: TaskState, deps: string[]): Task => {
     if (!doc.groups.some((g) => g.id === spec.group))
       fail("not_found", `Group ${spec.group} does not exist`);
+    const template =
+      spec.template === undefined
+        ? undefined
+        : (doc.project.templates?.find((t) => t.id === spec.template) ??
+          fail("unknown_template", `Template "${spec.template}" does not exist`));
     const number = (doc.seq[spec.group] ?? 0) + 1;
     doc.seq[spec.group] = number;
     const task: Task = {
@@ -318,11 +333,18 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       updated_at: ctx.at,
     };
     if (deps.length) task.deps = deps;
-    if (spec.desc?.trim()) task.desc = spec.desc.trim();
-    if (spec.acceptance?.length)
-      task.acceptance = spec.acceptance.map((text, i) => ({ id: `ac${i + 1}`, text }));
-    if (spec.labels?.length) task.labels = spec.labels;
-    if (spec.difficulty) task.difficulty = spec.difficulty;
+    const desc = spec.desc?.trim() || template?.desc?.trim();
+    if (desc) task.desc = desc;
+    const criteria = [
+      ...(template?.acceptance ?? []),
+      ...(spec.acceptance ?? []).map((text) => ({ text })),
+    ];
+    if (criteria.length)
+      task.acceptance = criteria.map((c, i) => ({ id: `ac${i + 1}`, ...structuredClone(c) }));
+    const labels = [...new Set([...(template?.labels ?? []), ...(spec.labels ?? [])])];
+    if (labels.length) task.labels = labels;
+    const difficulty = spec.difficulty ?? template?.difficulty;
+    if (difficulty) task.difficulty = difficulty;
     if (spec.agent) task.agent = spec.agent;
     doc.tasks.push(task);
     index.set(task.id, task);
@@ -557,6 +579,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       if (recommended && Object.keys(recommended).length > 0)
         doc.project.recommended = structuredClone(recommended);
       else delete doc.project.recommended;
+      break;
+    }
+    case "set-templates": {
+      if (op.templates.length > 0) doc.project.templates = structuredClone(op.templates);
+      else delete doc.project.templates;
       break;
     }
     case "accept":

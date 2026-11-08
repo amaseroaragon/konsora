@@ -49,6 +49,7 @@ JSON
 ```
 
 - `deps` take task ids or titles of **earlier** tasks in the same batch.
+- If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria, labels and difficulty, and what you pass completes or replaces them.
 - Each task: an imperative title, a `desc` saying what it achieves, and acceptance criteria that can be verified.
 - Estimate each task's `difficulty` (`low`, `medium` or `high`; `--difficulty` on `propose` and `edit`): Konsora runs it with the agent the project recommends for that difficulty, unless the task or the human names one.
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`.

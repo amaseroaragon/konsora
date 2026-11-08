@@ -116,6 +116,7 @@ const OP_STATUS: Record<string, 400 | 403 | 404 | 409 | 422> = {
   invalid_transition: 409,
   blocked: 409,
   has_dependents: 409,
+  unknown_template: 404,
   not_waiting: 409,
   summary_required: 422,
   feedback_required: 422,

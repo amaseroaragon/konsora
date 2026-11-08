@@ -63,7 +63,7 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
     {
       title: "Plan status",
       description:
-        "Summary of the plan: counts per state, and ids that are ready, blocked, waiting, in review or proposed.",
+        "Summary of the plan: counts per state, ids that are ready, blocked, waiting, in review or proposed, and the project (its task templates in project.templates).",
       annotations: READ_ONLY,
     },
     () =>

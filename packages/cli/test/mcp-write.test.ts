@@ -29,7 +29,20 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
 
 const plan = (): TasksDocument => ({
   schema: "konsora/2",
-  project: { name: "Weather", base_branch: "main" },
+  project: {
+    name: "Weather",
+    base_branch: "main",
+    templates: [
+      {
+        id: "bug",
+        name: "Bug fix",
+        desc: "Reproduce and fix.",
+        acceptance: [{ text: "A test reproduces it", check: "npm test" }],
+        labels: ["bug"],
+        difficulty: "medium",
+      },
+    ],
+  },
   groups: [
     { id: "BE", name: "Backend" },
     { id: "FE", name: "Frontend" },
@@ -107,6 +120,7 @@ describe("konsora mcp: agent write tools", () => {
       groups: [{ id: "OPS", name: "Operations" }],
       tasks: [
         { title: "Deploy script", group: "OPS", acceptance: ["Runs in CI"] },
+        { title: "Hotfix", group: "OPS", template: "bug", acceptance: ["No regression"] },
         {
           title: "Rollback",
           group: "OPS",
@@ -166,7 +180,12 @@ describe("konsora mcp: agent write tools", () => {
         ],
       ],
       ["edit", { id: "FE-02", difficulty: "medium" }, ["edit", "FE-02", "--difficulty", "medium"]],
-      ["edit", { id: "OPS-02", difficulty: "none" }, ["edit", "OPS-02", "--difficulty", "none"]],
+      ["edit", { id: "OPS-03", difficulty: "none" }, ["edit", "OPS-03", "--difficulty", "none"]],
+      [
+        "propose",
+        { title: "Login crash", group: "BE", template: "bug", labels: ["auth"] },
+        ["propose", "Login crash", "--group", "BE", "--template", "bug", "--labels", "auth"],
+      ],
       ["depend", { id: "OPS-01", on: "FE-02" }, ["depend", "OPS-01", "FE-02"]],
       ["undepend", { id: "OPS-01", on: "FE-02" }, ["undepend", "OPS-01", "FE-02"]],
       ["withdraw", { id: "FE-02" }, ["withdraw", "FE-02"]],
@@ -187,7 +206,21 @@ describe("konsora mcp: agent write tools", () => {
       expect(file(viaMcp), tool).toBe(file(viaCli));
     }
     expect(doc(viaMcp).tasks.find((task) => task.id === "BE-04")?.state).toBe("review");
-    expect(doc(viaMcp).tasks.find((task) => task.id === "OPS-02")).not.toHaveProperty("difficulty");
+    const tasks = doc(viaMcp).tasks;
+    expect(tasks.find((task) => task.id === "OPS-03")).not.toHaveProperty("difficulty");
+    expect(tasks.find((task) => task.id === "OPS-02")).toMatchObject({
+      desc: "Reproduce and fix.",
+      acceptance: [
+        { id: "ac1", text: "A test reproduces it", check: "npm test" },
+        { id: "ac2", text: "No regression" },
+      ],
+      labels: ["bug"],
+      difficulty: "medium",
+    });
+    expect(tasks.find((task) => task.title === "Login crash")).toMatchObject({
+      labels: ["auth", "bug"],
+      difficulty: "medium",
+    });
     await close();
   });
 
@@ -260,6 +293,13 @@ describe("konsora mcp: agent write tools", () => {
     expect(nothing.text).toContain("Error: Nothing to change.");
     const summary = await call("finish", { id: "BE-04" });
     expect(summary.isError).toBe(true);
+    const template = await call("propose", { title: "X", group: "BE", template: "feature" });
+    expect(template.isError).toBe(true);
+    expect(template.text).toContain(
+      'Error (unknown_template): Template "feature" does not exist\nHint: ',
+    );
+    const status = await call("status");
+    expect(status.json().project.templates.map((t: { id: string }) => t.id)).toEqual(["bug"]);
     rmSync(join(dir, ".konsora"), { recursive: true });
     const missing = await call("note", { id: "BE-04", text: "x" });
     expect(missing.text).toMatch(/^Error: No \.konsora\/ folder found/);

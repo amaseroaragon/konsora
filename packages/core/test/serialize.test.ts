@@ -246,3 +246,49 @@ describe("difficulty and project.recommended (CORE-09)", () => {
     expect(parse(text)).toBeTruthy();
   });
 });
+
+describe("project.templates (CORE-10)", () => {
+  it("keep their order and criteria order, with keys and labels in canonical order", () => {
+    const text = serializeDocument({
+      schema: "konsora/2",
+      project: {
+        templates: [
+          {
+            difficulty: "low",
+            labels: ["z", "a"],
+            acceptance: [{ check: "npm test", text: "Second" }, { text: "First" }],
+            name: "Zeta",
+            id: "zeta",
+          },
+          { name: "Alpha", id: "alpha", acceptance: [], labels: [] },
+        ],
+        name: "P",
+        base_branch: "main",
+      },
+      groups: [{ id: "BE", name: "BE" }],
+      seq: { BE: 0 },
+      tasks: [],
+    } as unknown as TasksDocument);
+    const doc = JSON.parse(text);
+    expect(Object.keys(doc.project)).toEqual(["name", "base_branch", "templates"]);
+    expect(doc.project.templates).toEqual([
+      {
+        id: "zeta",
+        name: "Zeta",
+        acceptance: [{ text: "Second", check: "npm test" }, { text: "First" }],
+        labels: ["a", "z"],
+        difficulty: "low",
+      },
+      { id: "alpha", name: "Alpha" },
+    ]);
+    expect(Object.keys(doc.project.templates[0])).toEqual([
+      "id",
+      "name",
+      "acceptance",
+      "labels",
+      "difficulty",
+    ]);
+    expect(Object.keys(doc.project.templates[0].acceptance[0])).toEqual(["text", "check"]);
+    expect(parse(text)).toBeTruthy();
+  });
+});

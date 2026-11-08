@@ -98,6 +98,27 @@ export const SetupSchema = strict({
   timeout_s: z.int().min(1).max(86_400).optional(),
 });
 
+const LabelSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug");
+
+/** A template's acceptance criterion: like a task's, without the id (the task numbers them). */
+export const TemplateCriterionSchema = strict({
+  text: z.string().min(1).max(500),
+  check: z.string().min(1).max(1000).optional(),
+});
+
+/**
+ * A task template (CORE-10): the values a task proposed with it starts from. Only the human
+ * defines templates (`set-templates`).
+ */
+export const TemplateSchema = strict({
+  id: z.string().regex(slug, "Template id must be a lowercase slug"),
+  name: z.string().min(1).max(60),
+  desc: z.string().max(32_768).optional(),
+  acceptance: z.array(TemplateCriterionSchema).max(50).optional(),
+  labels: z.array(LabelSchema).optional(),
+  difficulty: DifficultySchema.optional(),
+});
+
 export const ProjectSchema = strict({
   name: z.string().min(1).max(80),
   base_branch: z.string().min(1).max(255),
@@ -107,6 +128,7 @@ export const ProjectSchema = strict({
   checks: z.array(CheckSchema).optional(),
   /** How many times a run's agent gets the failed checks back to fix them (default 2). */
   check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).optional(),
+  templates: z.array(TemplateSchema).max(100).optional(),
 });
 
 export const GroupSchema = strict({
@@ -148,9 +170,7 @@ export const TaskSchema = strict({
   rank: z.string().regex(/^[0-9a-z]+$/, "Rank must use only 0-9 and a-z"),
   desc: z.string().max(32_768).optional(),
   acceptance: z.array(AcceptanceSchema).optional(),
-  labels: z
-    .array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug"))
-    .optional(),
+  labels: z.array(LabelSchema).optional(),
   difficulty: DifficultySchema.optional(),
   agent: AgentSpecSchema.optional(),
   yolo: z.literal(true).optional(),
@@ -173,6 +193,7 @@ export type Effort = z.infer<typeof EffortSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export type Difficulty = z.infer<typeof DifficultySchema>;
 export type Recommended = z.infer<typeof RecommendedSchema>;
+export type Template = z.infer<typeof TemplateSchema>;
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type Check = z.infer<typeof CheckSchema>;
 export type Setup = z.infer<typeof SetupSchema>;

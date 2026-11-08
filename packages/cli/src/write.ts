@@ -67,6 +67,8 @@ const HINTS: Partial<Record<OpError["code"], string>> = {
     "Inside a Konsora run you may only act on the run's task (you can still propose new tasks).",
   has_dependents: "Remove the dependency from the dependent proposals first (`konsora undepend`).",
   not_found: "Use `konsora list` to see task ids and `konsora status` for groups.",
+  unknown_template:
+    "`konsora status` lists the project's templates; only the human defines them, in the Konsora UI.",
   conflict: "Someone changed the task meanwhile; read it again with `konsora show <id>` and retry.",
 };
 
@@ -137,6 +139,11 @@ export const BatchSchema = z.strictObject({
         difficulty: DifficultySchema.optional().describe(
           "estimated difficulty: low, medium or high",
         ),
+        template: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("id of a project template the task starts from (see status)"),
       }),
     )
     .min(1),
@@ -165,6 +172,7 @@ export function batchOp(value: unknown): Op {
       ...(t.deps ? { deps: t.deps } : {}),
       ...(t.labels ? { labels: t.labels } : {}),
       ...(t.difficulty ? { difficulty: t.difficulty } : {}),
+      ...(t.template ? { template: t.template.toLowerCase() } : {}),
     })),
   };
 }
@@ -300,6 +308,10 @@ export function registerWriteCommands(
     .option("--difficulty <level>", "estimated difficulty: low, medium or high", (v) =>
       difficulty(v, false),
     )
+    .option(
+      "--template <id>",
+      "start from a project template (see `konsora status`); explicit values complete or replace it",
+    )
     .action(
       async (
         title: string,
@@ -310,6 +322,7 @@ export function registerWriteCommands(
           deps?: string[];
           labels?: string[];
           difficulty?: Difficulty;
+          template?: string;
           as?: string;
           json?: boolean;
         },
@@ -324,6 +337,7 @@ export function registerWriteCommands(
             ...(opts.deps ? { deps: opts.deps.map((d) => d.toUpperCase()) } : {}),
             ...(opts.labels ? { labels: opts.labels } : {}),
             ...(opts.difficulty ? { difficulty: opts.difficulty } : {}),
+            ...(opts.template ? { template: opts.template.toLowerCase() } : {}),
           },
           opts,
           (_doc, created) =>
@@ -339,7 +353,7 @@ export function registerWriteCommands(
     .option("--file <path>", "read the JSON from a file instead of standard input")
     .addHelpText(
       "after",
-      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"difficulty":"medium"}]}',
+      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"difficulty":"medium","template":"<template id>"}]}',
     )
     .action(async (opts: { file?: string; as?: string; json?: boolean }) => {
       const text = await readText(

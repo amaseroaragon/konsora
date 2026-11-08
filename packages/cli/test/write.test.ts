@@ -208,6 +208,62 @@ describe("planning commands", () => {
     expect(approved.stderr).toContain("only humans can change approved work");
   });
 
+  it("propose and batch take a template; an unknown one fails with a hint; status lists them", async () => {
+    const withTemplates = plan();
+    withTemplates.project.templates = [
+      {
+        id: "bug",
+        name: "Bug fix",
+        desc: "Reproduce and fix.",
+        acceptance: [{ text: "A test reproduces it", check: "npm test" }],
+        labels: ["bug"],
+        difficulty: "medium",
+      },
+    ];
+    writeFileSync(file(), serializeDocument(withTemplates));
+
+    const status = await run(["status"]);
+    expect(status.stdout).toContain(
+      "Templates (propose --template <id>):\n  bug       Bug fix  [medium; 1 criteria; labels bug]\n",
+    );
+    expect((await run(["status", "--json"])).json().project.templates).toHaveLength(1);
+
+    const r = await run([
+      "propose",
+      "Crash",
+      "--group",
+      "BE",
+      "--template",
+      "BUG",
+      "--criterion",
+      "Own",
+      "--difficulty",
+      "high",
+    ]);
+    expect(r.code).toBe(EXIT.ok);
+    expect(task("BE-06")).toMatchObject({
+      desc: "Reproduce and fix.",
+      acceptance: [
+        { id: "ac1", text: "A test reproduces it", check: "npm test" },
+        { id: "ac2", text: "Own" },
+      ],
+      labels: ["bug"],
+      difficulty: "high",
+    });
+    const batch = JSON.stringify({ tasks: [{ title: "B", group: "BE", template: "bug" }] });
+    expect((await run(["batch"], { stdin: batch })).code).toBe(EXIT.ok);
+    expect(task("BE-07")).toMatchObject({ desc: "Reproduce and fix.", difficulty: "medium" });
+
+    const before = bytes();
+    const missing = await run(["propose", "X", "--group", "BE", "--template", "feature"]);
+    expect(missing.code).toBe(EXIT.failure);
+    expect(missing.stderr).toContain('Template "feature" does not exist');
+    expect(missing.stderr).toContain("Hint: `konsora status` lists the project's templates");
+    const json = await run(["propose", "X", "--group", "BE", "--template", "feature", "--json"]);
+    expect(json.json()).toMatchObject({ ok: false, error: { code: "unknown_template" } });
+    expect(bytes()).toBe(before);
+  });
+
   it("batch can read a file", async () => {
     writeFileSync(
       join(dir, "plan.json"),
