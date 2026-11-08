@@ -551,7 +551,7 @@
     {
       "id": "CORE-09",
       "title": "Dificultad estimada y agente recomendado por dificultad",
-      "state": "todo",
+      "state": "review",
       "group": "CORE",
       "rank": "zzzzzzzzzzz",
       "desc": "Campo opcional `difficulty` en la tarea (`low`, `medium`, `high`): un agente lo pone al proponer (y lo cambia en sus propuestas) y el humano en el trabajo aprobado. En el proyecto, `project.recommended` asigna a cada dificultad un agente (proveedor, modelo, esfuerzo), y solo lo cambia el humano. `runAgentFor` resuelve: el agente pedido, después el de la tarea, después el recomendado por su dificultad y por último `project.defaults`. CLI y MCP: `--difficulty` y `difficulty` en propose, batch y edit. La skill y el prompt de entrevista piden estimarla. Esquema JSON regenerado y docs de esquema-tareas.md.",
@@ -576,12 +576,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:00:10Z"
+      "updated_at": "2026-11-08T14:19:57Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:12:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Esquema: difficulty (low/medium/high) en la tarea y project.recommended; op humana set-recommended; difficulty editable (agente solo en propuestas); runAgentFor con el orden pedido > tarea > recomendado > defaults; --difficulty/difficulty en CLI y MCP (propose, batch, edit); skill, esquema JSON y docs."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:19:57Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 2757172. Task.difficulty (low/medium/high) y project.recommended ({low?, medium?, high?} → AgentSpec), con op humana set-recommended (sustituye el mapa; null o {} lo quita). difficulty es editable: el agente solo en propuestas, el humano en trabajo aprobado. runAgentFor: pedido > agent de la tarea > recommended[difficulty] > project.defaults; el daemon elige también el proveedor del run con runAgentFor (antes ignoraba esta resolución). CLI --difficulty en propose y edit (none la quita), difficulty en batch; MCP difficulty en propose, batch y edit; show la imprime. Orden canónico, esquema JSON regenerado, esquema-tareas.md y la skill (que pide estimarla).\nac1: tests en ops.test.ts (roles de propose/edit/set-recommended, validación de valores desconocidos) y serialize.test.ts (orden canónico); los generadores de propiedades incluyen ambos campos, así que las propiedades de round-trip y de forma canónica los cubren.\nac2: agents.test.ts con un caso por paso del orden y el caso sin nada.\nac3: write.test.ts (CLI) y mcp-write.test.ts (el MCP escribe lo mismo que la CLI).\nLimitación: el prompt de entrevista no existe todavía (CLI-05); deberá pedir la dificultad cuando se haga."
+        }
+      ]
     },
     {
       "id": "CORE-10",
       "title": "Plantillas de tarea",
-      "state": "todo",
+      "state": "review",
       "group": "CORE",
       "rank": "zzzzzzzzzzzr",
       "desc": "`project.templates`: plantillas con id, nombre, descripción base, criterios (con su check opcional), etiquetas y dificultad, que solo define el humano (op `set-templates`). Al proponer con una plantilla (`--template <id>` en CLI y `template` en MCP, propose y batch), la tarea toma sus valores y lo que se pase explícitamente los completa o sustituye (criterios: los de la plantilla y después los propios). Las plantillas se listan en `status` y en el MCP. Esquema regenerado y docs.",
@@ -606,12 +622,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:00:22Z"
+      "updated_at": "2026-11-08T14:19:58Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:15:42Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Esquema: project.templates (id, name, desc, acceptance con check opcional, labels, difficulty) con ids únicos; op humana set-templates; NewTask.template se resuelve en core al crear (desc y dificultad propias sustituyen, criterios de la plantilla y luego los propios, etiquetas unidas); error unknown_template con pista; --template en CLI y template en MCP (propose y batch); plantillas en status."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:19:58Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit fd7c20d. project.templates (id, name, desc, acceptance {text, check?}, labels, difficulty) con ids únicos, que solo define el humano con la op set-templates ([] las quita). Al proponer con template (propose y cada tarea de batch; --template en CLI, template en MCP) core resuelve la plantilla: desc y difficulty propias sustituyen, los criterios son los de la plantilla (con check) y luego los propios, y las etiquetas se unen. status las lista (sección de texto; project.templates en JSON y en la herramienta status del MCP). Esquema JSON regenerado, docs y skill.\nac1: ops.test.ts: set-templates prohibido para agente y konsora; ids duplicados → invalid con duplicate_template_id; también ids y etiquetas mal formados.\nac2: ops.test.ts (propose y batch con valores combinados), write.test.ts (CLI) y mcp-write.test.ts (MCP idéntico a la CLI con plantilla en propose y batch).\nac3: código propio unknown_template (404 en el daemon) con mensaje y pista en CLI y MCP; no escribe nada (tests).\nnpm run check en verde (934 tests)."
+        }
+      ]
     },
     {
       "id": "CORE-11",
       "title": "Coste acumulado por tarea y por grupo",
-      "state": "todo",
+      "state": "review",
       "group": "CORE",
       "rank": "zzzzzzzzzzzx",
       "desc": "Función pura que suma el uso de todos los runs de una tarea (incluidos reintentos, rebases, variantes y revisiones) y de un grupo: tokens de entrada, salida, caché y razonamiento, coste cuando el proveedor lo da, número de runs, y desglose por proveedor y modelo. Un coste desconocido (Codex) se indica como tal y no se suma como cero.",
@@ -632,7 +664,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:00:30Z"
+      "updated_at": "2026-11-08T14:19:57Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T14:10:58Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Módulo puro packages/core/src/cost.ts: usageTotals sobre una lista de runs, taskCost y groupCost, con desglose por proveedor y modelo; el coste desconocido se cuenta aparte (cost_usd null si ningún run lo da). Tests de propiedades con fast-check."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T14:19:57Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Módulo puro packages/core/src/cost.ts (commit 44e41ab): usageTotals(runs), taskCost(runs, task) y groupCost(runs, doc, group). Suma tokens de entrada, salida, caché (lectura/escritura) y razonamiento, el número de runs y el coste; desglose by_agent por proveedor y modelo, ordenado. Todos los runs de la tarea cuentan (reintentos, rebases, variantes y revisiones son runs de la misma tarea). Coste desconocido: cost_usd es null si ningún run lo da, y los runs sin coste (o sin usage) se cuentan en cost_unknown_runs, nunca como 0. Un grupo cuenta las tareas que tiene ahora (y el prefijo del id si la tarea ya no existe).\nac1: test/cost.test.ts con propiedades fast-check: cada total coincide con la suma de sus runs, los costes desconocidos no se suman, y tareas y grupos parten los runs sumando el total.\nac2: tests del desglose por proveedor/modelo (ejemplo y propiedad: cada parte es usageTotals de sus runs y las partes suman el total).\nDocs: esquema-tareas.md §6. npm run check en verde."
+        }
+      ]
     },
     {
       "id": "CORE-12",
