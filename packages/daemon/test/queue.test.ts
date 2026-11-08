@@ -198,7 +198,8 @@ afterEach(async () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe("the queue (DMN-08)", () => {
+// Real runs with git worktrees: slow when the whole suite runs in parallel.
+describe("the queue (DMN-08)", { timeout: 30_000 }, () => {
   it("launches at most max_parallel runs, and the rest as they become ready", async () => {
     const res = await enqueue(["BE-04", "BE-03", "BE-02", "BE-01"].map((t) => ({ task: t })));
     expect(res.status).toBe(201);

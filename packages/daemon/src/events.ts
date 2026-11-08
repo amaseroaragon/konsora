@@ -172,9 +172,12 @@ export class EventHub {
         if (event.type === "changed") {
           const changes = diffTasks(feed.last?.tasks ?? [], event.document.tasks);
           feed.last = event.document;
-          const external = await this.options
-            .oversight(projectId)
-            .check(event.document, event.hash, this.now());
+          // A failed check (e.g. the data dir went away) must not become an unhandled rejection
+          // of the watcher: the board still updates with the flags already known.
+          const watch = this.options.oversight(projectId);
+          const external = await watch
+            .check(event.document, event.hash, this.now())
+            .catch(() => watch.flags().catch(() => []));
           payload = {
             type: "board.changed",
             project: projectId,
