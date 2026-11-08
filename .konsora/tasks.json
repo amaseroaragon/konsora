@@ -551,7 +551,7 @@
     {
       "id": "CORE-09",
       "title": "Dificultad estimada y agente recomendado por dificultad",
-      "state": "proposed",
+      "state": "todo",
       "group": "CORE",
       "rank": "zzzzzzzzzzz",
       "desc": "Campo opcional `difficulty` en la tarea (`low`, `medium`, `high`): un agente lo pone al proponer (y lo cambia en sus propuestas) y el humano en el trabajo aprobado. En el proyecto, `project.recommended` asigna a cada dificultad un agente (proveedor, modelo, esfuerzo), y solo lo cambia el humano. `runAgentFor` resuelve: el agente pedido, después el de la tarea, después el recomendado por su dificultad y por último `project.defaults`. CLI y MCP: `--difficulty` y `difficulty` en propose, batch y edit. La skill y el prompt de entrevista piden estimarla. Esquema JSON regenerado y docs de esquema-tareas.md.",
@@ -576,12 +576,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:00:10Z"
     },
     {
       "id": "CORE-10",
       "title": "Plantillas de tarea",
-      "state": "proposed",
+      "state": "todo",
       "group": "CORE",
       "rank": "zzzzzzzzzzzr",
       "desc": "`project.templates`: plantillas con id, nombre, descripción base, criterios (con su check opcional), etiquetas y dificultad, que solo define el humano (op `set-templates`). Al proponer con una plantilla (`--template <id>` en CLI y `template` en MCP, propose y batch), la tarea toma sus valores y lo que se pase explícitamente los completa o sustituye (criterios: los de la plantilla y después los propios). Las plantillas se listan en `status` y en el MCP. Esquema regenerado y docs.",
@@ -606,12 +606,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:00:22Z"
     },
     {
       "id": "CORE-11",
       "title": "Coste acumulado por tarea y por grupo",
-      "state": "proposed",
+      "state": "todo",
       "group": "CORE",
       "rank": "zzzzzzzzzzzx",
       "desc": "Función pura que suma el uso de todos los runs de una tarea (incluidos reintentos, rebases, variantes y revisiones) y de un grupo: tokens de entrada, salida, caché y razonamiento, coste cuando el proveedor lo da, número de runs, y desglose por proveedor y modelo. Un coste desconocido (Codex) se indica como tal y no se suma como cero.",
@@ -632,12 +632,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:00:30Z"
     },
     {
       "id": "CORE-12",
       "title": "Modelo de variantes de una tarea (best-of-N)",
-      "state": "proposed",
+      "state": "todo",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzi",
       "desc": "Permitir varias ejecuciones simultáneas de la misma tarea con distintos agentes (de 2 a 3), cada una en su worktree: las variantes de un grupo (`variant_of` en run.json, el id del primer run) cuentan como un solo run activo frente a la regla de uno por tarea. La tarea pasa a review cuando todas han terminado sus checks. Elegir la ganadora deja las demás `discarded` (se conservan su run y su diff) y solo la ganadora se integra al aceptar. Reglas y transiciones en core, con docs en esquema-tareas.md.",
@@ -662,12 +662,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:01:45Z"
     },
     {
       "id": "CORE-13",
       "title": "Modelo del revisor automático",
-      "state": "proposed",
+      "state": "todo",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzx",
       "desc": "Un run de revisión (`kind: review` en run.json) lo hace un segundo agente sobre el trabajo de un run terminado, con permisos de solo lectura: no cambia ficheros ni el estado de la tarea, solo deja notas en ella (nueva clase de nota `review` con su veredicto: aprobaría o pediría cambios, con los motivos). Nunca acepta ni devuelve. `project.reviewer` (solo el humano) fija el agente y si se lanza solo al llegar a review o solo a mano. Perfil de permisos `readonly`. Docs en esquema-tareas.md.",
@@ -692,7 +692,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:01:56Z"
     },
     {
       "id": "CLI-01",
@@ -949,7 +949,7 @@
     {
       "id": "CLI-05",
       "title": "Planificación por entrevista",
-      "state": "proposed",
+      "state": "todo",
       "group": "CLI",
       "rank": "zzzzzzzzzzzz",
       "desc": "`konsora plan [--agent claude|codex] [--model …]` abre en la terminal una sesión interactiva del CLI oficial del usuario (no un chat de Konsora), con un prompt de entrevista: pregunta el objetivo, el alcance y las restricciones, lee el plan y el código, y termina proponiendo un lote con `batch` (con criterios verificables, dependencias, dificultad y plantillas si las hay). Su MCP va en modo plan: solo lecturas y propose, batch, edit y withdraw de sus propuestas; nada de start ni de otras tareas (regla en core). El resultado son propuestas que el humano aprueba o no.",
@@ -974,7 +974,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:01:42Z"
     },
     {
       "id": "DMN-01",
@@ -1447,7 +1447,7 @@
     {
       "id": "DMN-10",
       "title": "Encontrar y arreglar el test intermitente de la suite",
-      "state": "proposed",
+      "state": "todo",
       "group": "DMN",
       "rank": "zzzzzzzzzzy",
       "desc": "En RUN-26 falló un test en 1 de 13 pasadas de `npm run check` y no se capturó cuál. Ejecuta la suite completa repetidamente, guardando la salida, hasta identificarlo (y cualquier otro intermitente), encuentra la causa (carrera, plazo o limpieza de un test anterior) y arréglala en el código si es un fallo real, o en el test si es del test.",
@@ -1468,7 +1468,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:00:05Z"
     },
     {
       "id": "UI-01",
@@ -2491,7 +2491,7 @@
     {
       "id": "UI-19",
       "title": "Botón Retomar en un run interrumpido",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "RUN-27"
@@ -2515,12 +2515,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T12:59:38Z"
     },
     {
       "id": "UI-20",
       "title": "Retirar la maqueta y el muestrario de la web",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzx",
       "desc": "La maqueta de UI-04 (`#/maqueta`, `src/app`, `src/mock`) y el muestrario (`#/muestrario`, `src/gallery`) ya no los usa la app real. Bórralos con sus rutas, estilos, textos de i18n que nadie use y la excepción del test de literales para `gallery/`. Actualiza CLAUDE.md y los docs que los mencionan.",
@@ -2545,12 +2545,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T12:59:59Z"
     },
     {
       "id": "UI-21",
       "title": "Dificultad y modelo recomendado en la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "CORE-09"
@@ -2578,12 +2578,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:00:16Z"
     },
     {
       "id": "UI-22",
       "title": "Gestionar plantillas desde los ajustes del proyecto",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "CORE-10"
@@ -2607,12 +2607,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:00:26Z"
     },
     {
       "id": "UI-23",
       "title": "Mostrar el coste acumulado en la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "CORE-11"
@@ -2636,12 +2636,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:01:38Z"
     },
     {
       "id": "UI-24",
       "title": "Comparar variantes en la revisión",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "RUN-28"
@@ -2665,12 +2665,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:01:51Z"
     },
     {
       "id": "UI-25",
       "title": "Revisor en la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "RUN-29"
@@ -2694,7 +2694,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:06:26Z"
     },
     {
       "id": "MCP-01",
@@ -3022,7 +3022,7 @@
     {
       "id": "MCP-07",
       "title": "Pistas de error del MCP con nombres de herramientas",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "rank": "zzzzzzzzzzv",
       "desc": "Las pistas (`Hint:`) que devuelve el MCP son las de la CLI y nombran comandos y opciones (`konsora ready`, `--summary`). En el MCP deben nombrar las herramientas y sus parámetros (`ready`, `summary`). Las reglas siguen compartidas: solo cambia cómo se formula la pista según el canal.",
@@ -3043,7 +3043,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T12:59:41Z"
     },
     {
       "id": "RUN-01",
@@ -4425,7 +4425,7 @@
     {
       "id": "RUN-27",
       "title": "Retomar un run interrumpido",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "rank": "zzzzzzzzzzi",
       "desc": "Hoy un run `interrupted` (vivo cuando se paró el daemon) solo se puede descartar. El modelo ya admite `interrupted → starting`: falta hacerlo. El runner lo relanza en su mismo worktree y rama, reanudando la sesión del agente si tiene `session_id` con un mensaje determinista que explica que Konsora se reinició y que siga con la tarea (sin sesión, con el prompt original del run). La tarea sigue en `doing`. Si el run se interrumpió durante `checking`, solo repite los checks. Nuevo `POST /projects/:id/runs/:run/resume` (solo el humano). Si el run pertenece a una entrada de la cola, la entrada sigue enlazada a él.",
@@ -4450,12 +4450,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T12:59:34Z"
     },
     {
       "id": "RUN-28",
       "title": "Lanzar variantes en paralelo y elegir la ganadora",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "CORE-12"
@@ -4479,12 +4479,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:01:48Z"
     },
     {
       "id": "RUN-29",
       "title": "Ejecutar revisiones con permisos de solo lectura",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "CORE-13"
@@ -4512,12 +4512,12 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:03:34Z"
     },
     {
       "id": "RUN-30",
       "title": "Verificación de M9b con agentes reales",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "CLI-05",
@@ -4554,7 +4554,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:50:48Z"
+      "updated_at": "2026-11-08T13:06:28Z"
     },
     {
       "id": "DESK-01",
