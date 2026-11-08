@@ -49,7 +49,7 @@
     "DMN": 8,
     "UI": 18,
     "MCP": 6,
-    "RUN": 25
+    "RUN": 26
   },
   "tasks": [
     {
@@ -3838,7 +3838,7 @@
     {
       "id": "RUN-25",
       "title": "Verificación de M9: DAG de 6 tareas en YOLO con max_parallel = 2",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "DMN-08",
@@ -3873,7 +3873,60 @@
         "at": "2026-11-06T21:15:14Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-06T21:16:43Z"
+      "updated_at": "2026-11-08T12:15:34Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-08T11:40:31Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "1) Test e2e del daemon con agente falso: DAG de 6 tareas (BE-01→BE-02→BE-03, BE-04→BE-05, BE-06 final YOLO), max_parallel 2; registra concurrencia y que cada run parte de una base con sus dependencias integradas; reinicio a mitad; conflicto resuelto con run de rebase. 2) Verificación con Claude Code real (autorizada) sobre un repo fixture en el scratchpad con un daemon aparte."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-08T11:53:50Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Parte 1 (agente falso, commits 6c26ed9 y bd51a74): packages/daemon/test/m9.test.ts recorre el daemon real con un DAG de 6 tareas (BE-01→BE-02→BE-03, BE-04→BE-05, BE-06 final YOLO) y max_parallel 2. Comprueba nunca más de 2 runs (maxLive = 2), que cada run arranca con los ficheros de sus deps ya en su worktree, 5 commits en orden topológico con BE-06 en review (6 al aceptarla), el reinicio a mitad (2 runs interrupted, cola en pausa, nada lanzado) y el conflicto entre ramas resuelto por un run de rebase, tras el cual la cadena sigue. Encontrado y arreglado: dos runs YOLO que terminaban a la vez integraban en paralelo y el segundo fallaba con 'moved'. integrateRun ahora serializa por checkout (test de regresión que falla sin el arreglo). npm run check en verde 4 veces seguidas (905 tests). Siguiente: Claude Code real sobre un repo fixture."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-08T12:15:24Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Parte 2, agente real (autorizada), 2026-11-08: Claude Code 2.1.319 con el modelo haiku, Node 22.22.2 y git 2.43.0. Un daemon aparte con su propio directorio de datos en el scratchpad, sobre un repo fixture con el mismo DAG (BE-01→BE-02→BE-03, BE-04→BE-05 y BE-06 final YOLO; cada tarea crea notas/<x>.md con un check de aceptación, y BE-06 crea notas/INDEX.md con los 5 ficheros) y max_parallel 2. Resultado: maxLive 2 (BE-01 y BE-04 en paralelo y después las dos ramas a la vez). Las 6 tareas arrancaron con las dependencias ya integradas en su base_commit (comprobado con merge-base --is-ancestor). main quedó con 5 commits en orden topológico (BE-01, BE-04, BE-02, BE-05, BE-03), BE-06 en review con un diff correcto de INDEX.md y la cola vacía. 40 s de punta a punta y unos 0,024 USD en total. Observado: el primer intento se paró porque el agente usa Bash compuesto (mkdir && printf && test && git commit), que el perfil default manda al humano, y mi script no aprobaba nada: cada petición esperó 5 min y se denegó, y BE-01 falló. En el segundo intento el script hizo de humano con una política estrecha (solo pasos inofensivos dentro del worktree; push, --force, rm, rutas de fuera o red se deniegan): 8 aprobaciones, todas concedidas. Consecuencia: una cadena YOLO sin nadie delante se detiene en cada Bash fuera de la lista permitida. El reinicio a mitad y el conflicto se verificaron solo con el agente falso."
+        },
+        {
+          "id": "n4",
+          "at": "2026-11-08T12:15:34Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Verificación de M9 hecha con un agente falso y con Claude Code real.\n- ac1: packages/daemon/test/m9.test.ts (commit bd51a74) monta un DAG de 6 tareas en YOLO con max_parallel 2 a través del daemon real. Registra la concurrencia (maxLive = 2, nunca más) y que cada run arranca con los ficheros de sus dependencias ya en su worktree. Con Claude real (haiku): maxLive 2 y las 6 bases contienen los commits de sus dependencias (merge-base --is-ancestor).\n- ac2: falso y real: 5 commits en orden topológico en main y BE-06, la tarea final YOLO, en review. El test acepta BE-06 y comprueba 6 commits en orden topológico. Lo interpreto así: la tarea final de una cadena YOLO nunca se integra sola, de modo que el sexto commit llega con el accept del humano.\n- ac3: test 'a restart midway…': con 2 runs vivos se reinicia el daemon, los runs quedan interrupted, la cola en pausa con sus 6 entradas y no arranca ningún agente. Además, test de conflicto: BE-01 y BE-04 cambian shared.txt; BE-04 queda en review con conflicto y la cadena se para; el run de rebase lo resuelve y la cadena sigue hasta BE-06.\n- ac4: pasos, versiones (Claude Code 2.1.319, Node 22.22.2, git 2.43.0), tiempos, coste (unos 0,024 USD) y lo observado, en las dos notas de la tarea.\nEncontrado y arreglado por el camino: dos integraciones YOLO simultáneas chocaban ('moved'); integrateRun ahora serializa por checkout (6c26ed9, con test de regresión). Propuesta RUN-26: una cadena desatendida se para en las aprobaciones de Bash compuesto del perfil default. npm run check en verde 4 veces seguidas (905 tests). El reinicio y el conflicto con agente real no se repitieron (cubiertos con el agente falso)."
+        }
+      ]
+    },
+    {
+      "id": "RUN-26",
+      "title": "Evitar que una cadena YOLO desatendida se pare en cada aprobación de Bash",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzzzzz",
+      "desc": "En la verificación de M9 con Claude Code real, el agente usó comandos Bash compuestos (mkdir, printf, test, git add y git commit encadenados) que el perfil default no permite, así que cada uno esperó al humano 5 minutos. Opciones a decidir: ampliar el perfil default con comandos de solo lectura o de escritura dentro del worktree (mkdir, test, cat, ls, printf a ficheros del worktree), dar instrucciones en el prompt para usar Write/Read y comandos sueltos, o avisar de forma visible en la vista de cola cuando un run de la cola espera una aprobación. Requiere una decisión de producto sobre seguridad.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un run de una cadena YOLO con tareas de solo crear ficheros no pide ninguna aprobación, o la vista de cola muestra claramente que espera una"
+        },
+        {
+          "id": "ac2",
+          "text": "Ningún comando fuera del worktree, de red, push o force queda permitido sin el humano (test)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-08T12:15:25Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-08T12:15:25Z"
     }
   ]
 }
