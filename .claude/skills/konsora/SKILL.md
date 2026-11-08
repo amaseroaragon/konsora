@@ -42,7 +42,7 @@ Propose several tasks at once (all-or-nothing; everything becomes a proposal the
 konsora batch --as claude <<'JSON'
 {"tasks": [
   {"title": "Add forecast cache", "group": "BE", "desc": "What it achieves and why.",
-   "acceptance": ["A repeated request within 10 min does not hit upstream"]},
+   "acceptance": ["A repeated request within 10 min does not hit upstream"], "difficulty": "medium"},
   {"title": "Show cache age in the UI", "group": "FE", "deps": ["Add forecast cache"]}
 ]}
 JSON
@@ -50,6 +50,7 @@ JSON
 
 - `deps` take task ids or titles of **earlier** tasks in the same batch.
 - Each task: an imperative title, a `desc` saying what it achieves, and acceptance criteria that can be verified.
+- Estimate each task's `difficulty` (`low`, `medium` or `high`; `--difficulty` on `propose` and `edit`): Konsora runs it with the agent the project recommends for that difficulty, unless the task or the human names one.
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`.
 - One proposal: `konsora propose "<title>" --group BE --criterion "<check>" --deps BE-01`.
 

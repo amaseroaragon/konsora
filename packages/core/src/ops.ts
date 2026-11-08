@@ -23,8 +23,10 @@ import type {
   Acceptance,
   AgentSpec,
   Check,
+  Difficulty,
   Note,
   NoteKind,
+  Recommended,
   SchemaIssue,
   Setup,
   Task,
@@ -63,6 +65,7 @@ export type NewTask = {
   acceptance?: string[];
   deps?: string[];
   labels?: string[];
+  difficulty?: Difficulty;
   agent?: AgentSpec;
 };
 
@@ -75,7 +78,9 @@ export type Op = Base &
     | {
         op: "edit";
         task: string;
-        changes: Partial<Pick<Task, "title" | "desc" | "labels" | "agent" | "group" | "rank">> & {
+        changes: Partial<
+          Pick<Task, "title" | "desc" | "labels" | "difficulty" | "agent" | "group" | "rank">
+        > & {
           acceptance?: Acceptance[];
         };
       }
@@ -107,6 +112,11 @@ export type Op = Base &
      * and `setup: null` remove them.
      */
     | { op: "set-checks"; checks?: Check[]; check_retries?: number | null; setup?: Setup | null }
+    /**
+     * The human sets the agent the project recommends for each difficulty (it replaces the
+     * whole map); `null` or `{}` removes it.
+     */
+    | { op: "set-recommended"; recommended: Recommended | null }
     | { op: "accept"; task: string }
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
@@ -169,6 +179,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   rebase: ["konsora"],
   "rebase-abort": ["konsora"],
   "set-checks": ["human"],
+  "set-recommended": ["human"],
   accept: ["human"],
   "send-back": ["human"],
   reopen: ["human"],
@@ -176,7 +187,16 @@ const ROLES: Record<OpName, readonly Role[]> = {
   restore: ["human"],
 };
 
-const EDITABLE = ["title", "desc", "acceptance", "labels", "agent", "group", "rank"] as const;
+const EDITABLE = [
+  "title",
+  "desc",
+  "acceptance",
+  "labels",
+  "difficulty",
+  "agent",
+  "group",
+  "rank",
+] as const;
 
 /** Ops an agent inside a run may apply to tasks other than its own. */
 const RUN_SCOPE_FREE: ReadonlySet<OpName> = new Set(["propose", "batch"]);
@@ -302,6 +322,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     if (spec.acceptance?.length)
       task.acceptance = spec.acceptance.map((text, i) => ({ id: `ac${i + 1}`, text }));
     if (spec.labels?.length) task.labels = spec.labels;
+    if (spec.difficulty) task.difficulty = spec.difficulty;
     if (spec.agent) task.agent = spec.agent;
     doc.tasks.push(task);
     index.set(task.id, task);
@@ -529,6 +550,13 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       }
       if (op.check_retries === null) delete doc.project.check_retries;
       else if (op.check_retries !== undefined) doc.project.check_retries = op.check_retries;
+      break;
+    }
+    case "set-recommended": {
+      const recommended = op.recommended;
+      if (recommended && Object.keys(recommended).length > 0)
+        doc.project.recommended = structuredClone(recommended);
+      else delete doc.project.recommended;
       break;
     }
     case "accept":

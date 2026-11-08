@@ -62,13 +62,21 @@ export type AgentCheck =
       reason: string;
     };
 
-/** The agent a run of `task` uses: the one asked for, the task's, or the project's default. */
+/**
+ * The agent a run of `task` uses: the one asked for, else the task's, else the one the project
+ * recommends for the task's difficulty, else the project's default.
+ */
 export function runAgentFor(
   task: Task,
   doc: TasksDocument,
   requested?: AgentSpec,
 ): AgentSpec | undefined {
-  return requested ?? task.agent ?? doc.project.defaults;
+  return (
+    requested ??
+    task.agent ??
+    (task.difficulty ? doc.project.recommended?.[task.difficulty] : undefined) ??
+    doc.project.defaults
+  );
 }
 
 /**

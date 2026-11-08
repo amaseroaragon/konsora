@@ -99,6 +99,7 @@ export function showText(doc: TasksDocument, view: TaskView): string {
     );
   }
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
+  if (view.difficulty) lines.push(`difficulty: ${view.difficulty}`);
   lines.push(`created: ${view.created.at} by ${view.created.by} · updated: ${view.updated_at}`);
   if (view.desc) lines.push("", view.desc);
   if (view.acceptance?.length) {

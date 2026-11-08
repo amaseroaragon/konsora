@@ -7,7 +7,7 @@
  * The actor is `agent:<name>`, from KONSORA_AGENT or else the MCP client's name
  * (`claude-code` → `agent:claude`, `codex-mcp-client` → `agent:codex`).
  */
-import type { Op, TasksDocument } from "@konsora/core";
+import { DifficultySchema, type Op, type TasksDocument } from "@konsora/core";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -62,6 +62,9 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         acceptance: ids.optional().describe("verifiable acceptance criteria"),
         deps: ids.optional().describe("ids of the tasks it depends on"),
         labels: ids.optional(),
+        difficulty: DifficultySchema.optional().describe(
+          "estimated difficulty: low, medium or high",
+        ),
       },
       annotations: WRITE,
     },
@@ -75,6 +78,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           ...(args.acceptance ? { acceptance: args.acceptance } : {}),
           ...(args.deps ? { deps: args.deps.map((d) => d.toUpperCase()) } : {}),
           ...(args.labels ? { labels: args.labels } : {}),
+          ...(args.difficulty ? { difficulty: args.difficulty } : {}),
         }),
         "The proposal is waiting for human approval.",
       ),
@@ -105,6 +109,10 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         acceptance: ids.optional(),
         labels: z.array(z.string()).optional(),
         group: z.string().min(1).optional().describe("move to another group (the id stays)"),
+        difficulty: z
+          .enum([...DifficultySchema.options, "none"])
+          .optional()
+          .describe("estimated difficulty: low, medium or high; none removes it"),
       },
       annotations: WRITE,
     },

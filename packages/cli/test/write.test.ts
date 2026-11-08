@@ -180,6 +180,34 @@ describe("planning commands", () => {
     expect(r.stderr).toContain("Batch has the wrong shape");
   });
 
+  it("propose, batch and edit set the difficulty; a bad one is a usage error", async () => {
+    expect((await run(["propose", "A", "--group", "BE", "--difficulty", "High"])).code).toBe(
+      EXIT.ok,
+    );
+    expect(task("BE-06").difficulty).toBe("high");
+    expect((await run(["show", "BE-06"])).stdout).toContain("difficulty: high");
+    const batch = JSON.stringify({ tasks: [{ title: "B", group: "BE", difficulty: "low" }] });
+    expect((await run(["batch"], { stdin: batch })).code).toBe(EXIT.ok);
+    expect(task("BE-07").difficulty).toBe("low");
+    expect((await run(["edit", "BE-06", "--difficulty", "medium"])).code).toBe(EXIT.ok);
+    expect(task("BE-06").difficulty).toBe("medium");
+    expect((await run(["edit", "BE-06", "--difficulty", "none"])).code).toBe(EXIT.ok);
+    expect(task("BE-06").difficulty).toBeUndefined();
+
+    const bad = await run(["propose", "C", "--group", "BE", "--difficulty", "extreme"]);
+    expect(bad.code).toBe(EXIT.usage);
+    expect(bad.stderr).toContain("Use low, medium or high");
+    expect((await run(["propose", "C", "--group", "BE", "--difficulty", "none"])).code).toBe(
+      EXIT.usage,
+    );
+    const badBatch = JSON.stringify({ tasks: [{ title: "D", group: "BE", difficulty: "x" }] });
+    expect((await run(["batch"], { stdin: badBatch })).code).toBe(EXIT.usage);
+    // Approved work stays the human's.
+    const approved = await run(["edit", "BE-04", "--difficulty", "low"]);
+    expect(approved.code).toBe(EXIT.failure);
+    expect(approved.stderr).toContain("only humans can change approved work");
+  });
+
   it("batch can read a file", async () => {
     writeFileSync(
       join(dir, "plan.json"),

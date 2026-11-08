@@ -79,7 +79,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
-**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `setup` (opcional, `{run, timeout_s?}`: el comando que prepara cada worktree nuevo antes de lanzar al agente, p. ej. `npm ci`; timeout por defecto 600 s), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `setup`, `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `setup: null`, `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`.
+**`project`**: `name` (1–80), `base_branch` (rama donde se integran las tareas aceptadas; por defecto, la rama actual en `init`), `defaults` (`AgentSpec` opcional), `recommended` (opcional, `{low?, medium?, high?}` con un `AgentSpec` cada uno: el agente que el proyecto recomienda para cada dificultad; solo lo cambia el humano, con la operación `set-recommended`, que sustituye el mapa entero y lo quita con `null` o `{}`), `setup` (opcional, `{run, timeout_s?}`: el comando que prepara cada worktree nuevo antes de lanzar al agente, p. ej. `npm ci`; timeout por defecto 600 s), `checks` (`Check[]` que se ejecutan en todos los runs, con ids únicos) y `check_retries` (entero 0–5; si falta, 2: las veces que un run devuelve al agente los checks fallidos para que los arregle). Solo el humano cambia `setup`, `checks` y `check_retries`, con la operación `set-checks` (un campo omitido se conserva; `setup: null`, `checks: []` y `check_retries: null` los quitan); un agente recibe `forbidden`.
 
 **`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60).
 
@@ -96,6 +96,7 @@ Konsora separa dos cosas que el v1 mezclaba:
 | `desc` | markdown ≤ 32 KB | no | Qué se consigue y por qué. |
 | `acceptance` | `Acceptance[]` | no | Criterios de "hecho"; ver abajo. |
 | `labels` | `string[]` | no | `^[a-z0-9][a-z0-9-]{0,30}$`, ordenados. |
+| `difficulty` | `low \| medium \| high` | no | Dificultad estimada. Un agente la pone al proponer y la cambia en sus propuestas; en el trabajo aprobado, solo el humano. |
 | `agent` | `AgentSpec` | no | Sustituye a `project.defaults` para esta tarea. |
 | `yolo` | `true` | no | Solo lo activa el humano. Se omite cuando es falso. |
 | `created` | `{at, by}` | sí | |
@@ -105,6 +106,8 @@ Konsora separa dos cosas que el v1 mezclaba:
 **`Acceptance`**: `id` (`^ac\d+$`, único en la tarea), `text` (1–500), `check` (opcional; comando de shell que se ejecuta en el worktree, donde un código de salida 0 = cumple). Un criterio sin `check` lo verifica el humano durante la revisión.
 
 **`AgentSpec`**: `provider` (`claude \| codex`, ampliable), `model` (string libre: lo valida el adaptador con su lista de modelos), `effort` (`low \| medium \| high \| xhigh \| max`; el adaptador traduce o rechaza los valores que su proveedor no admita), `permissions` (opcional: nombre de perfil, `default` si se omite).
+
+**Agente de un run**: el que se pide al lanzarlo; si no, el `agent` de la tarea; si no, el de `project.recommended` para su `difficulty`; y si no, `project.defaults` (`runAgentFor`).
 
 **`Check`**: `id`, `run` (comando), `timeout_s` (por defecto 600).
 

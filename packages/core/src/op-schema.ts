@@ -8,8 +8,10 @@ import {
   AcceptanceSchema,
   AgentSpecSchema,
   CheckSchema,
+  DifficultySchema,
   GroupSchema,
   MAX_CHECK_RETRIES,
+  RecommendedSchema,
   SetupSchema,
   TaskIdSchema,
   TaskSchema,
@@ -26,6 +28,7 @@ const NewTask = {
   acceptance: z.array(z.string().min(1).max(500)).optional(),
   deps: z.array(z.string().min(1).max(120)).optional(),
   labels: z.array(z.string()).optional(),
+  difficulty: DifficultySchema.optional(),
   agent: AgentSpecSchema.optional(),
 };
 
@@ -58,6 +61,7 @@ export const OpSchema = z.discriminatedUnion("op", [
       desc: z.string().max(32_768).optional(),
       acceptance: z.array(AcceptanceSchema).optional(),
       labels: z.array(z.string()).optional(),
+      difficulty: DifficultySchema.optional(),
       agent: AgentSpecSchema.optional(),
       group: z.string().optional(),
       rank: z.string().optional(),
@@ -88,6 +92,11 @@ export const OpSchema = z.discriminatedUnion("op", [
     checks: z.array(CheckSchema).max(50).optional(),
     check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).nullable().optional(),
     setup: SetupSchema.nullable().optional(),
+  }),
+  z.strictObject({
+    op: z.literal("set-recommended"),
+    expect,
+    recommended: RecommendedSchema.nullable(),
   }),
   z.strictObject({ op: z.literal("accept"), expect, task: id }),
   z.strictObject({ op: z.literal("send-back"), expect, task: id, feedback: text }),

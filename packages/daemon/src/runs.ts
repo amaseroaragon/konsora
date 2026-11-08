@@ -184,17 +184,13 @@ export class RunManager {
   async start(project: Project, input: { task: string; agent?: AgentSpec }): Promise<Run> {
     const plan = await readTasks(project.path);
     const task = plan.ok ? plan.document.tasks.find((t) => t.id === input.task) : undefined;
-    const provider =
-      input.agent?.provider ??
-      task?.agent?.provider ??
-      (plan.ok ? plan.document.project.defaults?.provider : undefined) ??
-      "claude";
+    const agent = plan.ok && task ? runAgentFor(task, plan.document, input.agent) : undefined;
+    const provider = (agent ?? input.agent)?.provider ?? "claude";
     const adapter = this.#adapters[provider];
     if (!adapter) {
       throw new RunManagerError("no_adapter", `Konsora cannot run ${provider} yet`);
     }
     // The agent must be one its adapter declares; nothing is created otherwise.
-    const agent = plan.ok && task ? runAgentFor(task, plan.document, input.agent) : undefined;
     if (agent) {
       const check = checkAgent(agent, await this.catalog.entry(agent.provider));
       if (!check.ok) throw new RunManagerError("invalid_agent", check.reason);

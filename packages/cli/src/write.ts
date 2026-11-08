@@ -8,7 +8,15 @@
  */
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { type Op, type OpContext, type OpError, type TasksDocument, taskHash } from "@konsora/core";
+import {
+  type Difficulty,
+  DifficultySchema,
+  type Op,
+  type OpContext,
+  type OpError,
+  type TasksDocument,
+  taskHash,
+} from "@konsora/core";
 import { mutate } from "@konsora/core/store";
 import type { Command } from "commander";
 import { z } from "zod";
@@ -102,6 +110,19 @@ const list = (value: string) =>
     .filter(Boolean);
 const collect = (value: string, previous: string[] = []) => [...previous, value];
 
+/** `--difficulty low|medium|high`; for edit, `none` removes it. */
+function difficulty(value: string, allowNone: boolean): Difficulty | "none" {
+  const lower = value.trim().toLowerCase();
+  if (allowNone && lower === "none") return "none";
+  const parsed = DifficultySchema.safeParse(lower);
+  if (parsed.success) return parsed.data;
+  throw new CliError(
+    `Invalid difficulty "${value}".`,
+    `Use low, medium or high${allowNone ? " (or none to remove it)" : ""}.`,
+    EXIT.usage,
+  );
+}
+
 export const BatchSchema = z.strictObject({
   groups: z.array(z.strictObject({ id: z.string(), name: z.string() })).optional(),
   tasks: z
@@ -113,6 +134,9 @@ export const BatchSchema = z.strictObject({
         acceptance: z.array(z.string().min(1)).optional(),
         deps: z.array(z.string()).optional(),
         labels: z.array(z.string()).optional(),
+        difficulty: DifficultySchema.optional().describe(
+          "estimated difficulty: low, medium or high",
+        ),
       }),
     )
     .min(1),
@@ -140,6 +164,7 @@ export function batchOp(value: unknown): Op {
       ...(t.acceptance ? { acceptance: t.acceptance } : {}),
       ...(t.deps ? { deps: t.deps } : {}),
       ...(t.labels ? { labels: t.labels } : {}),
+      ...(t.difficulty ? { difficulty: t.difficulty } : {}),
     })),
   };
 }
@@ -150,6 +175,8 @@ export type EditInput = {
   acceptance?: string[] | undefined;
   labels?: string[] | undefined;
   group?: string | undefined;
+  /** `none` removes it. */
+  difficulty?: Difficulty | "none" | undefined;
 };
 
 /** Builds an `edit` op for a proposal; the acceptance criteria are replaced as ac1, ac2, … */
@@ -162,11 +189,14 @@ export function editOp(id: string, input: EditInput): Op {
       : {}),
     ...(input.labels ? { labels: input.labels } : {}),
     ...(input.group ? { group: input.group.toUpperCase() } : {}),
+    ...(input.difficulty !== undefined
+      ? { difficulty: input.difficulty === "none" ? undefined : input.difficulty }
+      : {}),
   };
   if (Object.keys(changes).length === 0)
     throw new CliError(
       "Nothing to change.",
-      "Pass --title, --desc, --criterion, --labels or --group.",
+      "Pass --title, --desc, --criterion, --labels, --group or --difficulty.",
       EXIT.usage,
     );
   return { op: "edit", task: id.toUpperCase(), changes };
@@ -267,6 +297,9 @@ export function registerWriteCommands(
     .option("--criterion <text>", "acceptance criterion; repeat for several", collect)
     .option("--deps <ids>", "comma-separated task ids it depends on", list)
     .option("--labels <labels>", "comma-separated labels", list)
+    .option("--difficulty <level>", "estimated difficulty: low, medium or high", (v) =>
+      difficulty(v, false),
+    )
     .action(
       async (
         title: string,
@@ -276,6 +309,7 @@ export function registerWriteCommands(
           criterion?: string[];
           deps?: string[];
           labels?: string[];
+          difficulty?: Difficulty;
           as?: string;
           json?: boolean;
         },
@@ -289,6 +323,7 @@ export function registerWriteCommands(
             ...(opts.criterion ? { acceptance: opts.criterion } : {}),
             ...(opts.deps ? { deps: opts.deps.map((d) => d.toUpperCase()) } : {}),
             ...(opts.labels ? { labels: opts.labels } : {}),
+            ...(opts.difficulty ? { difficulty: opts.difficulty } : {}),
           },
           opts,
           (_doc, created) =>
@@ -304,7 +339,7 @@ export function registerWriteCommands(
     .option("--file <path>", "read the JSON from a file instead of standard input")
     .addHelpText(
       "after",
-      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"]}]}',
+      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"difficulty":"medium"}]}',
     )
     .action(async (opts: { file?: string; as?: string; json?: boolean }) => {
       const text = await readText(
@@ -341,6 +376,9 @@ export function registerWriteCommands(
     .option("--criterion <text>", "replace the acceptance criteria; repeat for several", collect)
     .option("--labels <labels>", "replace labels (comma-separated)", list)
     .option("--group <id>", "move to another group (the id does not change)")
+    .option("--difficulty <level>", "low, medium or high; none removes it", (v) =>
+      difficulty(v, true),
+    )
     .action(
       async (
         id: string,
@@ -350,6 +388,7 @@ export function registerWriteCommands(
           criterion?: string[];
           labels?: string[];
           group?: string;
+          difficulty?: Difficulty | "none";
           as?: string;
           json?: boolean;
         },

@@ -107,7 +107,13 @@ describe("konsora mcp: agent write tools", () => {
       groups: [{ id: "OPS", name: "Operations" }],
       tasks: [
         { title: "Deploy script", group: "OPS", acceptance: ["Runs in CI"] },
-        { title: "Rollback", group: "OPS", deps: ["Deploy script"], labels: ["ops"] },
+        {
+          title: "Rollback",
+          group: "OPS",
+          deps: ["Deploy script"],
+          labels: ["ops"],
+          difficulty: "high",
+        },
       ],
     };
     writeFileSync(batchFile, JSON.stringify(batch));
@@ -121,6 +127,7 @@ describe("konsora mcp: agent write tools", () => {
           acceptance: ["a", "b"],
           deps: ["be-01"],
           labels: ["x", "y"],
+          difficulty: "low",
         },
         [
           "propose",
@@ -137,6 +144,8 @@ describe("konsora mcp: agent write tools", () => {
           "be-01",
           "--labels",
           "x,y",
+          "--difficulty",
+          "low",
         ],
       ],
       ["batch", batch, ["batch", "--file", batchFile]],
@@ -156,6 +165,8 @@ describe("konsora mcp: agent write tools", () => {
           "BE",
         ],
       ],
+      ["edit", { id: "FE-02", difficulty: "medium" }, ["edit", "FE-02", "--difficulty", "medium"]],
+      ["edit", { id: "OPS-02", difficulty: "none" }, ["edit", "OPS-02", "--difficulty", "none"]],
       ["depend", { id: "OPS-01", on: "FE-02" }, ["depend", "OPS-01", "FE-02"]],
       ["undepend", { id: "OPS-01", on: "FE-02" }, ["undepend", "OPS-01", "FE-02"]],
       ["withdraw", { id: "FE-02" }, ["withdraw", "FE-02"]],
@@ -176,6 +187,7 @@ describe("konsora mcp: agent write tools", () => {
       expect(file(viaMcp), tool).toBe(file(viaCli));
     }
     expect(doc(viaMcp).tasks.find((task) => task.id === "BE-04")?.state).toBe("review");
+    expect(doc(viaMcp).tasks.find((task) => task.id === "OPS-02")).not.toHaveProperty("difficulty");
     await close();
   });
 

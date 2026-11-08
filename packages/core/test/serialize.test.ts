@@ -201,3 +201,48 @@ function minimal(): TasksDocument {
     tasks: [],
   };
 }
+
+describe("difficulty and project.recommended (CORE-09)", () => {
+  it("are written in canonical order", () => {
+    const at = "2030-01-01T00:00:00Z";
+    const text = serializeDocument({
+      schema: "konsora/2",
+      project: {
+        recommended: {
+          high: { model: "opus", provider: "claude", effort: "high" },
+          low: { provider: "claude", model: "haiku" },
+        },
+        name: "P",
+        base_branch: "main",
+        defaults: { provider: "claude", model: "sonnet" },
+      },
+      groups: [{ id: "BE", name: "BE" }],
+      seq: { BE: 1 },
+      tasks: [
+        {
+          agent: { provider: "claude", model: "x" },
+          difficulty: "medium",
+          labels: ["a"],
+          id: "BE-01",
+          title: "t",
+          state: "todo",
+          group: "BE",
+          rank: "a",
+          created: { at, by: "human" },
+          updated_at: at,
+        },
+      ],
+    } as TasksDocument);
+    const doc = JSON.parse(text);
+    expect(Object.keys(doc.project)).toEqual(["name", "base_branch", "defaults", "recommended"]);
+    expect(Object.keys(doc.project.recommended)).toEqual(["low", "high"]);
+    expect(Object.keys(doc.project.recommended.high)).toEqual(["provider", "model", "effort"]);
+    const keys = Object.keys(doc.tasks[0]);
+    expect(keys.slice(keys.indexOf("labels"), keys.indexOf("agent") + 1)).toEqual([
+      "labels",
+      "difficulty",
+      "agent",
+    ]);
+    expect(parse(text)).toBeTruthy();
+  });
+});

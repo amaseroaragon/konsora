@@ -58,6 +58,9 @@ export const EffortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
 
 export const ProviderSchema = z.enum(["claude", "codex"]);
 
+/** How hard a task is expected to be; it picks the project's recommended agent (CORE-09). */
+export const DifficultySchema = z.enum(["low", "medium", "high"]);
+
 const slug = /^[a-z][a-z0-9-]{0,30}$/;
 
 export const AgentSpecSchema = strict({
@@ -65,6 +68,13 @@ export const AgentSpecSchema = strict({
   model: z.string().min(1).max(100),
   effort: EffortSchema.optional(),
   permissions: z.string().regex(slug, "Permission profile must be a lowercase slug").optional(),
+});
+
+/** The agent the project recommends for each difficulty. Only the human sets it. */
+export const RecommendedSchema = strict({
+  low: AgentSpecSchema.optional(),
+  medium: AgentSpecSchema.optional(),
+  high: AgentSpecSchema.optional(),
 });
 
 /** Retries when `project.check_retries` is absent, and the most it may be. */
@@ -92,6 +102,7 @@ export const ProjectSchema = strict({
   name: z.string().min(1).max(80),
   base_branch: z.string().min(1).max(255),
   defaults: AgentSpecSchema.optional(),
+  recommended: RecommendedSchema.optional(),
   setup: SetupSchema.optional(),
   checks: z.array(CheckSchema).optional(),
   /** How many times a run's agent gets the failed checks back to fix them (default 2). */
@@ -140,6 +151,7 @@ export const TaskSchema = strict({
   labels: z
     .array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug"))
     .optional(),
+  difficulty: DifficultySchema.optional(),
   agent: AgentSpecSchema.optional(),
   yolo: z.literal(true).optional(),
   created: strict({ at: TimestampSchema, by: ActorSchema }),
@@ -159,6 +171,8 @@ export const DocumentSchema = strict({
 export type TaskState = z.infer<typeof TaskStateSchema>;
 export type Effort = z.infer<typeof EffortSchema>;
 export type Provider = z.infer<typeof ProviderSchema>;
+export type Difficulty = z.infer<typeof DifficultySchema>;
+export type Recommended = z.infer<typeof RecommendedSchema>;
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type Check = z.infer<typeof CheckSchema>;
 export type Setup = z.infer<typeof SetupSchema>;

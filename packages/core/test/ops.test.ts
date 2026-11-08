@@ -398,6 +398,10 @@ describe("properties", () => {
         op: fc.constant("set-checks" as const),
         check_retries: fc.integer({ min: 0, max: 5 }),
       }),
+      fc.record({
+        op: fc.constant("set-recommended" as const),
+        recommended: fc.constant({ high: { provider: "claude" as const, model: "opus" } }),
+      }),
     ) as fc.Arbitrary<Op>;
   };
 
@@ -622,5 +626,70 @@ describe("rebase (RUN-24)", () => {
     expect(err(applyOp(d, { op: "rebase-abort", task: "BE-03" }, runner))).toBe(
       "invalid_transition",
     );
+  });
+});
+
+describe("difficulty and recommended agents (CORE-09)", () => {
+  const opus = { provider: "claude" as const, model: "opus", effort: "high" as const };
+  const sonnet = { provider: "claude" as const, model: "sonnet" };
+
+  it("an agent sets the difficulty when proposing and changes it only on proposals", () => {
+    const d = doc(task("BE-01", "todo"));
+    const proposed = ok(
+      applyOp(d, { op: "propose", title: "New", group: "BE", difficulty: "high" }, agent),
+    ).document;
+    expect(proposed.tasks[1]).toMatchObject({ id: "BE-21", difficulty: "high" });
+    const batch = ok(
+      applyOp(
+        d,
+        {
+          op: "batch",
+          tasks: [
+            { title: "A", group: "BE", difficulty: "low" },
+            { title: "B", group: "BE" },
+          ],
+        },
+        agent,
+      ),
+    ).document;
+    expect(batch.tasks.map((t) => t.difficulty)).toEqual([undefined, "low", undefined]);
+    const edited = ok(
+      applyOp(proposed, { op: "edit", task: "BE-21", changes: { difficulty: "medium" } }, agent),
+    ).document;
+    expect(edited.tasks[1]?.difficulty).toBe("medium");
+    const removed = ok(
+      applyOp(edited, { op: "edit", task: "BE-21", changes: { difficulty: undefined } }, agent),
+    ).document;
+    expect(removed.tasks[1]).not.toHaveProperty("difficulty");
+    // Approved work: only the human.
+    const approvedEdit: Op = { op: "edit", task: "BE-01", changes: { difficulty: "low" } };
+    expect(err(applyOp(d, approvedEdit, agent))).toBe("forbidden");
+    expect(ok(applyOp(d, approvedEdit, human)).document.tasks[0]?.difficulty).toBe("low");
+  });
+
+  it("rejects an unknown difficulty", () => {
+    const d = doc(task("BE-01", "proposed"));
+    const bad = { op: "edit", task: "BE-01", changes: { difficulty: "extreme" } } as unknown as Op;
+    expect(err(applyOp(d, bad, agent))).toBe("invalid");
+  });
+
+  it("only a human sets project.recommended; null or {} removes it; it is validated", () => {
+    const d = doc(task("BE-01", "todo"));
+    const op: Op = { op: "set-recommended", recommended: { high: opus, low: sonnet } };
+    expect(err(applyOp(d, op, agent))).toBe("forbidden");
+    expect(err(applyOp(d, op, runner))).toBe("forbidden");
+    const set = ok(applyOp(d, op, human)).document;
+    expect(set.project.recommended).toEqual({ high: opus, low: sonnet });
+    expect(
+      ok(applyOp(set, { op: "set-recommended", recommended: null }, human)).document.project,
+    ).not.toHaveProperty("recommended");
+    expect(
+      ok(applyOp(set, { op: "set-recommended", recommended: {} }, human)).document.project,
+    ).not.toHaveProperty("recommended");
+    const bad = {
+      op: "set-recommended",
+      recommended: { extreme: opus },
+    } as unknown as Op;
+    expect(err(applyOp(d, bad, human))).toBe("invalid");
   });
 });
