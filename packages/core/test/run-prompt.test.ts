@@ -3,6 +3,8 @@ import {
   buildAnswerMessage,
   buildRebasePrompt,
   buildResumePrompt,
+  buildRetryPrompt,
+  buildReviewPrompt,
   buildRunPrompt,
 } from "../src/run-prompt.ts";
 import type { Note, Task, TasksDocument } from "../src/schema.ts";
@@ -227,5 +229,69 @@ describe("buildResumePrompt (RUN-27)", () => {
     expect(buildResumePrompt("BE-01")).toBe(text);
     expect(text).toContain("Konsora stopped while you were working on BE-01");
     expect(text).toContain("call `finish`");
+  });
+});
+
+describe("the agent writes in the task's language (CORE-14)", () => {
+  const rule = "in the language of the task's title and description";
+  const spanish: TasksDocument = {
+    ...document,
+    tasks: [
+      ...document.tasks,
+      task("BE-04", {
+        title: "Añadir caché de previsiones",
+        desc: "Guarda las previsiones 10 minutos.",
+      }),
+    ],
+  };
+
+  it("the run prompt asks for notes, questions and summary in it", () => {
+    const prompt = buildRunPrompt(spanish, "BE-04");
+    expect(prompt).toContain(`- Write your notes, questions and summary ${rule};`);
+    expect(prompt).toContain("Añadir caché de previsiones");
+    // The rule is text of the prompt, not a detected language: the same input, the same prompt.
+    expect(buildRunPrompt(spanish, "BE-04")).toBe(prompt);
+  });
+
+  it("the retry and rebase prompts ask for it too", () => {
+    const retry = buildRetryPrompt(
+      "BE-04",
+      {
+        attempt: 1,
+        results: [
+          {
+            id: "test",
+            source: "project",
+            command: "npm test",
+            exit_code: 1,
+            duration_ms: 10,
+            timed_out: false,
+            output: "1 failing",
+          },
+        ],
+      },
+      1,
+    );
+    expect(retry).toContain(`with an updated summary, ${rule} as before.`);
+    const rebase = buildRebasePrompt(spanish, "BE-04", {
+      branch: "konsora/BE-04/01JABCDEFGHJ",
+      onto: "a".repeat(40),
+      files: [],
+    });
+    expect(rebase).toContain(`- Write your questions and summary ${rule};`);
+  });
+
+  it("the review prompt asks for the text of the review in it", () => {
+    const prompt = buildReviewPrompt(spanish, "BE-04", {
+      run: { id: "r-01JC8Z3K2QX7M4V9T0B6N5R8PW", summary: "Hecho." },
+      diff: null,
+    });
+    expect(prompt).toContain(`- Write the text of your review ${rule};`);
+    expect(
+      buildReviewPrompt(spanish, "BE-04", {
+        run: { id: "r-01JC8Z3K2QX7M4V9T0B6N5R8PW", summary: "Hecho." },
+        diff: null,
+      }),
+    ).toBe(prompt);
   });
 });

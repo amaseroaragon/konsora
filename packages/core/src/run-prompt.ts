@@ -131,6 +131,7 @@ function protocol(task: Task, document: TasksDocument, options: RunPromptOptions
     "- Do not create, edit or delete anything under `.konsora/`: the plan changes only through Konsora's tools.",
     toolGuidance(),
     `- Use the Konsora MCP tools on ${task.id}: \`note\` to record meaningful progress, \`ask\` when you need a decision from the human (then stop and wait for the answer), and \`finish\` with a summary of what you did and how it meets each acceptance criterion when you are done.`,
+    languageRule("your notes, questions and summary"),
     "- You cannot approve tasks, accept work or mark anything done; the human reviews your result.",
   ].join("\n");
 }
@@ -210,7 +211,7 @@ export function buildRetryPrompt(
     `Konsora ran the checks of ${taskId} after you called \`finish\` (attempt ${attempt.attempt}), and ${failed.length === 1 ? "one failed" : `${failed.length} failed`}.`,
     "",
     ...blocks.flatMap((block) => [block, ""]),
-    `Fix the cause in your worktree and commit, then call \`finish\` on ${taskId} again with an updated summary. Konsora will run every check again. ${after}`,
+    `Fix the cause in your worktree and commit, then call \`finish\` on ${taskId} again with an updated summary, in the language of the task's title and description as before. Konsora will run every check again. ${after}`,
     "",
     `If you are sure a check cannot pass because of anything in this task's work (the check itself is wrong or impossible, or it depends on something outside the worktree), do not \`ask\` and do not change the check: call \`finish\` on ${taskId} with a summary that explains why. The task then goes to review with that check failing, and the human decides.`,
     "",
@@ -283,6 +284,7 @@ export function buildRebasePrompt(
         "- Never push anything and never use `--force`: the rebase only rewrites your own branch, locally.",
         "- Do not create, edit or delete anything under `.konsora/`: the plan changes only through Konsora's tools.",
         toolGuidance(),
+        languageRule("your questions and summary"),
         "- You cannot approve tasks, accept work or mark anything done; the human reviews your result.",
       ].join("\n"),
     ),
@@ -300,6 +302,14 @@ function toolGuidance(): string {
     prefix ? `\`${command} …\`` : `\`${command}\``,
   ).join(", ");
   return `- Create, change and read files with your file-editing and file-reading tools, not with shell commands. Run shell commands one at a time, never chained with \`&&\`, \`;\` or pipes. You can run ${allowed} and the project's checks without asking; any other command may wait for the human's approval, so use it only when you need it.`;
+}
+
+/**
+ * What the agent writes for the human goes in the task's language (CORE-14): Konsora neither
+ * detects nor stores it, the agent reads it from the task. The prompts stay in English.
+ */
+function languageRule(what: string): string {
+  return `- Write ${what} in the language of the task's title and description; keep code, commands, file names and identifiers as they are.`;
 }
 
 /** How much of the reviewed diff the review prompt carries: its first characters. */
@@ -386,6 +396,7 @@ export function buildReviewPrompt(
         "- This review is read-only: do not create, edit or delete any file, do not commit and do not run anything that writes. Such tools are denied.",
         `- You can read files with your file-reading tools and run ${allowed}. Run shell commands one at a time.`,
         "- You cannot note, ask, finish, accept or send back: only `review`.",
+        languageRule("the text of your review"),
       ].join("\n"),
     ),
     "",
