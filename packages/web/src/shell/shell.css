@@ -791,3 +791,39 @@
 .b-settings__short {
   max-inline-size: 20rem;
 }
+
+/* Task templates (UI-22) */
+.b-settings__template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  padding-bottom: var(--k-space-4);
+  border-bottom: 1px solid var(--k-line);
+}
+.b-settings__template-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.b-settings__template-head .b-settings__row-actions {
+  padding-top: 0;
+}
+.b-settings__template-fields {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 2fr) minmax(8rem, 1fr) minmax(10rem, 2fr);
+  gap: var(--k-space-3);
+  align-items: start;
+}
+.b-settings__criterion {
+  display: grid;
+  grid-template-columns: minmax(12rem, 3fr) minmax(10rem, 2fr) auto;
+  gap: var(--k-space-3);
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .b-settings__template-fields,
+  .b-settings__criterion {
+    grid-template-columns: 1fr;
+  }
+}

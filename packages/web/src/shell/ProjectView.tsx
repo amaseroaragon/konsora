@@ -22,6 +22,7 @@ import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskPanel } from "./TaskPanel.tsx";
+import { TemplateSettings } from "./TemplateSettings.tsx";
 
 const LANES_KEY = "konsora.board.swimlanes";
 
@@ -233,7 +234,14 @@ export function ProjectView({
       <Orphans projectId={projectId} />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
       {view === "settings" ? (
-        <ProjectSettings projectId={projectId} project={board.plan.project} readOnly={readOnly} />
+        <div className="s-stack">
+          <ProjectSettings projectId={projectId} project={board.plan.project} readOnly={readOnly} />
+          <TemplateSettings
+            projectId={projectId}
+            templates={board.plan.project.templates}
+            readOnly={readOnly}
+          />
+        </div>
       ) : (
         <div className="b-layout">
           <div
