@@ -777,7 +777,7 @@
     {
       "id": "CORE-14",
       "title": "Escribir las notas del agente en el idioma de la tarea",
-      "state": "proposed",
+      "state": "review",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzzr",
       "desc": "En RUN-30, el revisor de Codex escribió su nota review en inglés porque el prompt de revisión está en inglés, mientras que los resúmenes de las tareas, que estaban en español, salieron en español. El prompt de revisión (buildReviewPrompt) y el del run (buildRunPrompt y el de reintento) deben pedir de forma determinista que las notas, preguntas, resúmenes y revisiones se escriban en el idioma del título y la descripción de la tarea, sin que Konsora detecte ni guarde el idioma. Los prompts siguen en inglés y siguen siendo deterministas.",
@@ -800,7 +800,23 @@
         "at": "2026-11-10T09:57:16Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:57:16Z"
+      "updated_at": "2026-11-10T10:03:03Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:59:59Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Una línea determinista en buildRunPrompt, el prompt de reintento y buildReviewPrompt: escribir notas, preguntas, resúmenes y revisiones en el idioma del título y la descripción de la tarea; tests de los tres prompts."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T10:03:03Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit d7b46b2. core/run-prompt.ts: languageRule() añade una línea determinista («Write … in the language of the task's title and description; keep code, commands, file names and identifiers as they are») al protocolo de buildRunPrompt (notas, preguntas y resumen), a las reglas de buildRebasePrompt (preguntas y resumen) y de buildReviewPrompt (texto de la revisión); buildRetryPrompt pide el resumen actualizado en el idioma de la tarea «as before». Konsora no detecta ni guarda el idioma; los prompts siguen en inglés. ac1: test del prompt de revisión. ac2: tests del prompt del run y del de reintento (y del de rebase). ac3: los dos snapshots existentes solo ganan la línea nueva y los tests nuevos comprueban que la misma entrada da el mismo texto. Docs en arquitectura.md (paso Lanzar). npm run check: 1056 tests en verde. No lo he probado con un agente real (no tenía autorización para gastar en esto); el efecto real se verá en la próxima revisión."
+        }
+      ]
     },
     {
       "id": "CLI-01",
