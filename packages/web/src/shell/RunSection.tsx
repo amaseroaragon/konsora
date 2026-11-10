@@ -12,6 +12,7 @@ import {
 import { t } from "../i18n/index.ts";
 import { Button, RunLog, useToast } from "../ui/index.ts";
 import { RunApprovals } from "./Approvals.tsx";
+import { formatCost } from "./cost-model.ts";
 import { patchFiles } from "./review-model.ts";
 import {
   canDiscard,
@@ -121,7 +122,7 @@ export function RunSection({
           <div>
             <dt className="k-label">{t("run.cost")}</dt>
             <dd className="k-mono">
-              {usage.cost != null ? `$${usage.cost.toFixed(2)}` : t("run.cost.none")}
+              {usage.cost != null ? formatCost(usage.cost) : t("run.cost.none")}
             </dd>
           </div>
         )}

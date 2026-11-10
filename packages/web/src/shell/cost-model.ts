@@ -6,8 +6,9 @@ import type { UsageTotals } from "@konsora/core";
 import { t } from "../i18n/index.ts";
 import { formatTokens } from "./run-model.ts";
 
+/** Dollars with cents; under ten cents with one more digit, so small runs do not read as $0.01. */
 export function formatCost(usd: number): string {
-  return `$${usd.toFixed(2)}`;
+  return `$${usd.toFixed(usd > 0 && usd < 0.1 ? 3 : 2)}`;
 }
 
 /** The cost cell: the known sum, "unknown" when no run gave one, or "—" without runs. */
@@ -29,6 +30,9 @@ export function costLine(totals: UsageTotals): string {
 /** Why part of the cost is missing, when it is: those runs' providers give tokens only. */
 export function unknownCostNote(totals: UsageTotals): string | null {
   if (totals.cost_unknown_runs === 0) return null;
-  const usage = totals.cost_unknown_runs - totals.no_usage_runs;
-  return t("cost.unknown.note", { n: totals.cost_unknown_runs, usage: Math.max(0, usage) });
+  const n = totals.cost_unknown_runs;
+  const pending = Math.min(totals.no_usage_runs, n);
+  if (pending === 0) return t("cost.unknown.note.tokens", { n });
+  if (pending === n) return t("cost.unknown.note.pending", { n });
+  return t("cost.unknown.note", { n, usage: n - pending, pending });
 }

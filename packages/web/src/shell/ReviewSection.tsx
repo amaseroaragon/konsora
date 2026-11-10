@@ -6,6 +6,7 @@ import { t } from "../i18n/index.ts";
 import { Button, DiffView, useToast } from "../ui/index.ts";
 import { ChecksHistory } from "./ChecksHistory.tsx";
 import { runChecksFailed } from "./checks-model.ts";
+import { formatCost } from "./cost-model.ts";
 import { Markdown } from "./Markdown.tsx";
 import { diffTotals, parsePatch } from "./review-model.ts";
 import { reviewActive, reviewErrorText, runReviews } from "./reviewer-model.ts";
@@ -170,7 +171,7 @@ export function RunReviews({
               {usage && (
                 <span className="k-mono s-muted">
                   {formatTokens(usage.input)} / {formatTokens(usage.output)}
-                  {usage.cost != null ? ` · $${usage.cost.toFixed(2)}` : ""}
+                  {usage.cost != null ? ` · ${formatCost(usage.cost)}` : ""}
                 </span>
               )}
             </div>

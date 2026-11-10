@@ -108,9 +108,7 @@ describe("accumulated usage and cost (UI-23 ac1)", () => {
     expect(html).toContain("Uso acumulado");
     expect(html).toContain("14k / 3k");
     expect(html).toContain("$1.50 + 1 sin coste");
-    expect(html).toContain(
-      "1 runs sin coste conocido: 1 con tokens de un proveedor que no da el coste",
-    );
+    expect(html).toContain("1 runs sin coste conocido: su proveedor solo da tokens (como Codex).");
     expect(html).toContain('Codex · <span class="k-mono">gpt-6-luna</span>');
     expect(html).toContain(">no lo da<");
   });
@@ -151,6 +149,19 @@ describe("accumulated usage and cost (UI-23 ac1)", () => {
     expect(costText(totals)).toBe("desconocido");
     expect(costLine(totals)).toBe("5k tokens · desconocido");
     expect(view(withRuns(only), "cost")).not.toContain("$0.00");
+  });
+});
+
+describe("formatting real-sized numbers (found in RUN-30)", () => {
+  it("writes millions of tokens as M and small costs with one more digit", async () => {
+    const { formatTokens } = await import("../src/shell/run-model.ts");
+    const { formatCost } = await import("../src/shell/cost-model.ts");
+    expect(formatTokens(1_192_650)).toBe("1.2M");
+    expect(formatTokens(999_949)).toBe("999.9k");
+    expect(formatTokens(7419)).toBe("7.4k");
+    expect(formatCost(0.013663)).toBe("$0.014");
+    expect(formatCost(1.5)).toBe("$1.50");
+    expect(formatCost(0)).toBe("$0.00");
   });
 });
 

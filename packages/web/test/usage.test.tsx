@@ -49,7 +49,7 @@ describe("a run's usage (UI-14)", () => {
     expect(html).toContain("Caché (de la entrada)");
     expect(html).toMatch(/leída · .* escrita/);
     expect(html).toContain("Razonamiento (de la salida)");
-    expect(html).toContain("$0.01");
+    expect(html).toContain("$0.005");
     expect(html).not.toContain("El proveedor no");
   });
 

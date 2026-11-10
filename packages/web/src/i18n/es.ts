@@ -159,7 +159,10 @@ export const es = {
   "cost.partial": "{cost} + {n} sin coste",
   "cost.line": "{tokens} tokens · {cost}",
   "cost.unknown.note":
-    "{n} runs sin coste conocido: {usage} con tokens de un proveedor que no da el coste (como Codex) y el resto sin uso todavía. No se suman como cero.",
+    "{n} runs sin coste conocido: {usage} de un proveedor que solo da tokens (como Codex) y {pending} sin uso todavía. No se suman como cero.",
+  "cost.unknown.note.tokens":
+    "{n} runs sin coste conocido: su proveedor solo da tokens (como Codex). No se suman como cero.",
+  "cost.unknown.note.pending": "{n} runs sin uso todavía: aún no cuentan en el coste.",
   "difficulty.label": "Dificultad",
   "agent.reason.task": "Agente de la tarea: {agent}",
   "agent.reason.recommended": "Recomendado para dificultad {difficulty}: {agent}",

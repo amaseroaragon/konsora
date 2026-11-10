@@ -349,7 +349,9 @@ export function formatSeconds(total: number): string {
 }
 
 export function formatTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
+  const short = (value: number, unit: string) => `${value.toFixed(1).replace(/\.0$/, "")}${unit}`;
+  if (n >= 999_950) return short(n / 1_000_000, "M");
+  return n >= 1000 ? short(n / 1000, "k") : String(n);
 }
 
 export const RUN_STATE_KEY: Record<Run["state"], MessageKey> = {
