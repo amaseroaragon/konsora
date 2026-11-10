@@ -72,12 +72,12 @@
     }
   ],
   "seq": {
-    "CORE": 15,
+    "CORE": 17,
     "CLI": 5,
     "DMN": 11,
-    "UI": 42,
+    "UI": 43,
     "MCP": 7,
-    "RUN": 32,
+    "RUN": 33,
     "DESK": 5
   },
   "tasks": [
@@ -886,6 +886,71 @@
           "run": "r-01M72FYE7VMMRSVZ3FYX66C12T"
         }
       ]
+    },
+    {
+      "id": "CORE-16",
+      "title": "Comandos de solo lectura en el perfil default",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzzzzzzzi",
+      "desc": "Los runs piden aprobación por comandos inofensivos de lectura (`sed -n`, `grep`, `ls`) que el perfil `default` no permite sin preguntar. Se añaden a DEFAULT_PROFILE_COMMANDS los que solo leen: `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg`, `sed -n`, `git show` y `git blame`, y nunca los que pueden escribir (`sed -i`, `find`, `tee`, redirecciones). El adaptador de Claude los traduce a reglas de `--allowedTools` y el prompt del run los nombra. También se comprueba con el claude real cómo trata Claude Code `cd <worktree> && …` y, si es seguro, se permite `cd` dentro del worktree del run. Si no, se deja anotado. Los permisos de escritura no se amplían.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Los comandos de solo lectura nuevos no piden aprobación y `sed -i`, `tee` y las redirecciones siguen pidiéndola (tests de argumentos del adaptador)"
+        },
+        {
+          "id": "ac2",
+          "text": "El prompt del run nombra los comandos permitidos nuevos (test del prompt)"
+        },
+        {
+          "id": "ac3",
+          "text": "Lo comprobado con el claude real sobre `cd … &&` queda anotado en la tarea, con la versión"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:50:03Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:50:03Z"
+    },
+    {
+      "id": "CORE-17",
+      "title": "Comandos permitidos por proyecto",
+      "state": "proposed",
+      "group": "CORE",
+      "deps": [
+        "CORE-16"
+      ],
+      "rank": "zzzzzzzzzzzzzzzzzr",
+      "desc": "Cada proyecto necesita algún comando más que el perfil default no cubre (por ejemplo `npx tsc` o `npx vite build`). Nuevo `project.allowed_commands` ({command, prefix}[]), que solo el humano cambia con la op `set-allowed-commands`, validado (sin comandos vacíos, sin `;`, `&&`, `|` ni redirecciones, y nunca `rm`, `sudo`, `git push` ni `--force`). El adaptador de Claude los suma a `--allowedTools`, el de Codex aprueba sin preguntar las peticiones de comando que encajen, y el prompt los nombra. Esquema regenerado y docs.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "set-allowed-commands es solo del humano y rechaza comandos peligrosos o encadenados (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "Claude recibe los comandos del proyecto en --allowedTools y Codex aprueba solo los que encajan (tests de los adaptadores)"
+        },
+        {
+          "id": "ac3",
+          "text": "El prompt del run los nombra junto a los del perfil (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:50:03Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:50:03Z"
     },
     {
       "id": "CLI-01",
@@ -1705,7 +1770,7 @@
     {
       "id": "DMN-11",
       "title": "Ejecutar respeta max_parallel y ofrece Encolar si no hay hueco",
-      "state": "doing",
+      "state": "done",
       "group": "DMN",
       "rank": "zzzzzzzzzzzzzzzzx",
       "desc": "Hoy Ejecutar (panel y barra de selección) lanza el run al momento aunque se supere max_parallel: el límite solo lo aplica el scheduler de la cola, y solo las variantes comprueban los huecos. Un run lanzado a mano debe respetar los mismos límites que la cola, global y por proveedor, con fitsSlots de core: POST /projects/:id/runs {task, agent?} responde 409 no_slots, sin crear nada, si no cabe. En la UI, ese rechazo se explica en español con un botón Encolar que añade la tarea a la cola con el mismo agente. La barra de selección lanza las que caben y ofrece encolar el resto. Los runs de revisión y de rebase, que el humano pide sobre trabajo ya hecho, siguen sin ocupar este límite, como ahora.",
@@ -1735,7 +1800,7 @@
         "at": "2026-11-10T10:30:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:36:27Z",
+      "updated_at": "2026-11-10T10:45:41Z",
       "notes": [
         {
           "id": "n1",
@@ -1743,6 +1808,14 @@
           "by": "konsora",
           "kind": "note",
           "text": "Konsora run r-01M72GFNAT2XBHKX4REM9VKHVJ started.",
+          "run": "r-01M72GFNAT2XBHKX4REM9VKHVJ"
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T10:43:24Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Ejecutar ya respeta max_parallel (global y por proveedor) y ofrece Encolar cuando no hay hueco.\n\n**Cambios**\n- Daemon (`packages/daemon/src/app.ts`): `POST /projects/:id/runs {task, agent?}` resuelve el agente que usaría el run (`runAgentFor`) y comprueba `scheduler.fits` (que usa `fitsSlots` de core) antes de lanzar. Si no cabe, responde `409 no_slots` sin crear run, worktree ni rama. Los runs de revisión y de rebase tienen sus propias rutas y no pasan por esta comprobación.\n- Web, panel (`TaskPanel.tsx`): ante `no_slots` muestra un aviso en español (`run.error.no_slots`) con un botón Encolar. Ese botón llama a `enqueueRequest` con la tarea y el mismo agente que se rechazó. Añadí `enqueueRequest` en `api/queue.ts` y `startErrorText` en `run-model.ts`.\n- Web, barra de selección: `launchEach` (en `run-model.ts`) lanza cada tarea y separa las que arrancaron, las que no caben (`unfit`) y los demás fallos. Las que no caben se quedan seleccionadas y la barra muestra un aviso (prop `full`) para pulsar Encolar con los mismos agentes.\n- Docs (`docs/arquitectura.md`): la API de runs, la cola, los límites de `settings.json` y la barra de selección dicen que `max_parallel` limita también los runs lanzados a mano. Esos pasajes mencionan también la excepción de revisión y rebase y el botón Encolar.\n\n**Criterios**\n- ac1: test del daemon en `runs.test.ts` (\"Run respects max_parallel\"). Con `max_parallel` 1 y un run activo, el POST de otra tarea da 409 `no_slots`. Las carpetas de runs, los worktrees y las ramas quedan idénticos y la tarea sigue en `todo`. Al cancelar el primer run, el siguiente lanzamiento vuelve a funcionar. Otro test cubre el límite por proveedor: con `claude: 1` se rechaza un segundo run de claude y uno de codex cabe.\n- ac2: `packages/web/test/no-slots.test.tsx`. Una petición rechazada da `ApiError` con `no_slots` y un texto en español sin el mensaje en inglés del daemon. Después, la petición de Encolar envía `{items:[{task, agent}]}` con el agente elegido.\n- ac3: en el mismo test, con hueco para 1 de 3 tareas se lanza una y las otras dos quedan como `unfit`. Encolar envía exactamente esas dos con sus agentes. Otro test comprueba el aviso y el botón en `SelectionBar`.\n- ac4: el apartado de docs anterior.\n\n**Comprobaciones**: `npm run check` pasa: Biome, tsc y 1072 tests. Biome sigue mostrando dos avisos antiguos (`events.test.ts` y `worktree.ts`) que no tocan este cambio. Añadí `BE-03`, una tarea independiente, al plan del test de runs, y el resto de tests sigue pasando.\n\n**Limitaciones**\n- La comprobación de huecos va antes de la validación de la tarea. Si no hay hueco y la tarea tampoco está lista, el error es `no_slots` y no `not_ready`. La UI solo ofrece Ejecutar en tareas listas y la cola acepta tareas bloqueadas, así que no tiene efecto práctico.\n- No hay test de render con interacción para el estado `noSlots` del panel, porque los tests web usan render estático. Cubrí la petición y el texto, no el clic.\n- No lancé la UI en un navegador.\n\nUn commit local en la rama, sin push. Siguiente: el resto del pulido previo a M10.",
           "run": "r-01M72GFNAT2XBHKX4REM9VKHVJ"
         }
       ]
@@ -3088,7 +3161,7 @@
     {
       "id": "UI-26",
       "title": "Desatascar un run de revisión interrumpido",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzv",
       "desc": "Si el daemon se reinicia durante una revisión, el run de revisión queda `interrupted`, que cuenta como activo: la revisión muestra «Revisando…», «Pedir revisión» queda desactivado y no hay ninguna acción para salir. Tampoco se puede retomar, porque la tarea está en `review` y no en `doing`, y aun así la vista de cola ofrece Retomar, que siempre falla. En la revisión, un run de revisión interrumpido se muestra como tal con «Descartar», que lo cierra (`cancelled`) sin tocar el worktree del run revisado; la cola no ofrece Retomar en runs de revisión.",
@@ -3114,12 +3187,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:45:04Z"
     },
     {
       "id": "UI-27",
       "title": "Aceptar desactivado hasta elegir una variante",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzx",
       "desc": "Con varias variantes sin elegir, el panel ofrece Aceptar y el daemon lo rechaza con `variant_not_chosen` después de pulsarlo. Aceptar debe aparecer desactivado, con el motivo («elige una variante antes de aceptar»), hasta que quede una sola candidata.",
@@ -3141,12 +3214,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:45:01Z"
     },
     {
       "id": "UI-28",
       "title": "Quitar el agente propio de una tarea",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzy",
       "desc": "El editor puede poner un agente a una tarea pero no quitárselo, porque la op `edit` no acepta borrar `agent` por JSON (el mismo caso que la dificultad en UI-21). Core acepta `agent: null` en `edit` para quitarlo y el editor ofrece «Usar el del proyecto», que vuelve al orden de `runAgentFor`.",
@@ -3168,12 +3241,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:54Z"
     },
     {
       "id": "UI-29",
       "title": "Sin línea de coste en grupos sin uso todavía",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzz",
       "desc": "Un grupo cuyos runs aún no tienen uso (en marcha o fallidos antes de responder el agente) muestra «0 tokens · desconocido» en su cabecera del tablero. La línea solo debe aparecer cuando algún run del grupo tenga uso.",
@@ -3191,12 +3264,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:45Z"
     },
     {
       "id": "UI-30",
       "title": "Activar YOLO desde la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzi",
       "desc": "`set-yolo` es una op del humano y M9 depende de ella para encadenar tareas, pero hoy no se puede usar ni desde la UI ni desde la CLI. El panel de tarea ofrece un interruptor YOLO (con una explicación de qué hace: integrar sola la tarea al terminar si sus checks pasan, salvo la última de la cadena), la barra de selección permite activarlo o desactivarlo en varias tareas, y la tarjeta lo marca. Solo en tareas sin terminar.",
@@ -3222,12 +3295,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:43:19Z"
     },
     {
       "id": "UI-31",
       "title": "Elegir el agente por defecto en los ajustes",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "CORE-15"
@@ -3252,12 +3325,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:37Z"
     },
     {
       "id": "UI-32",
       "title": "Crear tareas desde la UI",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzx",
       "desc": "El humano no puede crear tareas desde la UI: solo las crean los agentes. Un botón «Nueva tarea» en el tablero abre un formulario (título, grupo, descripción, criterios con check, etiquetas, dificultad, dependencias y plantilla opcional, que rellena los campos como en core) y envía `propose` como humano, que la deja en Por hacer directamente o como propuesta, a elegir. También se puede crear un grupo nuevo (`add-group`).",
@@ -3283,7 +3356,7 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:43:35Z"
     },
     {
       "id": "UI-33",
@@ -3356,7 +3429,7 @@
     {
       "id": "UI-34",
       "title": "Aprobar o rechazar propuestas en lote",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "UI-33"
@@ -3381,12 +3454,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:29Z"
     },
     {
       "id": "UI-35",
       "title": "Pausar una tarea en curso y añadir notas propias",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzzi",
       "desc": "El humano puede hacer `pause` y `note` en core, pero la UI no lo ofrece. El panel permite añadir una nota en cualquier tarea y pausar una tarea en curso sin run activo (con su motivo como nota).",
@@ -3408,12 +3481,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:43:55Z"
     },
     {
       "id": "UI-36",
       "title": "Pedir una revisión con otro agente",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzzr",
       "desc": "«Pedir revisión» solo usa el revisor del proyecto y está desactivado si no hay uno, aunque el endpoint acepta `{agent}`. Junto al botón, un selector de agente (solo con el perfil readonly) que empieza por el revisor del proyecto o, si no lo hay, por el agente por defecto.",
@@ -3435,12 +3508,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:03Z"
     },
     {
       "id": "UI-37",
       "title": "Log y cancelación de un run de revisión",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzzv",
       "desc": "De un run de revisión solo se ve su nota final. Cada revisión de la lista muestra su log (plegado) y, mientras está activa, Cancelar.",
@@ -3462,12 +3535,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:08Z"
     },
     {
       "id": "UI-38",
       "title": "Ajustes del proyecto con índice de secciones",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzzx",
       "desc": "Los ajustes son ya cinco formularios apilados, cada uno con su Guardar. Se organizan en secciones navegables (Checks y preparación, Agentes: por defecto, por dificultad y revisor, Plantillas) con un índice lateral o pestañas en la URL, sin perder los cambios de una sección al pasar a otra y avisando si hay cambios sin guardar.",
@@ -3489,12 +3562,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:43:42Z"
     },
     {
       "id": "UI-39",
       "title": "Panel de tarea ordenado y con secciones plegables",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzzy",
       "desc": "El panel ha crecido: acciones, run, revisión, revisiones, coste, runs anteriores, descripción, criterios, dependencias y notas. Se ordena por lo que importa en cada estado (lo que pide al humano primero) y el uso acumulado, los runs anteriores y las notas se pueden plegar, recordando la preferencia.",
@@ -3516,12 +3589,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:43:15Z"
     },
     {
       "id": "UI-40",
       "title": "Pasada visual de la UI en el navegador",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "UI-30",
@@ -3549,12 +3622,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:44:14Z"
     },
     {
       "id": "UI-41",
       "title": "Diálogo propio en lugar de window.confirm",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzzzi",
       "desc": "La UI usa window.confirm al aceptar con checks en rojo, al desvincular un proyecto y al revertir un cambio externo. En el webview de Tauri 2 esos diálogos nativos no se muestran sin un plugin, así que esas acciones dejarían de funcionar en M10. Se sustituyen por un diálogo de confirmación del sistema de diseño, accesible (foco atrapado, Escape cancela).",
@@ -3576,12 +3649,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:45:16Z"
     },
     {
       "id": "UI-42",
       "title": "Encolar desde el panel de tarea",
-      "state": "proposed",
+      "state": "doing",
       "group": "UI",
       "deps": [
         "DMN-11"
@@ -3610,7 +3683,51 @@
         "at": "2026-11-10T10:40:47Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:40:47Z"
+      "updated_at": "2026-11-10T10:45:59Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T10:45:59Z",
+          "by": "konsora",
+          "kind": "note",
+          "text": "Konsora run r-01M72H13XY5GJKP8VJJ866NWHB started.",
+          "run": "r-01M72H13XY5GJKP8VJJ866NWHB"
+        }
+      ]
+    },
+    {
+      "id": "UI-43",
+      "title": "Permitir siempre un comando desde la aprobación",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "CORE-17"
+      ],
+      "rank": "zzzzzzzzzzzzzzzzzv",
+      "desc": "En los ajustes del proyecto, una sección para ver, añadir y quitar los comandos permitidos del proyecto, guardada con `set-allowed-commands`. En cada aprobación de un comando de shell, además de Permitir y Denegar, el botón «Permitir siempre en este proyecto» aprueba esa petición y añade su comando (con prefijo, editable antes de confirmar) a la lista. No se ofrece si el comando es de los que la validación rechaza.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Los ajustes añaden y quitan comandos con set-allowed-commands, con errores por campo en español (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Permitir siempre aprueba la petición y añade el comando a project.allowed_commands (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "En un comando encadenado o peligroso no se ofrece Permitir siempre (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:50:03Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:50:03Z"
     },
     {
       "id": "MCP-01",
@@ -5562,7 +5679,7 @@
     {
       "id": "RUN-31",
       "title": "npm run check en verde 20 veces seguidas",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "rank": "zzzzzzzzzzzzzzzzr",
       "desc": "Criterio pendiente de M9b: `npm run check` debe pasar 20 veces seguidas. Se ejecuta, y cualquier test intermitente que aparezca se arregla con su causa.",
@@ -5584,12 +5701,12 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:45:07Z"
     },
     {
       "id": "RUN-32",
       "title": "Docs al día tras M9b y el pulido",
-      "state": "proposed",
+      "state": "todo",
       "group": "RUN",
       "deps": [
         "RUN-31",
@@ -5625,7 +5742,34 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:45:21Z"
+    },
+    {
+      "id": "RUN-33",
+      "title": "Comandos de CLAUDE.md que no piden aprobación",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzzzzzzzzzzzzz",
+      "desc": "Los agentes de los runs copian los comandos de CLAUDE.md, y este enseña `npx vitest run packages/core`. El perfil `default` no permite `npx` sin preguntar, así que cada uso espera la aprobación del humano. Los ejemplos de CLAUDE.md (y de AGENTS.md y de los docs que los repitan) pasan a usar formas permitidas: `npm test -- packages/core`, `npm run lint`, `npm run typecheck`, `npm run check` y `npm run format`, con una frase que explique por qué.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "CLAUDE.md, AGENTS.md y los docs no proponen ningún comando npx para comprobar o formatear (grep)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada comando propuesto está permitido por el perfil default (test o comprobación contra DEFAULT_PROFILE_COMMANDS)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:50:03Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:50:03Z"
     },
     {
       "id": "DESK-01",
