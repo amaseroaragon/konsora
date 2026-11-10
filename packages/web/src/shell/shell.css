@@ -42,6 +42,12 @@
   text-decoration: none;
   font-weight: var(--k-weight-medium);
 }
+/* The header's links (Cola, Límites): spaced like separate items. */
+.s-nav__group {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-8);
+}
 .s-nav__link:hover {
   color: var(--k-accent);
 }

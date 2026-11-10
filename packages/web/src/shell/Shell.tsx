@@ -27,7 +27,7 @@ export function Shell({
             {t("shell.home")}
           </a>
         </nav>
-        {nav && <div className="a-header__cell">{nav}</div>}
+        {nav && <div className="a-header__cell s-nav__group">{nav}</div>}
       </header>
       <main className="s-page">{children}</main>
     </div>
