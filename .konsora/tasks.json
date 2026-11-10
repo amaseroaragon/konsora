@@ -2610,7 +2610,7 @@
     {
       "id": "UI-19",
       "title": "Botón Retomar en un run interrumpido",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "RUN-27"
@@ -2634,7 +2634,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:11:36Z",
+      "updated_at": "2026-11-10T09:20:28Z",
       "notes": [
         {
           "id": "n1",
@@ -2701,7 +2701,7 @@
     {
       "id": "UI-21",
       "title": "Dificultad y modelo recomendado en la UI",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "CORE-09"
@@ -2729,12 +2729,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:00:16Z"
+      "updated_at": "2026-11-10T09:27:02Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:26:51Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Dificultad en tarjeta, panel y editor (edit con difficulty null para quitarla, aceptado en core); agentChoice en core con el porqué del agente; barra de selección con el agente de cada tarea y su motivo, o uno para todas; Ejecutar y Encolar con el de cada tarea; ajustes de recomendado por dificultad con set-recommended."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:27:02Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 5659fa5. Core: agentChoice(task, project, requested?) devuelve el agente de runAgentFor con su origen (requested, task, recommended con su dificultad, defaults) y runAgentFor lo usa; edit acepta difficulty: null para quitarla (JSON no tiene undefined), con test de OpSchema + applyOp. Web: taskAgent (orden de core y, si no hay nada, el primero del catálogo) y agentReason («Recomendado para dificultad alta: claude · opus · high»); la barra de selección lista con qué agente va cada tarea y por qué, con «Elegir un agente para todas» (muestra el selector) y «Usar el de cada tarea»; Ejecutar y Encolar envían el de cada tarea (launchItems) salvo que se elija uno para todos; Ejecutar en el panel dice el porqué bajo el selector. Dificultad en la tarjeta («Dificultad alta»), en el panel y en el editor (select, quitar → null). Ajustes: RecommendedSettings con un agente opcional por dificultad, guardado con set-recommended (null si quedan vacías). ac1: test/difficulty.test.tsx (motivos de cada tarea y barra con la lista, uno para todas y vuelta atrás, primer agente disponible). ac2: cuerpos de POST /runs por tarea y con uno elegido para todas, y de POST /queue con el de cada tarea. ac3: tarjeta, edit (poner, cambiar, quitar con null aplicado por core) y set-recommended (sin cambios, añadir, vaciar, agente no válido) y render de los ajustes. vitest core 322 y web 311 en verde; tsc y biome limpios."
+        }
+      ]
     },
     {
       "id": "UI-22",
       "title": "Gestionar plantillas desde los ajustes del proyecto",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "CORE-10"
@@ -2758,7 +2774,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:14:53Z",
+      "updated_at": "2026-11-10T09:20:32Z",
       "notes": [
         {
           "id": "n1",
@@ -2779,7 +2795,7 @@
     {
       "id": "UI-23",
       "title": "Mostrar el coste acumulado en la UI",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "CORE-11"
@@ -2803,12 +2819,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:01:38Z"
+      "updated_at": "2026-11-10T09:31:52Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:27:02Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Uso acumulado con taskCost/groupCost/usageTotals de core: en el panel de tarea, en la cabecera de cada grupo del tablero y en una vista Coste del proyecto con total, grupos y desglose por proveedor y modelo; coste desconocido indicado aparte; se recalcula de la caché de runs, que run.state mantiene en vivo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:31:52Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit eb0dcb0. Web, sobre taskCost/groupCost/usageTotals de core: CostSummaryView (runs, tokens ↑/↓, caché, razonamiento, coste, nota de los runs sin coste conocido y tabla por proveedor y modelo, con «no lo da» para quien no da coste); sección «Uso acumulado» en el panel de tarea; línea «17k tokens · $1.50 + 2 sin coste» en la cabecera de cada carril del tablero (y el total con carriles desactivados); vista nueva «Coste» del proyecto (#/p/<id>?view=cost) con el total y cada grupo con runs. Un coste desconocido se muestra como «desconocido» o «+ N sin coste», nunca como $0.00. Todo se calcula de la caché de runs, que run.state mantiene en vivo. ac1: test/cost.test.tsx (panel con suma, coste parcial, nota y desglose; cabecera de grupo; vista Coste con total, grupos y desglose; coste desconocido nunca como cero). ac2: aplicar run.state de un run que cierra con uso cambia la cabecera de 17k/$1.50 a 20.5k/$2.00 sin recargar. vitest web 318 en verde; tsc y biome limpios."
+        }
+      ]
     },
     {
       "id": "UI-24",
       "title": "Comparar variantes en la revisión",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "RUN-28"
@@ -2832,12 +2864,28 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:01:51Z"
+      "updated_at": "2026-11-10T09:35:55Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:31:53Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Ejecutar con varios agentes (2-3 selectores, POST /runs con agents); durante la ejecución, una sección por variante; en la revisión, las variantes lado a lado (agente, checks, uso y coste, resumen y diff) con Elegir esta (POST …/choose); tras elegir, la revisión normal de la ganadora con Aceptar."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:35:55Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 1399139. Web: en el panel, «Ejecutar con varios agentes» abre de 2 a 3 selectores (empieza con el agente de la tarea y otro de distinto proveedor; añadir y quitar variantes; agentes iguales → error) y lanza POST /runs con {task, agents} (useStartVariants mete los runs en la caché); errores no_slots, invalid_agent, variants_running y not_choosable en español. Con la tarea en doing se muestra un RunSection por variante. En review, mientras haya más de una candidata y todas cerradas (variantsToChoose, sobre variantCandidates/variantsOutcome de core), VariantCompare las pone lado a lado: agente, estado, checks ✓/✕, tokens y coste (desconocido si no lo hay), resumen del agente y diff, con «Elegir esta» → POST …/runs/:run/choose. Tras elegir, reviewRun devuelve la ganadora y la revisión normal con Aceptar es la suya; aceptar antes de elegir (variant_not_chosen) se explica. Además failingReviews usa reviewRun. ac1: test/variants.test.tsx (variantStart y agentes distintos, el panel ofrece varios agentes, cuerpo del POST con agents y runs en la caché, una sección por variante en doing). ac2: espera a que cierren todas, comparación con agente, checks, uso y coste, resumen y diff de cada una y dos Elegir esta, POST a …/choose y después la revisión de la ganadora; texto de variant_not_chosen. npm run check: 1052 tests en verde."
+        }
+      ]
     },
     {
       "id": "UI-25",
       "title": "Revisor en la UI",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "RUN-29"
@@ -2861,7 +2909,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:19:56Z",
+      "updated_at": "2026-11-10T09:20:30Z",
       "notes": [
         {
           "id": "n1",
