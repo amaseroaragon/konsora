@@ -48,12 +48,12 @@
     }
   ],
   "seq": {
-    "CORE": 14,
+    "CORE": 15,
     "CLI": 5,
     "DMN": 10,
-    "UI": 25,
+    "UI": 41,
     "MCP": 7,
-    "RUN": 30,
+    "RUN": 32,
     "DESK": 5
   },
   "tasks": [
@@ -777,7 +777,7 @@
     {
       "id": "CORE-14",
       "title": "Escribir las notas del agente en el idioma de la tarea",
-      "state": "review",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzzr",
       "desc": "En RUN-30, el revisor de Codex escribió su nota review en inglés porque el prompt de revisión está en inglés, mientras que los resúmenes de las tareas, que estaban en español, salieron en español. El prompt de revisión (buildReviewPrompt) y el del run (buildRunPrompt y el de reintento) deben pedir de forma determinista que las notas, preguntas, resúmenes y revisiones se escriban en el idioma del título y la descripción de la tarea, sin que Konsora detecte ni guarde el idioma. Los prompts siguen en inglés y siguen siendo deterministas.",
@@ -800,7 +800,7 @@
         "at": "2026-11-10T09:57:16Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:03:03Z",
+      "updated_at": "2026-11-10T10:10:52Z",
       "notes": [
         {
           "id": "n1",
@@ -817,6 +817,33 @@
           "text": "Commit d7b46b2. core/run-prompt.ts: languageRule() añade una línea determinista («Write … in the language of the task's title and description; keep code, commands, file names and identifiers as they are») al protocolo de buildRunPrompt (notas, preguntas y resumen), a las reglas de buildRebasePrompt (preguntas y resumen) y de buildReviewPrompt (texto de la revisión); buildRetryPrompt pide el resumen actualizado en el idioma de la tarea «as before». Konsora no detecta ni guarda el idioma; los prompts siguen en inglés. ac1: test del prompt de revisión. ac2: tests del prompt del run y del de reintento (y del de rebase). ac3: los dos snapshots existentes solo ganan la línea nueva y los tests nuevos comprueban que la misma entrada da el mismo texto. Docs en arquitectura.md (paso Lanzar). npm run check: 1056 tests en verde. No lo he probado con un agente real (no tenía autorización para gastar en esto); el efecto real se verá en la próxima revisión."
         }
       ]
+    },
+    {
+      "id": "CORE-15",
+      "title": "Op para cambiar el agente por defecto del proyecto",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzzzzr",
+      "desc": "`project.defaults` solo lo pone `konsora init`: ninguna op lo cambia. Nueva op humana `set-defaults` {agent | null}, validada con AgentSpecSchema, con su esquema, roles, serializador y docs en esquema-tareas.md.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "set-defaults es solo del humano, valida el agente y null lo quita (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "El esquema JSON se regenera y el round-trip canónico conserva defaults (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
     },
     {
       "id": "CLI-01",
@@ -2972,6 +2999,458 @@
       ]
     },
     {
+      "id": "UI-26",
+      "title": "Desatascar un run de revisión interrumpido",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzv",
+      "desc": "Si el daemon se reinicia durante una revisión, el run de revisión queda `interrupted`, que cuenta como activo: la revisión muestra «Revisando…», «Pedir revisión» queda desactivado y no hay ninguna acción para salir. Tampoco se puede retomar, porque la tarea está en `review` y no en `doing`, y aun así la vista de cola ofrece Retomar, que siempre falla. En la revisión, un run de revisión interrumpido se muestra como tal con «Descartar», que lo cierra (`cancelled`) sin tocar el worktree del run revisado; la cola no ofrece Retomar en runs de revisión.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una revisión interrumpida muestra su estado y Descartar, y tras descartarla Pedir revisión vuelve a estar disponible (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "La vista de cola no ofrece Retomar en un run de revisión interrumpido (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Descartarla no borra el worktree ni la rama del run revisado (test del daemon)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-27",
+      "title": "Aceptar desactivado hasta elegir una variante",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzx",
+      "desc": "Con varias variantes sin elegir, el panel ofrece Aceptar y el daemon lo rechaza con `variant_not_chosen` después de pulsarlo. Aceptar debe aparecer desactivado, con el motivo («elige una variante antes de aceptar»), hasta que quede una sola candidata.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con dos variantes candidatas, Aceptar está desactivado y dice por qué (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Tras elegir una, Aceptar vuelve a estar disponible (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-28",
+      "title": "Quitar el agente propio de una tarea",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzy",
+      "desc": "El editor puede poner un agente a una tarea pero no quitárselo, porque la op `edit` no acepta borrar `agent` por JSON (el mismo caso que la dificultad en UI-21). Core acepta `agent: null` en `edit` para quitarlo y el editor ofrece «Usar el del proyecto», que vuelve al orden de `runAgentFor`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "edit con agent null quita el agente de la tarea y OpSchema lo acepta (test de core)"
+        },
+        {
+          "id": "ac2",
+          "text": "El editor quita el agente con «Usar el del proyecto» y envía agent null (test de la petición)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-29",
+      "title": "Sin línea de coste en grupos sin uso todavía",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzz",
+      "desc": "Un grupo cuyos runs aún no tienen uso (en marcha o fallidos antes de responder el agente) muestra «0 tokens · desconocido» en su cabecera del tablero. La línea solo debe aparecer cuando algún run del grupo tenga uso.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un grupo con runs sin uso no muestra línea de coste y uno con uso sí (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-30",
+      "title": "Activar YOLO desde la UI",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzi",
+      "desc": "`set-yolo` es una op del humano y M9 depende de ella para encadenar tareas, pero hoy no se puede usar ni desde la UI ni desde la CLI. El panel de tarea ofrece un interruptor YOLO (con una explicación de qué hace: integrar sola la tarea al terminar si sus checks pasan, salvo la última de la cadena), la barra de selección permite activarlo o desactivarlo en varias tareas, y la tarjeta lo marca. Solo en tareas sin terminar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El interruptor del panel envía set-yolo con el valor elegido y la tarjeta lo muestra (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "La barra de selección activa y desactiva YOLO en las seleccionadas (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "En una tarea done no se ofrece, y los errores se muestran en español (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-31",
+      "title": "Elegir el agente por defecto en los ajustes",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "CORE-15"
+      ],
+      "rank": "zzzzzzzzzzzzzzv",
+      "desc": "En los ajustes del proyecto, junto a los recomendados por dificultad, un selector del agente por defecto (el que usan las tareas sin agente propio ni recomendado), guardado con `set-defaults`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El selector guarda set-defaults con el agente elegido (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Las tareas sin agente ni recomendado dicen que usan el nuevo por defecto (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-32",
+      "title": "Crear tareas desde la UI",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzx",
+      "desc": "El humano no puede crear tareas desde la UI: solo las crean los agentes. Un botón «Nueva tarea» en el tablero abre un formulario (título, grupo, descripción, criterios con check, etiquetas, dificultad, dependencias y plantilla opcional, que rellena los campos como en core) y envía `propose` como humano, que la deja en Por hacer directamente o como propuesta, a elegir. También se puede crear un grupo nuevo (`add-group`).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Crear una tarea envía propose con los valores del formulario y aparece en el tablero (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Con una plantilla, la tarea toma sus valores combinados como en core (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Los errores de validación se muestran por campo en español (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-33",
+      "title": "Rechazar propuestas desde la UI",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzy",
+      "desc": "Una propuesta de un agente solo se puede aprobar. El humano también puede retirarla (`withdraw`): el panel de una tarea propuesta ofrece «Rechazar», con confirmación y un motivo opcional que queda como nota.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Rechazar envía withdraw y la propuesta desaparece del tablero (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Se pide confirmación antes de rechazar (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-34",
+      "title": "Aprobar o rechazar propuestas en lote",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-33"
+      ],
+      "rank": "zzzzzzzzzzzzzzz",
+      "desc": "Tras un `konsora plan` con muchas propuestas, hay que aprobarlas una a una. La barra de selección permite seleccionar propuestas y aprobarlas o rechazarlas todas a la vez, informando de las que fallen.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Las propuestas se pueden seleccionar y Aprobar envía approve por cada una (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Si alguna falla, las demás se aprueban y se dice cuál y por qué (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-35",
+      "title": "Pausar una tarea en curso y añadir notas propias",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzzi",
+      "desc": "El humano puede hacer `pause` y `note` en core, pero la UI no lo ofrece. El panel permite añadir una nota en cualquier tarea y pausar una tarea en curso sin run activo (con su motivo como nota).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Añadir nota envía note y aparece en la lista de notas (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "Pausar solo se ofrece en una tarea doing sin run activo y envía pause (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-36",
+      "title": "Pedir una revisión con otro agente",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzzr",
+      "desc": "«Pedir revisión» solo usa el revisor del proyecto y está desactivado si no hay uno, aunque el endpoint acepta `{agent}`. Junto al botón, un selector de agente (solo con el perfil readonly) que empieza por el revisor del proyecto o, si no lo hay, por el agente por defecto.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Sin revisor en el proyecto, se puede pedir una revisión eligiendo un agente (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "El agente elegido va en el cuerpo del POST …/review (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-37",
+      "title": "Log y cancelación de un run de revisión",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzzv",
+      "desc": "De un run de revisión solo se ve su nota final. Cada revisión de la lista muestra su log (plegado) y, mientras está activa, Cancelar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una revisión en marcha muestra su log en vivo y Cancelar (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cancelar llama al endpoint y la revisión queda cancelada sin tocar la tarea (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-38",
+      "title": "Ajustes del proyecto con índice de secciones",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzzx",
+      "desc": "Los ajustes son ya cinco formularios apilados, cada uno con su Guardar. Se organizan en secciones navegables (Checks y preparación, Agentes: por defecto, por dificultad y revisor, Plantillas) con un índice lateral o pestañas en la URL, sin perder los cambios de una sección al pasar a otra y avisando si hay cambios sin guardar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada sección se abre desde el índice y su enlace sobrevive a recargar (test de la ruta)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cambiar de sección con cambios sin guardar los conserva o avisa (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-39",
+      "title": "Panel de tarea ordenado y con secciones plegables",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzzy",
+      "desc": "El panel ha crecido: acciones, run, revisión, revisiones, coste, runs anteriores, descripción, criterios, dependencias y notas. Se ordena por lo que importa en cada estado (lo que pide al humano primero) y el uso acumulado, los runs anteriores y las notas se pueden plegar, recordando la preferencia.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El orden de las secciones depende del estado y lo accionable va primero (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Plegar una sección se recuerda al abrir otra tarea (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-40",
+      "title": "Pasada visual de la UI en el navegador",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "UI-30",
+        "UI-32",
+        "UI-38",
+        "UI-39"
+      ],
+      "rank": "zzzzzzzzzzzzzzzz",
+      "desc": "La UI solo se ha comprobado con tests de render. Con la app real en un navegador, en tema claro y oscuro y a 1280 px y en una ventana estrecha, se recorren todas las vistas (proyectos, tablero, grafo, coste, cola, límites, ajustes, panel en cada estado, variantes, revisiones) con un proyecto de ejemplo, y se arreglan los defectos de diseño encontrados (espaciado, alineación, contraste, desbordes, estados vacíos).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada vista queda revisada con una captura por tema, anotada en la tarea"
+        },
+        {
+          "id": "ac2",
+          "text": "Los defectos encontrados se arreglan, o se proponen como tareas si son grandes"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-41",
+      "title": "Diálogo propio en lugar de window.confirm",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzzzzzi",
+      "desc": "La UI usa window.confirm al aceptar con checks en rojo, al desvincular un proyecto y al revertir un cambio externo. En el webview de Tauri 2 esos diálogos nativos no se muestran sin un plugin, así que esas acciones dejarían de funcionar en M10. Se sustituyen por un diálogo de confirmación del sistema de diseño, accesible (foco atrapado, Escape cancela).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "No queda ningún window.confirm, alert ni prompt en packages/web/src (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Las tres confirmaciones usan el diálogo propio y cancelar no hace nada (tests)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
       "id": "MCP-01",
       "title": "Servidor konsora mcp (stdio) con las herramientas de lectura",
       "state": "done",
@@ -4917,6 +5396,74 @@
           "text": "Los cinco recorridos de M9b, hechos con Claude Code 2.1.322 (haiku) y Codex 0.166.0 (gpt-6-luna, low) en un repo fixture con un daemon aparte; detalles en la nota (el arreglo de konsora plan es el commit 7c60771, no «4cf…» como dice la nota). ac1: (1) konsora plan propuso un lote con dificultad (low, low, medium), la plantilla nota en dos tareas y las dependencias del índice; (2) DOC-01 con variantes Claude y Codex, accept antes de elegir → variant_not_chosen, elegida e integrada en 1 commit, sin worktrees ni ramas; (3) revisor automático: un solo run de revisión readonly dejó una nota review con verdict approve y la tarea siguió en review; (4) run de Codex interrumpido por SIGTERM al daemon, sin procesos huérfanos, retomado en su sesión con POST resume y terminado en review; (5) coste acumulado en la UI. ac2: el total de la UI (6 runs, 1.2M/7.4k tokens, $0.014 + 4 sin coste) y el de DOC-03 (313.1k / 977, desconocido) coinciden con la suma de sus runs, renderizando ProjectView con los runs y el tablero reales. ac3: versiones, tiempos (17 s, 21 s, 33 s), gasto (unos 0,019 USD de Claude más tokens de Codex sin coste) y lo observado, en la nota. Encontrado y arreglado: konsora plan --agent claude abría la sesión sin el prompt (--allowedTools variádico; 7c60771, con test) y tres defectos de formato del coste con cifras reales (b26b755, con tests). Sin arreglar: la nota del revisor sale en inglés. npm run check: 1053 tests en verde."
         }
       ]
+    },
+    {
+      "id": "RUN-31",
+      "title": "npm run check en verde 20 veces seguidas",
+      "state": "proposed",
+      "group": "RUN",
+      "rank": "zzzzzzzzzzzzzzzzr",
+      "desc": "Criterio pendiente de M9b: `npm run check` debe pasar 20 veces seguidas. Se ejecuta, y cualquier test intermitente que aparezca se arregla con su causa.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "20 ejecuciones seguidas de npm run check en verde, anotadas con su duración"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada fallo intermitente encontrado tiene su arreglo y un test que lo cubre"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "RUN-32",
+      "title": "Docs al día tras M9b y el pulido",
+      "state": "proposed",
+      "group": "RUN",
+      "deps": [
+        "RUN-31",
+        "UI-26",
+        "UI-27",
+        "UI-28",
+        "UI-29",
+        "UI-31",
+        "UI-34",
+        "UI-35",
+        "UI-36",
+        "UI-37",
+        "UI-40",
+        "UI-41"
+      ],
+      "rank": "zzzzzzzzzzzzzzzzv",
+      "desc": "El roadmap no marca M9b como cerrado, su tabla de ideas diferenciales lista como futuras cosas ya hechas, y el «Estado actual» de CLAUDE.md no menciona M9b. Se actualizan roadmap.md (M9b cerrado, una sección M9c con este pulido), CLAUDE.md, arquitectura.md y esquema-tareas.md con lo que cambió.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "roadmap.md marca M9b y M9c con su fecha y sin ideas ya hechas en la tabla"
+        },
+        {
+          "id": "ac2",
+          "text": "El Estado actual de CLAUDE.md refleja M9b y M9c y dice que lo siguiente es M10"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:18:09Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:18:09Z"
     },
     {
       "id": "DESK-01",
