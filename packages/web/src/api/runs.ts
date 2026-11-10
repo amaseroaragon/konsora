@@ -158,6 +158,31 @@ export function useResumeRun(project: string) {
   });
 }
 
+/**
+ * `POST /projects/:id/runs/:run/review`: the human asks for a read-only review of a succeeded
+ * run (RUN-29), by `agent` or else the project's reviewer. Resolves with the new review run.
+ */
+export async function requestReviewRequest(
+  api: Api,
+  project: string,
+  run: string,
+  agent?: AgentSpec,
+): Promise<Run> {
+  const url = `${base(project)}/${encodeURIComponent(run)}/review`;
+  return (await api.post<{ run: Run }>(url, agent ? { agent } : {})).run;
+}
+
+export function useRequestReview(project: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (run: string) => requestReviewRequest(api, project, run),
+    onSuccess: (run) =>
+      client.setQueryData<Run[]>(runsKey(project), (runs) => upsertRun(runs, run)),
+    onSettled: () => client.invalidateQueries({ queryKey: runsKey(project) }),
+  });
+}
+
 /** `POST /projects/:id/runs/:run/discard`: the human drops a finished run's work. */
 export async function discardRunRequest(api: Api, project: string, run: string): Promise<Run> {
   return (await api.post<{ run: Run }>(`${base(project)}/${encodeURIComponent(run)}/discard`)).run;

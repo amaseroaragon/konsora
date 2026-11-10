@@ -319,6 +319,8 @@ export function TaskPanel({
                 projectId={projectId}
                 run={run}
                 readOnly={readOnly}
+                notes={task.notes}
+                hasReviewer={doc.project.reviewer !== undefined}
                 summary={
                   [...(task.notes ?? [])]
                     .reverse()

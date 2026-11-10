@@ -1,13 +1,15 @@
-import type { Run } from "@konsora/core";
+import { isActiveRunState, type Note, type Run } from "@konsora/core";
 import { ApiError } from "../api/client.ts";
 import { useRebaseRun } from "../api/queue.ts";
-import { useRunDiff } from "../api/runs.ts";
+import { useRequestReview, useRunDiff, useRuns } from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
 import { Button, DiffView, useToast } from "../ui/index.ts";
 import { ChecksHistory } from "./ChecksHistory.tsx";
 import { runChecksFailed } from "./checks-model.ts";
 import { Markdown } from "./Markdown.tsx";
 import { diffTotals, parsePatch } from "./review-model.ts";
+import { reviewActive, reviewErrorText, runReviews } from "./reviewer-model.ts";
+import { formatTokens, RUN_STATE_KEY, runUsage } from "./run-model.ts";
 
 /**
  * What to review before accepting a run's work: its diff per file and the agent's summary (the
@@ -18,12 +20,18 @@ export function ReviewSection({
   projectId,
   run,
   summary,
+  notes,
+  hasReviewer = false,
   readOnly = false,
 }: {
   projectId: string;
   run: Run;
   /** The agent's summary (its `finish`), if any. */
   summary: string | undefined;
+  /** The task's notes, for the `review` notes the reviewers left on this run. */
+  notes?: readonly Note[] | undefined;
+  /** The project has a reviewer, so a review can be asked for without choosing an agent. */
+  hasReviewer?: boolean;
   readOnly?: boolean;
 }) {
   const diff = useRunDiff(projectId, run.id);
@@ -48,6 +56,13 @@ export function ReviewSection({
           <Markdown className="md--compact" text={summary} />
         </div>
       )}
+      <RunReviews
+        projectId={projectId}
+        run={run}
+        notes={notes}
+        hasReviewer={hasReviewer}
+        readOnly={readOnly}
+      />
       <ChecksHistory projectId={projectId} runId={run.id} />
       <div>
         <div className="k-label">{t("review.diff")}</div>
@@ -98,6 +113,105 @@ function RebaseAction({ projectId, run }: { projectId: string; run: Run }) {
           {t("review.rebase")}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The run's reviews (UI-25): each review run with its agent, usage and the verdict and reasons
+ * of the `review` note it left, highlighted; and "Request review", which launches one.
+ */
+export function RunReviews({
+  projectId,
+  run,
+  notes,
+  hasReviewer,
+  readOnly,
+}: {
+  projectId: string;
+  run: Run;
+  notes: readonly Note[] | undefined;
+  hasReviewer: boolean;
+  readOnly: boolean;
+}) {
+  const runs = useRuns(projectId).data;
+  const request = useRequestReview(projectId);
+  const toast = useToast();
+  const reviews = runReviews(runs, notes, run.id);
+  const busy = reviewActive(reviews);
+  if (reviews.length === 0 && readOnly) return null;
+  return (
+    <div className="a-stack b-reviews">
+      {reviews.length > 0 && <div className="k-label">{t("reviewer.reviews")}</div>}
+      {reviews.map(({ run: review, note }) => {
+        const usage = runUsage(review, []);
+        return (
+          <article
+            key={review.id}
+            className={`a-callout a-stack b-reviews__item${
+              note?.verdict ? ` b-reviews__item--${note.verdict}` : ""
+            }`}
+            aria-label={t("reviewer.review.label", { id: review.id })}
+          >
+            <div className="b-reviews__head">
+              {note?.verdict ? (
+                <span className={`a-chip b-reviews__verdict b-reviews__verdict--${note.verdict}`}>
+                  {t(`reviewer.verdict.${note.verdict}`)}
+                </span>
+              ) : (
+                <span className={`a-run-state a-run-state--${review.state}`} role="status">
+                  {t(RUN_STATE_KEY[review.state])}
+                </span>
+              )}
+              <span className="k-mono s-muted">
+                {review.agent.provider} · {review.agent.model}
+                {review.agent.effort ? ` · ${review.agent.effort}` : ""}
+              </span>
+              {usage && (
+                <span className="k-mono s-muted">
+                  {formatTokens(usage.input)} / {formatTokens(usage.output)}
+                  {usage.cost != null ? ` · $${usage.cost.toFixed(2)}` : ""}
+                </span>
+              )}
+            </div>
+            {note ? (
+              <Markdown className="md--compact" text={note.text} />
+            ) : (
+              <p className="s-muted">
+                {t(
+                  isActiveRunState(review.state)
+                    ? "reviewer.review.running"
+                    : "reviewer.review.nonote",
+                )}
+              </p>
+            )}
+          </article>
+        );
+      })}
+      {!readOnly && (
+        <div className="a-actions">
+          <Button
+            size="sm"
+            variant="secondary"
+            busy={request.isPending}
+            disabled={!hasReviewer || busy}
+            title={t("reviewer.request.hint")}
+            onClick={() =>
+              request.mutate(run.id, {
+                onSuccess: () => toast.show(t("reviewer.requested", { id: run.task }), "success"),
+                onError: (error) => {
+                  if (error instanceof ApiError && error.unauthorized) return;
+                  const code = error instanceof ApiError ? error.code : "error";
+                  toast.show(reviewErrorText(code, run.task, error.message), "error");
+                },
+              })
+            }
+          >
+            {t("reviewer.request")}
+          </Button>
+          {!hasReviewer && <span className="s-muted">{t("reviewer.request.none")}</span>}
+        </div>
+      )}
     </div>
   );
 }

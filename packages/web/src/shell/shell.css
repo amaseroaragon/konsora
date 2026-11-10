@@ -827,3 +827,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Reviews of a run (UI-25) */
+.b-reviews__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.b-reviews__item--approve {
+  border-inline-start: 3px solid var(--k-done);
+}
+.b-reviews__item--changes {
+  border-inline-start: 3px solid var(--k-warn-ink);
+}
+.b-reviews__verdict--approve {
+  background: var(--k-done-soft);
+  color: var(--k-done-ink);
+}
+.b-reviews__verdict--changes {
+  background: var(--k-warn-soft);
+  color: var(--k-warn-ink);
+}

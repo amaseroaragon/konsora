@@ -17,6 +17,7 @@ import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
 import { awaitingApproval, queueableSelection } from "./queue-model.ts";
+import { ReviewerSettings } from "./ReviewerSettings.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
@@ -236,6 +237,12 @@ export function ProjectView({
       {view === "settings" ? (
         <div className="s-stack">
           <ProjectSettings projectId={projectId} project={board.plan.project} readOnly={readOnly} />
+          <ReviewerSettings
+            projectId={projectId}
+            reviewer={board.plan.project.reviewer}
+            defaults={board.plan.project.defaults}
+            readOnly={readOnly}
+          />
           <TemplateSettings
             projectId={projectId}
             templates={board.plan.project.templates}

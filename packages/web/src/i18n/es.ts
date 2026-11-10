@@ -119,6 +119,39 @@ export const es = {
   "difficulty.low": "Baja",
   "difficulty.medium": "Media",
   "difficulty.high": "Alta",
+  "reviewer.title": "Revisor automático",
+  "reviewer.text":
+    "Un segundo agente revisa, con permisos de solo lectura, el trabajo de un run terminado y deja su veredicto como nota. Nunca acepta ni devuelve la tarea.",
+  "reviewer.launch": "Cuándo revisa",
+  "reviewer.launch.none": "Sin revisor",
+  "reviewer.launch.manual": "Solo cuando lo pida",
+  "reviewer.launch.auto": "Solo, cada vez que una tarea llega a revisión",
+  "reviewer.agent": "Agente revisor",
+  "reviewer.agent.hint": "Siempre con el perfil readonly: lee el worktree y no cambia nada.",
+  "reviewer.save": "Guardar revisor",
+  "reviewer.saved": "Revisor guardado.",
+  "reviewer.removed": "El proyecto ya no tiene revisor.",
+  "reviewer.error.save": "No se pudo guardar el revisor: {message}",
+  "reviewer.request": "Pedir revisión",
+  "reviewer.request.hint": "Otro agente revisa este run en solo lectura y deja su veredicto.",
+  "reviewer.request.none":
+    "Elige un revisor en los ajustes del proyecto para poder pedir una revisión.",
+  "reviewer.requested": "Revisión de {id} lanzada.",
+  "reviewer.reviews": "Revisiones",
+  "reviewer.review.label": "Revisión {id}",
+  "reviewer.review.running": "Revisando…",
+  "reviewer.review.nonote": "Terminó sin dejar veredicto.",
+  "reviewer.verdict.approve": "Aprobaría",
+  "reviewer.verdict.changes": "Pediría cambios",
+  "reviewer.error.invalid_agent":
+    "El agente revisor no está disponible. Elige otro en los ajustes del proyecto.",
+  "reviewer.error.not_reviewable":
+    "Ya no se puede revisar este run de {id}: ya no está en revisión o su worktree no existe.",
+  "reviewer.error.active_run":
+    "Ya hay una revisión en marcha para este run de {id}. Espera a que termine.",
+  "reviewer.error.no_adapter":
+    "Konsora no puede lanzar ahora el agente revisor. Comprueba que su CLI está instalado.",
+  "reviewer.error.other": "No se pudo pedir la revisión de {id}: {message}",
   "templates.title": "Plantillas de tarea",
   "templates.text":
     "Valores de partida para las tareas que se propongan con una plantilla: la descripción y la dificultad propias sustituyen a las suyas, sus criterios van antes que los propios y las etiquetas se suman.",

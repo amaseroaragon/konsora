@@ -2,7 +2,7 @@
  * Runs as the UI shows them (UI-10): pure functions over the daemon's `run.json` and the lines of
  * `events.jsonl`, so the live log, the touched files and the usage are testable without a DOM.
  */
-import { isActiveRunState, type Run, stableStringify } from "@konsora/core";
+import { isActiveRunState, isReviewRun, type Run, stableStringify } from "@konsora/core";
 import { type MessageKey, t } from "../i18n/index.ts";
 import type { RunLogEvent, RunLogEventKind } from "../ui/index.ts";
 
@@ -33,9 +33,17 @@ export function appendEvent(
   return list;
 }
 
+/**
+ * The runs that work on a task. Review runs (CORE-13) only read another run's work: they never
+ * stand for the task's run, its review or its worktree.
+ */
+function workRuns(runs: readonly Run[] | undefined, task: string): Run[] {
+  return (runs ?? []).filter((run) => run.task === task && !isReviewRun(run));
+}
+
 /** The task's latest run, if any. */
 export function latestRun(runs: readonly Run[] | undefined, task: string): Run | undefined {
-  return [...(runs ?? [])].reverse().find((run) => run.task === task);
+  return workRuns(runs, task).at(-1);
 }
 
 /**
@@ -51,7 +59,7 @@ export function reviewRun(runs: readonly Run[] | undefined, task: string): Run |
 }
 
 export function activeRun(runs: readonly Run[] | undefined, task: string): Run | undefined {
-  return (runs ?? []).find((run) => run.task === task && isActiveRunState(run.state));
+  return workRuns(runs, task).find((run) => isActiveRunState(run.state));
 }
 
 /** Run is offered only on a ready task, outside read-only mode, with no run already active. */
@@ -397,6 +405,6 @@ export function olderDiscardable(
   task: string,
   shown: string | undefined = latestRun(runs, task)?.id,
 ): Run[] {
-  const mine = (runs ?? []).filter((run) => run.task === task && run.id !== shown);
+  const mine = workRuns(runs, task).filter((run) => run.id !== shown);
   return mine.filter(canDiscard).reverse();
 }
