@@ -2701,7 +2701,7 @@
     {
       "id": "UI-21",
       "title": "Dificultad y modelo recomendado en la UI",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "CORE-09"
@@ -2729,7 +2729,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:27:02Z",
+      "updated_at": "2026-11-10T09:38:05Z",
       "notes": [
         {
           "id": "n1",
@@ -2795,7 +2795,7 @@
     {
       "id": "UI-23",
       "title": "Mostrar el coste acumulado en la UI",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "CORE-11"
@@ -2819,7 +2819,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:31:52Z",
+      "updated_at": "2026-11-10T09:38:08Z",
       "notes": [
         {
           "id": "n1",
@@ -2840,7 +2840,7 @@
     {
       "id": "UI-24",
       "title": "Comparar variantes en la revisión",
-      "state": "review",
+      "state": "done",
       "group": "UI",
       "deps": [
         "RUN-28"
@@ -2864,7 +2864,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:35:55Z",
+      "updated_at": "2026-11-10T09:38:11Z",
       "notes": [
         {
           "id": "n1",
@@ -4812,7 +4812,7 @@
     {
       "id": "RUN-30",
       "title": "Verificación de M9b con agentes reales",
-      "state": "todo",
+      "state": "review",
       "group": "RUN",
       "deps": [
         "CLI-05",
@@ -4849,7 +4849,30 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:06:28Z"
+      "updated_at": "2026-11-10T09:54:57Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:44:13Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Repo fixture en el scratchpad con un daemon aparte (su propio directorio de datos) y los CLI reales con modelos baratos. Recorridos: 1) konsora plan (su comando, en modo -p con las respuestas del humano en el prompt porque la sesión es interactiva) que propone un lote con dificultad y plantilla; 2) una tarea con variantes Claude y Codex, elegir una e integrarla; 3) revisor automático con su nota; 4) run interrumpido por un reinicio y retomado; 5) coste acumulado. Un script hace de humano con una política estrecha para las aprobaciones."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:54:46Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Verificación con agentes reales (autorizada por el humano), 2026-11-10: Claude Code 2.1.322 (haiku), Codex 0.166.0 (gpt-6-luna, esfuerzo low, app-server, versión esperada), Node 22.22.2, git 2.43.0. Repo fixture y un daemon aparte con su propio KONSORA_DATA_DIR en el scratchpad; un script hacía de humano para las aprobaciones con una política estrecha, pero no hubo ninguna petición. Proyecto: plantilla nota (dificultad low, etiqueta docs, 1 criterio), recommended low → claude haiku y medium → codex gpt-6-luna low, check_retries 1. (1) konsora plan: el comando exacto de planCommand con -p y las respuestas del humano en el objetivo (la sesión es interactiva). Primer intento fallido por un bug real: '--allowedTools <tools> <prompt>' se tragaba el prompt (Claude lo toma como otra herramienta); arreglado en 4cf… (fix(cli)), con test. Después: 17 s, 0,0056 USD, propuso DOC-01 y DOC-02 (plantilla nota, low, ac1 y etiqueta de la plantilla) y DOC-03 (medium, deps DOC-01 y DOC-02). (2) Variantes de DOC-01 con claude haiku y codex gpt-6-luna: 21 s, dos worktrees y ramas, la tarea a review con las dos; accept antes de elegir → 409 variant_not_chosen; elegida la de Claude (la de Codex inventaba Python y requirements.txt) y aceptada: 1 commit (3d4f4a8) con su nota, sin worktrees ni ramas konsora/*, la perdedora discarded con su diff. (3) Revisor auto codex gpt-6-luna: DOC-02 se lanzó sin agente y el daemon usó el recomendado para low (claude haiku); al llegar a review, exactamente un run de revisión (kind review, readonly, en el worktree del run) dejó una nota review con verdict approve y sus motivos; tarea en review y worktree intacto. (4) DOC-03 (medium → codex por recomendación): SIGTERM al daemon en running → el run quedó interrupted con session_id, sin procesos huérfanos y worktree limpio; nuevo daemon, POST resume → el mismo run, nota «resumed … in the agent's session», succeeded y review (y su revisión automática). (5) Coste: 6 runs, 1.192.650 tokens de entrada y 7.419 de salida, 0,013663 USD conocidos y 4 runs de Codex sin coste; la UI (ProjectView con los runs y el tablero reales, renderizado con sus componentes) da lo mismo en la cabecera del grupo, la vista Coste y el panel (DOC-03: 313.1k / 977, desconocido). Encontrado y arreglado en la UI: 1200.1k en vez de 1.2M, $0.01 que ocultaba 0,0137 USD, y una nota que hablaba de runs sin uso cuando no los había (b26b755). Observado sin arreglar: el revisor de Codex escribió su nota en inglés (el prompt de revisión está en inglés) mientras los resúmenes iban en español. Gasto total conocido unos 0,019 USD de Claude, más los tokens de Codex."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-10T09:54:57Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Los cinco recorridos de M9b, hechos con Claude Code 2.1.322 (haiku) y Codex 0.166.0 (gpt-6-luna, low) en un repo fixture con un daemon aparte; detalles en la nota (el arreglo de konsora plan es el commit 7c60771, no «4cf…» como dice la nota). ac1: (1) konsora plan propuso un lote con dificultad (low, low, medium), la plantilla nota en dos tareas y las dependencias del índice; (2) DOC-01 con variantes Claude y Codex, accept antes de elegir → variant_not_chosen, elegida e integrada en 1 commit, sin worktrees ni ramas; (3) revisor automático: un solo run de revisión readonly dejó una nota review con verdict approve y la tarea siguió en review; (4) run de Codex interrumpido por SIGTERM al daemon, sin procesos huérfanos, retomado en su sesión con POST resume y terminado en review; (5) coste acumulado en la UI. ac2: el total de la UI (6 runs, 1.2M/7.4k tokens, $0.014 + 4 sin coste) y el de DOC-03 (313.1k / 977, desconocido) coinciden con la suma de sus runs, renderizando ProjectView con los runs y el tablero reales. ac3: versiones, tiempos (17 s, 21 s, 33 s), gasto (unos 0,019 USD de Claude más tokens de Codex sin coste) y lo observado, en la nota. Encontrado y arreglado: konsora plan --agent claude abría la sesión sin el prompt (--allowedTools variádico; 7c60771, con test) y tres defectos de formato del coste con cifras reales (b26b755, con tests). Sin arreglar: la nota del revisor sale en inglés. npm run check: 1053 tests en verde."
+        }
+      ]
     },
     {
       "id": "DESK-01",
