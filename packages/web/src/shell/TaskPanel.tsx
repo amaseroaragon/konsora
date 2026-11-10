@@ -25,7 +25,7 @@ import {
   variantStart,
   variantsProblem,
 } from "./agent-model.ts";
-import { opErrorText } from "./board-model.ts";
+import { confirmWithdraw, opErrorText } from "./board-model.ts";
 import { CostSummaryView } from "./CostSummary.tsx";
 import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
@@ -48,6 +48,7 @@ import { VariantCompare } from "./VariantCompare.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   approve: "action.approve",
+  withdraw: "action.withdraw",
   answer: "action.answer",
   accept: "action.accept",
   "send-back": "action.send-back",
@@ -60,6 +61,7 @@ const TEXT_LABEL: Partial<Record<TaskAction, MessageKey>> = {
 };
 const DONE: Record<TaskAction, MessageKey> = {
   approve: "move.done.approve",
+  withdraw: "move.done.withdraw",
   answer: "move.done.answer",
   accept: "move.done.accept",
   "send-back": "move.done.send-back",
@@ -96,6 +98,8 @@ function Actions({
     ) {
       return;
     }
+    if (action === "withdraw" && !confirmWithdraw(task.id, (question) => window.confirm(question)))
+      return;
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
       {

@@ -132,6 +132,13 @@ describe("availableActions", () => {
     expect(availableActions(doc, id)).toEqual(actions);
   });
 
+  it("offers withdrawing a proposal only while nothing depends on it", () => {
+    expect(availableActions(doc, "BE-05")).not.toContain("withdraw"); // BE-07 depends on it
+    const alone = { ...doc, tasks: doc.tasks.filter((task) => task.id !== "BE-07") };
+    expect(availableActions(alone, "BE-05")).toEqual(["approve", "withdraw"]);
+    expect(availableActions(doc, "BE-06")).not.toContain("withdraw"); // approved work
+  });
+
   it("offers answering only while a question is open", () => {
     expect(availableActions(withQuestion, "BE-06")).toEqual(["answer"]);
   });

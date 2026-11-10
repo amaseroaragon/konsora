@@ -106,12 +106,20 @@ export function planMove(
 }
 
 /** Actions offered as buttons on a task (UI-03), in display order. */
-export const TASK_ACTIONS = ["approve", "answer", "accept", "send-back", "reopen"] as const;
+export const TASK_ACTIONS = [
+  "approve",
+  "withdraw",
+  "answer",
+  "accept",
+  "send-back",
+  "reopen",
+] as const;
 export type TaskAction = (typeof TASK_ACTIONS)[number];
 
 /** Text each action asks for: required, optional or none. */
 export const ACTION_TEXT: Record<TaskAction, "required" | "optional" | "none"> = {
   approve: "none",
+  withdraw: "none",
   answer: "required",
   accept: "none",
   "send-back": "required",
