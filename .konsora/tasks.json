@@ -9,6 +9,30 @@
       "model": "opus",
       "effort": "high"
     },
+    "recommended": {
+      "low": {
+        "provider": "claude",
+        "model": "haiku",
+        "effort": "high",
+        "permissions": "default"
+      },
+      "medium": {
+        "provider": "codex",
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "permissions": "default"
+      },
+      "high": {
+        "provider": "claude",
+        "model": "opus",
+        "effort": "high",
+        "permissions": "default"
+      }
+    },
+    "setup": {
+      "run": "npm ci",
+      "timeout_s": 600
+    },
     "checks": [
       {
         "id": "check",
@@ -50,7 +74,7 @@
   "seq": {
     "CORE": 15,
     "CLI": 5,
-    "DMN": 10,
+    "DMN": 11,
     "UI": 41,
     "MCP": 7,
     "RUN": 32,
@@ -821,7 +845,7 @@
     {
       "id": "CORE-15",
       "title": "Op para cambiar el agente por defecto del proyecto",
-      "state": "proposed",
+      "state": "doing",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzzzr",
       "desc": "`project.defaults` solo lo pone `konsora init`: ninguna op lo cambia. Nueva op humana `set-defaults` {agent | null}, validada con AgentSpecSchema, con su esquema, roles, serializador y docs en esquema-tareas.md.",
@@ -843,7 +867,17 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:27:03Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T10:27:03Z",
+          "by": "konsora",
+          "kind": "note",
+          "text": "Konsora run r-01M72FYE7VMMRSVZ3FYX66C12T started.",
+          "run": "r-01M72FYE7VMMRSVZ3FYX66C12T"
+        }
+      ]
     },
     {
       "id": "CLI-01",
@@ -1659,6 +1693,41 @@
           "text": "ac1 (causa, anotada también en la nota anterior). No era un solo test, sino cuatro suposiciones de plazo o de concurrencia en los tests, ninguna en el código:\n1) m9.test.ts (la más frecuente; 4 de 19 pasadas): el agente falso llamaba a la CLI con execFileSync desde el proceso del daemon, lo que congelaba al daemon mientras tenía el lock de tasks.json, y la CLI se rendía a los 5 s. Lo mismo, latente, en queue.test.ts y runs.test.ts. Arreglo: llamadas asíncronas (b761776).\n2) m9.test.ts: suponía que BE-04 arrancaba antes de que BE-01 acabase sus 300 ms (maxLive 1). Ahora retiene ambas raíces hasta que las dos corren (b761776).\n3) claude.test.ts: mataba al falso \"stubborn\" a los 300 ms fijos, a veces antes de que ignorase SIGTERM. Ahora espera a su línea init (dedc234).\n4) supervisor.test.ts: esperaba el estado running 200 ms después de la pregunta; con carga llegaba más tarde, y la limpieza del test chocaba con esa escritura (ENOENT en rename). Ahora espera el estado (f8f7da9).\nac2: con f022f61, 22 pasadas seguidas de npm run check en un worktree aislado, sin nada más ejecutándose: la 1 y de la 3 a la 22 pasaron (20 seguidas, 953 tests cada una, sin errores no capturados). La 2 falló: la causa 4 (arreglada después en f8f7da9) y dos timeouts de 5 s en tests que tardan 187 y 308 ms (recover.test y mcp-write.test), a la vez y en paquetes distintos, lo que apunta a un parón de la máquina. Después del arreglo, npm run check pasa (953).\nPendiente: los timeouts por parón de la máquina no se arreglan con código. Si vuelven a aparecer, habría que subir el testTimeout por defecto de vitest (5 s). Tampoco he repetido las 20 pasadas después de f8f7da9."
         }
       ]
+    },
+    {
+      "id": "DMN-11",
+      "title": "Ejecutar respeta max_parallel y ofrece Encolar si no hay hueco",
+      "state": "proposed",
+      "group": "DMN",
+      "rank": "zzzzzzzzzzzzzzzzx",
+      "desc": "Hoy Ejecutar (panel y barra de selección) lanza el run al momento aunque se supere max_parallel: el límite solo lo aplica el scheduler de la cola, y solo las variantes comprueban los huecos. Un run lanzado a mano debe respetar los mismos límites que la cola, global y por proveedor, con fitsSlots de core: POST /projects/:id/runs {task, agent?} responde 409 no_slots, sin crear nada, si no cabe. En la UI, ese rechazo se explica en español con un botón Encolar que añade la tarea a la cola con el mismo agente. La barra de selección lanza las que caben y ofrece encolar el resto. Los runs de revisión y de rebase, que el humano pide sobre trabajo ya hecho, siguen sin ocupar este límite, como ahora.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con max_parallel 1 y un run activo, POST /runs de otra tarea responde 409 no_slots sin crear run, worktree ni rama, también con el límite por proveedor (test del daemon)"
+        },
+        {
+          "id": "ac2",
+          "text": "El panel explica el rechazo y su botón Encolar envía la tarea a la cola con el agente elegido (test de la petición)"
+        },
+        {
+          "id": "ac3",
+          "text": "La barra de selección lanza las tareas que caben y ofrece encolar las demás (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Los docs de la cola y de la API dicen que max_parallel limita también los runs lanzados a mano"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-10T10:30:00Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:30:00Z"
     },
     {
       "id": "UI-01",
@@ -3201,7 +3270,7 @@
     {
       "id": "UI-33",
       "title": "Rechazar propuestas desde la UI",
-      "state": "proposed",
+      "state": "doing",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzy",
       "desc": "Una propuesta de un agente solo se puede aprobar. El humano también puede retirarla (`withdraw`): el panel de una tarea propuesta ofrece «Rechazar», con confirmación y un motivo opcional que queda como nota.",
@@ -3223,7 +3292,17 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:18:09Z"
+      "updated_at": "2026-11-10T10:27:20Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T10:27:20Z",
+          "by": "konsora",
+          "kind": "note",
+          "text": "Konsora run r-01M72FYYQTY8C4Y3KZ471JTXSD started.",
+          "run": "r-01M72FYYQTY8C4Y3KZ471JTXSD"
+        }
+      ]
     },
     {
       "id": "UI-34",
