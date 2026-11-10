@@ -2,6 +2,8 @@ import {
   ACTION_TEXT,
   type AgentSpec,
   availableActions,
+  MAX_VARIANTS,
+  MIN_VARIANTS,
   type Run,
   type TaskAction,
   type TasksDocument,
@@ -11,11 +13,18 @@ import { type FormEvent, useState } from "react";
 import { useAgents } from "../api/agents.ts";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
-import { useStartRun } from "../api/runs.ts";
+import { useStartRun, useStartVariants } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { AgentPicker } from "./AgentPicker.tsx";
-import { agentProblem, agentReason, difficultyText, taskAgent } from "./agent-model.ts";
+import {
+  agentProblem,
+  agentReason,
+  difficultyText,
+  taskAgent,
+  variantStart,
+  variantsProblem,
+} from "./agent-model.ts";
 import { opErrorText } from "./board-model.ts";
 import { CostSummaryView } from "./CostSummary.tsx";
 import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "./checks-model.ts";
@@ -25,8 +34,17 @@ import { OlderRuns } from "./OlderRuns.tsx";
 import { ReviewSection } from "./ReviewSection.tsx";
 import { RunSection } from "./RunSection.tsx";
 import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
-import { canRun, latestRun, olderDiscardable, reviewRun, runErrorText } from "./run-model.ts";
+import {
+  canRun,
+  latestRun,
+  olderDiscardable,
+  reviewRun,
+  runErrorText,
+  taskVariants,
+  variantsToChoose,
+} from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
+import { VariantCompare } from "./VariantCompare.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   approve: "action.approve",
@@ -181,7 +199,10 @@ function Actions({
   );
 }
 
-/** Launches a run of a ready task (Claude, default profile, until the selector of M7). */
+/**
+ * Launches a run of a ready task with the agent of the selector, or 2 or 3 variants of it with
+ * different agents (UI-24), each in its own worktree; the human chooses the best in review.
+ */
 function RunButton({
   projectId,
   task,
@@ -192,13 +213,86 @@ function RunButton({
   doc: TasksDocument;
 }) {
   const start = useStartRun(projectId);
+  const startVariants = useStartVariants(projectId);
   const toast = useToast();
   const agents = useAgents();
   const catalog = agents.data;
   const [chosen, setChosen] = useState<AgentSpec | undefined>(undefined);
+  /** The variants' agents, while "Run with several agents" is open. */
+  const [variants, setVariants] = useState<AgentSpec[] | null>(null);
   const resolved = catalog ? taskAgent(task, doc.project, catalog) : undefined;
   const agent = chosen ?? resolved?.agent;
   const problem = agentProblem(agent, catalog);
+  const failed = (error: Error) => {
+    if (error instanceof ApiError && error.unauthorized) return;
+    const code = error instanceof ApiError ? error.code : "error";
+    toast.show(runErrorText(code, task.id, error.message), "error");
+  };
+  if (variants && catalog) {
+    const issue = variantsProblem(variants, catalog);
+    return (
+      <div className="a-stack b-variants-run">
+        <div className="k-label">{t("variants.run.title")}</div>
+        {variants.map((variant, index) => (
+          <div key={String(index)} className="a-stack">
+            <AgentPicker
+              label={t("variants.agent", { n: index + 1 })}
+              agent={variant}
+              catalog={catalog}
+              onChange={(next) => setVariants(variants.map((v, i) => (i === index ? next : v)))}
+            />
+            {variants.length > MIN_VARIANTS && (
+              <div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setVariants(variants.filter((_, i) => i !== index))}
+                >
+                  {t("variants.remove", { n: index + 1 })}
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+        {issue && (
+          <p className="k-field__error" role="alert">
+            {issue}
+          </p>
+        )}
+        <div className="a-actions">
+          <Button
+            variant="primary"
+            busy={startVariants.isPending}
+            disabled={issue !== null || variants.length < MIN_VARIANTS}
+            title={t("variants.run.hint")}
+            onClick={() =>
+              startVariants.mutate(
+                { task: task.id, agents: variants },
+                {
+                  onSuccess: (runs) =>
+                    toast.show(t("variants.started", { id: task.id, n: runs.length }), "success"),
+                  onError: failed,
+                },
+              )
+            }
+          >
+            {t("variants.run", { n: variants.length })} →
+          </Button>
+          {variants.length < MAX_VARIANTS && (
+            <Button
+              variant="secondary"
+              onClick={() => setVariants([...variants, variants.at(-1) ?? (agent as AgentSpec)])}
+            >
+              {t("variants.add")}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => setVariants(null)}>
+            {t("variants.single")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="a-stack">
       {catalog ? (
@@ -221,17 +315,18 @@ function RunButton({
               { task: task.id, agent: catalog ? agent : undefined },
               {
                 onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
-                onError: (error) => {
-                  if (error instanceof ApiError && error.unauthorized) return;
-                  const code = error instanceof ApiError ? error.code : "error";
-                  toast.show(runErrorText(code, task.id, error.message), "error");
-                },
+                onError: failed,
               },
             )
           }
         >
           {t("run.run")} →
         </Button>
+        {catalog && (
+          <Button variant="secondary" onClick={() => setVariants(variantStart(agent, catalog))}>
+            {t("variants.open")}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -275,6 +370,9 @@ export function TaskPanel({
   const criteria = criterionResults(run);
   const checksFailed = task.state === "review" && runChecksFailed(run);
   const runnable = runs !== undefined && canRun(task, { readOnly, runs, id: task.id });
+  // Variants (UI-24): compared side by side in review until one is chosen; each shown while live.
+  const toChoose = task.state === "review" ? variantsToChoose(runs, task.id) : [];
+  const liveVariants = task.state === "doing" ? taskVariants(runs, task.id) : [];
   return (
     <aside className="a-detail b-panel" aria-label={t("detail.label", { id: task.id })}>
       <div className="a-detail__head">
@@ -319,7 +417,27 @@ export function TaskPanel({
           />
         )}
         {runnable && <RunButton projectId={projectId} task={task} doc={doc} />}
-        {run && (
+        {toChoose.length > 1 ? (
+          <VariantCompare
+            projectId={projectId}
+            variants={toChoose}
+            notes={task.notes}
+            readOnly={readOnly}
+          />
+        ) : liveVariants.length > 1 ? (
+          <section className="a-stack" aria-label={t("variants.live")}>
+            <div className="k-label">{t("variants.live")}</div>
+            {liveVariants.map((variant) => (
+              <RunSection
+                key={variant.id}
+                projectId={projectId}
+                run={variant}
+                readOnly={readOnly}
+              />
+            ))}
+          </section>
+        ) : null}
+        {run && toChoose.length <= 1 && liveVariants.length <= 1 && (
           <RunSection projectId={projectId} run={run} readOnly={readOnly}>
             {task.state === "review" && run.state === "succeeded" && (
               <ReviewSection

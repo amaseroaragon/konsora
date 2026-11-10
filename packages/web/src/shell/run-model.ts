@@ -2,7 +2,15 @@
  * Runs as the UI shows them (UI-10): pure functions over the daemon's `run.json` and the lines of
  * `events.jsonl`, so the live log, the touched files and the usage are testable without a DOM.
  */
-import { isActiveRunState, isReviewRun, type Run, stableStringify } from "@konsora/core";
+import {
+  isActiveRunState,
+  isReviewRun,
+  type Run,
+  stableStringify,
+  variantCandidates,
+  variantGroup,
+  variantsOutcome,
+} from "@konsora/core";
 import { type MessageKey, t } from "../i18n/index.ts";
 import type { RunLogEvent, RunLogEventKind } from "../ui/index.ts";
 
@@ -52,10 +60,35 @@ export function latestRun(runs: readonly Run[] | undefined, task: string): Run |
  */
 export function reviewRun(runs: readonly Run[] | undefined, task: string): Run | undefined {
   const latest = latestRun(runs, task);
+  // Variants (RUN-28): once one is chosen (or only one succeeded), the review is about it.
+  if (latest?.variant_of) {
+    const candidates = variantCandidates(workRuns(runs, task), latest.variant_of);
+    if (candidates.length === 1) return candidates[0];
+  }
   if (!latest?.rebase_of || latest.state === "succeeded" || isActiveRunState(latest.state)) {
     return latest;
   }
   return (runs ?? []).find((run) => run.id === latest.rebase_of) ?? latest;
+}
+
+/** The variants of the task's latest run (UI-24), oldest first; none if it is not a variant. */
+export function taskVariants(runs: readonly Run[] | undefined, task: string): Run[] {
+  const latest = latestRun(runs, task);
+  return latest?.variant_of ? variantGroup(workRuns(runs, task), latest.variant_of) : [];
+}
+
+/**
+ * The variants the human still has to choose from: those that succeeded and were not discarded,
+ * once every variant of the group has closed, when there are two or more.
+ */
+export function variantsToChoose(runs: readonly Run[] | undefined, task: string): Run[] {
+  const latest = latestRun(runs, task);
+  const group = latest?.variant_of;
+  if (!group) return [];
+  const mine = workRuns(runs, task);
+  if (variantsOutcome(mine, group) === "running") return [];
+  const candidates = variantCandidates(mine, group);
+  return candidates.length > 1 ? candidates : [];
 }
 
 export function activeRun(runs: readonly Run[] | undefined, task: string): Run | undefined {
@@ -344,6 +377,14 @@ export function runErrorText(code: string, id: string, message: string): string 
       return t("run.error.not_active");
     case "not_discardable":
       return t("run.error.not_discardable", { message });
+    case "no_slots":
+      return t("variants.error.no_slots", { id });
+    case "invalid_agent":
+      return t("variants.error.invalid_agent", { id });
+    case "variants_running":
+      return t("variants.error.running", { id });
+    case "not_choosable":
+      return t("variants.error.not_choosable", { id });
     default:
       return t("run.error.other", { id, message });
   }

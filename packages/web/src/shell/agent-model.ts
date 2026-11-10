@@ -214,3 +214,42 @@ const PROBLEM = {
   model: "agent.problem.model",
   effort: "agent.problem.effort",
 } as const satisfies Record<Exclude<AgentCheck, { ok: true }>["code"], MessageKey>;
+
+/**
+ * Where "Run with several agents" starts (UI-24): the task's agent and a different one, from
+ * another provider if one is installed, else another model of the same one.
+ */
+export function variantStart(
+  agent: AgentSpec | undefined,
+  catalog: readonly AgentCatalogEntry[],
+): AgentSpec[] {
+  const first = agent ?? firstAgent(catalog);
+  if (!first) return [];
+  const candidates = catalog
+    .filter((entry) => entry.installed)
+    .flatMap((entry) =>
+      entry.models.map((model) => ({
+        provider: entry.provider,
+        model: model.id,
+        permissions: entry.profiles[0] ?? "default",
+      })),
+    );
+  const other =
+    candidates.find((c) => c.provider !== first.provider) ??
+    candidates.find((c) => c.model !== first.model);
+  return other ? [first, other] : [first];
+}
+
+/** Why the variants cannot run: an agent the catalog cannot run, or two that are the same. */
+export function variantsProblem(
+  agents: readonly AgentSpec[],
+  catalog: readonly AgentCatalogEntry[] | undefined,
+): string | null {
+  for (const agent of agents) {
+    const problem = agentProblem(agent, catalog);
+    if (problem) return problem;
+  }
+  const keys = agents.map((a) => JSON.stringify([a.provider, a.model, a.effort ?? null]));
+  if (new Set(keys).size !== keys.length) return t("variants.error.same");
+  return null;
+}

@@ -116,6 +116,34 @@ export const es = {
   "settings.error.setup.empty": "Escribe el comando de preparación o deja vacío también su tiempo.",
   "settings.error.forbidden": "Solo tú, desde Konsora, puedes cambiar los ajustes.",
   "settings.error.other": "No se pudieron guardar los ajustes: {message}",
+  "variants.open": "Ejecutar con varios agentes",
+  "variants.run.title": "Variantes: la misma tarea con varios agentes a la vez",
+  "variants.run.hint":
+    "Cada variante trabaja en su propio worktree y rama; en la revisión eliges la mejor y las demás se descartan.",
+  "variants.agent": "Agente de la variante {n}",
+  "variants.remove": "Quitar la variante {n}",
+  "variants.add": "Añadir otra variante",
+  "variants.single": "Un solo agente",
+  "variants.run": "Ejecutar {n} variantes",
+  "variants.started": "{n} variantes de {id} lanzadas.",
+  "variants.error.same": "Elige agentes distintos para cada variante.",
+  "variants.error.no_slots":
+    "No caben todas las variantes de {id} ahora: sube el máximo en paralelo en la cola o espera a que terminen otros runs.",
+  "variants.error.invalid_agent":
+    "Uno de los agentes de {id} no está disponible. Elige otro modelo o proveedor.",
+  "variants.error.running": "Aún hay variantes de {id} en marcha. Espera a que terminen todas.",
+  "variants.error.not_choosable":
+    "Esa variante de {id} ya no se puede elegir: no terminó bien o ya se descartó.",
+  "variants.compare.title": "Compara las variantes",
+  "variants.compare.text":
+    "Elige la que quieres integrar; las demás se descartan (se borran su worktree y su rama, y se conservan su run y su diff). Después podrás aceptar.",
+  "variants.label": "Variante {n}",
+  "variants.choose": "Elegir esta",
+  "variants.chosen": "Variante elegida para {id}; las demás se descartaron.",
+  "variants.checks.none": "Sin checks",
+  "variants.summary.none": "Sin resumen del agente.",
+  "variants.live": "Variantes en marcha",
+  "variants.accept.first": "{id} tiene varias variantes: elige una antes de aceptar.",
   "cost.title": "Uso acumulado",
   "cost.page.title": "Uso y coste del proyecto",
   "cost.page.text":

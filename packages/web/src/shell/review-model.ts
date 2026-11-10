@@ -112,6 +112,7 @@ export function integrationErrorText(
   id: string,
   files: readonly string[] = [],
 ): string | null {
+  if (code === "variant_not_chosen") return t("variants.accept.first", { id });
   if (!code.startsWith("integration_")) return null;
   const list = files.join(", ");
   switch (code) {

@@ -4,7 +4,7 @@
  */
 import { type CheckResult, checkPassed, type Run, type RunCheckResult } from "@konsora/core";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { latestRun } from "./run-model.ts";
+import { reviewRun } from "./run-model.ts";
 
 /** "1,2 s", "850 ms", "2 min 05 s". */
 export function formatDuration(ms: number): string {
@@ -49,7 +49,7 @@ export function failingReviews(
 ): Set<string> {
   const ids = new Set<string>();
   for (const task of tasks) {
-    if (task.state === "review" && runChecksFailed(latestRun(runs, task.id))) ids.add(task.id);
+    if (task.state === "review" && runChecksFailed(reviewRun(runs, task.id))) ids.add(task.id);
   }
   return ids;
 }

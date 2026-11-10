@@ -48,6 +48,51 @@ export async function startRunRequest(
   return (await api.post<{ run: Run }>(base(project), body)).run;
 }
 
+/** `POST /projects/:id/runs` with `agents`: the human launches 2 or 3 variants (RUN-28). */
+export async function startVariantsRequest(
+  api: Api,
+  project: string,
+  input: { task: string; agents: readonly AgentSpec[] },
+): Promise<Run[]> {
+  return (
+    await api.post<{ runs: Run[] }>(base(project), { task: input.task, agents: input.agents })
+  ).runs;
+}
+
+/** `POST /projects/:id/runs/:run/choose`: the human picks the winning variant. */
+export async function chooseVariantRequest(api: Api, project: string, run: string): Promise<Run> {
+  return (await api.post<{ run: Run }>(`${base(project)}/${encodeURIComponent(run)}/choose`)).run;
+}
+
+export function useStartVariants(project: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { task: string; agents: readonly AgentSpec[] }) =>
+      startVariantsRequest(api, project, input),
+    onSuccess: (started) =>
+      client.setQueryData<Run[]>(runsKey(project), (runs) =>
+        started.reduce<Run[]>((list, run) => upsertRun(list, run), [...(runs ?? [])]),
+      ),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: runsKey(project) });
+      client.invalidateQueries({ queryKey: boardKey(project) });
+    },
+  });
+}
+
+/** Choosing discards the other variants: the runs are read again to show it. */
+export function useChooseVariant(project: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (run: string) => chooseVariantRequest(api, project, run),
+    onSuccess: (run) =>
+      client.setQueryData<Run[]>(runsKey(project), (runs) => upsertRun(runs, run)),
+    onSettled: () => client.invalidateQueries({ queryKey: runsKey(project) }),
+  });
+}
+
 /** `POST /projects/:id/runs/:run/cancel`. */
 export async function cancelRunRequest(api: Api, project: string, run: string): Promise<Run> {
   return (await api.post<{ run: Run }>(`${base(project)}/${encodeURIComponent(run)}/cancel`)).run;
