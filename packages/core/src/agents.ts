@@ -18,16 +18,35 @@ import {
  * human (besides the project's checks): `prefix` commands take any arguments, the others only as
  * written. Any other command waits for the human's approval. The Claude adapter turns them into
  * `--allowedTools` rules and the run's prompt names them.
+ *
+ * The read-only ones (CORE-16) never include a command that can write (`sed -i`, `find`, `tee`,
+ * redirections). `native` commands get no rule: Claude Code already allows them and checks their
+ * options itself, and a prefix rule would skip that check (with Claude Code 2.1.322,
+ * `Bash(rg:*)` let `rg --pre <program>` run and `Bash(sed -n:*)` let `sed -n '1w file'` write).
  */
-export const DEFAULT_PROFILE_COMMANDS: readonly { command: string; prefix: boolean }[] = [
+export const DEFAULT_PROFILE_COMMANDS: readonly {
+  command: string;
+  prefix: boolean;
+  native?: boolean;
+}[] = [
   { command: "npm run", prefix: true },
   { command: "npm test", prefix: true },
   { command: "npm ci", prefix: false },
   { command: "git status", prefix: true },
   { command: "git diff", prefix: true },
   { command: "git log", prefix: true },
+  { command: "git show", prefix: true },
+  { command: "git blame", prefix: true },
   { command: "git add", prefix: true },
   { command: "git commit", prefix: true },
+  { command: "ls", prefix: true },
+  { command: "cat", prefix: true },
+  { command: "head", prefix: true },
+  { command: "tail", prefix: true },
+  { command: "wc", prefix: true },
+  { command: "grep", prefix: true },
+  { command: "rg", prefix: true, native: true },
+  { command: "sed -n", prefix: true, native: true },
 ];
 
 /**

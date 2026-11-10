@@ -214,12 +214,19 @@ describe("tool guidance (RUN-26)", () => {
     ];
     for (const prompt of prompts) {
       expect(prompt).toContain(guidance);
-      expect(prompt).toContain(
-        "`git add …`, `git commit …` and the project's checks without asking",
-      );
+      expect(prompt).toContain("`git add …`, `git commit …`,");
       expect(prompt).toContain("`npm ci`,");
       expect(prompt).toContain("any other command may wait for the human's approval");
     }
+  });
+
+  it("names the read-only commands the default profile allows, and none that writes (CORE-16)", () => {
+    const prompt = buildRunPrompt(document, "BE-02");
+    expect(prompt).toContain(
+      "`git show …`, `git blame …`, `git add …`, `git commit …`, `ls …`, `cat …`, `head …`, " +
+        "`tail …`, `wc …`, `grep …`, `rg …`, `sed -n …` and the project's checks without asking",
+    );
+    expect(prompt).not.toMatch(/`(sed -i|find|tee)\b/);
   });
 });
 

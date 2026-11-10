@@ -55,7 +55,9 @@ const DEFAULT_TOOLS = [
   "NotebookEdit",
   "TodoWrite",
   "mcp__konsora",
-  ...DEFAULT_PROFILE_COMMANDS.map(({ command, prefix }) =>
+  // `native` commands get no rule: Claude Code allows them itself and a rule would skip its
+  // check of their options (`rg --pre`, `sed -n 'w file'`).
+  ...DEFAULT_PROFILE_COMMANDS.filter(({ native }) => !native).map(({ command, prefix }) =>
     prefix ? `Bash(${command}:*)` : `Bash(${command})`,
   ),
 ];

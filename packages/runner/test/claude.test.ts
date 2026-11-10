@@ -238,7 +238,7 @@ describe("arguments and environment", () => {
     expect(tools).not.toContain("Bash");
   });
 
-  it("keeps the default profile's tools exactly as they were (RUN-26: no new permissions)", () => {
+  it("keeps the default profile's tools exactly as listed (RUN-26, CORE-16: only read-only additions)", () => {
     expect(claudeAllowedTools({ agent: spec.agent })).toEqual([
       "Read",
       "Glob",
@@ -254,9 +254,61 @@ describe("arguments and environment", () => {
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git blame:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
     ]);
+  });
+
+  it("allows the read-only commands without asking, never one that writes (CORE-16)", () => {
+    const rules = claudeAllowedTools({ agent: spec.agent })
+      .map((tool) => /^Bash\((.*)\)$/.exec(tool)?.[1])
+      .filter((rule): rule is string => rule !== undefined);
+    // Claude Code's matching of a rule against a single command: `x:*` is `x` with any
+    // arguments, anything else the exact command.
+    const allowedByRule = (command: string) =>
+      rules.some((rule) =>
+        rule.endsWith(":*")
+          ? command === rule.slice(0, -2) || command.startsWith(`${rule.slice(0, -2)} `)
+          : command === rule,
+      );
+    for (const command of [
+      "ls -la packages",
+      "cat package.json",
+      "head -n 20 README.md",
+      "tail -n 5 CHANGELOG.md",
+      "wc -l src/index.ts",
+      "grep -rn foo packages",
+      "git show HEAD",
+      "git blame src/index.ts",
+    ]) {
+      expect(allowedByRule(command), command).toBe(true);
+    }
+    // `rg` and `sed -n` get no rule: Claude Code allows them itself and checks their options
+    // (`rg --pre`, `sed -n 'w file'`), which a prefix rule would skip (Claude Code 2.1.322).
+    for (const command of [
+      "sed -i s/a/b/ file",
+      "sed -n -i s/a/b/ file",
+      "sed -n '1w out' file",
+      "rg --pre ./script foo",
+      "tee out",
+      "find . -delete",
+      "cd /tmp",
+    ]) {
+      expect(allowedByRule(command), command).toBe(false);
+    }
+    // No rule holds a redirection, a pipe nor a chain: they always go through Claude Code's
+    // own check of each part (and `tee` is never allowed).
+    expect(rules.some((rule) => /[<>|;&`$]|\btee\b|\bfind\b|^sed|^rg|^cd\b/.test(rule))).toBe(
+      false,
+    );
   });
 
   it("rejects other permission profiles and option-like values", () => {
