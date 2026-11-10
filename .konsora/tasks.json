@@ -75,7 +75,7 @@
     "CORE": 15,
     "CLI": 5,
     "DMN": 11,
-    "UI": 41,
+    "UI": 42,
     "MCP": 7,
     "RUN": 32,
     "DESK": 5
@@ -845,7 +845,7 @@
     {
       "id": "CORE-15",
       "title": "Op para cambiar el agente por defecto del proyecto",
-      "state": "doing",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzzzzr",
       "desc": "`project.defaults` solo lo pone `konsora init`: ninguna op lo cambia. Nueva op humana `set-defaults` {agent | null}, validada con AgentSpecSchema, con su esquema, roles, serializador y docs en esquema-tareas.md.",
@@ -867,7 +867,7 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:27:03Z",
+      "updated_at": "2026-11-10T10:32:57Z",
       "notes": [
         {
           "id": "n1",
@@ -875,6 +875,14 @@
           "by": "konsora",
           "kind": "note",
           "text": "Konsora run r-01M72FYE7VMMRSVZ3FYX66C12T started.",
+          "run": "r-01M72FYE7VMMRSVZ3FYX66C12T"
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T10:31:20Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Añadida la op humana `set-defaults` {agent | null} para cambiar `project.defaults`.\n\nCambios (2 commits en `konsora/CORE-15/01M72FYE7VMM`):\n- `packages/core/src/ops.ts`: variante `set-defaults` en el tipo `Op`; rol `[\"human\"]` en `ROLES`; `apply` escribe `project.defaults` con una copia del agente o lo borra con `null`. La validación final con `validateDocument` rechaza un agente inválido con `invalid`.\n- `packages/core/src/op-schema.ts`: esquema zod `set-defaults` (`agent: AgentSpecSchema.nullable()`, con `expect`), para validar en los bordes (HTTP, MCP).\n- `packages/core/test/ops.test.ts`: test nuevo \"project.defaults (CORE-15)\": agente y runner reciben `forbidden`; el humano fija el agente, conserva el nombre del proyecto, cambia de agente y `null` quita `defaults`; un `effort` inválido y un campo desconocido dan `invalid`; el esquema de op acepta agente o `null` y rechaza un agente inválido.\n- `packages/core/test/serialize.test.ts`: test de round-trip: `defaults` se serializa en orden canónico (`provider, model, effort`), `serializeDocument(parse(text)) === text` y el agente se conserva al parsear.\n- `docs/esquema-tareas.md` §1: describe `defaults`, quién lo cambia (`set-defaults`), la forma de quitarlo (`agent: null`) y los errores.\n\nCriterios:\n- ac1 (solo humano; valida el agente; null lo quita; tests): cumplido. Cubierto por el test de `ops.test.ts` anterior.\n- ac2 (esquema JSON regenerado; round-trip canónico conserva defaults; test): cumplido. `npm run schema` regenera `schema/tasks.v2.schema.json` sin cambios: el esquema del documento no cambia porque `project.defaults` ya existía; el cambio es solo la op. Cubierto por el test de round-trip de `serialize.test.ts`.\n\nComprobaciones:\n- `npx vitest run packages/core`: 19 ficheros, 328 tests, todos en verde.\n- `npm run check`: exit 0. Biome sin errores (dos formatos de mis tests corregidos con `biome format --write` sobre esos dos ficheros); quedan 2 avisos de biome en `packages/daemon/test/events.test.ts` y `packages/runner/src/worktree.ts`, que ya existían y no toqué. tsc sin errores; vitest: 81 ficheros, 1059 tests, todos en verde.\n\nLimitaciones: no hay UI ni CLI para `set-defaults`; el selector de agente por defecto en los ajustes del proyecto es otra tarea (la descripción de la tarea la sitúa fuera de este alcance). Quedó pendiente aplicar el `expect` del op en la UI.",
           "run": "r-01M72FYE7VMMRSVZ3FYX66C12T"
         }
       ]
@@ -1697,7 +1705,7 @@
     {
       "id": "DMN-11",
       "title": "Ejecutar respeta max_parallel y ofrece Encolar si no hay hueco",
-      "state": "proposed",
+      "state": "doing",
       "group": "DMN",
       "rank": "zzzzzzzzzzzzzzzzx",
       "desc": "Hoy Ejecutar (panel y barra de selección) lanza el run al momento aunque se supere max_parallel: el límite solo lo aplica el scheduler de la cola, y solo las variantes comprueban los huecos. Un run lanzado a mano debe respetar los mismos límites que la cola, global y por proveedor, con fitsSlots de core: POST /projects/:id/runs {task, agent?} responde 409 no_slots, sin crear nada, si no cabe. En la UI, ese rechazo se explica en español con un botón Encolar que añade la tarea a la cola con el mismo agente. La barra de selección lanza las que caben y ofrece encolar el resto. Los runs de revisión y de rebase, que el humano pide sobre trabajo ya hecho, siguen sin ocupar este límite, como ahora.",
@@ -1727,7 +1735,17 @@
         "at": "2026-11-10T10:30:00Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:30:00Z"
+      "updated_at": "2026-11-10T10:36:27Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T10:36:27Z",
+          "by": "konsora",
+          "kind": "note",
+          "text": "Konsora run r-01M72GFNAT2XBHKX4REM9VKHVJ started.",
+          "run": "r-01M72GFNAT2XBHKX4REM9VKHVJ"
+        }
+      ]
     },
     {
       "id": "UI-01",
@@ -3270,7 +3288,7 @@
     {
       "id": "UI-33",
       "title": "Rechazar propuestas desde la UI",
-      "state": "doing",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzzzzzy",
       "desc": "Una propuesta de un agente solo se puede aprobar. El humano también puede retirarla (`withdraw`): el panel de una tarea propuesta ofrece «Rechazar», con confirmación y un motivo opcional que queda como nota.",
@@ -3292,7 +3310,7 @@
         "at": "2026-11-10T10:18:09Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T10:27:20Z",
+      "updated_at": "2026-11-10T10:34:39Z",
       "notes": [
         {
           "id": "n1",
@@ -3300,6 +3318,37 @@
           "by": "konsora",
           "kind": "note",
           "text": "Konsora run r-01M72FYYQTY8C4Y3KZ471JTXSD started.",
+          "run": "r-01M72FYYQTY8C4Y3KZ471JTXSD"
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T10:31:37Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Hecho hasta ahora, en dos commits: `withdraw` aparece en `availableActions` para una propuesta de la que nada depende (core, d7e7068), y el panel de una propuesta ofrece «Rechazar», que pide confirmación antes de enviar `withdraw` (web, 732c1c2). Los tests de la petición y de la confirmación pasan, y `npm run check` pasa con 1061 tests. Queda pendiente el motivo opcional: `withdraw` borra la tarea, así que no hay dónde guardarlo como nota.",
+          "run": "r-01M72FYYQTY8C4Y3KZ471JTXSD"
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-10T10:31:38Z",
+          "by": "agent:claude",
+          "kind": "question",
+          "text": "Rechazar ya envía `withdraw` tras confirmar (ac1 y ac2 cumplidos). El motivo opcional no lo envío: `withdraw` borra la propuesta del plan, así que una nota sobre ella se pierde con ella, y la operación no acepta texto. ¿Dónde debe quedar el motivo? (1) Sin motivo por ahora (recomendado): el botón solo confirma y retira, y el motivo queda fuera de alcance. (2) Un registro de propuestas rechazadas con su motivo, en `.konsora/`: cambio de esquema v2, decisión de producto. (3) Una nota en otra tarea, por ejemplo la que originó la propuesta, si existe ese vínculo. Dime cuál y lo termino.",
+          "run": "r-01M72FYYQTY8C4Y3KZ471JTXSD"
+        },
+        {
+          "id": "n4",
+          "at": "2026-11-10T10:32:49Z",
+          "by": "human",
+          "kind": "answer",
+          "text": "1, lo recomendado."
+        },
+        {
+          "id": "n5",
+          "at": "2026-11-10T10:32:57Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Rechazar ya está implementado en dos commits. Decisión humana sobre el motivo (opción 1): sin motivo por ahora. El botón solo confirma y retira; el motivo queda fuera de alcance, así que el texto opcional de la descripción no se implementa.\n\nCambios:\n- d7e7068 (core): `withdraw` aparece en `availableActions` para una propuesta de la que nada depende. Si otra tarea depende de ella, core lo rechaza (has_dependents) y el botón no aparece. Tests en core/test/moves.test.ts.\n- 732c1c2 (web): el panel de una propuesta muestra «Rechazar». Antes de enviar pide confirmación con window.confirm (función confirmWithdraw en board-model.ts) y envía withdraw con el hash de la tarea. Textos en es.ts. Tests nuevos en web/test/withdraw.test.tsx.\n\nCriterios:\n- ac1: el test comprueba que el cuerpo es {op: \"withdraw\", task, expect} y que se envía como POST a /ops. Al confirmarse, el tablero se refresca y la propuesta sale.\n- ac2: el test comprueba que, si el humano no confirma, confirmWithdraw devuelve false sin enviar nada, y que la pregunta incluye el id.\n\nComprobaciones: `npm run check` pasa (biome con 2 avisos ya existentes en daemon/test/events.test.ts y runner/src/worktree.ts, tsc y 1061 tests en 82 ficheros).\n\nLimitación: el test de confirmación prueba la función pura, no el clic en el panel renderizado.",
           "run": "r-01M72FYYQTY8C4Y3KZ471JTXSD"
         }
       ]
@@ -3528,6 +3577,40 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-10T10:18:09Z"
+    },
+    {
+      "id": "UI-42",
+      "title": "Encolar desde el panel de tarea",
+      "state": "proposed",
+      "group": "UI",
+      "deps": [
+        "DMN-11"
+      ],
+      "rank": "zzzzzzzzzzzzzzzzy",
+      "desc": "Encolar solo está en la barra de selección, que aparece al marcar tarjetas. El panel de una tarea solo ofrece Ejecutar y Ejecutar con varios agentes, así que desde ahí no se puede mandar a la cola, que es lo que respeta max_parallel y las dependencias. Junto a Ejecutar, el panel ofrece Encolar con el agente del selector, en tareas aprobadas en Por hacer, también si están bloqueadas, y dice si la tarea ya está en la cola y en qué posición. Depende de DMN-11, que toca los mismos botones.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El panel de una tarea en Por hacer ofrece Encolar, que envía la tarea a la cola con el agente del selector (test de la petición)"
+        },
+        {
+          "id": "ac2",
+          "text": "En una tarea bloqueada también se puede encolar, y en una propuesta o terminada no se ofrece (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Si la tarea ya está en la cola, el panel lo dice y ofrece quitarla en lugar de Encolar (test)"
+        }
+      ],
+      "labels": [
+        "m9c"
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T10:40:47Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T10:40:47Z"
     },
     {
       "id": "MCP-01",
