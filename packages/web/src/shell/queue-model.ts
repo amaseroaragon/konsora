@@ -74,15 +74,34 @@ export function agentText(agent: AgentSpec): string {
   return [providerName(agent.provider), agent.model, agent.effort].filter(Boolean).join(" · ");
 }
 
-/** The selected tasks Queue would add: approved and still to do (blocked ones too). */
+/**
+ * Whether a task can be queued: approved and still to do, blocked ones too (the queue waits for
+ * their dependencies), and never in read-only mode.
+ */
+export function canQueueTask(task: { state: string }, readOnly: boolean): boolean {
+  return !readOnly && task.state === "todo";
+}
+
+/** The selected tasks Queue would add: the ones `canQueueTask` allows. */
 export function queueableSelection(
   ids: readonly string[],
   tasks: readonly { id: string; state: string }[],
   readOnly: boolean,
 ): string[] {
-  if (readOnly) return [];
-  const todo = new Set(tasks.filter((task) => task.state === "todo").map((task) => task.id));
+  const todo = new Set(tasks.filter((task) => canQueueTask(task, readOnly)).map((task) => task.id));
   return ids.filter((id) => todo.has(id));
+}
+
+/**
+ * The 1-based place of a queued task in the launch order (1 launches next), or `undefined` if it is
+ * not queued. The daemon's queue view lists its `status` in that order.
+ */
+export function queuePlace(
+  status: readonly { task: string }[] | undefined,
+  task: string,
+): number | undefined {
+  const index = (status ?? []).findIndex((entry) => entry.task === task);
+  return index < 0 ? undefined : index + 1;
 }
 
 /** The project's runs that are alive (or interrupted), oldest first. */

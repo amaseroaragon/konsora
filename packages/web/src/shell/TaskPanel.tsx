@@ -13,7 +13,7 @@ import { type FormEvent, useState } from "react";
 import { useAgents } from "../api/agents.ts";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
-import { useEnqueue } from "../api/queue.ts";
+import { useDequeue, useEnqueue, useQueue } from "../api/queue.ts";
 import { useStartRun, useStartVariants } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
@@ -32,6 +32,7 @@ import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { OlderRuns } from "./OlderRuns.tsx";
+import { canQueueTask, queuePlace } from "./queue-model.ts";
 import { ReviewSection } from "./ReviewSection.tsx";
 import { RunSection } from "./RunSection.tsx";
 import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
@@ -206,21 +207,32 @@ function Actions({
 }
 
 /**
- * Launches a run of a ready task with the agent of the selector, or 2 or 3 variants of it with
- * different agents (UI-24), each in its own worktree; the human chooses the best in review.
+ * Runs a ready task with the agent of the selector, or 2 or 3 variants of it with different agents
+ * (UI-24), each in its own worktree; the human chooses the best in review. Encolar (UI-42) queues
+ * the task with that agent, blocked ones too, and says where the task is when it is already queued.
  */
 function RunButton({
   projectId,
   task,
   doc,
+  runnable,
+  queueable,
 }: {
   projectId: string;
   task: BoardTask;
   doc: TasksDocument;
+  /** Ejecutar is offered: the task is ready and has no active run. */
+  runnable: boolean;
+  /** Encolar is offered: the task is approved and still to do. */
+  queueable: boolean;
 }) {
   const start = useStartRun(projectId);
   const startVariants = useStartVariants(projectId);
   const enqueue = useEnqueue(projectId);
+  const dequeue = useDequeue(projectId);
+  const queue = useQueue(projectId, queueable);
+  const place = queuePlace(queue.data?.status, task.id);
+  const total = queue.data?.status.length ?? 0;
   /** The daemon refused the run: max_parallel has no free slot (DMN-11); Queue is offered. */
   const [noSlots, setNoSlots] = useState(false);
   const toast = useToast();
@@ -237,9 +249,13 @@ function RunButton({
     const code = error instanceof ApiError ? error.code : "error";
     toast.show(runErrorText(code, task.id, error.message), "error");
   };
+  const queueFailed = (error: Error) => {
+    if (error instanceof ApiError && error.unauthorized) return;
+    toast.show(t("queue.error", { message: error.message }), "error");
+  };
   // Without the catalog, the daemon uses the task's agent or the project's.
   const item = { task: task.id, agent: catalog ? agent : undefined };
-  if (variants && catalog) {
+  if (variants && catalog && runnable) {
     const issue = variantsProblem(variants, catalog);
     return (
       <div className="a-stack b-variants-run">
@@ -315,30 +331,72 @@ function RunButton({
         <p className="s-muted">{agents.isError ? t("agent.unavailable") : t("agent.loading")}</p>
       )}
       <div className="a-actions">
-        <Button
-          variant="primary"
-          busy={start.isPending}
-          disabled={problem !== null}
-          title={t("run.run.hint", { id: task.id })}
-          onClick={() => {
-            setNoSlots(false);
-            start.mutate(item, {
-              onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
-              onError: (error) => {
-                if (error instanceof ApiError && error.code === "no_slots") setNoSlots(true);
-                else failed(error);
-              },
-            });
-          }}
-        >
-          {t("run.run")} →
-        </Button>
-        {catalog && (
+        {runnable && (
+          <Button
+            variant="primary"
+            busy={start.isPending}
+            disabled={problem !== null}
+            title={t("run.run.hint", { id: task.id })}
+            onClick={() => {
+              setNoSlots(false);
+              start.mutate(item, {
+                onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
+                onError: (error) => {
+                  if (error instanceof ApiError && error.code === "no_slots") setNoSlots(true);
+                  else failed(error);
+                },
+              });
+            }}
+          >
+            {t("run.run")} →
+          </Button>
+        )}
+        {queueable && place === undefined && !noSlots && (
+          <Button
+            variant={runnable ? "secondary" : "primary"}
+            busy={enqueue.isPending}
+            disabled={problem !== null}
+            title={t("run.queue.hint", { id: task.id })}
+            onClick={() =>
+              enqueue.mutate([item], {
+                onSuccess: (result) =>
+                  toast.show(
+                    result.added.length > 0
+                      ? t("run.queue.added", { id: task.id })
+                      : t("run.queue.already", { id: task.id }),
+                    "success",
+                  ),
+                onError: queueFailed,
+              })
+            }
+          >
+            {t("run.queue")}
+          </Button>
+        )}
+        {runnable && catalog && (
           <Button variant="secondary" onClick={() => setVariants(variantStart(agent, catalog))}>
             {t("variants.open")}
           </Button>
         )}
       </div>
+      {queueable && place !== undefined && (
+        <div className="a-actions">
+          <span className="s-muted">{t("run.queue.place", { n: place, total })}</span>
+          <Button
+            size="sm"
+            variant="secondary"
+            busy={dequeue.isPending}
+            onClick={() =>
+              dequeue.mutate(task.id, {
+                onSuccess: () => toast.show(t("run.queue.removed", { id: task.id }), "success"),
+                onError: queueFailed,
+              })
+            }
+          >
+            {t("run.queue.remove")}
+          </Button>
+        </div>
+      )}
       {noSlots && (
         <div className="a-callout a-callout--warn a-stack" role="alert">
           <p className="a-callout__text">{startErrorText("no_slots", task.id, "")}</p>
@@ -351,10 +409,7 @@ function RunButton({
                     setNoSlots(false);
                     toast.show(t("run.noslots.queued", { id: task.id }), "success");
                   },
-                  onError: (error) => {
-                    if (error instanceof ApiError && error.unauthorized) return;
-                    toast.show(t("queue.error", { message: error.message }), "error");
-                  },
+                  onError: queueFailed,
                 })
               }
             >
@@ -408,6 +463,7 @@ export function TaskPanel({
   const criteria = criterionResults(run);
   const checksFailed = task.state === "review" && runChecksFailed(run);
   const runnable = runs !== undefined && canRun(task, { readOnly, runs, id: task.id });
+  const queueable = canQueueTask(task, readOnly);
   // Variants (UI-24): compared side by side in review until one is chosen; each shown while live.
   const toChoose = task.state === "review" ? variantsToChoose(runs, task.id) : [];
   const liveVariants = task.state === "doing" ? taskVariants(runs, task.id) : [];
@@ -454,7 +510,15 @@ export function TaskPanel({
             checksFailed={checksFailed}
           />
         )}
-        {runnable && <RunButton projectId={projectId} task={task} doc={doc} />}
+        {(runnable || queueable) && (
+          <RunButton
+            projectId={projectId}
+            task={task}
+            doc={doc}
+            runnable={runnable}
+            queueable={queueable}
+          />
+        )}
         {toChoose.length > 1 ? (
           <VariantCompare
             projectId={projectId}
