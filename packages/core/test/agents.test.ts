@@ -1,5 +1,12 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { type AgentCatalogEntry, agentChoice, checkAgent, runAgentFor } from "../src/agents.ts";
+import {
+  type AgentCatalogEntry,
+  agentChoice,
+  checkAgent,
+  DEFAULT_PROFILE_COMMANDS,
+  runAgentFor,
+} from "../src/agents.ts";
 import type { AgentSpec, Task, TasksDocument } from "../src/schema.ts";
 
 const claude: AgentCatalogEntry = {
@@ -128,5 +135,50 @@ describe("runAgentFor", () => {
       source: "defaults",
     });
     expect(agentChoice(task(), doc().project)).toBeUndefined();
+  });
+});
+
+describe("commands the docs propose", () => {
+  const root = new URL("../../../", import.meta.url);
+  const read = (file: string) => readFileSync(new URL(file, root), "utf8");
+  const docs = readdirSync(new URL("docs/", root))
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => `docs/${file}`);
+
+  /** The lines of the fenced code blocks and the backtick spans of a markdown file. */
+  function proposed(text: string): string[] {
+    const fence = /```[a-z]*\n([\s\S]*?)```/g;
+    const fenced = [...text.matchAll(fence)].flatMap((m) =>
+      (m[1] ?? "")
+        .split("\n")
+        .map((line) => line.replace(/\s+#.*$/, "").trim())
+        .filter((line) => line !== ""),
+    );
+    const spans = [...text.replace(fence, "").matchAll(/`([^`\n]+)`/g)].map((m) =>
+      (m[1] ?? "").trim(),
+    );
+    return [...fenced, ...spans];
+  }
+
+  /** Whether the `default` permission profile lets a run run `command` without asking. */
+  function allowedByDefault(command: string): boolean {
+    return DEFAULT_PROFILE_COMMANDS.some(({ command: allowed, prefix }) =>
+      prefix ? command === allowed || command.startsWith(`${allowed} `) : command === allowed,
+    );
+  }
+
+  it("does not propose npx in CLAUDE.md, AGENTS.md or docs/", () => {
+    for (const file of ["CLAUDE.md", "AGENTS.md", ...docs]) {
+      const npx = proposed(read(file)).filter((command) => /^npx\s/.test(command));
+      expect(npx, file).toEqual([]);
+    }
+  });
+
+  it("every npm command CLAUDE.md and AGENTS.md propose is allowed by the default profile", () => {
+    for (const file of ["CLAUDE.md", "AGENTS.md"]) {
+      const npm = proposed(read(file)).filter((command) => /^npm(\s|$)/.test(command));
+      for (const command of npm)
+        expect(allowedByDefault(command), `${file}: ${command}`).toBe(true);
+    }
   });
 });
