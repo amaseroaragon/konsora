@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type AgentCatalogEntry, checkAgent, runAgentFor } from "../src/agents.ts";
+import { type AgentCatalogEntry, agentChoice, checkAgent, runAgentFor } from "../src/agents.ts";
 import type { AgentSpec, Task, TasksDocument } from "../src/schema.ts";
 
 const claude: AgentCatalogEntry = {
@@ -107,5 +107,26 @@ describe("runAgentFor", () => {
   });
   it("and nothing when there is nothing to use", () => {
     expect(runAgentFor(task({ difficulty: "high" }), doc())).toBeUndefined();
+  });
+  it("agentChoice says where the agent comes from (UI-21)", () => {
+    const p = full.project;
+    expect(agentChoice(task({ agent: own }), p, asked)).toEqual({
+      agent: asked,
+      source: "requested",
+    });
+    expect(agentChoice(task({ agent: own, difficulty: "high" }), p)).toEqual({
+      agent: own,
+      source: "task",
+    });
+    expect(agentChoice(task({ difficulty: "high" }), p)).toEqual({
+      agent: hard,
+      source: "recommended",
+      difficulty: "high",
+    });
+    expect(agentChoice(task({ difficulty: "medium" }), p)).toEqual({
+      agent: fallback,
+      source: "defaults",
+    });
+    expect(agentChoice(task(), doc().project)).toBeUndefined();
   });
 });

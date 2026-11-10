@@ -67,7 +67,8 @@ export const OpSchema = z.discriminatedUnion("op", [
       desc: z.string().max(32_768).optional(),
       acceptance: z.array(AcceptanceSchema).optional(),
       labels: z.array(z.string()).optional(),
-      difficulty: DifficultySchema.optional(),
+      /** `null` removes it (JSON has no `undefined`). */
+      difficulty: DifficultySchema.nullable().optional(),
       agent: AgentSpecSchema.optional(),
       group: z.string().optional(),
       rank: z.string().optional(),

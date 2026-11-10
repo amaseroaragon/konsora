@@ -6,6 +6,7 @@
 import {
   type Acceptance,
   type AgentSpec,
+  type Difficulty,
   indexTasks,
   type Task,
   type TasksDocument,
@@ -23,6 +24,8 @@ export type Draft = {
   acceptance: DraftCriterion[];
   /** The task's own agent; `null` while it uses the project's (the edit op can set, not clear). */
   agent: AgentSpec | null;
+  /** Empty: no difficulty (saving it removes the task's). */
+  difficulty: "" | Difficulty;
 };
 export type DraftField = keyof Draft;
 export const draftFields: readonly DraftField[] = [
@@ -32,10 +35,11 @@ export const draftFields: readonly DraftField[] = [
   "group",
   "acceptance",
   "agent",
+  "difficulty",
 ];
 
 type Editable = Pick<Task, "id" | "title" | "desc" | "labels" | "group" | "acceptance"> &
-  Partial<Pick<Task, "agent">>;
+  Partial<Pick<Task, "agent" | "difficulty">>;
 
 export function draftFrom(task: Editable): Draft {
   return {
@@ -49,6 +53,7 @@ export function draftFrom(task: Editable): Draft {
       check: ac.check ?? "",
     })),
     agent: task.agent ?? null,
+    difficulty: task.difficulty ?? "",
   };
 }
 
@@ -91,6 +96,8 @@ export function criteriaFrom(rows: readonly DraftCriterion[]): Acceptance[] {
 export type EditChanges = Partial<Pick<Task, "title" | "desc" | "labels" | "group">> & {
   acceptance?: Acceptance[];
   agent?: AgentSpec;
+  /** `null` removes it. */
+  difficulty?: Difficulty | null;
 };
 
 export type DraftCheck =
@@ -131,9 +138,11 @@ export function changesFrom(
   if (touched.has("group")) changes.group = draft.group;
   if (touched.has("acceptance")) changes.acceptance = criteriaFrom(draft.acceptance);
   if (touchedAgent && draft.agent) changes.agent = draft.agent;
+  if (touched.has("difficulty")) changes.difficulty = draft.difficulty || null;
   // A field typed back to what it was is not a change.
   const stored: Omit<Required<EditChanges>, "agent"> & { agent: AgentSpec | undefined } = {
     agent: base.agent,
+    difficulty: base.difficulty ?? null,
     title: base.title,
     desc: base.desc ?? "",
     labels: base.labels ?? [],

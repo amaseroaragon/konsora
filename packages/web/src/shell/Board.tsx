@@ -27,6 +27,7 @@ import {
   taskStates,
   useToast,
 } from "../ui/index.ts";
+import { difficultyText } from "./agent-model.ts";
 import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
 import { FeedbackDialog } from "./FeedbackDialog.tsx";
 import { isSelectable } from "./selection.ts";
@@ -93,6 +94,7 @@ function Card({
       awaitingApproval={task.awaiting_approval === true}
       {...(onOpen ? { onOpen } : {})}
       {...(agent ? { agent } : {})}
+      {...(task.difficulty ? { difficulty: difficultyText(task.difficulty) } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
       {...(selection
         ? {

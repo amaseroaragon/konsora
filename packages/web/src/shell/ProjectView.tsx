@@ -9,7 +9,7 @@ import { useRuns, useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { ApprovalNotice } from "./Approvals.tsx";
-import { initialBatchAgent } from "./agent-model.ts";
+import { launchItems, taskAgent } from "./agent-model.ts";
 import { Board } from "./Board.tsx";
 import { failingReviews } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
@@ -17,6 +17,7 @@ import { Graph } from "./Graph.tsx";
 import { Orphans } from "./Orphans.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
 import { awaitingApproval, queueableSelection } from "./queue-model.ts";
+import { RecommendedSettings } from "./RecommendedSettings.tsx";
 import { ReviewerSettings } from "./ReviewerSettings.tsx";
 import { navigate, type ProjectViewName, projectHref } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
@@ -136,23 +137,26 @@ export function ProjectView({
   const enqueue = useEnqueue(projectId);
   const catalog = useAgents().data;
   const [chosenAgent, setChosenAgent] = useState<AgentSpec | undefined>(undefined);
-  const batchAgent =
-    chosenAgent ??
-    (catalog
-      ? initialBatchAgent(
-          board.tasks.filter((task) => runnable.includes(task.id) || queueable.includes(task.id)),
-          board.plan.project,
-          catalog,
-        )
-      : undefined);
+  // Each launched task uses its own agent (core's order), unless the human chose one for all.
+  const launching = board.tasks.filter(
+    (task) => runnable.includes(task.id) || queueable.includes(task.id),
+  );
+  const taskAgents = catalog
+    ? launching.map((task) => ({
+        id: task.id,
+        choice: taskAgent(task, board.plan.project, catalog),
+      }))
+    : [];
+  const items = (ids: readonly string[]) =>
+    launchItems(ids, catalog ? taskAgents : undefined, chosenAgent);
   /** Launches each selected ready task in its own run, one after another. */
   const runSelected = async (ids: readonly string[]) => {
     let started = 0;
-    for (const id of ids) {
-      const task = board.tasks.find((x) => x.id === id);
-      if (!task) continue;
+    for (const item of items(ids)) {
+      const id = item.task;
+      if (!board.tasks.some((x) => x.id === id)) continue;
       try {
-        await startRun.mutateAsync({ task: id, agent: catalog ? batchAgent : undefined });
+        await startRun.mutateAsync(item);
         started++;
       } catch (error) {
         if (error instanceof ApiError && error.unauthorized) return;
@@ -167,24 +171,21 @@ export function ProjectView({
   };
   /** Adds the selected tasks to the queue with the chosen agent; it launches them when ready. */
   const queueSelected = (ids: readonly string[]) => {
-    enqueue.mutate(
-      ids.map((task) => ({ task, agent: catalog ? batchAgent : undefined })),
-      {
-        onSuccess: (result) => {
-          toast.show(
-            result.already.length > 0
-              ? `${t("selection.queue.done", { n: result.added.length })} ${t("selection.queue.already", { ids: result.already.join(", ") })}`
-              : t("selection.queue.done", { n: result.added.length }),
-            "success",
-          );
-          dispatchSelection({ type: "clear" });
-        },
-        onError: (error) => {
-          if (error instanceof ApiError && error.unauthorized) return;
-          toast.show(t("queue.error", { message: error.message }), "error");
-        },
+    enqueue.mutate(items(ids), {
+      onSuccess: (result) => {
+        toast.show(
+          result.already.length > 0
+            ? `${t("selection.queue.done", { n: result.added.length })} ${t("selection.queue.already", { ids: result.already.join(", ") })}`
+            : t("selection.queue.done", { n: result.added.length }),
+          "success",
+        );
+        dispatchSelection({ type: "clear" });
       },
-    );
+      onError: (error) => {
+        if (error instanceof ApiError && error.unauthorized) return;
+        toast.show(t("queue.error", { message: error.message }), "error");
+      },
+    });
   };
   useEffect(() => {
     if (!openId) return;
@@ -237,6 +238,12 @@ export function ProjectView({
       {view === "settings" ? (
         <div className="s-stack">
           <ProjectSettings projectId={projectId} project={board.plan.project} readOnly={readOnly} />
+          <RecommendedSettings
+            projectId={projectId}
+            recommended={board.plan.project.recommended}
+            defaults={board.plan.project.defaults}
+            readOnly={readOnly}
+          />
           <ReviewerSettings
             projectId={projectId}
             reviewer={board.plan.project.reviewer}
@@ -305,7 +312,8 @@ export function ProjectView({
           runnable={runnable}
           readOnly={readOnly}
           busy={startRun.isPending}
-          agent={batchAgent}
+          agent={chosenAgent}
+          agents={taskAgents}
           catalog={catalog}
           onAgent={setChosenAgent}
           onRun={(ids) => void runSelected(ids)}

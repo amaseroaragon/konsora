@@ -96,10 +96,10 @@ export type Op = Base &
     | {
         op: "edit";
         task: string;
-        changes: Partial<
-          Pick<Task, "title" | "desc" | "labels" | "difficulty" | "agent" | "group" | "rank">
-        > & {
+        changes: Partial<Pick<Task, "title" | "desc" | "labels" | "agent" | "group" | "rank">> & {
           acceptance?: Acceptance[];
+          /** `null` (or `undefined`) removes it. */
+          difficulty?: Difficulty | null | undefined;
         };
       }
     | { op: "withdraw"; task: string }
@@ -470,7 +470,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       for (const key of EDITABLE) {
         if (!(key in op.changes)) continue;
         const value = op.changes[key];
-        if (value === undefined) delete task[key];
+        if (value === undefined || value === null) delete task[key];
         else Object.assign(task, { [key]: value });
       }
       const unknown = Object.keys(op.changes).filter(

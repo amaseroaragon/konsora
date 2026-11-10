@@ -238,9 +238,16 @@ a {
   text-underline-offset: 2px;
 }
 .k-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
   font-family: var(--k-font-mono);
   font-size: var(--k-text-label);
   color: var(--k-ink-muted);
+}
+.k-card__difficulty {
+  font-family: var(--k-font-sans);
+  color: var(--k-ink);
 }
 .k-card--proposed {
   border-style: dashed;

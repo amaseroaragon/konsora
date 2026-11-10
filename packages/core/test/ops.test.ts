@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { OpSchema } from "../src/op-schema.ts";
 import {
   applyOp,
   type Op,
@@ -665,6 +666,11 @@ describe("difficulty and recommended agents (CORE-09)", () => {
       applyOp(edited, { op: "edit", task: "BE-21", changes: { difficulty: undefined } }, agent),
     ).document;
     expect(removed.tasks[1]).not.toHaveProperty("difficulty");
+    // Over JSON (the daemon, UI-21) `null` removes it, and the op schema takes it.
+    const viaJson = { op: "edit", task: "BE-21", changes: { difficulty: null } };
+    expect(OpSchema.safeParse(viaJson).success).toBe(true);
+    const cleared = ok(applyOp(edited, viaJson as Op, agent)).document;
+    expect(cleared.tasks[1]).not.toHaveProperty("difficulty");
     // Approved work: only the human.
     const approvedEdit: Op = { op: "edit", task: "BE-01", changes: { difficulty: "low" } };
     expect(err(applyOp(d, approvedEdit, agent))).toBe("forbidden");

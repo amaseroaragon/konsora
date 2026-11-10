@@ -10,8 +10,9 @@ import {
   changeAgent,
   effortOptions,
   initialAgent,
-  initialBatchAgent,
   modelOptions,
+  sharedAgent,
+  taskAgent,
 } from "../src/shell/agent-model.ts";
 import { changesFrom, draftFrom } from "../src/shell/edit-model.ts";
 
@@ -72,13 +73,15 @@ describe("where the selector starts (UI-13)", () => {
     });
   });
 
-  it("the selection bar starts from the agent the tasks share, else the project's", () => {
+  it("the selection bar knows when the tasks share an agent (UI-21)", () => {
     const plan = { defaults: { provider: "claude" as const, model: "opus" } };
     const luna = { provider: "codex" as const, model: "gpt-6-luna" };
-    expect(initialBatchAgent([{ agent: luna }, { agent: luna }], plan, catalog)).toMatchObject(
-      luna,
-    );
-    expect(initialBatchAgent([{ agent: luna }, {}], plan, catalog)).toMatchObject(plan.defaults);
+    const both = [
+      taskAgent({ agent: luna }, plan, catalog),
+      taskAgent({ agent: luna }, plan, catalog),
+    ];
+    expect(sharedAgent(both)).toMatchObject(luna);
+    expect(sharedAgent([both[0], taskAgent({}, plan, catalog)])).toBeUndefined();
   });
 });
 

@@ -1,4 +1,4 @@
-import type { AgentSpec, TasksDocument } from "@konsora/core";
+import { type AgentSpec, DifficultySchema, type TasksDocument } from "@konsora/core";
 import { type FormEvent, useId, useState } from "react";
 import { useAgents } from "../api/agents.ts";
 import { type BoardTask, useEditTask } from "../api/board.ts";
@@ -28,6 +28,7 @@ const FIELD_NAME: Record<DraftField, MessageKey> = {
   group: "edit.field.name.group",
   acceptance: "edit.field.name.acceptance",
   agent: "edit.field.name.agent",
+  difficulty: "edit.field.name.difficulty",
 };
 
 const errorText = (error: unknown, ctx: { id: string; on?: string }) =>
@@ -53,6 +54,8 @@ function ChangedOutside({ base, current }: { base: Draft; current: Draft }) {
     rows.push(["acceptance", current.acceptance.map((ac) => ac.text).join(" · ")]);
   if (JSON.stringify(base.agent) !== JSON.stringify(current.agent))
     rows.push(["agent", current.agent ? agentText(current.agent) : ""]);
+  if (base.difficulty !== current.difficulty)
+    rows.push(["difficulty", current.difficulty ? t(`difficulty.${current.difficulty}`) : ""]);
   if (rows.length === 0) return <p className="a-callout__text">{t("edit.changed.none")}</p>;
   return (
     <dl className="b-edit__changed">
@@ -210,6 +213,21 @@ export function TaskEditor({
         error={fieldError("group")}
         onChange={(value) => set("group", value)}
       />
+      <label className="k-field">
+        <span className="k-field__label">{t("difficulty.label")}</span>
+        <select
+          className="k-field__control"
+          value={draft.difficulty}
+          onChange={(e) => set("difficulty", e.target.value as Draft["difficulty"])}
+        >
+          <option value="">{t("difficulty.none")}</option>
+          {DifficultySchema.options.map((d) => (
+            <option key={d} value={d}>
+              {t(`difficulty.${d}`)}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="k-field">
         {!(draft.agent && catalog) && <span className="k-field__label">{t("agent.edit")}</span>}
         {draft.agent ? (

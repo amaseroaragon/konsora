@@ -7,10 +7,14 @@ import {
   type AgentCatalogEntry,
   type AgentCheck,
   type AgentSpec,
+  agentChoice,
   checkAgent,
+  type Difficulty,
   type Effort,
   EffortSchema,
+  type Project,
   type Provider,
+  type Task,
 } from "@konsora/core";
 import { type MessageKey, t } from "../i18n/index.ts";
 
@@ -28,30 +32,86 @@ function firstAgent(catalog: readonly AgentCatalogEntry[]): AgentSpec | undefine
     : undefined;
 }
 
-/** Where the selector starts: the task's agent, the project's default, or the first available. */
+/** Where a task's run agent comes from, as the UI explains it (`first`: nothing set anywhere). */
+export type TaskAgent = {
+  agent: AgentSpec;
+  source: "task" | "recommended" | "defaults" | "first";
+  difficulty?: Difficulty;
+};
+
+/**
+ * The agent a run of the task uses unless the human picks another, and why: core's order (the
+ * task's, the one recommended for its difficulty, the project's default), else the first the
+ * catalog can run. Always with a permission profile.
+ */
+export function taskAgent(
+  task: Pick<Task, "agent" | "difficulty">,
+  plan: Pick<Project, "defaults" | "recommended">,
+  catalog: readonly AgentCatalogEntry[],
+): TaskAgent | undefined {
+  const choice = agentChoice(task, plan);
+  if (choice && choice.source !== "requested") {
+    const agent = { ...choice.agent, permissions: choice.agent.permissions ?? "default" };
+    return choice.source === "recommended"
+      ? { agent, source: "recommended", difficulty: choice.difficulty }
+      : { agent, source: choice.source };
+  }
+  const first = firstAgent(catalog);
+  return first && { agent: first, source: "first" };
+}
+
+/** Where the selector starts: the agent `taskAgent` resolves. */
 export function initialAgent(
-  task: { agent?: AgentSpec | undefined },
-  plan: { defaults?: AgentSpec | undefined },
+  task: Pick<Task, "agent" | "difficulty">,
+  plan: Pick<Project, "defaults" | "recommended">,
   catalog: readonly AgentCatalogEntry[],
 ): AgentSpec | undefined {
-  const start = task.agent ?? plan.defaults;
-  if (start) return { ...start, permissions: start.permissions ?? "default" };
-  return firstAgent(catalog);
+  return taskAgent(task, plan, catalog)?.agent;
+}
+
+/** "Dificultad alta": a task's difficulty as cards and the panel show it. */
+export function difficultyText(difficulty: Difficulty): string {
+  return `${t("difficulty.label")} ${t(`difficulty.${difficulty}`).toLowerCase()}`;
+}
+
+/** "claude · opus · high": the agent as the reasons write it. */
+export function agentLabel(agent: AgentSpec): string {
+  return [agent.provider, agent.model, agent.effort].filter(Boolean).join(" · ");
+}
+
+/** Why a task runs with its agent, e.g. «Recomendado para dificultad alta: claude · opus · high». */
+export function agentReason(choice: TaskAgent): string {
+  const agent = agentLabel(choice.agent);
+  if (choice.source === "recommended" && choice.difficulty) {
+    return t("agent.reason.recommended", {
+      difficulty: t(`difficulty.${choice.difficulty}`).toLowerCase(),
+      agent,
+    });
+  }
+  return t(`agent.reason.${choice.source}`, { agent });
 }
 
 /**
- * Where the selection bar's selector starts: the agent the selected tasks share (their own or
- * the project's), else the project's default, else the first available.
+ * The agent each task Run or Queue launches: the one the human chose for all, else the task's
+ * own (`taskAgent`). Without the catalog none is sent, and the daemon resolves it the same way.
  */
-export function initialBatchAgent(
-  tasks: readonly { agent?: AgentSpec | undefined }[],
-  plan: { defaults?: AgentSpec | undefined },
-  catalog: readonly AgentCatalogEntry[],
-): AgentSpec | undefined {
-  const agents = tasks.map((task) => initialAgent(task, plan, catalog));
-  const first = agents[0];
-  const shared = first && agents.every((a) => JSON.stringify(a) === JSON.stringify(first));
-  return shared ? first : initialAgent({}, plan, catalog);
+export function launchItems(
+  ids: readonly string[],
+  agents: readonly { id: string; choice: TaskAgent | undefined }[] | undefined,
+  chosen: AgentSpec | undefined,
+): { task: string; agent: AgentSpec | undefined }[] {
+  return ids.map((task) => ({
+    task,
+    agent: agents ? (chosen ?? agents.find((row) => row.id === task)?.choice?.agent) : undefined,
+  }));
+}
+
+/** The agent the tasks all resolve to, if they share one. */
+export function sharedAgent(choices: readonly (TaskAgent | undefined)[]): AgentSpec | undefined {
+  const first = choices[0]?.agent;
+  if (!first) return undefined;
+  const key = JSON.stringify(first);
+  return choices.every((c) => c && JSON.stringify(c.agent) === key) ? first : undefined;
 }
 
 /** Every provider; those not installed are disabled with the reason. */

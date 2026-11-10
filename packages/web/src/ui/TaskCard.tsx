@@ -19,6 +19,8 @@ export type TaskCardProps = {
   running?: string;
   /** "claude · opus · alto" */
   agent?: string;
+  /** The task's estimated difficulty, as shown: "Dificultad alta". */
+  difficulty?: string;
   proposedBy?: string;
   selected?: boolean;
   /** Whether the checkbox can be ticked; defaults to ready tasks only. */
@@ -39,6 +41,7 @@ export function TaskCard({
   awaitingApproval = false,
   running,
   agent,
+  difficulty,
   proposedBy,
   selected = false,
   selectable,
@@ -102,7 +105,12 @@ export function TaskCard({
           title
         )}
       </h3>
-      {agent && <div className="k-card__meta">{agent}</div>}
+      {(agent || difficulty) && (
+        <div className="k-card__meta">
+          {difficulty && <span className="k-card__difficulty">{difficulty}</span>}
+          {agent && <span>{agent}</span>}
+        </div>
+      )}
     </article>
   );
 }

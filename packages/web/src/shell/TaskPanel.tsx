@@ -14,7 +14,7 @@ import { useStartRun } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { AgentPicker } from "./AgentPicker.tsx";
-import { agentProblem, initialAgent } from "./agent-model.ts";
+import { agentProblem, agentReason, difficultyText, taskAgent } from "./agent-model.ts";
 import { opErrorText } from "./board-model.ts";
 import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
@@ -194,12 +194,16 @@ function RunButton({
   const agents = useAgents();
   const catalog = agents.data;
   const [chosen, setChosen] = useState<AgentSpec | undefined>(undefined);
-  const agent = chosen ?? (catalog ? initialAgent(task, doc.project, catalog) : undefined);
+  const resolved = catalog ? taskAgent(task, doc.project, catalog) : undefined;
+  const agent = chosen ?? resolved?.agent;
   const problem = agentProblem(agent, catalog);
   return (
     <div className="a-stack">
       {catalog ? (
-        <AgentPicker agent={agent} catalog={catalog} onChange={setChosen} />
+        <>
+          <AgentPicker agent={agent} catalog={catalog} onChange={setChosen} />
+          {!chosen && resolved && <p className="s-muted">{agentReason(resolved)}</p>}
+        </>
       ) : (
         <p className="s-muted">{agents.isError ? t("agent.unavailable") : t("agent.loading")}</p>
       )}
@@ -278,6 +282,7 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
+          {task.difficulty && <span className="a-chip">{difficultyText(task.difficulty)}</span>}
           {canEdit && !editing && (
             <Button
               size="sm"

@@ -3,7 +3,7 @@ import { useId } from "react";
 import { t } from "../i18n/index.ts";
 import { Button } from "../ui/index.ts";
 import { AgentPicker } from "./AgentPicker.tsx";
-import { agentProblem } from "./agent-model.ts";
+import { agentProblem, agentReason, sharedAgent, type TaskAgent } from "./agent-model.ts";
 
 /**
  * How many tasks are selected, which ones, and Run: it launches the selected tasks that are ready
@@ -15,6 +15,7 @@ export function SelectionBar({
   readOnly,
   busy = false,
   agent,
+  agents = [],
   catalog,
   onAgent,
   onRun,
@@ -28,11 +29,13 @@ export function SelectionBar({
   runnable: readonly string[];
   readOnly: boolean;
   busy?: boolean;
-  /** The agent every launched run uses; `undefined` while the catalog loads. */
+  /** The agent the human chose for every launched run; `undefined`: each task uses its own. */
   agent?: AgentSpec | undefined;
+  /** The agent each task Run or Queue would launch uses, and why (UI-21). */
+  agents?: readonly { id: string; choice: TaskAgent | undefined }[];
   /** `GET /api/agents`; without it there is no selector and each task uses its own agent. */
   catalog?: readonly AgentCatalogEntry[] | undefined;
-  onAgent?: (agent: AgentSpec) => void;
+  onAgent?: (agent: AgentSpec | undefined) => void;
   onRun: (ids: readonly string[]) => void;
   onClear: () => void;
   /** The selected tasks Queue would add (approved, to do; blocked ones too). */
@@ -43,7 +46,11 @@ export function SelectionBar({
 }) {
   const hint = useId();
   const queueHint = useId();
-  const problem = catalog ? agentProblem(agent, catalog) : null;
+  const problem = !catalog
+    ? null
+    : agent
+      ? agentProblem(agent, catalog)
+      : (agents.map((row) => agentProblem(row.choice?.agent, catalog)).find(Boolean) ?? null);
   const disabled = readOnly || runnable.length === 0 || problem !== null;
   return (
     <section className="a-selection b-selection" aria-label={t("app.selection")}>
@@ -57,8 +64,8 @@ export function SelectionBar({
           {t("app.selection.clear")}
         </Button>
       </div>
-      {catalog && onAgent && !readOnly && (runnable.length > 0 || queueable.length > 0) && (
-        <AgentPicker agent={agent} catalog={catalog} onChange={onAgent} />
+      {catalog && onAgent && !readOnly && agents.length > 0 && (
+        <AgentChoice agent={agent} agents={agents} catalog={catalog} onAgent={onAgent} />
       )}
       <div className="a-selection__controls">
         <p id={hint} className="b-selection__hint s-muted">
@@ -99,5 +106,63 @@ export function SelectionBar({
         </Button>
       </div>
     </section>
+  );
+}
+
+/**
+ * With what agent each selected task will run and why; or, once the human chooses one for all,
+ * that agent's selector (and the way back to each task's own).
+ */
+function AgentChoice({
+  agent,
+  agents,
+  catalog,
+  onAgent,
+}: {
+  agent: AgentSpec | undefined;
+  agents: readonly { id: string; choice: TaskAgent | undefined }[];
+  catalog: readonly AgentCatalogEntry[];
+  onAgent: (agent: AgentSpec | undefined) => void;
+}) {
+  if (agent) {
+    return (
+      <div className="a-stack b-selection__agents">
+        <AgentPicker agent={agent} catalog={catalog} onChange={onAgent} />
+        <div>
+          <Button size="sm" variant="ghost" onClick={() => onAgent(undefined)}>
+            {t("selection.agents.each")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  const choices = agents.map((row) => row.choice);
+  const start = sharedAgent(choices) ?? choices.find(Boolean)?.agent;
+  return (
+    <div className="a-stack b-selection__agents">
+      <div className="k-label">{t("selection.agents")}</div>
+      <ul className="b-selection__agent-list">
+        {agents.map(({ id, choice }) => {
+          const problem = agentProblem(choice?.agent, catalog);
+          return (
+            <li key={id}>
+              <span className="k-mono">{id}</span>{" "}
+              <span className="s-muted">{choice ? agentReason(choice) : t("agent.none")}</span>
+              {choice && problem && (
+                <span className="k-field__error" role="alert">
+                  {" "}
+                  {problem}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div>
+        <Button size="sm" variant="ghost" disabled={!start} onClick={() => onAgent(start)}>
+          {t("selection.agents.one")}
+        </Button>
+      </div>
+    </div>
   );
 }

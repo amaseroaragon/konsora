@@ -5,7 +5,9 @@
 import type { RunTransport } from "./run.ts";
 import {
   type AgentSpec,
+  type Difficulty,
   EffortSchema,
+  type Project,
   type Provider,
   type Task,
   type TasksDocument,
@@ -76,21 +78,39 @@ export type AgentCheck =
       reason: string;
     };
 
+/** Where a run's agent comes from, in `runAgentFor`'s order (the UI says it to the human). */
+export type AgentSource =
+  | { source: "requested" }
+  | { source: "task" }
+  | { source: "recommended"; difficulty: Difficulty }
+  | { source: "defaults" };
+
 /**
- * The agent a run of `task` uses: the one asked for, else the task's, else the one the project
- * recommends for the task's difficulty, else the project's default.
+ * The agent a run of `task` uses and why: the one asked for, else the task's, else the one the
+ * project recommends for the task's difficulty, else the project's default.
  */
+export function agentChoice(
+  task: Pick<Task, "agent" | "difficulty">,
+  project: Pick<Project, "recommended" | "defaults">,
+  requested?: AgentSpec,
+): ({ agent: AgentSpec } & AgentSource) | undefined {
+  if (requested) return { agent: requested, source: "requested" };
+  if (task.agent) return { agent: task.agent, source: "task" };
+  const recommended = task.difficulty ? project.recommended?.[task.difficulty] : undefined;
+  if (recommended && task.difficulty) {
+    return { agent: recommended, source: "recommended", difficulty: task.difficulty };
+  }
+  if (project.defaults) return { agent: project.defaults, source: "defaults" };
+  return undefined;
+}
+
+/** The agent a run of `task` uses (`agentChoice` without the reason). */
 export function runAgentFor(
   task: Task,
   doc: TasksDocument,
   requested?: AgentSpec,
 ): AgentSpec | undefined {
-  return (
-    requested ??
-    task.agent ??
-    (task.difficulty ? doc.project.recommended?.[task.difficulty] : undefined) ??
-    doc.project.defaults
-  );
+  return agentChoice(task, doc.project, requested)?.agent;
 }
 
 /**
