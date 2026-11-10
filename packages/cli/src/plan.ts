@@ -58,8 +58,9 @@ export function planCommand(
         "--strict-mcp-config",
         "--mcp-config",
         JSON.stringify(config),
-        "--allowedTools",
-        PLAN_TOOLS.join(","),
+        // One argument with `=`: `--allowedTools` takes several values, and as two arguments
+        // it would swallow the prompt that follows (the session would open without it).
+        `--allowedTools=${PLAN_TOOLS.join(",")}`,
         prompt,
       ],
     };

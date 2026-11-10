@@ -105,7 +105,12 @@ describe("konsora plan (CLI-05)", () => {
     expect(Object.keys(config.mcpServers)).toEqual(["konsora"]);
     expect(config.mcpServers.konsora.env).toEqual({ KONSORA_AGENT: "claude", KONSORA_PLAN: "1" });
     expect(config.mcpServers.konsora.args.slice(-3)).toEqual(["mcp", "--root", project()]);
-    expect(args[args.indexOf("--allowedTools") + 1]).not.toMatch(/start|note|finish|ask/);
+    // `--allowedTools` is variadic in Claude Code: as `--allowedTools X prompt` it would take
+    // the prompt as one more tool, so it goes as a single `--allowedTools=…` argument.
+    const allowed = args.find((a) => a.startsWith("--allowedTools="));
+    expect(allowed).toBeDefined();
+    expect(allowed).not.toMatch(/start|note|finish|ask/);
+    expect(args).not.toContain("--allowedTools");
     expect(args.some((a) => a.startsWith("--dangerously"))).toBe(false);
     expect(args).not.toContain("-p");
   });
