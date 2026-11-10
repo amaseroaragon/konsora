@@ -48,7 +48,7 @@
     }
   ],
   "seq": {
-    "CORE": 13,
+    "CORE": 14,
     "CLI": 5,
     "DMN": 10,
     "UI": 25,
@@ -773,6 +773,34 @@
           "text": "Modelo del revisor en core. run.json: kind (work|review) y review_of; un run de revisión exige review_of y el perfil readonly, y no puede ser variante ni rebase. Notas: nueva clase review con verdict (approve|changes), obligatorio en ellas y prohibido en las demás. Op review {verdict, text}: solo para un agente con ctx.review y sobre su runTask; en un run de revisión cualquier otra op da out_of_scope (accept/send-back, forbidden). project.reviewer {agent, launch: auto|manual} con set-reviewer (solo humano, null lo quita); el perfil, si se da, solo puede ser readonly (READONLY_PROFILE, reviewerAgent). Los runs de revisión no ocupan la tarea (canAddRun, RunStore.activeRun/activeRuns), solo uno activo por run revisado, e integrableRun los ignora. ac1: tests de roles en core/test/review.test.ts. ac2: validación de ReviewerSchema, RunSchema y OpSchema, set-reviewer prohibido a agente, konsora y runs, invalid con perfil default. ac3: test de propiedades con fast-check (200 casos): ninguna op aceptada en contexto de revisor cambia estados, proyecto ni campos; solo añade notas review a su tarea. Esquema JSON regenerado, clave i18n note.review y docs en esquema-tareas.md (§1, §2 y §6 «Revisiones»). Adaptadores, MCP y lanzamiento quedan para RUN-29. npm run check: 982 tests en verde."
         }
       ]
+    },
+    {
+      "id": "CORE-14",
+      "title": "Escribir las notas del agente en el idioma de la tarea",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzzzr",
+      "desc": "En RUN-30, el revisor de Codex escribió su nota review en inglés porque el prompt de revisión está en inglés, mientras que los resúmenes de las tareas, que estaban en español, salieron en español. El prompt de revisión (buildReviewPrompt) y el del run (buildRunPrompt y el de reintento) deben pedir de forma determinista que las notas, preguntas, resúmenes y revisiones se escriban en el idioma del título y la descripción de la tarea, sin que Konsora detecte ni guarde el idioma. Los prompts siguen en inglés y siguen siendo deterministas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "buildReviewPrompt pide escribir el texto de la revisión en el idioma de la tarea (test del prompt)"
+        },
+        {
+          "id": "ac2",
+          "text": "buildRunPrompt y el prompt de reintento piden lo mismo para notas, preguntas y resúmenes (tests del prompt)"
+        },
+        {
+          "id": "ac3",
+          "text": "Los prompts siguen siendo deterministas: la misma entrada da el mismo texto (test existente en verde)"
+        }
+      ],
+      "difficulty": "low",
+      "created": {
+        "at": "2026-11-10T09:57:16Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-10T09:57:16Z"
     },
     {
       "id": "CLI-01",
@@ -4812,7 +4840,7 @@
     {
       "id": "RUN-30",
       "title": "Verificación de M9b con agentes reales",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "CLI-05",
@@ -4849,7 +4877,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-10T09:54:57Z",
+      "updated_at": "2026-11-10T09:56:38Z",
       "notes": [
         {
           "id": "n1",
