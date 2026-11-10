@@ -704,6 +704,44 @@ describe("difficulty and recommended agents (CORE-09)", () => {
   });
 });
 
+describe("project.defaults (CORE-15)", () => {
+  const opus = { provider: "claude" as const, model: "opus", effort: "high" as const };
+  const codex = { provider: "codex" as const, model: "gpt-5.5" };
+
+  it("only a human sets project.defaults; null removes it; it is validated", () => {
+    const d = doc(task("BE-01", "todo"));
+    const op: Op = { op: "set-defaults", agent: opus };
+    expect(err(applyOp(d, op, agent))).toBe("forbidden");
+    expect(err(applyOp(d, op, runner))).toBe("forbidden");
+    const set = ok(applyOp(d, op, human)).document;
+    expect(set.project.defaults).toEqual(opus);
+    expect(set.project.name).toBe(d.project.name);
+    expect(
+      ok(applyOp(set, { op: "set-defaults", agent: codex }, human)).document.project.defaults,
+    ).toEqual(codex);
+    expect(
+      ok(applyOp(set, { op: "set-defaults", agent: null }, human)).document.project,
+    ).not.toHaveProperty("defaults");
+    const bad = {
+      op: "set-defaults",
+      agent: { provider: "claude", model: "opus", effort: "alto" },
+    };
+    expect(err(applyOp(d, bad as unknown as Op, human))).toBe("invalid");
+    const unknownField = { op: "set-defaults", agent: { provider: "claude", model: "x", x: 1 } };
+    expect(err(applyOp(d, unknownField as unknown as Op, human))).toBe("invalid");
+  });
+
+  it("the op schema takes an agent or null, and rejects an invalid agent", () => {
+    expect(OpSchema.safeParse({ op: "set-defaults", agent: opus }).success).toBe(true);
+    expect(OpSchema.safeParse({ op: "set-defaults", agent: null }).success).toBe(true);
+    expect(OpSchema.safeParse({ op: "set-defaults" }).success).toBe(false);
+    expect(
+      OpSchema.safeParse({ op: "set-defaults", agent: { provider: "claude", effort: "alto" } })
+        .success,
+    ).toBe(false);
+  });
+});
+
 describe("templates (CORE-10)", () => {
   const bug = {
     id: "bug",

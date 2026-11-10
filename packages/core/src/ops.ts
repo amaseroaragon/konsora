@@ -146,6 +146,8 @@ export type Op = Base &
      * and `setup: null` remove them.
      */
     | { op: "set-checks"; checks?: Check[]; check_retries?: number | null; setup?: Setup | null }
+    /** The human sets the project's default agent (CORE-15); `null` removes it. */
+    | { op: "set-defaults"; agent: AgentSpec | null }
     /**
      * The human sets the agent the project recommends for each difficulty (it replaces the
      * whole map); `null` or `{}` removes it.
@@ -219,6 +221,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   rebase: ["konsora"],
   "rebase-abort": ["konsora"],
   "set-checks": ["human"],
+  "set-defaults": ["human"],
   "set-recommended": ["human"],
   "set-templates": ["human"],
   "set-reviewer": ["human"],
@@ -657,6 +660,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       }
       if (op.check_retries === null) delete doc.project.check_retries;
       else if (op.check_retries !== undefined) doc.project.check_retries = op.check_retries;
+      break;
+    }
+    case "set-defaults": {
+      if (op.agent) doc.project.defaults = structuredClone(op.agent);
+      else delete doc.project.defaults;
       break;
     }
     case "set-recommended": {

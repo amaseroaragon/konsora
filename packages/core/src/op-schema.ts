@@ -109,6 +109,11 @@ export const OpSchema = z.discriminatedUnion("op", [
     setup: SetupSchema.nullable().optional(),
   }),
   z.strictObject({
+    op: z.literal("set-defaults"),
+    expect,
+    agent: AgentSpecSchema.nullable(),
+  }),
+  z.strictObject({
     op: z.literal("set-recommended"),
     expect,
     recommended: RecommendedSchema.nullable(),

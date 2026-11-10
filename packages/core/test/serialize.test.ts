@@ -181,6 +181,32 @@ describe("serializeDocument", () => {
   });
 });
 
+describe("project.defaults (CORE-15)", () => {
+  it("round-trips: the default agent is kept in canonical form, with its keys in order", () => {
+    const doc: TasksDocument = {
+      ...minimal(),
+      project: {
+        base_branch: "main",
+        name: "P",
+        defaults: { effort: "high", model: "opus", provider: "claude" },
+      },
+    };
+    const text = serializeDocument(doc);
+    expect(JSON.parse(text).project).toEqual({
+      name: "P",
+      base_branch: "main",
+      defaults: { provider: "claude", model: "opus", effort: "high" },
+    });
+    expect(Object.keys(JSON.parse(text).project.defaults)).toEqual(["provider", "model", "effort"]);
+    expect(serializeDocument(parse(text))).toBe(text);
+    expect(parse(text).project.defaults).toEqual({
+      provider: "claude",
+      model: "opus",
+      effort: "high",
+    });
+  });
+});
+
 describe("compareTaskIds", () => {
   it("compares prefixes first, then numbers naturally", () => {
     expect(["BE-100", "BE-99", "AB-03", "BE-01"].sort(compareTaskIds)).toEqual([
