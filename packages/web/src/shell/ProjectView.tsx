@@ -21,7 +21,7 @@ import { awaitingApproval, queueableSelection } from "./queue-model.ts";
 import { RecommendedSettings } from "./RecommendedSettings.tsx";
 import { ReviewerSettings } from "./ReviewerSettings.tsx";
 import { navigate, type ProjectViewName, projectHref, projectViews } from "./route.ts";
-import { runErrorText, runnableSelection } from "./run-model.ts";
+import { launchEach, runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskPanel } from "./TaskPanel.tsx";
@@ -151,24 +151,27 @@ export function ProjectView({
     : [];
   const items = (ids: readonly string[]) =>
     launchItems(ids, catalog ? taskAgents : undefined, chosenAgent);
-  /** Launches each selected ready task in its own run, one after another. */
+  /** The tasks the daemon refused because max_parallel has no slot for them (DMN-11). */
+  const [full, setFull] = useState<readonly string[]>([]);
+  const fullSelected = full.filter((id) => selected.has(id));
+  /**
+   * Launches each selected ready task in its own run, one after another. The ones that do not fit
+   * in max_parallel stay selected, so the human can queue them with the same agent.
+   */
   const runSelected = async (ids: readonly string[]) => {
-    let started = 0;
-    for (const item of items(ids)) {
-      const id = item.task;
-      if (!board.tasks.some((x) => x.id === id)) continue;
-      try {
-        await startRun.mutateAsync(item);
-        started++;
-      } catch (error) {
-        if (error instanceof ApiError && error.unauthorized) return;
-        const code = error instanceof ApiError ? error.code : "error";
-        toast.show(runErrorText(code, id, (error as Error).message), "error");
-      }
+    const launch = items(ids).filter((item) => board.tasks.some((x) => x.id === item.task));
+    const { started, unfit, failed, unauthorized } = await launchEach(launch, (item) =>
+      startRun.mutateAsync(item),
+    );
+    if (unauthorized) return;
+    for (const { task, code, message } of failed) {
+      toast.show(runErrorText(code, task, message), "error");
     }
-    if (started > 0) {
-      toast.show(t("selection.run.started", { n: started }), "success");
+    setFull(unfit);
+    if (started.length > 0) {
+      toast.show(t("selection.run.started", { n: started.length }), "success");
       dispatchSelection({ type: "clear" });
+      if (unfit.length > 0) dispatchSelection({ type: "add", ids: unfit });
     }
   };
   /** Adds the selected tasks to the queue with the chosen agent; it launches them when ready. */
@@ -323,6 +326,7 @@ export function ProjectView({
           onAgent={setChosenAgent}
           onRun={(ids) => void runSelected(ids)}
           queueable={queueable}
+          full={fullSelected}
           queueBusy={enqueue.isPending}
           onQueue={queueSelected}
           onClear={() => dispatchSelection({ type: "clear" })}

@@ -2,6 +2,7 @@ import { execFile, execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -187,8 +188,8 @@ const plan: TasksDocument = {
   schema: "konsora/2",
   project: { name: "demo", base_branch: "main", defaults: { provider: "claude", model: "fake" } },
   groups: [{ id: "BE", name: "Backend" }],
-  seq: { BE: 2 },
-  tasks: [task("BE-01"), task("BE-02", { deps: ["BE-01"] })],
+  seq: { BE: 3 },
+  tasks: [task("BE-01"), task("BE-02", { deps: ["BE-01"] }), task("BE-03")],
 };
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<{ status: number; body: T }> {
@@ -1129,6 +1130,74 @@ describe("variants of a task (RUN-28)", () => {
       body: JSON.stringify({ task: "BE-01", agents: [agents[0]] }),
     });
     expect(one.status).toBe(400);
+  });
+});
+
+describe("Run respects max_parallel (DMN-11)", () => {
+  const codexFake: AgentAdapter = { ...fake, id: "codex" };
+
+  const post = (body: unknown) =>
+    api<{ run: Run; error: { code: string } }>(`/projects/${projectId}/runs`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+  const entries = (dir: string) =>
+    existsSync(dir)
+      ? readdirSync(dir)
+          .filter((name) => !name.startsWith(".")) // lock files are not runs
+          .sort()
+      : [];
+  /** What launching a run leaves behind: its folder, its worktree and its branch. */
+  const created = () => ({
+    runs: entries(join(root, ".konsora", "runs")),
+    worktrees: entries(join(data, "worktrees", projectId)),
+    branches: git(root, "branch", "--list", "konsora/*"),
+  });
+
+  it("refuses a second run with 409 no_slots when max_parallel is 1, creating nothing", async () => {
+    behaviour = "hang";
+    await api("/settings/parallel", { method: "PUT", body: JSON.stringify({ max_parallel: 1 }) });
+    const first = await post({ task: "BE-01" });
+    expect(first.status).toBe(201);
+    const before = created();
+
+    const second = await post({ task: "BE-03" });
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe("no_slots");
+    expect(created()).toEqual(before);
+    expect((await api<{ runs: Run[] }>(`/projects/${projectId}/runs`)).body.runs).toHaveLength(1);
+    expect(await taskState("BE-03")).toBe("todo");
+
+    // Once the run closes, there is room again.
+    await api(`/projects/${projectId}/runs/${first.body.run.id}/cancel`, { method: "POST" });
+    await settled(first.body.run.id);
+    expect((await post({ task: "BE-03" })).status).toBe(201);
+  });
+
+  it("applies the per-provider limit with the agent the run would use", async () => {
+    await daemon.close();
+    daemon = await startDaemon({
+      dataDir: data,
+      adapters: { claude: fake, codex: codexFake },
+      interruptGraceMs: 100,
+    });
+    behaviour = "hang";
+    await api("/settings/parallel", {
+      method: "PUT",
+      body: JSON.stringify({ max_parallel: 4, per_provider: { claude: 1 } }),
+    });
+    expect((await post({ task: "BE-01" })).status).toBe(201); // the project default: claude
+    const before = created();
+
+    const claude = await post({ task: "BE-03" });
+    expect(claude.status).toBe(409);
+    expect(claude.body.error.code).toBe("no_slots");
+    expect(created()).toEqual(before);
+
+    // The limit is the provider's: a Codex run still fits.
+    const codex = await post({ task: "BE-03", agent: { provider: "codex", model: "fake" } });
+    expect(codex.status).toBe(201);
   });
 });
 

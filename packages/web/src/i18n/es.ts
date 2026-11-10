@@ -380,6 +380,10 @@ export const es = {
   "run.error.active_run": "{id} ya tiene un run en marcha.",
   "run.error.no_agent": "Elige un agente para {id} o define uno por defecto en el proyecto.",
   "run.error.not_active": "Ese run ya terminó.",
+  "run.error.no_slots":
+    "{id} no cabe ahora: no hay hueco libre en el máximo de runs en paralelo. Puedes encolarla y se lanzará sola cuando lo haya.",
+  "run.noslots.queue": "Encolar",
+  "run.noslots.queued": "{id} añadida a la cola con el mismo agente.",
   "run.error.other": "No se pudo ejecutar {id}: {message}",
   "approval.label": "Aprobación pendiente: {tool} en {id}",
   "approval.asks": "{id} pide permiso para usar",
@@ -538,6 +542,8 @@ export const es = {
   "selection.run.none": "Ninguna de las seleccionadas está lista para ejecutarse.",
   "selection.run.readonly": "No se puede ejecutar mientras el plan es de solo lectura.",
   "selection.run.started": "{n} runs lanzados.",
+  "selection.run.full":
+    "No caben ahora, por el máximo de runs en paralelo: {ids}. Pulsa Encolar y se lanzarán solas cuando haya hueco.",
   "selection.withDeps": "Seleccionar con dependencias",
   "selection.withDeps.done": "{id} seleccionada con sus dependencias pendientes: {n} en total.",
   "selection.node": "Seleccionar {id}",

@@ -11,6 +11,7 @@ import {
   variantGroup,
   variantsOutcome,
 } from "@konsora/core";
+import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import type { RunLogEvent, RunLogEventKind } from "../ui/index.ts";
 
@@ -390,6 +391,51 @@ export function runErrorText(code: string, id: string, message: string): string 
     default:
       return t("run.error.other", { id, message });
   }
+}
+
+/**
+ * Spanish text for an error launching ONE run (Run in the panel or the selection bar). `no_slots`
+ * means max_parallel has no free slot (DMN-11); the human may queue the task instead.
+ */
+export function startErrorText(code: string, id: string, message: string): string {
+  return code === "no_slots" ? t("run.error.no_slots", { id }) : runErrorText(code, id, message);
+}
+
+export type LaunchOutcome = {
+  started: string[];
+  /** Refused because max_parallel has no free slot: the human may queue them (DMN-11). */
+  unfit: string[];
+  /** Any other failure, with the daemon's error code. */
+  failed: { task: string; code: string; message: string }[];
+  /** The token stopped working: the rest were not tried. */
+  unauthorized: boolean;
+};
+
+/**
+ * Launches each item in turn, with `start`, and sorts what happened: the ones that started, the
+ * ones that did not fit in max_parallel and the ones that failed for another reason.
+ */
+export async function launchEach<T extends { task: string }>(
+  items: readonly T[],
+  start: (item: T) => Promise<unknown>,
+): Promise<LaunchOutcome> {
+  const outcome: LaunchOutcome = { started: [], unfit: [], failed: [], unauthorized: false };
+  for (const item of items) {
+    try {
+      await start(item);
+      outcome.started.push(item.task);
+    } catch (error) {
+      if (error instanceof ApiError && error.unauthorized) {
+        outcome.unauthorized = true;
+        return outcome;
+      }
+      const code = error instanceof ApiError ? error.code : "error";
+      const message = error instanceof Error ? error.message : String(error);
+      if (code === "no_slots") outcome.unfit.push(item.task);
+      else outcome.failed.push({ task: item.task, code, message });
+    }
+  }
+  return outcome;
 }
 
 /**

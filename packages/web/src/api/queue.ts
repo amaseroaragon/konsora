@@ -15,6 +15,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect } from "react";
 import { upsertRun } from "../shell/run-model.ts";
 import { boardKey } from "./board.ts";
+import type { Api } from "./client.ts";
 import { useApi } from "./projects.ts";
 import { applyRunMessage, runsKey } from "./runs.ts";
 import { reconnectDelay, TOKEN_KEY } from "./session.ts";
@@ -55,16 +56,21 @@ function useQueueMutation<T, R extends QueueView>(
   });
 }
 
-/** `POST /projects/:id/queue`: the human queues the selected tasks with the chosen agent. */
+/** `POST /projects/:id/queue`: the human queues tasks, each with the agent chosen for it. */
+export function enqueueRequest(api: Api, project: string, items: readonly QueueItem[]) {
+  return api.post<QueueView & { added: string[]; already: string[] }>(base(project), {
+    items: items.map((item) => ({
+      task: item.task,
+      ...(item.agent ? { agent: item.agent } : {}),
+    })),
+  });
+}
+
+/** The human queues the selected tasks with the chosen agent. */
 export function useEnqueue(project: string) {
   const api = useApi();
   return useQueueMutation(project, (items: readonly QueueItem[]) =>
-    api.post<QueueView & { added: string[]; already: string[] }>(base(project), {
-      items: items.map((item) => ({
-        task: item.task,
-        ...(item.agent ? { agent: item.agent } : {}),
-      })),
-    }),
+    enqueueRequest(api, project, items),
   );
 }
 

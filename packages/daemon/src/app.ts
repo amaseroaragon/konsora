@@ -11,6 +11,7 @@ import {
   MAX_VARIANTS,
   MIN_VARIANTS,
   parseOp,
+  runAgentFor,
   type Task,
   TaskIdSchema,
   type TasksDocument,
@@ -556,6 +557,16 @@ export function createApp(options: AppOptions): Hono {
       });
       return c.json({ runs }, 201);
     }
+    // A run launched by hand respects the same limits as the queue (DMN-11): if it does not fit
+    // now, nothing is created and the human may queue it instead. (Review and rebase runs do not
+    // take this limit: they have their own routes.)
+    const plan = await readTasks(project.path);
+    const task = plan.ok ? plan.document.tasks.find((t) => t.id === body.data.task) : undefined;
+    const agent = plan.ok && task ? runAgentFor(task, plan.document, body.data.agent) : undefined;
+    const full = await options.scheduler?.fits(project, [
+      (agent ?? body.data.agent)?.provider ?? "claude",
+    ]);
+    if (full) throw new RunManagerError("no_slots", full);
     const run = await runsOf().start(project, {
       task: body.data.task,
       ...(body.data.agent ? { agent: body.data.agent } : {}),

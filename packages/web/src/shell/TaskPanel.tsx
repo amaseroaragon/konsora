@@ -13,6 +13,7 @@ import { type FormEvent, useState } from "react";
 import { useAgents } from "../api/agents.ts";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
+import { useEnqueue } from "../api/queue.ts";
 import { useStartRun, useStartVariants } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
@@ -40,6 +41,7 @@ import {
   olderDiscardable,
   reviewRun,
   runErrorText,
+  startErrorText,
   taskVariants,
   variantsToChoose,
 } from "./run-model.ts";
@@ -218,6 +220,9 @@ function RunButton({
 }) {
   const start = useStartRun(projectId);
   const startVariants = useStartVariants(projectId);
+  const enqueue = useEnqueue(projectId);
+  /** The daemon refused the run: max_parallel has no free slot (DMN-11); Queue is offered. */
+  const [noSlots, setNoSlots] = useState(false);
   const toast = useToast();
   const agents = useAgents();
   const catalog = agents.data;
@@ -232,6 +237,8 @@ function RunButton({
     const code = error instanceof ApiError ? error.code : "error";
     toast.show(runErrorText(code, task.id, error.message), "error");
   };
+  // Without the catalog, the daemon uses the task's agent or the project's.
+  const item = { task: task.id, agent: catalog ? agent : undefined };
   if (variants && catalog) {
     const issue = variantsProblem(variants, catalog);
     return (
@@ -313,16 +320,16 @@ function RunButton({
           busy={start.isPending}
           disabled={problem !== null}
           title={t("run.run.hint", { id: task.id })}
-          onClick={() =>
-            start.mutate(
-              // Without the catalog, the daemon uses the task's agent or the project's.
-              { task: task.id, agent: catalog ? agent : undefined },
-              {
-                onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
-                onError: failed,
+          onClick={() => {
+            setNoSlots(false);
+            start.mutate(item, {
+              onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
+              onError: (error) => {
+                if (error instanceof ApiError && error.code === "no_slots") setNoSlots(true);
+                else failed(error);
               },
-            )
-          }
+            });
+          }}
         >
           {t("run.run")} →
         </Button>
@@ -332,6 +339,33 @@ function RunButton({
           </Button>
         )}
       </div>
+      {noSlots && (
+        <div className="a-callout a-callout--warn a-stack" role="alert">
+          <p className="a-callout__text">{startErrorText("no_slots", task.id, "")}</p>
+          <div className="a-actions">
+            <Button
+              busy={enqueue.isPending}
+              onClick={() =>
+                enqueue.mutate([item], {
+                  onSuccess: () => {
+                    setNoSlots(false);
+                    toast.show(t("run.noslots.queued", { id: task.id }), "success");
+                  },
+                  onError: (error) => {
+                    if (error instanceof ApiError && error.unauthorized) return;
+                    toast.show(t("queue.error", { message: error.message }), "error");
+                  },
+                })
+              }
+            >
+              {t("run.noslots.queue")}
+            </Button>
+            <Button variant="ghost" onClick={() => setNoSlots(false)}>
+              {t("feedback.cancel")}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -23,6 +23,7 @@ export function SelectionBar({
   queueable = [],
   queueBusy = false,
   onQueue,
+  full = [],
 }: {
   ids: readonly string[];
   /** The selected tasks Run would launch. */
@@ -43,6 +44,8 @@ export function SelectionBar({
   queueBusy?: boolean;
   /** Without it there is no Queue button. */
   onQueue?: (ids: readonly string[]) => void;
+  /** Selected tasks the daemon refused to run now: max_parallel has no slot for them (DMN-11). */
+  full?: readonly string[];
 }) {
   const hint = useId();
   const queueHint = useId();
@@ -66,6 +69,13 @@ export function SelectionBar({
       </div>
       {catalog && onAgent && !readOnly && agents.length > 0 && (
         <AgentChoice agent={agent} agents={agents} catalog={catalog} onAgent={onAgent} />
+      )}
+      {onQueue && !readOnly && full.length > 0 && (
+        <p className="a-callout a-callout--warn" role="alert">
+          <span className="a-callout__text">
+            {t("selection.run.full", { ids: full.join(", ") })}
+          </span>
+        </p>
       )}
       <div className="a-selection__controls">
         <p id={hint} className="b-selection__hint s-muted">
