@@ -42,11 +42,18 @@
   text-decoration: none;
   font-weight: var(--k-weight-medium);
 }
-/* The header's links (Cola, Límites): spaced like separate items. */
-.s-nav__group {
+/* The header's links (Cola, Límites): one cell each, split by the header's own full-height rule. */
+.a-header__cell.s-nav__group {
+  align-items: stretch;
+  padding: 0;
+}
+.s-nav__group > .s-nav__link {
   display: flex;
   align-items: center;
-  gap: var(--k-space-8);
+  padding: var(--k-space-3) var(--k-space-6);
+}
+.s-nav__group > .s-nav__link + .s-nav__link {
+  border-left: 1px solid var(--k-line);
 }
 .s-nav__link:hover {
   color: var(--k-accent);
