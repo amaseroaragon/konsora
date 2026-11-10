@@ -2610,7 +2610,7 @@
     {
       "id": "UI-19",
       "title": "Botón Retomar en un run interrumpido",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "RUN-27"
@@ -2634,7 +2634,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T12:59:38Z"
+      "updated_at": "2026-11-10T09:11:36Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:09:57Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Retomar y Descartar en la sección de un run interrupted (POST …/resume, y Descartar como cancelar → cancelled), el mismo botón en los runs interrumpidos de la vista de cola, errores en español por código y tests."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:11:36Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit c14b357. Web: resumeRunRequest/useResumeRun (POST …/runs/:run/resume; el run devuelto sustituye al de la caché, así que la sección y su log siguen en vivo sin recargar), canResume y resumeErrorText en run-model, ResumeActions en RunSection (Retomar y Descartar; Descartar cierra el run interrumpido con cancel → cancelled y borra su worktree con discard; Cancelar ya no se ofrece en un interrupted). La vista de cola muestra ResumeActions en sus runs activos interrumpidos. Textos en es.ts. ac1: test/resume.test.tsx (interrupted ofrece Retomar y Descartar y no en solo lectura; tras Retomar la caché tiene el mismo run en starting y la sección muestra Preparando y Cancelar, sin Retomar; la cola ofrece Retomar solo en el interrumpido). ac2: not_resumable del daemon → mensaje en español con qué hacer, sin el texto inglés; no_adapter, lock_timeout, not_found y red con sus textos. vitest packages/web: 281 en verde; tsc y biome limpios."
+        }
+      ]
     },
     {
       "id": "UI-20",
@@ -2718,7 +2734,7 @@
     {
       "id": "UI-22",
       "title": "Gestionar plantillas desde los ajustes del proyecto",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "CORE-10"
@@ -2742,7 +2758,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:00:26Z"
+      "updated_at": "2026-11-10T09:14:53Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:11:37Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Sección Plantillas en los ajustes del proyecto: crear, editar, reordenar y borrar (nombre, id, descripción, criterios con check, etiquetas, dificultad), guardada con set-templates y validada con las mismas reglas que TemplateSchema; errores del daemon por campo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:14:53Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 2d512ef. Web: templates-model.ts (borrador, templatesOp que valida con TemplateSchema de core más ids únicos y etiquetas válidas y no repetidas, con mensajes en español por campo, y construye un único set-templates con la lista completa o null si no cambió; templatesServerErrors coloca los issues del daemon —/project/templates/i/…, duplicate_template_id, duplicate_label— y los bad_request en su campo), TemplateSettings.tsx (formulario propio bajo los ajustes: id, nombre, dificultad, etiquetas separadas por comas, descripción base, criterios con check opcional; añadir, subir, bajar y quitar plantillas y criterios; respeta solo lectura y los cambios externos como el de checks), claves difficulty.* reutilizables por UI-21. ac1: test/templates.test.tsx crea, edita (quita criterio, desc y dificultad), reordena y borra todas; la op pasa OpSchema y applyOp de core y project.templates queda como se espera (vacío → se quita); test de la petición POST /api/projects/p/ops con el cuerpo set-templates. ac2: errores por campo en español (id mal formado y repetido, nombre vacío y largo, criterio vacío, check largo, etiqueta mala y repetida) y errores del daemon colocados en su campo. vitest packages/web: 289 en verde; tsc y biome limpios."
+        }
+      ]
     },
     {
       "id": "UI-23",
@@ -2805,7 +2837,7 @@
     {
       "id": "UI-25",
       "title": "Revisor en la UI",
-      "state": "todo",
+      "state": "review",
       "group": "UI",
       "deps": [
         "RUN-29"
@@ -2829,7 +2861,23 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T13:06:26Z"
+      "updated_at": "2026-11-10T09:19:56Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-10T09:14:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Ajustes: sección Revisor (agente con AgentPicker y lanzamiento auto/manual, o sin revisor) con set-reviewer. Revisión: Pedir revisión (POST …/runs/:run/review) y las notas review del run con su veredicto, agente y uso. Los runs de revisión no cuentan como el run de la tarea."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-10T09:19:56Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 9b9f680. Ajustes: ReviewerSettings (Cuándo revisa: sin revisor, solo cuando lo pida o solo al llegar a revisión; AgentPicker con un catálogo que solo ofrece el perfil readonly; valida con agentProblem/checkAgent de core) que guarda set-reviewer con el agente sin perfil (readonly implícito) o null para quitarlo. Revisión: RunReviews dentro de ReviewSection lista cada run de revisión del run (kind review, review_of) con su nota review destacada: veredicto (Aprobaría / Pediría cambios), motivos en markdown, agente (proveedor · modelo · esfuerzo) y uso (tokens y coste); Pedir revisión hace POST …/runs/:run/review (useRequestReview añade el run a la caché), deshabilitado mientras hay una revisión en marcha o si el proyecto no tiene revisor (con aviso). Errores del endpoint en español por código. Además, latestRun, activeRun y olderDiscardable ignoran los runs de revisión, para que no sustituyan al run de la tarea ni se ofrezcan para descartar. ac1: test/reviewer.test.tsx: poner, cambiar y quitar el revisor da el set-reviewer esperado, que core aplica (OpSchema + applyOp), sin cambios → null, agente no válido → error; test de la petición POST /api/projects/p/ops; el formulario solo ofrece readonly. ac2: veredicto, motivos, agente y uso de cada nota review; revisión en marcha y proyecto sin revisor; Pedir revisión hace el POST a …/review (cuerpo {} o {agent}) y la revisión aparece en la lista. npm run check: 1025 tests en verde."
+        }
+      ]
     },
     {
       "id": "MCP-01",
@@ -4622,7 +4670,7 @@
     {
       "id": "RUN-28",
       "title": "Lanzar variantes en paralelo y elegir la ganadora",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "CORE-12"
@@ -4646,7 +4694,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T20:00:52Z",
+      "updated_at": "2026-11-10T09:07:39Z",
       "notes": [
         {
           "id": "n1",
@@ -4667,7 +4715,7 @@
     {
       "id": "RUN-29",
       "title": "Ejecutar revisiones con permisos de solo lectura",
-      "state": "review",
+      "state": "done",
       "group": "RUN",
       "deps": [
         "CORE-13"
@@ -4695,7 +4743,7 @@
         "at": "2026-11-08T12:50:48Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-08T20:11:34Z",
+      "updated_at": "2026-11-10T09:07:44Z",
       "notes": [
         {
           "id": "n1",
