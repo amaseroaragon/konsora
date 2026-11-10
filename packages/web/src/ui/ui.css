@@ -314,6 +314,11 @@ a {
   font-size: var(--k-text-xs);
   color: var(--k-ink-muted);
 }
+.k-matrix__lane-meta {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}
 .k-matrix__cell {
   display: flex;
   flex-direction: column;

@@ -11,6 +11,7 @@ import { Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { ApprovalNotice } from "./Approvals.tsx";
 import { launchItems, taskAgent } from "./agent-model.ts";
 import { Board } from "./Board.tsx";
+import { CostPage } from "./CostPage.tsx";
 import { failingReviews } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
@@ -19,7 +20,7 @@ import { ProjectSettings } from "./ProjectSettings.tsx";
 import { awaitingApproval, queueableSelection } from "./queue-model.ts";
 import { RecommendedSettings } from "./RecommendedSettings.tsx";
 import { ReviewerSettings } from "./ReviewerSettings.tsx";
-import { navigate, type ProjectViewName, projectHref } from "./route.ts";
+import { navigate, type ProjectViewName, projectHref, projectViews } from "./route.ts";
 import { runErrorText, runnableSelection } from "./run-model.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
@@ -53,6 +54,7 @@ const LIVE_KEYS: Record<LiveState, MessageKey> = {
 const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
   board: "app.view.board",
   graph: "app.view.graph",
+  cost: "app.view.cost",
   settings: "app.view.settings",
 };
 
@@ -209,7 +211,7 @@ export function ProjectView({
           label={t("app.views")}
           value={view}
           onChange={(value) => go({ view: value as ProjectViewName })}
-          options={(["board", "graph", "settings"] as const).map((value) => ({
+          options={projectViews.map((value) => ({
             value,
             label: t(VIEW_KEYS[value]),
           }))}
@@ -235,7 +237,9 @@ export function ProjectView({
       <ApprovalNotice approvals={approvals} onOpen={open} />
       <Orphans projectId={projectId} />
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
-      {view === "settings" ? (
+      {view === "cost" ? (
+        <CostPage plan={board.plan} tasks={board.tasks} runs={runs} />
+      ) : view === "settings" ? (
         <div className="s-stack">
           <ProjectSettings projectId={projectId} project={board.plan.project} readOnly={readOnly} />
           <RecommendedSettings
@@ -281,6 +285,7 @@ export function ProjectView({
                 onOpen={open}
                 selection={{ selected, onToggle: toggle }}
                 readOnly={readOnly}
+                runs={runs}
               />
             )}
           </div>

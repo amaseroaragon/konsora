@@ -4,6 +4,8 @@ import { stateLabel, type TaskState } from "./StateBadge.tsx";
 export type MatrixLane = {
   id: string;
   name: string;
+  /** Extra line under the name (e.g. the group's accumulated cost). */
+  meta?: string | undefined;
   /** One cell per column, in the same order as `columns`. */
   cells: readonly ReactNode[];
 };
@@ -71,6 +73,7 @@ function Lane({
       <div className="k-matrix__lane">
         <div className="k-matrix__lane-id">{lane.id}</div>
         <div className="k-matrix__lane-name">{lane.name}</div>
+        {lane.meta && <div className="k-matrix__lane-meta">{lane.meta}</div>}
       </div>
       {columns.map((column, index) => (
         <Fragment key={column.state}>

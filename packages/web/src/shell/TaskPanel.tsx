@@ -5,6 +5,7 @@ import {
   type Run,
   type TaskAction,
   type TasksDocument,
+  taskCost,
 } from "@konsora/core";
 import { type FormEvent, useState } from "react";
 import { useAgents } from "../api/agents.ts";
@@ -16,6 +17,7 @@ import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { AgentPicker } from "./AgentPicker.tsx";
 import { agentProblem, agentReason, difficultyText, taskAgent } from "./agent-model.ts";
 import { opErrorText } from "./board-model.ts";
+import { CostSummaryView } from "./CostSummary.tsx";
 import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -334,6 +336,12 @@ export function TaskPanel({
               />
             )}
           </RunSection>
+        )}
+        {runs?.some((r) => r.task === task.id) && (
+          <section className="a-stack" aria-label={t("cost.title")}>
+            <div className="k-label">{t("cost.title")}</div>
+            <CostSummaryView summary={taskCost(runs, task.id)} />
+          </section>
         )}
         <OlderRuns
           projectId={projectId}

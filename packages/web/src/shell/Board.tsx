@@ -13,7 +13,14 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { type MovePlan, planMove, type TaskState } from "@konsora/core";
+import {
+  groupCost,
+  type MovePlan,
+  planMove,
+  type Run,
+  type TaskState,
+  usageTotals,
+} from "@konsora/core";
 import { useMemo, useState } from "react";
 import { type BoardOk, type BoardTask, toDocument, useMoveTask } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
@@ -28,7 +35,8 @@ import {
   useToast,
 } from "../ui/index.ts";
 import { difficultyText } from "./agent-model.ts";
-import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
+import { ALL_LANE, boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
+import { costLine } from "./cost-model.ts";
 import { FeedbackDialog } from "./FeedbackDialog.tsx";
 import { isSelectable } from "./selection.ts";
 
@@ -183,11 +191,14 @@ export function Board({
   onOpen,
   selection,
   readOnly = false,
+  runs,
 }: {
   board: BoardOk;
   swimlanes: boolean;
   onOpen: (id: string) => void;
   selection: BoardSelection;
+  /** The project's runs, for each lane's accumulated cost (UI-23); live from `run.state`. */
+  runs?: readonly Run[] | undefined;
   /** The file is invalid: this is the last valid version, shown without drag or actions. */
   readOnly?: boolean;
 }) {
@@ -291,6 +302,9 @@ export function Board({
             lanes={lanes.map((lane) => ({
               id: lane.id,
               name: lane.name,
+              meta: runs
+                ? costLine(lane.id === ALL_LANE ? usageTotals(runs) : groupCost(runs, doc, lane.id))
+                : undefined,
               cells: lane.cells.map((cell) =>
                 cell.map((task) => (
                   <DraggableCard
