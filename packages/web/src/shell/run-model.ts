@@ -358,6 +358,28 @@ export function runnableSelection(
   });
 }
 
+/** Resume (and discarding instead) is offered on a run left `interrupted` by a stopped daemon. */
+export function canResume(run: Run): boolean {
+  return run.state === "interrupted";
+}
+
+/** Why resuming the run of task `id` failed, in Spanish and with what to do next. */
+export function resumeErrorText(code: string, id: string, message: string): string {
+  switch (code) {
+    case "not_resumable":
+      return t("run.resume.error.not_resumable", { id });
+    case "no_adapter":
+    case "wrong_provider":
+      return t("run.resume.error.no_adapter", { id });
+    case "not_found":
+      return t("run.resume.error.not_found", { id });
+    case "lock_timeout":
+      return t("run.resume.error.busy", { id });
+    default:
+      return t("run.resume.error.other", { id, message });
+  }
+}
+
 /** Discard is offered on a finished run whose work was neither integrated nor discarded. */
 export function canDiscard(run: Run): boolean {
   const state = run.integration?.state;

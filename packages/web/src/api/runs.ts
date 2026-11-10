@@ -138,6 +138,26 @@ export function useRunDiff(project: string, run: string, enabled = true) {
   });
 }
 
+/** `POST /projects/:id/runs/:run/resume`: the human resumes an interrupted run (RUN-27). */
+export async function resumeRunRequest(api: Api, project: string, run: string): Promise<Run> {
+  return (await api.post<{ run: Run }>(`${base(project)}/${encodeURIComponent(run)}/resume`)).run;
+}
+
+/** Resume keeps the same run: the cache takes its new state, and its log keeps growing. */
+export function useResumeRun(project: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (run: string) => resumeRunRequest(api, project, run),
+    onSuccess: (run) =>
+      client.setQueryData<Run[]>(runsKey(project), (runs) => upsertRun(runs, run)),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: runsKey(project) });
+      client.invalidateQueries({ queryKey: boardKey(project) });
+    },
+  });
+}
+
 /** `POST /projects/:id/runs/:run/discard`: the human drops a finished run's work. */
 export async function discardRunRequest(api: Api, project: string, run: string): Promise<Run> {
   return (await api.post<{ run: Run }>(`${base(project)}/${encodeURIComponent(run)}/discard`)).run;

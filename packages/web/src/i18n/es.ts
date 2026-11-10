@@ -199,6 +199,19 @@ export const es = {
   "run.integration.discarded": "Descartado",
   "run.integration.conflict": "Con conflicto",
   "run.integration.pending": "Pendiente de integrar",
+  "run.resume": "Retomar",
+  "run.resume.hint": "Lo relanza en su mismo worktree y, si puede, en la misma sesión del agente.",
+  "run.resumed": "Run de {id} retomado.",
+  "run.resume.discard.hint":
+    "Lo da por terminado sin retomarlo: borra su worktree y su rama, y la tarea vuelve a Por hacer.",
+  "run.resume.error.not_resumable":
+    "No se puede retomar el run de {id}: su worktree ya no existe o la tarea ya no está en curso. Descártalo y vuelve a ejecutar {id}.",
+  "run.resume.error.no_adapter":
+    "Konsora no puede lanzar ahora el agente de este run. Comprueba que su CLI está instalado o descarta el run.",
+  "run.resume.error.not_found": "Ese run de {id} ya no existe. Recarga la tarea.",
+  "run.resume.error.busy":
+    "El plan está ocupado ahora mismo. Vuelve a pulsar Retomar en unos segundos.",
+  "run.resume.error.other": "No se pudo retomar el run de {id}: {message}",
   "run.error.not_discardable": "Ese run no se puede descartar: {message}",
   "orphans.label": "Worktrees huérfanos",
   "orphans.title": "{n} worktrees o ramas de Konsora que ningún run necesita:",

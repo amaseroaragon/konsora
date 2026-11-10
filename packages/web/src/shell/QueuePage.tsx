@@ -23,8 +23,9 @@ import {
   limitsDraft,
   parseLimitsDraft,
 } from "./queue-model.ts";
+import { ResumeActions } from "./RunSection.tsx";
 import { projectHref } from "./route.ts";
-import { RUN_STATE_KEY } from "./run-model.ts";
+import { canResume, RUN_STATE_KEY } from "./run-model.ts";
 import { QueryError } from "./Shell.tsx";
 
 /** `#/cola`: every project's queue and active runs, and the parallelism limits, live. */
@@ -202,6 +203,7 @@ export function ProjectQueueView({
                       </a>
                     </>
                   )}
+                  {canResume(run) && <ResumeActions projectId={project.id} run={run} size="sm" />}
                 </li>
               ))}
             </ul>

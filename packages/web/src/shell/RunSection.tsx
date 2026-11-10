@@ -2,17 +2,25 @@ import { isActiveRunState, type Run, transportLimits } from "@konsora/core";
 import { useEffect, useState } from "react";
 import { useApprovals } from "../api/approvals.ts";
 import { ApiError } from "../api/client.ts";
-import { useCancelRun, useDiscardRun, useRunDiff, useRunEvents } from "../api/runs.ts";
+import {
+  useCancelRun,
+  useDiscardRun,
+  useResumeRun,
+  useRunDiff,
+  useRunEvents,
+} from "../api/runs.ts";
 import { t } from "../i18n/index.ts";
 import { Button, RunLog, useToast } from "../ui/index.ts";
 import { RunApprovals } from "./Approvals.tsx";
 import { patchFiles } from "./review-model.ts";
 import {
   canDiscard,
+  canResume,
   formatSeconds,
   formatTokens,
   logRows,
   RUN_STATE_KEY,
+  resumeErrorText,
   runErrorText,
   runSeconds,
   runUsage,
@@ -169,7 +177,8 @@ export function RunSection({
           </Button>
         </div>
       )}
-      {active && !readOnly && (
+      {canResume(run) && !readOnly && <ResumeActions projectId={projectId} run={run} />}
+      {active && !canResume(run) && !readOnly && (
         <div className="a-actions">
           <Button
             variant="danger"
@@ -190,5 +199,71 @@ export function RunSection({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * What the human can do with a run left `interrupted` (UI-19): resume it in its worktree and
+ * session (the same run: its section and log carry on live), or discard it instead, which closes
+ * it and removes its worktree and branch. Also shown on the queue page.
+ */
+export function ResumeActions({
+  projectId,
+  run,
+  size = "md",
+}: {
+  projectId: string;
+  run: Run;
+  size?: "md" | "sm";
+}) {
+  const resume = useResumeRun(projectId);
+  const cancel = useCancelRun(projectId);
+  const discard = useDiscardRun(projectId);
+  const toast = useToast();
+  const failed = (error: Error, text: (code: string) => string) => {
+    if (error instanceof ApiError && error.unauthorized) return;
+    toast.show(text(error instanceof ApiError ? error.code : "error"), "error");
+  };
+  const busy = resume.isPending || cancel.isPending || discard.isPending;
+  return (
+    <div className="a-actions">
+      <Button
+        variant="primary"
+        size={size}
+        busy={resume.isPending}
+        disabled={busy && !resume.isPending}
+        title={t("run.resume.hint")}
+        onClick={() =>
+          resume.mutate(run.id, {
+            onSuccess: () => toast.show(t("run.resumed", { id: run.task }), "success"),
+            onError: (error) =>
+              failed(error, (code) => resumeErrorText(code, run.task, error.message)),
+          })
+        }
+      >
+        {t("run.resume")}
+      </Button>
+      <Button
+        variant="secondary"
+        size={size}
+        busy={cancel.isPending || discard.isPending}
+        disabled={busy && !(cancel.isPending || discard.isPending)}
+        title={t("run.resume.discard.hint")}
+        onClick={async () => {
+          // An interrupted run is closed first (→ cancelled), then its worktree goes.
+          try {
+            const closed = await cancel.mutateAsync(run.id);
+            await discard.mutateAsync(closed.id);
+            toast.show(t("run.discarded", { id: run.task }), "info");
+          } catch (error) {
+            failed(error as Error, (code) =>
+              runErrorText(code, run.task, (error as Error).message),
+            );
+          }
+        }}
+      >
+        {t("run.discard")}
+      </Button>
+    </div>
   );
 }
