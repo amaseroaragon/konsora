@@ -112,8 +112,8 @@ describe("serializeDocument", () => {
   it("orders tasks by group order then id number, deps naturally, labels alphabetically", () => {
     const doc = parse(
       JSON.stringify({
-        schema: "konsora/2",
-        project: { name: "P", base_branch: "main" },
+        schema: "konsora/3",
+        project: { name: "P" },
         groups: [
           { id: "UI", name: "UI" },
           { id: "BE", name: "BE" },
@@ -181,32 +181,6 @@ describe("serializeDocument", () => {
   });
 });
 
-describe("project.defaults (CORE-15)", () => {
-  it("round-trips: the default agent is kept in canonical form, with its keys in order", () => {
-    const doc: TasksDocument = {
-      ...minimal(),
-      project: {
-        base_branch: "main",
-        name: "P",
-        defaults: { effort: "high", model: "opus", provider: "claude" },
-      },
-    };
-    const text = serializeDocument(doc);
-    expect(JSON.parse(text).project).toEqual({
-      name: "P",
-      base_branch: "main",
-      defaults: { provider: "claude", model: "opus", effort: "high" },
-    });
-    expect(Object.keys(JSON.parse(text).project.defaults)).toEqual(["provider", "model", "effort"]);
-    expect(serializeDocument(parse(text))).toBe(text);
-    expect(parse(text).project.defaults).toEqual({
-      provider: "claude",
-      model: "opus",
-      effort: "high",
-    });
-  });
-});
-
 describe("compareTaskIds", () => {
   it("compares prefixes first, then numbers naturally", () => {
     expect(["BE-100", "BE-99", "AB-03", "BE-01"].sort(compareTaskIds)).toEqual([
@@ -220,149 +194,46 @@ describe("compareTaskIds", () => {
 
 function minimal(): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "P", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "P" },
     groups: [{ id: "BE", name: "BE" }],
     seq: { BE: 0 },
     tasks: [],
   };
 }
 
-describe("difficulty and project.recommended (CORE-09)", () => {
-  it("are written in canonical order", () => {
-    const at = "2030-01-01T00:00:00Z";
-    const text = serializeDocument({
-      schema: "konsora/2",
-      project: {
-        recommended: {
-          high: { model: "opus", provider: "claude", effort: "high" },
-          low: { provider: "claude", model: "haiku" },
-        },
-        name: "P",
-        base_branch: "main",
-        defaults: { provider: "claude", model: "sonnet" },
-      },
-      groups: [{ id: "BE", name: "BE" }],
-      seq: { BE: 1 },
-      tasks: [
-        {
-          agent: { provider: "claude", model: "x" },
-          difficulty: "medium",
-          labels: ["a"],
-          id: "BE-01",
-          title: "t",
-          state: "todo",
-          group: "BE",
-          rank: "a",
-          created: { at, by: "human" },
-          updated_at: at,
-        },
-      ],
-    } as TasksDocument);
-    const doc = JSON.parse(text);
-    expect(Object.keys(doc.project)).toEqual(["name", "base_branch", "defaults", "recommended"]);
-    expect(Object.keys(doc.project.recommended)).toEqual(["low", "high"]);
-    expect(Object.keys(doc.project.recommended.high)).toEqual(["provider", "model", "effort"]);
-    const keys = Object.keys(doc.tasks[0]);
-    expect(keys.slice(keys.indexOf("labels"), keys.indexOf("agent") + 1)).toEqual([
-      "labels",
-      "difficulty",
-      "agent",
-    ]);
-    expect(parse(text)).toBeTruthy();
-  });
-});
-
 describe("project.templates (CORE-10)", () => {
   it("keep their order and criteria order, with keys and labels in canonical order", () => {
     const text = serializeDocument({
-      schema: "konsora/2",
+      schema: "konsora/3",
       project: {
         templates: [
           {
-            difficulty: "low",
             labels: ["z", "a"],
-            acceptance: [{ check: "npm test", text: "Second" }, { text: "First" }],
+            acceptance: [{ text: "Second" }, { text: "First" }],
             name: "Zeta",
             id: "zeta",
           },
           { name: "Alpha", id: "alpha", acceptance: [], labels: [] },
         ],
         name: "P",
-        base_branch: "main",
       },
       groups: [{ id: "BE", name: "BE" }],
       seq: { BE: 0 },
       tasks: [],
     } as unknown as TasksDocument);
     const doc = JSON.parse(text);
-    expect(Object.keys(doc.project)).toEqual(["name", "base_branch", "templates"]);
+    expect(Object.keys(doc.project)).toEqual(["name", "templates"]);
     expect(doc.project.templates).toEqual([
       {
         id: "zeta",
         name: "Zeta",
-        acceptance: [{ text: "Second", check: "npm test" }, { text: "First" }],
+        acceptance: [{ text: "Second" }, { text: "First" }],
         labels: ["a", "z"],
-        difficulty: "low",
       },
       { id: "alpha", name: "Alpha" },
     ]);
-    expect(Object.keys(doc.project.templates[0])).toEqual([
-      "id",
-      "name",
-      "acceptance",
-      "labels",
-      "difficulty",
-    ]);
-    expect(Object.keys(doc.project.templates[0].acceptance[0])).toEqual(["text", "check"]);
+    expect(Object.keys(doc.project.templates[0])).toEqual(["id", "name", "acceptance", "labels"]);
     expect(parse(text)).toBeTruthy();
-  });
-});
-
-describe("reviewer and review notes (CORE-13, RUN-29)", () => {
-  it("keeps project.reviewer and a review note's verdict through serialization", () => {
-    const at = "2026-11-02T10:00:00Z";
-    const doc: TasksDocument = {
-      schema: "konsora/2",
-      project: {
-        name: "P",
-        base_branch: "main",
-        reviewer: { launch: "auto", agent: { model: "gpt-5", provider: "codex" } },
-      },
-      groups: [{ id: "BE", name: "Backend" }],
-      seq: { BE: 1 },
-      tasks: [
-        {
-          id: "BE-01",
-          title: "T",
-          state: "review",
-          group: "BE",
-          rank: "a",
-          created: { at, by: "human" },
-          updated_at: at,
-          notes: [
-            {
-              id: "n1",
-              at,
-              by: "agent:codex",
-              kind: "review",
-              text: "ok",
-              run: "r-01JC8Z3K2Q",
-              verdict: "approve",
-            },
-          ],
-        },
-      ],
-    };
-    const text = serializeDocument(doc);
-    const back = JSON.parse(text) as TasksDocument;
-    expect(back.project.reviewer).toEqual({
-      agent: { provider: "codex", model: "gpt-5" },
-      launch: "auto",
-    });
-    expect(Object.keys(back.project.reviewer ?? {})).toEqual(["agent", "launch"]);
-    expect(back.tasks[0]?.notes?.[0]).toEqual(doc.tasks[0]?.notes?.[0]);
-    expect(validateDocument(back).ok).toBe(true);
-    expect(serializeDocument(back)).toBe(text);
   });
 });

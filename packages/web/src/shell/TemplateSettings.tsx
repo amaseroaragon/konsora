@@ -1,13 +1,13 @@
-import { DifficultySchema, type Template } from "@konsora/core";
+import type { Template } from "@konsora/core";
 import { type FormEvent, useRef, useState } from "react";
-import { useSetChecks } from "../api/board.ts";
+import { useProjectOp } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { t } from "../i18n/index.ts";
 import { Button, Field, Panel, useToast } from "../ui/index.ts";
-import type { FieldErrors } from "./settings-model.ts";
 import {
   type DraftCriterion,
   type DraftTemplate,
+  type FieldErrors,
   moveRow,
   TEMPLATE_LIMITS,
   templatesFrom,
@@ -85,28 +85,6 @@ function TemplateRow({
           error={errors[`${at}.name`]}
           onChange={(e) => onChange({ name: e.target.value })}
         />
-        <label className="k-field">
-          <span className="k-field__label">{t("templates.difficulty", { n })}</span>
-          <select
-            className="k-field__control"
-            value={row.difficulty}
-            disabled={disabled}
-            aria-invalid={errors[`${at}.difficulty`] ? true : undefined}
-            onChange={(e) =>
-              onChange({ difficulty: e.target.value as DraftTemplate["difficulty"] })
-            }
-          >
-            <option value="">{t("difficulty.none")}</option>
-            {DifficultySchema.options.map((d) => (
-              <option key={d} value={d}>
-                {t(`difficulty.${d}`)}
-              </option>
-            ))}
-          </select>
-          {errors[`${at}.difficulty`] && (
-            <span className="k-field__error">{errors[`${at}.difficulty`]}</span>
-          )}
-        </label>
         <Field
           mono
           label={t("templates.labels", { n })}
@@ -143,15 +121,6 @@ function TemplateRow({
                     error={errors[`${at}.criteria.${j}.text`]}
                     onChange={(e) => setCriterion(j, { text: e.target.value })}
                   />
-                  <Field
-                    mono
-                    label={t("templates.criterion.check", { m })}
-                    value={criterion.check}
-                    maxLength={TEMPLATE_LIMITS.check}
-                    disabled={disabled}
-                    error={errors[`${at}.criteria.${j}.check`]}
-                    onChange={(e) => setCriterion(j, { check: e.target.value })}
-                  />
                   <div className="b-settings__row-actions">
                     <Button
                       size="sm"
@@ -180,9 +149,7 @@ function TemplateRow({
             size="sm"
             variant="secondary"
             disabled={disabled}
-            onClick={() =>
-              onChange({ criteria: [...row.criteria, { key: newKey(), text: "", check: "" }] })
-            }
+            onClick={() => onChange({ criteria: [...row.criteria, { key: newKey(), text: "" }] })}
           >
             {t("templates.criterion.add")}
           </Button>
@@ -215,7 +182,7 @@ export function TemplateSettings({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const save = useSetChecks(projectId);
+  const save = useProjectOp(projectId);
   const rowCount = useRef(0);
   const newKey = () => {
     rowCount.current += 1;
@@ -315,7 +282,6 @@ export function TemplateSettings({
                   desc: "",
                   criteria: [],
                   labels: "",
-                  difficulty: "",
                 },
               ])
             }

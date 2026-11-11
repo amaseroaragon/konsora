@@ -3,7 +3,7 @@
  *
  * Every change to a plan is an operation such as `approve BE-02` or `note BE-02 …`, applied by
  * `applyOp` to the latest document. Each op checks:
- * 1. the actor's role (human / agent / konsora) and, for an agent inside a run, its scope;
+ * 1. the actor's role (human / agent / konsora) and, in a planning session, its scope;
  * 2. per-task preconditions: hashes of the tasks the client read (`expect`); if one of those
  *    tasks changed meanwhile → `conflict`, while changes to other tasks never conflict;
  * 3. the transition rules; and finally that the whole result still validates.
@@ -21,16 +21,9 @@ import { contentHash } from "./hash.ts";
 import { rankAfterAll } from "./rank.ts";
 import type {
   Acceptance,
-  AgentSpec,
-  Check,
-  Difficulty,
   Note,
   NoteKind,
-  Recommended,
-  Reviewer,
-  ReviewVerdict,
   SchemaIssue,
-  Setup,
   Task,
   TaskState,
   TasksDocument,
@@ -51,20 +44,11 @@ export type OpContext = {
   actor: string;
   /** ISO UTC timestamp with seconds precision, used for notes and `updated_at`. */
   at: string;
-  /** Set for an agent running inside a Konsora run: it may only act on this task. */
-  runTask?: string;
-  /** Run id, recorded on notes written during a run. */
-  run?: string;
   /**
-   * An agent in a planning session (`konsora plan`, CLI-05): it may only propose tasks and
-   * revise or withdraw proposals; it starts nothing and touches no approved work.
+   * An agent in a planning session (`konsora plan` or the UI's AI panel): it may only propose
+   * tasks and revise or withdraw proposals; it starts nothing and touches no approved work.
    */
   plan?: boolean;
-  /**
-   * An agent in a review run (CORE-13): it may only leave `review` notes on `runTask`, and it
-   * never changes the state of anything.
-   */
-  review?: boolean;
 };
 
 /** Precondition: hash (see `taskHash`) of each task the client based the op on. */
@@ -78,11 +62,9 @@ export type NewTask = {
   acceptance?: string[];
   deps?: string[];
   labels?: string[];
-  difficulty?: Difficulty;
-  agent?: AgentSpec;
   /**
-   * A template of `project.templates` the task starts from: its own desc and difficulty replace
-   * the template's, its criteria come after the template's and its labels join them.
+   * A template of `project.templates` the task starts from: its own desc replaces the
+   * template's, its criteria come after the template's and its labels join them.
    */
   template?: string;
 };
@@ -96,10 +78,8 @@ export type Op = Base &
     | {
         op: "edit";
         task: string;
-        changes: Partial<Pick<Task, "title" | "desc" | "labels" | "agent" | "group" | "rank">> & {
+        changes: Partial<Pick<Task, "title" | "desc" | "labels" | "group" | "rank">> & {
           acceptance?: Acceptance[];
-          /** `null` (or `undefined`) removes it. */
-          difficulty?: Difficulty | null | undefined;
         };
       }
     | { op: "withdraw"; task: string }
@@ -111,52 +91,8 @@ export type Op = Base &
     | { op: "ask"; task: string; text: string }
     | { op: "answer"; task: string; text: string }
     | { op: "finish"; task: string; summary: string }
-    /**
-     * The agent of a review run leaves its verdict on the task as a `review` note (CORE-13): it
-     * would approve the work, or ask for changes, and why. It never accepts or sends back.
-     */
-    | { op: "review"; task: string; verdict: ReviewVerdict; text: string }
-    /**
-     * Konsora closes a run's task once its checks are done: to `review`, or to `done` for an
-     * intermediate task of a YOLO chain whose checks all passed and whose work is already
-     * integrated into the base branch (`integrated`). `text` adds a Konsora note.
-     */
-    | {
-        op: "complete";
-        task: string;
-        checks_passed: boolean;
-        integrated?: boolean;
-        text?: string;
-        /**
-         * The runs of a variant group (CORE-12), once all have closed: the summary may come from
-         * any of them, and the task always goes to review, where the human chooses the winner.
-         */
-        variants?: string[];
-      }
-    /**
-     * Konsora takes a task in review whose integration conflicts back to `doing`, for a run that
-     * rebases its branch (the human asked for it). `rebase-abort` returns it to `review` if that
-     * run fails or is cancelled, so the conflicting work can still be resolved by hand.
-     */
-    | { op: "rebase"; task: string; text?: string }
-    | { op: "rebase-abort"; task: string; text?: string }
-    /**
-     * The human sets the project's checks, how many times a run retries them and the setup
-     * command of new worktrees. A field left out is kept; `checks: []`, `check_retries: null`
-     * and `setup: null` remove them.
-     */
-    | { op: "set-checks"; checks?: Check[]; check_retries?: number | null; setup?: Setup | null }
-    /** The human sets the project's default agent (CORE-15); `null` removes it. */
-    | { op: "set-defaults"; agent: AgentSpec | null }
-    /**
-     * The human sets the agent the project recommends for each difficulty (it replaces the
-     * whole map); `null` or `{}` removes it.
-     */
-    | { op: "set-recommended"; recommended: Recommended | null }
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
     | { op: "set-templates"; templates: Template[] }
-    /** The human sets the project's automatic reviewer (CORE-13); `null` removes it. */
-    | { op: "set-reviewer"; reviewer: Reviewer | null }
     | { op: "accept"; task: string }
     | { op: "send-back"; task: string; feedback: string }
     | { op: "reopen"; task: string; text?: string }
@@ -216,15 +152,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   ask: ["agent"],
   answer: ["human"],
   finish: ["agent", "konsora"],
-  review: ["agent"], // only inside a review run (checked below)
-  complete: ["konsora"],
-  rebase: ["konsora"],
-  "rebase-abort": ["konsora"],
-  "set-checks": ["human"],
-  "set-defaults": ["human"],
-  "set-recommended": ["human"],
   "set-templates": ["human"],
-  "set-reviewer": ["human"],
   accept: ["human"],
   "send-back": ["human"],
   reopen: ["human"],
@@ -232,24 +160,10 @@ const ROLES: Record<OpName, readonly Role[]> = {
   restore: ["human"],
 };
 
-const EDITABLE = [
-  "title",
-  "desc",
-  "acceptance",
-  "labels",
-  "difficulty",
-  "agent",
-  "group",
-  "rank",
-] as const;
+const EDITABLE = ["title", "desc", "acceptance", "labels", "group", "rank"] as const;
 
 /** All an agent in a planning session may do. */
 const PLAN_OPS: ReadonlySet<OpName> = new Set(["propose", "batch", "edit", "withdraw"]);
-
-/** Ops an agent inside a run may apply to tasks other than its own. */
-const RUN_SCOPE_FREE: ReadonlySet<OpName> = new Set(["propose", "batch"]);
-/** All an agent inside a run may do: note, ask and finish its own task, or propose new tasks. */
-const RUN_OPS: ReadonlySet<OpName> = new Set(["note", "ask", "finish", ...RUN_SCOPE_FREE]);
 
 class OpFailure extends Error {
   readonly detail: OpError;
@@ -264,8 +178,8 @@ const fail = (code: OpErrorCode, message: string, extra: Partial<OpError> = {}):
 };
 
 /**
- * The task is an intermediate task of an active YOLO chain (not the YOLO task itself): a run
- * that ends with every check green integrates it and takes it straight to `done`.
+ * The task is an intermediate task of an active YOLO chain (not the YOLO task itself): when its
+ * agent finishes it, it goes straight to `done` instead of `review`.
  */
 export function skipsReview(doc: Pick<TasksDocument, "tasks">, id: string): boolean {
   const task = doc.tasks.find((t) => t.id === id);
@@ -302,36 +216,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
   }
 
-  if (role === "agent" && (ctx.review || op.op === "review")) {
-    if (!ctx.review || !ctx.runTask) {
-      fail("forbidden", "Only the agent of a review run can review a task's work");
-    }
-    if (op.op !== "review") {
-      fail(
-        "out_of_scope",
-        `In a review run you can only leave your review of ${ctx.runTask}; ${op.op} is not available`,
-        "task" in op ? { task: op.task } : {},
-      );
-    } else if (op.task !== ctx.runTask) {
-      fail("out_of_scope", `This run reviews ${ctx.runTask}; it cannot review ${op.task}`, {
-        task: op.task,
-      });
-    }
-  } else if (ctx.runTask && role === "agent") {
-    if ("task" in op && op.task !== ctx.runTask && !RUN_SCOPE_FREE.has(op.op)) {
-      fail("out_of_scope", `This run works on ${ctx.runTask}; it cannot ${op.op} ${op.task}`, {
-        task: op.task,
-      });
-    }
-    if (!RUN_OPS.has(op.op)) {
-      fail(
-        "out_of_scope",
-        `Inside a run you can only note, ask and finish ${ctx.runTask}, or propose new tasks; ${op.op} is not available`,
-        "task" in op ? { task: op.task } : {},
-      );
-    }
-  }
-
   if (ctx.plan && role === "agent") {
     if (!PLAN_OPS.has(op.op)) {
       fail(
@@ -363,7 +247,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     const notes = task.notes ?? [];
     const next = Math.max(0, ...notes.map((n) => Number(n.id.slice(1)))) + 1;
     const note: Note = { id: `n${next}`, at: ctx.at, by: ctx.actor, kind, text: body };
-    if (ctx.run) note.run = ctx.run;
     task.notes = [...notes, note];
     touch(task);
   };
@@ -414,9 +297,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       task.acceptance = criteria.map((c, i) => ({ id: `ac${i + 1}`, ...structuredClone(c) }));
     const labels = [...new Set([...(template?.labels ?? []), ...(spec.labels ?? [])])];
     if (labels.length) task.labels = labels;
-    const difficulty = spec.difficulty ?? template?.difficulty;
-    if (difficulty) task.difficulty = difficulty;
-    if (spec.agent) task.agent = spec.agent;
     doc.tasks.push(task);
     index.set(task.id, task);
     created.push(task.id);
@@ -581,102 +461,10 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     case "finish": {
       const task = get(op.task);
       const summary = requireText(op.summary, "summary_required", "a summary of what was done");
-      if (ctx.run && role === "agent") {
-        // Inside a run the task stays doing: Konsora runs the checks, then applies `complete`.
-        if (task.state !== "doing") {
-          fail("invalid_transition", `${task.id} is ${task.state}; finish needs doing`, {
-            task: task.id,
-          });
-        }
-        addNote(task, "summary", summary);
-        break;
-      }
       // Inside an active YOLO chain, intermediate tasks skip review; the YOLO task itself does not.
-      const covered = !task.yolo && yoloCovering(task.id, input).length > 0;
-      transition(task, ["doing"], covered ? "done" : "review");
+      transition(task, ["doing"], skipsReview(input, task.id) ? "done" : "review");
       if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
       addNote(task, "summary", summary);
-      break;
-    }
-    case "review": {
-      const task = get(op.task);
-      const text = requireText(op.text, "text_required", "the reasons for the verdict");
-      addNote(task, "review", text);
-      (task.notes?.at(-1) as Note).verdict = op.verdict;
-      break;
-    }
-    case "complete": {
-      const task = get(op.task);
-      const notes = task.notes ?? [];
-      const variants = op.variants ?? [];
-      const ownRun = (run: string | undefined) =>
-        ctx.run === undefined || run === ctx.run || (run !== undefined && variants.includes(run));
-      const summary =
-        variants.length > 0
-          ? notes.findLast((n) => n.kind === "summary" && ownRun(n.run))
-          : notes.findLast((n) => n.kind === "summary");
-      if (!summary || !ownRun(summary.run)) {
-        fail(
-          "summary_required",
-          `${task.id} has no summary from this run; the agent must finish first`,
-          {
-            task: task.id,
-          },
-        );
-      }
-      // Only green checks and integrated work let an intermediate task of a YOLO chain skip
-      // review: its dependents must start from a base that has its commit.
-      const toDone =
-        variants.length === 0 &&
-        skipsReview(input, task.id) &&
-        op.checks_passed &&
-        op.integrated === true;
-      transition(task, ["doing"], toDone ? "done" : "review");
-      if (task.yolo) delete task.yolo; // YOLO ends when its task reaches review
-      if (op.text?.trim()) addNote(task, "note", op.text);
-      break;
-    }
-    case "rebase": {
-      const task = get(op.task);
-      transition(task, ["review"], "doing");
-      if (op.text?.trim()) addNote(task, "note", op.text);
-      break;
-    }
-    case "rebase-abort": {
-      const task = get(op.task);
-      transition(task, ["doing"], "review");
-      if (op.text?.trim()) addNote(task, "note", op.text);
-      break;
-    }
-    case "set-checks": {
-      if (!("checks" in op) && !("check_retries" in op) && !("setup" in op)) {
-        fail("invalid", "set-checks needs checks, check_retries or setup");
-      }
-      if (op.setup === null) delete doc.project.setup;
-      else if (op.setup !== undefined) doc.project.setup = structuredClone(op.setup);
-      if (op.checks !== undefined) {
-        if (op.checks.length > 0) doc.project.checks = structuredClone(op.checks);
-        else delete doc.project.checks;
-      }
-      if (op.check_retries === null) delete doc.project.check_retries;
-      else if (op.check_retries !== undefined) doc.project.check_retries = op.check_retries;
-      break;
-    }
-    case "set-defaults": {
-      if (op.agent) doc.project.defaults = structuredClone(op.agent);
-      else delete doc.project.defaults;
-      break;
-    }
-    case "set-recommended": {
-      const recommended = op.recommended;
-      if (recommended && Object.keys(recommended).length > 0)
-        doc.project.recommended = structuredClone(recommended);
-      else delete doc.project.recommended;
-      break;
-    }
-    case "set-reviewer": {
-      if (op.reviewer) doc.project.reviewer = structuredClone(op.reviewer);
-      else delete doc.project.reviewer;
       break;
     }
     case "set-templates": {

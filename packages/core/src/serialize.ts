@@ -1,5 +1,5 @@
 /**
- * Canonical serialization of `konsora/2` documents (docs/esquema-tareas.md §4).
+ * Canonical serialization of `konsora/3` documents (docs/esquema-tareas.md §4).
  *
  * The same document always produces the same bytes, whoever writes it (CLI, MCP, daemon),
  * so git diffs only show real changes. Rules:
@@ -7,7 +7,7 @@
  * - optional fields that are empty are omitted (`deps: []`, `desc: ""`, `notes: []`…);
  * - tasks ordered by the order of `groups`, then by id number; `seq` keys by `groups` order;
  * - `deps` in natural id order and `labels` (of tasks and templates) alphabetically; notes,
- *   criteria, groups, checks and templates keep their order (it is meaningful);
+ *   criteria, groups and templates keep their order (it is meaningful);
  * - 2-space indentation, LF line endings, trailing newline, UTF-8 without BOM.
  */
 import type { TasksDocument } from "./schema.ts";
@@ -17,24 +17,9 @@ type Obj = Record<string, unknown>;
 
 const ORDER = {
   root: ["$schema", "schema", "project", "groups", "seq", "tasks"],
-  project: [
-    "name",
-    "base_branch",
-    "defaults",
-    "recommended",
-    "setup",
-    "checks",
-    "check_retries",
-    "templates",
-    "reviewer",
-  ],
-  reviewer: ["agent", "launch"],
-  recommended: ["low", "medium", "high"],
-  template: ["id", "name", "desc", "acceptance", "labels", "difficulty"],
-  criterion: ["text", "check"],
-  setup: ["run", "timeout_s"],
-  agent: ["provider", "model", "effort", "permissions"],
-  check: ["id", "run", "timeout_s"],
+  project: ["name", "templates"],
+  template: ["id", "name", "desc", "acceptance", "labels"],
+  criterion: ["text"],
   group: ["id", "name"],
   task: [
     "id",
@@ -46,28 +31,18 @@ const ORDER = {
     "desc",
     "acceptance",
     "labels",
-    "difficulty",
-    "agent",
     "yolo",
     "created",
     "updated_at",
     "notes",
   ],
-  acceptance: ["id", "text", "check"],
+  acceptance: ["id", "text"],
   created: ["at", "by"],
-  note: ["id", "at", "by", "kind", "text", "verdict", "run", "edited"],
+  note: ["id", "at", "by", "kind", "text", "edited"],
 } as const;
 
 /** Optional fields dropped when empty. Required arrays (`groups`, `tasks`) are always kept. */
-const OMIT_WHEN_EMPTY = new Set([
-  "deps",
-  "desc",
-  "acceptance",
-  "labels",
-  "notes",
-  "checks",
-  "templates",
-]);
+const OMIT_WHEN_EMPTY = new Set(["deps", "desc", "acceptance", "labels", "notes", "templates"]);
 
 function isEmpty(value: unknown): boolean {
   return value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
@@ -106,7 +81,6 @@ export function compareTaskIds(a: string, b: string): number {
 export function canonicalize(doc: TasksDocument): TasksDocument {
   const groupOrder = new Map(doc.groups.map((g, i) => [g.id, i]));
   const rankOf = (group: string) => groupOrder.get(group) ?? Number.MAX_SAFE_INTEGER;
-  const agent = (value: unknown) => ordered(value as Obj, ORDER.agent);
   const template = (value: Obj) =>
     ordered(value, ORDER.template, (key, v) =>
       key === "acceptance"
@@ -127,8 +101,6 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
             return [...(value as string[])].sort();
           case "acceptance":
             return (value as Obj[]).map((a) => ordered(a, ORDER.acceptance));
-          case "agent":
-            return agent(value);
           case "created":
             return ordered(value as Obj, ORDER.created);
           case "notes":
@@ -150,24 +122,7 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
     switch (key) {
       case "project":
         return ordered(value as Obj, ORDER.project, (k, v) => {
-          switch (k) {
-            case "defaults":
-              return agent(v);
-            case "recommended":
-              return ordered(v as Obj, ORDER.recommended, (_, spec) => agent(spec));
-            case "setup":
-              return ordered(v as Obj, ORDER.setup);
-            case "checks":
-              return (v as Obj[]).map((c) => ordered(c, ORDER.check));
-            case "templates":
-              return (v as Obj[]).map(template);
-            case "reviewer":
-              return ordered(v as Obj, ORDER.reviewer, (rk, rv) =>
-                rk === "agent" ? agent(rv) : rv,
-              );
-            default:
-              return v;
-          }
+          return k === "templates" ? (v as Obj[]).map(template) : v;
         });
       case "groups":
         return (value as Obj[]).map((g) => ordered(g, ORDER.group));

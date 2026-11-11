@@ -16,8 +16,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/web/tsconfig.json",
     "test": "vitest run",
     "schema": "node packages/core/scripts/gen-schema.ts",
-    "codex:types": "node packages/runner/scripts/codex-types.ts",
-    "konsora": "node packages/cli/src/bin.ts"
+    "konsora": "node packages/cli/src/bin.ts",
+    "install:global": "npm link --workspace packages/cli"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

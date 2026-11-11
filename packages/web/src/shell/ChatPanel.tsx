@@ -1,0 +1,150 @@
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type ChatMessage, useChat, useResetChat, useSendChat, useStopChat } from "../api/chat.ts";
+import { ApiError } from "../api/client.ts";
+import { t } from "../i18n/index.ts";
+import { Button, Field, useToast } from "../ui/index.ts";
+import { Markdown } from "./Markdown.tsx";
+
+function Message({ message }: { message: ChatMessage }) {
+  if (message.role === "tool")
+    return (
+      <li className="b-chat__msg b-chat__msg--tool">
+        <span className="k-mono s-muted">↳ {message.text}</span>
+      </li>
+    );
+  if (message.role === "error")
+    return (
+      <li className="b-chat__msg b-chat__msg--error a-callout a-callout--warn" role="alert">
+        <span className="a-callout__text">{message.text}</span>
+      </li>
+    );
+  return (
+    <li className={`b-chat__msg b-chat__msg--${message.role}`}>
+      <b className="b-chat__by">{message.role === "human" ? t("detail.you") : t("chat.agent")}</b>
+      <Markdown className="md--compact" text={message.text} />
+    </li>
+  );
+}
+
+/**
+ * The AI panel: a planning chat with the user's own Claude Code. It interviews the human and
+ * proposes tasks, which appear on the board as proposals to approve. It changes nothing else.
+ */
+export function ChatPanel({
+  projectId,
+  readOnly,
+  onClose,
+}: {
+  projectId: string;
+  readOnly: boolean;
+  onClose: () => void;
+}) {
+  const chat = useChat(projectId);
+  const send = useSendChat(projectId);
+  const stop = useStopChat(projectId);
+  const reset = useResetChat(projectId);
+  const toast = useToast();
+  const [text, setText] = useState("");
+  const end = useRef<HTMLLIElement>(null);
+  const messages = chat.data?.messages ?? [];
+  const busy = chat.data?.busy ?? false;
+  const count = messages.length;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on each new message.
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: "end" });
+  }, [count, busy]);
+
+  const failed = (error: Error) => {
+    if (error instanceof ApiError && error.unauthorized) return;
+    toast.show(t("chat.error", { message: error.message }), "error");
+  };
+  const submit = (event?: FormEvent) => {
+    event?.preventDefault();
+    const body = text.trim();
+    if (!body || busy || readOnly) return;
+    send.mutate(body, { onSuccess: () => setText(""), onError: failed });
+  };
+  const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submit();
+    }
+  };
+
+  return (
+    <aside className="a-detail b-panel b-chat" aria-label={t("chat.title")}>
+      <div className="a-detail__head">
+        <div className="a-detail__chips">
+          <h2 className="a-detail__title b-chat__title">{t("chat.title")}</h2>
+          {count > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              busy={reset.isPending}
+              onClick={() => reset.mutate(undefined, { onError: failed })}
+            >
+              {t("chat.reset")}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" className="a-detail__close" onClick={onClose}>
+            ✕<span className="k-visually-hidden">{t("chat.close")}</span>
+          </Button>
+        </div>
+      </div>
+      <div className="a-detail__body a-stack">
+        {chat.isError ? (
+          <p className="a-callout a-callout--warn" role="alert">
+            {t("chat.unavailable")}
+          </p>
+        ) : count === 0 ? (
+          <p className="s-text s-muted">{t("chat.intro")}</p>
+        ) : (
+          <ol className="b-chat__list" aria-live="polite">
+            {messages.map((message) => (
+              <Message key={message.id} message={message} />
+            ))}
+            {busy && (
+              <li className="b-chat__msg b-chat__msg--wait s-muted" role="status">
+                {t("chat.thinking")}
+              </li>
+            )}
+            <li ref={end} aria-hidden="true" />
+          </ol>
+        )}
+        <form className="a-stack b-chat__form" onSubmit={submit}>
+          <Field
+            multiline
+            rows={3}
+            label={t("chat.input")}
+            hint={t("chat.input.hint")}
+            value={text}
+            disabled={readOnly}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={onKey}
+          />
+          <div className="a-actions">
+            <Button
+              type="submit"
+              variant="primary"
+              busy={send.isPending}
+              disabled={readOnly || busy || !text.trim()}
+            >
+              {t("chat.send")}
+            </Button>
+            {busy && (
+              <Button
+                variant="secondary"
+                busy={stop.isPending}
+                onClick={() => stop.mutate(undefined, { onError: failed })}
+              >
+                {t("chat.stop")}
+              </Button>
+            )}
+          </div>
+          {readOnly && <p className="s-muted">{t("chat.readonly")}</p>}
+        </form>
+      </div>
+    </aside>
+  );
+}

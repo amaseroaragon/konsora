@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { DocumentSchema } from "./schema.ts";
 
-export const JSON_SCHEMA_ID = "https://konsora.local/schema/tasks.v2.json";
+export const JSON_SCHEMA_ID = "https://konsora.local/schema/tasks.v3.json";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
@@ -36,7 +36,7 @@ export function tasksJsonSchema(): Json {
   return {
     $schema: $schema ?? "https://json-schema.org/draft/2020-12/schema",
     $id: JSON_SCHEMA_ID,
-    title: "Konsora tasks (konsora/2)",
+    title: "Konsora tasks (konsora/3)",
     description:
       "Structure of .konsora/tasks.json. Semantic rules (ids vs groups, seq, deps, cycles) are checked by Konsora, not by this schema. See docs/esquema-tareas.md.",
     ...rest,

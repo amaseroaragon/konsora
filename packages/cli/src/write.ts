@@ -8,16 +8,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import {
-  type Difficulty,
-  DifficultySchema,
-  type Op,
-  type OpContext,
-  type OpError,
-  ReviewVerdictSchema,
-  type TasksDocument,
-  taskHash,
-} from "@konsora/core";
+import { type Op, type OpContext, type OpError, type TasksDocument, taskHash } from "@konsora/core";
 import { mutate } from "@konsora/core/store";
 import type { Command } from "commander";
 import { z } from "zod";
@@ -29,14 +20,14 @@ import {
   type Io,
   json,
   locate,
-  runScope,
+  sessionScope,
   storeError,
   timestamp,
 } from "./shared.ts";
 
 const AGENT_NAME = /^[a-z0-9][a-z0-9._-]{0,39}$/;
 
-/** `--as claude` / KONSORA_AGENT=codex → `agent:claude`. Humans and the runner cannot be impersonated. */
+/** `--as claude` / KONSORA_AGENT=claude → `agent:claude`. Humans and Konsora cannot be impersonated. */
 export function agentActor(value: string | undefined): string {
   const raw = (value ?? "unknown")
     .trim()
@@ -95,19 +86,6 @@ const list = (value: string) =>
     .filter(Boolean);
 const collect = (value: string, previous: string[] = []) => [...previous, value];
 
-/** `--difficulty low|medium|high`; for edit, `none` removes it. */
-function difficulty(value: string, allowNone: boolean): Difficulty | "none" {
-  const lower = value.trim().toLowerCase();
-  if (allowNone && lower === "none") return "none";
-  const parsed = DifficultySchema.safeParse(lower);
-  if (parsed.success) return parsed.data;
-  throw new CliError(
-    `Invalid difficulty "${value}".`,
-    `Use low, medium or high${allowNone ? " (or none to remove it)" : ""}.`,
-    EXIT.usage,
-  );
-}
-
 export const BatchSchema = z.strictObject({
   groups: z.array(z.strictObject({ id: z.string(), name: z.string() })).optional(),
   tasks: z
@@ -119,9 +97,6 @@ export const BatchSchema = z.strictObject({
         acceptance: z.array(z.string().min(1)).optional(),
         deps: z.array(z.string()).optional(),
         labels: z.array(z.string()).optional(),
-        difficulty: DifficultySchema.optional().describe(
-          "estimated difficulty: low, medium or high",
-        ),
         template: z
           .string()
           .min(1)
@@ -154,7 +129,6 @@ export function batchOp(value: unknown): Op {
       ...(t.acceptance ? { acceptance: t.acceptance } : {}),
       ...(t.deps ? { deps: t.deps } : {}),
       ...(t.labels ? { labels: t.labels } : {}),
-      ...(t.difficulty ? { difficulty: t.difficulty } : {}),
       ...(t.template ? { template: t.template.toLowerCase() } : {}),
     })),
   };
@@ -166,8 +140,6 @@ export type EditInput = {
   acceptance?: string[] | undefined;
   labels?: string[] | undefined;
   group?: string | undefined;
-  /** `none` removes it. */
-  difficulty?: Difficulty | "none" | undefined;
 };
 
 /** Builds an `edit` op for a proposal; the acceptance criteria are replaced as ac1, ac2, … */
@@ -180,9 +152,6 @@ export function editOp(id: string, input: EditInput): Op {
       : {}),
     ...(input.labels ? { labels: input.labels } : {}),
     ...(input.group ? { group: input.group.toUpperCase() } : {}),
-    ...(input.difficulty !== undefined
-      ? { difficulty: input.difficulty === "none" ? undefined : input.difficulty }
-      : {}),
   };
   if (Object.keys(changes).length === 0)
     throw new CliError("Nothing to change.", HINTS.nothingToChange, EXIT.usage);
@@ -206,11 +175,7 @@ export async function runOp(
 ): Promise<WriteOutcome> {
   const root = locate(io, explicitRoot);
   const ctx: OpContext = { actor, at: timestamp(io) };
-  const scope = runScope(io.env);
-  if (scope.task) ctx.runTask = scope.task;
-  if (scope.run) ctx.run = scope.run;
-  if (scope.plan) ctx.plan = true;
-  if (scope.review) ctx.review = true;
+  if (sessionScope(io.env).plan) ctx.plan = true;
   const result = await mutate(root, op, ctx);
   if (result.ok)
     return {
@@ -281,9 +246,6 @@ export function registerWriteCommands(
     .option("--criterion <text>", "acceptance criterion; repeat for several", collect)
     .option("--deps <ids>", "comma-separated task ids it depends on", list)
     .option("--labels <labels>", "comma-separated labels", list)
-    .option("--difficulty <level>", "estimated difficulty: low, medium or high", (v) =>
-      difficulty(v, false),
-    )
     .option(
       "--template <id>",
       "start from a project template (see `konsora status`); explicit values complete or replace it",
@@ -297,7 +259,6 @@ export function registerWriteCommands(
           criterion?: string[];
           deps?: string[];
           labels?: string[];
-          difficulty?: Difficulty;
           template?: string;
           as?: string;
           json?: boolean;
@@ -312,7 +273,6 @@ export function registerWriteCommands(
             ...(opts.criterion ? { acceptance: opts.criterion } : {}),
             ...(opts.deps ? { deps: opts.deps.map((d) => d.toUpperCase()) } : {}),
             ...(opts.labels ? { labels: opts.labels } : {}),
-            ...(opts.difficulty ? { difficulty: opts.difficulty } : {}),
             ...(opts.template ? { template: opts.template.toLowerCase() } : {}),
           },
           opts,
@@ -329,7 +289,7 @@ export function registerWriteCommands(
     .option("--file <path>", "read the JSON from a file instead of standard input")
     .addHelpText(
       "after",
-      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"difficulty":"medium","template":"<template id>"}]}',
+      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"template":"<template id>"}]}',
     )
     .action(async (opts: { file?: string; as?: string; json?: boolean }) => {
       const text = await readText(
@@ -366,9 +326,6 @@ export function registerWriteCommands(
     .option("--criterion <text>", "replace the acceptance criteria; repeat for several", collect)
     .option("--labels <labels>", "replace labels (comma-separated)", list)
     .option("--group <id>", "move to another group (the id does not change)")
-    .option("--difficulty <level>", "low, medium or high; none removes it", (v) =>
-      difficulty(v, true),
-    )
     .action(
       async (
         id: string,
@@ -378,7 +335,6 @@ export function registerWriteCommands(
           criterion?: string[];
           labels?: string[];
           group?: string;
-          difficulty?: Difficulty | "none";
           as?: string;
           json?: boolean;
         },
@@ -495,40 +451,6 @@ export function registerWriteCommands(
       },
     );
 
-  withAgent(program.command("review"))
-    .description("inside a review run: leave your verdict on the task's work, with your reasons")
-    .argument("<id>")
-    .requiredOption("--verdict <verdict>", "approve, or changes to ask for changes")
-    .argument("[reasons]")
-    .option("-m, --message <text>", "your reasons")
-    .action(
-      async (
-        id: string,
-        reasons: string | undefined,
-        opts: { verdict: string; message?: string; as?: string; json?: boolean },
-      ) => {
-        const verdict = ReviewVerdictSchema.safeParse(opts.verdict);
-        if (!verdict.success) {
-          throw new CliError(
-            `Unknown verdict "${opts.verdict}".`,
-            "Use --verdict approve or --verdict changes.",
-            EXIT.usage,
-          );
-        }
-        const text = await readText(
-          io,
-          reasons,
-          opts.message !== undefined ? { message: opts.message } : {},
-          "reasons",
-        );
-        await apply(
-          { op: "review", task: id.toUpperCase(), verdict: verdict.data, text },
-          opts,
-          () => `Reviewed ${id.toUpperCase()} (${verdict.data}). Stop here.\n`,
-        );
-      },
-    );
-
   withAgent(program.command("finish"))
     .description("finish a task you are doing (doing → review) with a summary for the reviewer")
     .argument("<id>")
@@ -560,9 +482,7 @@ export function registerWriteCommands(
           const state = doc.tasks.find((t) => t.id === id.toUpperCase())?.state;
           return state === "done"
             ? `Finished ${id.toUpperCase()}: done (part of a YOLO chain, no review needed).\n`
-            : state === "doing"
-              ? `Finished ${id.toUpperCase()}: Konsora now runs the checks. Stop here.\n`
-              : `Finished ${id.toUpperCase()}: waiting for human review. Stop here.\n`;
+            : `Finished ${id.toUpperCase()}: waiting for human review. Stop here.\n`;
         });
       },
     );

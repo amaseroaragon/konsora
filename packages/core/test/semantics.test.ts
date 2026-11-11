@@ -22,8 +22,8 @@ function task(id: string, deps: string[] = [], extra: Partial<Task> = {}): Task 
 
 function doc(): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "Demo", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "Demo" },
     groups: [
       { id: "BE", name: "Backend" },
       { id: "FE", name: "Frontend" },

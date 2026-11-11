@@ -11,11 +11,9 @@ Run each `konsora` command on its own, not chained with `&&`, `;` or pipes: perm
 
 ## MCP tools
 
-If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `withdraw`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`. Without the server, use the `konsora` command as described below. The human connects the server with `konsora mcp --print-config claude` (or `codex`).
+If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `withdraw`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
 
-Inside a Konsora run (the server's instructions say so), the task is already started: use only `note`, `ask` and `finish` on the run's task, or `propose` follow-ups. Everything else is refused as out of scope.
-
-In a planning session (`konsora plan`; the server's instructions say so), interview the human, then propose with `batch`; you may only revise or withdraw proposals, and nothing is started.
+In a planning session (`konsora plan` or the AI panel of the Konsora UI; the server's instructions say so), interview the human, then propose with `batch`; you may only revise or withdraw proposals, and nothing is started.
 
 ## Roles
 
@@ -44,16 +42,16 @@ Propose several tasks at once (all-or-nothing; everything becomes a proposal the
 konsora batch --as claude <<'JSON'
 {"tasks": [
   {"title": "Add forecast cache", "group": "BE", "desc": "What it achieves and why.",
-   "acceptance": ["A repeated request within 10 min does not hit upstream"], "difficulty": "medium"},
+   "acceptance": ["A repeated request within 10 min does not hit upstream"]},
   {"title": "Show cache age in the UI", "group": "FE", "deps": ["Add forecast cache"]}
 ]}
 JSON
 ```
 
 - `deps` take task ids or titles of **earlier** tasks in the same batch.
-- If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria, labels and difficulty, and what you pass completes or replaces them.
+- If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria and labels, and what you pass completes or replaces them.
 - Each task: an imperative title, a `desc` saying what it achieves, and acceptance criteria that can be verified.
-- Estimate each task's `difficulty` (`low`, `medium` or `high`; `--difficulty` on `propose` and `edit`): Konsora runs it with the agent the project recommends for that difficulty, unless the task or the human names one.
+- Keep each task small enough for one working session; split bigger work into tasks with `deps`.
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`.
 - One proposal: `konsora propose "<title>" --group BE --criterion "<check>" --deps BE-01`.
 

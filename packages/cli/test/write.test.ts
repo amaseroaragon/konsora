@@ -20,8 +20,8 @@ const t = (id: string, state: Task["state"], deps: string[] = []): Task => ({
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "P", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "P" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 5 },
     tasks: [
@@ -180,34 +180,6 @@ describe("planning commands", () => {
     expect(r.stderr).toContain("Batch has the wrong shape");
   });
 
-  it("propose, batch and edit set the difficulty; a bad one is a usage error", async () => {
-    expect((await run(["propose", "A", "--group", "BE", "--difficulty", "High"])).code).toBe(
-      EXIT.ok,
-    );
-    expect(task("BE-06").difficulty).toBe("high");
-    expect((await run(["show", "BE-06"])).stdout).toContain("difficulty: high");
-    const batch = JSON.stringify({ tasks: [{ title: "B", group: "BE", difficulty: "low" }] });
-    expect((await run(["batch"], { stdin: batch })).code).toBe(EXIT.ok);
-    expect(task("BE-07").difficulty).toBe("low");
-    expect((await run(["edit", "BE-06", "--difficulty", "medium"])).code).toBe(EXIT.ok);
-    expect(task("BE-06").difficulty).toBe("medium");
-    expect((await run(["edit", "BE-06", "--difficulty", "none"])).code).toBe(EXIT.ok);
-    expect(task("BE-06").difficulty).toBeUndefined();
-
-    const bad = await run(["propose", "C", "--group", "BE", "--difficulty", "extreme"]);
-    expect(bad.code).toBe(EXIT.usage);
-    expect(bad.stderr).toContain("Use low, medium or high");
-    expect((await run(["propose", "C", "--group", "BE", "--difficulty", "none"])).code).toBe(
-      EXIT.usage,
-    );
-    const badBatch = JSON.stringify({ tasks: [{ title: "D", group: "BE", difficulty: "x" }] });
-    expect((await run(["batch"], { stdin: badBatch })).code).toBe(EXIT.usage);
-    // Approved work stays the human's.
-    const approved = await run(["edit", "BE-04", "--difficulty", "low"]);
-    expect(approved.code).toBe(EXIT.failure);
-    expect(approved.stderr).toContain("only humans can change approved work");
-  });
-
   it("propose and batch take a template; an unknown one fails with a hint; status lists them", async () => {
     const withTemplates = plan();
     withTemplates.project.templates = [
@@ -215,16 +187,15 @@ describe("planning commands", () => {
         id: "bug",
         name: "Bug fix",
         desc: "Reproduce and fix.",
-        acceptance: [{ text: "A test reproduces it", check: "npm test" }],
+        acceptance: [{ text: "A test reproduces it" }],
         labels: ["bug"],
-        difficulty: "medium",
       },
     ];
     writeFileSync(file(), serializeDocument(withTemplates));
 
     const status = await run(["status"]);
     expect(status.stdout).toContain(
-      "Templates (propose --template <id>):\n  bug       Bug fix  [medium; 1 criteria; labels bug]\n",
+      "Templates (propose --template <id>):\n  bug       Bug fix  [1 criteria; labels bug]\n",
     );
     expect((await run(["status", "--json"])).json().project.templates).toHaveLength(1);
 
@@ -237,22 +208,19 @@ describe("planning commands", () => {
       "BUG",
       "--criterion",
       "Own",
-      "--difficulty",
-      "high",
     ]);
     expect(r.code).toBe(EXIT.ok);
     expect(task("BE-06")).toMatchObject({
       desc: "Reproduce and fix.",
       acceptance: [
-        { id: "ac1", text: "A test reproduces it", check: "npm test" },
+        { id: "ac1", text: "A test reproduces it" },
         { id: "ac2", text: "Own" },
       ],
       labels: ["bug"],
-      difficulty: "high",
     });
     const batch = JSON.stringify({ tasks: [{ title: "B", group: "BE", template: "bug" }] });
     expect((await run(["batch"], { stdin: batch })).code).toBe(EXIT.ok);
-    expect(task("BE-07")).toMatchObject({ desc: "Reproduce and fix.", difficulty: "medium" });
+    expect(task("BE-07")).toMatchObject({ desc: "Reproduce and fix.", labels: ["bug"] });
 
     const before = bytes();
     const missing = await run(["propose", "X", "--group", "BE", "--template", "feature"]);
@@ -357,16 +325,6 @@ describe("work commands", () => {
       changed: ["BE-04"],
       tasks: [{ id: "BE-04", state: "doing", hash: expect.stringMatching(/^sha256:/) }],
     });
-  });
-
-  it("inside a run (KONSORA_RUN_TASK) an agent can only act on its task", async () => {
-    await run(["start", "BE-04"]);
-    const env = { KONSORA_RUN_TASK: "BE-04", KONSORA_RUN: "r-01JC8Z3K2Q", KONSORA_AGENT: "claude" };
-    const other = await run(["note", "BE-03", "x"], { env });
-    expect(other.code).toBe(EXIT.failure);
-    expect(other.stderr).toContain("This run works on BE-04");
-    await run(["note", "BE-04", "progress"], { env });
-    expect(task("BE-04").notes?.at(-1)).toMatchObject({ text: "progress", run: "r-01JC8Z3K2Q" });
   });
 });
 

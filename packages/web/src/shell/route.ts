@@ -1,34 +1,29 @@
 /**
- * Hash routes: `#/` projects, `#/p/<id>` a project, `#/limites` the usage limits, `#/cola` the
- * run queue and active runs. Any other hash leads to the projects.
+ * Hash routes: `#/` projects and `#/p/<id>` a project. Any other hash leads to the projects.
  * A project route carries its view and open task as a query, so both survive a reload and can be
  * linked: `#/p/<id>?view=graph&task=UI-05`.
  */
 import { useEffect, useState } from "react";
 
-export type ProjectViewName = "board" | "graph" | "cost" | "settings";
-export const projectViews: readonly ProjectViewName[] = ["board", "graph", "cost", "settings"];
+export type ProjectViewName = "board" | "graph" | "settings";
+export const projectViews: readonly ProjectViewName[] = ["board", "graph", "settings"];
 
 export type Route =
   | { name: "projects" }
-  | { name: "project"; id: string; view: ProjectViewName; task: string | null }
-  | { name: "limits" }
-  | { name: "queue" };
+  | { name: "project"; id: string; view: ProjectViewName; task: string | null };
 
 export function parseRoute(hash: string): Route {
   const raw = hash.replace(/^#/, "");
   const at = raw.indexOf("?");
   const path = at < 0 ? raw : raw.slice(0, at);
   const query = new URLSearchParams(at < 0 ? "" : raw.slice(at + 1));
-  if (path === "/limites") return { name: "limits" };
-  if (path === "/cola") return { name: "queue" };
   const project = /^\/p\/([^/]+)$/.exec(path);
   if (project?.[1]) {
     const view = query.get("view");
     return {
       name: "project",
       id: decodeURIComponent(project[1]),
-      view: view === "graph" || view === "cost" || view === "settings" ? view : "board",
+      view: view === "graph" || view === "settings" ? view : "board",
       task: query.get("task") || null,
     };
   }

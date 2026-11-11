@@ -34,8 +34,8 @@ const groups = [
   { id: "FE", name: "Frontend" },
 ];
 const doc: TasksDocument = {
-  schema: "konsora/2",
-  project: { name: "P", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "P" },
   groups,
   seq: { BE: 3 },
   tasks: [
@@ -47,7 +47,7 @@ const doc: TasksDocument = {
       labels: ["m4"],
       acceptance: [
         { id: "ac1", text: "Uno" },
-        { id: "ac2", text: "Dos", check: "npm test" },
+        { id: "ac2", text: "Dos" },
       ],
     }),
   ],
@@ -95,7 +95,7 @@ describe("edit draft (UI-09)", () => {
       field: "group",
       message: "El grupo ZZ no existe en este plan.",
     });
-    const rows = [{ text: "", check: "npm test" }];
+    const rows = [{ text: "x".repeat(501) }];
     expect(changesFrom({ ...draftFrom(base), acceptance: rows }, base, groups)).toMatchObject({
       ok: false,
       field: "acceptance",
@@ -105,15 +105,15 @@ describe("edit draft (UI-09)", () => {
   it("keeps criterion ids, numbers new ones after the highest, and drops empty rows", () => {
     expect(
       criteriaFrom([
-        { id: "ac2", text: "Dos", check: "" },
-        { text: "Nuevo", check: " npm run check " },
-        { text: "  ", check: "" },
-        { id: "ac5", text: "Cinco", check: "" },
-        { text: "Otro", check: "" },
+        { id: "ac2", text: "Dos" },
+        { text: " Nuevo " },
+        { text: "  " },
+        { id: "ac5", text: "Cinco" },
+        { text: "Otro" },
       ]),
     ).toEqual([
       { id: "ac2", text: "Dos" },
-      { id: "ac6", text: "Nuevo", check: "npm run check" },
+      { id: "ac6", text: "Nuevo" },
       { id: "ac5", text: "Cinco" },
       { id: "ac7", text: "Otro" },
     ]);

@@ -21,8 +21,8 @@ const proposal: Task = {
 };
 const approved: Task = { ...proposal, id: "BE-06", title: "Ya aprobada", state: "todo" };
 const doc: TasksDocument = {
-  schema: "konsora/2",
-  project: { name: "P", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 6 },
   tasks: [proposal, approved],

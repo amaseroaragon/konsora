@@ -27,8 +27,8 @@ export const OP_HINTS: Partial<Record<OpError["code"], Hint>> = {
     mcp: "Pass summary with what you did and how it meets the acceptance criteria.",
   },
   out_of_scope: {
-    cli: "Inside a Konsora run you may only act on the run's task, and in a planning session only on proposals; you can always propose new tasks.",
-    mcp: "Inside a Konsora run you may only act on the run's task, and in a planning session only on proposals; you can always propose new tasks.",
+    cli: "In a planning session you may only propose tasks and revise or withdraw proposals.",
+    mcp: "In a planning session you may only propose tasks and revise or withdraw proposals.",
   },
   has_dependents: {
     cli: "Remove the dependency from the dependent proposals first (`konsora undepend`).",
@@ -60,11 +60,7 @@ export const HINTS = {
   },
   noProject: {
     cli: "Run `konsora init` in your project folder, or pass --root <dir>.",
-    mcp: "Start the server from the project folder, or set KONSORA_PROJECT to it; the human initializes Konsora there first.",
-  },
-  rootMismatch: {
-    cli: "Inside a Konsora run the plan lives in the main checkout: drop --root.",
-    mcp: "Inside a Konsora run the plan lives in the main checkout: start the server without a root of its own.",
+    mcp: "Start the server from the project folder, or set KONSORA_ROOT to it; the human initializes Konsora there first.",
   },
   unknownTask: {
     cli: "Use `konsora list` to see task ids.",
@@ -75,8 +71,8 @@ export const HINTS = {
     mcp: "The batch tool's input schema describes the format.",
   },
   nothingToChange: {
-    cli: "Pass --title, --desc, --criterion, --labels, --group or --difficulty.",
-    mcp: "Pass title, desc, acceptance, labels, group or difficulty.",
+    cli: "Pass --title, --desc, --criterion, --labels or --group.",
+    mcp: "Pass title, desc, acceptance, labels or group.",
   },
   notAgent: {
     cli: "Humans approve, accept and send back work in the Konsora UI.",

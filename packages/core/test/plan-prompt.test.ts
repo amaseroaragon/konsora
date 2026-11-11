@@ -13,12 +13,11 @@ const task = (id: string, state: Task["state"]): Task => ({
   updated_at: at,
 });
 const doc: TasksDocument = {
-  schema: "konsora/2",
+  schema: "konsora/3",
   project: {
     name: "Weather",
-    base_branch: "main",
     templates: [
-      { id: "bug", name: "Bug fix", difficulty: "medium" },
+      { id: "bug", name: "Bug fix" },
       { id: "spike", name: "Spike" },
     ],
   },
@@ -37,15 +36,14 @@ describe("buildPlanPrompt", () => {
     expect(prompt).toMatchSnapshot();
   });
 
-  it("asks for verifiable criteria and a difficulty", () => {
+  it("asks for verifiable criteria", () => {
     const prompt = buildPlanPrompt(doc);
     expect(prompt).toContain("Acceptance criteria that can be verified");
-    expect(prompt).toContain("A difficulty: low");
     expect(prompt).toContain("single batch call");
   });
 
   it("starts from the human's goal when given, and says when there are no templates", () => {
-    const plain = { ...doc, project: { name: "P", base_branch: "main" } };
+    const plain = { ...doc, project: { name: "P" } };
     const prompt = buildPlanPrompt(plain, { goal: "  Add a forecast cache.  " });
     expect(prompt).toContain("## What the human wants to plan\n\nAdd a forecast cache.\n");
     expect(prompt).toContain("ask only what is missing");

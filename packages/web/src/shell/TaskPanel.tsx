@@ -1,53 +1,13 @@
-import {
-  ACTION_TEXT,
-  type AgentSpec,
-  availableActions,
-  MAX_VARIANTS,
-  MIN_VARIANTS,
-  type Run,
-  type TaskAction,
-  type TasksDocument,
-  taskCost,
-} from "@konsora/core";
+import { ACTION_TEXT, availableActions, type TaskAction, type TasksDocument } from "@konsora/core";
 import { type FormEvent, useState } from "react";
-import { useAgents } from "../api/agents.ts";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
-import { useDequeue, useEnqueue, useQueue } from "../api/queue.ts";
-import { useStartRun, useStartVariants } from "../api/runs.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
-import { AgentPicker } from "./AgentPicker.tsx";
-import {
-  agentProblem,
-  agentReason,
-  difficultyText,
-  taskAgent,
-  variantStart,
-  variantsProblem,
-} from "./agent-model.ts";
 import { confirmWithdraw, opErrorText } from "./board-model.ts";
-import { CostSummaryView } from "./CostSummary.tsx";
-import { checkOutcome, confirmAccept, criterionResults, runChecksFailed } from "./checks-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
-import { OlderRuns } from "./OlderRuns.tsx";
-import { canQueueTask, queuePlace } from "./queue-model.ts";
-import { ReviewSection } from "./ReviewSection.tsx";
-import { RunSection } from "./RunSection.tsx";
-import { type AcceptResult, acceptText, integrationErrorText } from "./review-model.ts";
-import {
-  canRun,
-  latestRun,
-  olderDiscardable,
-  reviewRun,
-  runErrorText,
-  startErrorText,
-  taskVariants,
-  variantsToChoose,
-} from "./run-model.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
-import { VariantCompare } from "./VariantCompare.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   approve: "action.approve",
@@ -79,51 +39,31 @@ function Actions({
   projectId,
   task,
   actions,
-  checksFailed = false,
 }: {
   projectId: string;
   task: BoardTask;
   actions: TaskAction[];
-  /** The latest run's checks are red: accepting asks first. */
-  checksFailed?: boolean;
 }) {
   const mutation = useTaskAction(projectId);
   const toast = useToast();
   // Answering is always shown as a form: an open question is what needs the human.
   const [open, setOpen] = useState<TaskAction | null>(actions.includes("answer") ? "answer" : null);
   const [text, setText] = useState("");
-  /** Why the last accept could not integrate the run's work (the task stays in review). */
-  const [problem, setProblem] = useState<string | null>(null);
   const run = (action: TaskAction, value?: string) => {
-    if (
-      action === "accept" &&
-      !confirmAccept(task.id, checksFailed, (question) => window.confirm(question))
-    ) {
-      return;
-    }
     if (action === "withdraw" && !confirmWithdraw(task.id, (question) => window.confirm(question)))
       return;
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
       {
-        onSuccess: (result) => {
-          toast.show(
-            action === "accept"
-              ? acceptText(task.id, result as AcceptResult)
-              : t(DONE[action], { id: task.id }),
-            "success",
-          );
-          setProblem(null);
+        onSuccess: () => {
+          toast.show(t(DONE[action], { id: task.id }), "success");
           setOpen(null);
           setText("");
         },
         onError: (error) => {
           if (error instanceof ApiError && error.unauthorized) return;
           const code = error instanceof ApiError ? error.code : "error";
-          const files = error instanceof ApiError ? (error.details.files ?? []) : [];
-          const integration = integrationErrorText(code, task.id, files);
-          if (integration) setProblem(integration);
-          toast.show(integration ?? opErrorText(code, task.id, error.message), "error");
+          toast.show(opErrorText(code, task.id, error.message), "error");
         },
       },
     );
@@ -174,252 +114,26 @@ function Actions({
     );
   }
   return (
-    <>
-      {problem && (
-        <p className="a-callout a-callout--warn" role="alert">
-          {problem}
-        </p>
-      )}
-      <div className="a-actions">
-        {actions.map((action, index) =>
-          ACTION_TEXT[action] === "none" ? (
-            <Button
-              key={action}
-              variant={index === 0 ? "primary" : "secondary"}
-              busy={busy(action)}
-              onClick={() => run(action)}
-            >
-              {t(LABEL[action])}
-            </Button>
-          ) : (
-            <Button
-              key={action}
-              variant={index === 0 ? "primary" : "secondary"}
-              onClick={() => setOpen(action)}
-            >
-              {t(LABEL[action])}
-            </Button>
-          ),
-        )}
-      </div>
-    </>
-  );
-}
-
-/**
- * Runs a ready task with the agent of the selector, or 2 or 3 variants of it with different agents
- * (UI-24), each in its own worktree; the human chooses the best in review. Encolar (UI-42) queues
- * the task with that agent, blocked ones too, and says where the task is when it is already queued.
- */
-function RunButton({
-  projectId,
-  task,
-  doc,
-  runnable,
-  queueable,
-}: {
-  projectId: string;
-  task: BoardTask;
-  doc: TasksDocument;
-  /** Ejecutar is offered: the task is ready and has no active run. */
-  runnable: boolean;
-  /** Encolar is offered: the task is approved and still to do. */
-  queueable: boolean;
-}) {
-  const start = useStartRun(projectId);
-  const startVariants = useStartVariants(projectId);
-  const enqueue = useEnqueue(projectId);
-  const dequeue = useDequeue(projectId);
-  const queue = useQueue(projectId, queueable);
-  const place = queuePlace(queue.data?.status, task.id);
-  const total = queue.data?.status.length ?? 0;
-  /** The daemon refused the run: max_parallel has no free slot (DMN-11); Queue is offered. */
-  const [noSlots, setNoSlots] = useState(false);
-  const toast = useToast();
-  const agents = useAgents();
-  const catalog = agents.data;
-  const [chosen, setChosen] = useState<AgentSpec | undefined>(undefined);
-  /** The variants' agents, while "Run with several agents" is open. */
-  const [variants, setVariants] = useState<AgentSpec[] | null>(null);
-  const resolved = catalog ? taskAgent(task, doc.project, catalog) : undefined;
-  const agent = chosen ?? resolved?.agent;
-  const problem = agentProblem(agent, catalog);
-  const failed = (error: Error) => {
-    if (error instanceof ApiError && error.unauthorized) return;
-    const code = error instanceof ApiError ? error.code : "error";
-    toast.show(runErrorText(code, task.id, error.message), "error");
-  };
-  const queueFailed = (error: Error) => {
-    if (error instanceof ApiError && error.unauthorized) return;
-    toast.show(t("queue.error", { message: error.message }), "error");
-  };
-  // Without the catalog, the daemon uses the task's agent or the project's.
-  const item = { task: task.id, agent: catalog ? agent : undefined };
-  if (variants && catalog && runnable) {
-    const issue = variantsProblem(variants, catalog);
-    return (
-      <div className="a-stack b-variants-run">
-        <div className="k-label">{t("variants.run.title")}</div>
-        {variants.map((variant, index) => (
-          <div key={String(index)} className="a-stack">
-            <AgentPicker
-              label={t("variants.agent", { n: index + 1 })}
-              agent={variant}
-              catalog={catalog}
-              onChange={(next) => setVariants(variants.map((v, i) => (i === index ? next : v)))}
-            />
-            {variants.length > MIN_VARIANTS && (
-              <div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setVariants(variants.filter((_, i) => i !== index))}
-                >
-                  {t("variants.remove", { n: index + 1 })}
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-        {issue && (
-          <p className="k-field__error" role="alert">
-            {issue}
-          </p>
-        )}
-        <div className="a-actions">
+    <div className="a-actions">
+      {actions.map((action, index) =>
+        ACTION_TEXT[action] === "none" ? (
           <Button
-            variant="primary"
-            busy={startVariants.isPending}
-            disabled={issue !== null || variants.length < MIN_VARIANTS}
-            title={t("variants.run.hint")}
-            onClick={() =>
-              startVariants.mutate(
-                { task: task.id, agents: variants },
-                {
-                  onSuccess: (runs) =>
-                    toast.show(t("variants.started", { id: task.id, n: runs.length }), "success"),
-                  onError: failed,
-                },
-              )
-            }
+            key={action}
+            variant={index === 0 ? "primary" : "secondary"}
+            busy={busy(action)}
+            onClick={() => run(action)}
           >
-            {t("variants.run", { n: variants.length })} →
+            {t(LABEL[action])}
           </Button>
-          {variants.length < MAX_VARIANTS && (
-            <Button
-              variant="secondary"
-              onClick={() => setVariants([...variants, variants.at(-1) ?? (agent as AgentSpec)])}
-            >
-              {t("variants.add")}
-            </Button>
-          )}
-          <Button variant="ghost" onClick={() => setVariants(null)}>
-            {t("variants.single")}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="a-stack">
-      {catalog ? (
-        <>
-          <AgentPicker agent={agent} catalog={catalog} onChange={setChosen} />
-          {!chosen && resolved && <p className="s-muted">{agentReason(resolved)}</p>}
-        </>
-      ) : (
-        <p className="s-muted">{agents.isError ? t("agent.unavailable") : t("agent.loading")}</p>
-      )}
-      <div className="a-actions">
-        {runnable && (
+        ) : (
           <Button
-            variant="primary"
-            busy={start.isPending}
-            disabled={problem !== null}
-            title={t("run.run.hint", { id: task.id })}
-            onClick={() => {
-              setNoSlots(false);
-              start.mutate(item, {
-                onSuccess: () => toast.show(t("run.started", { id: task.id }), "success"),
-                onError: (error) => {
-                  if (error instanceof ApiError && error.code === "no_slots") setNoSlots(true);
-                  else failed(error);
-                },
-              });
-            }}
+            key={action}
+            variant={index === 0 ? "primary" : "secondary"}
+            onClick={() => setOpen(action)}
           >
-            {t("run.run")} →
+            {t(LABEL[action])}
           </Button>
-        )}
-        {queueable && place === undefined && !noSlots && (
-          <Button
-            variant={runnable ? "secondary" : "primary"}
-            busy={enqueue.isPending}
-            disabled={problem !== null}
-            title={t("run.queue.hint", { id: task.id })}
-            onClick={() =>
-              enqueue.mutate([item], {
-                onSuccess: (result) =>
-                  toast.show(
-                    result.added.length > 0
-                      ? t("run.queue.added", { id: task.id })
-                      : t("run.queue.already", { id: task.id }),
-                    "success",
-                  ),
-                onError: queueFailed,
-              })
-            }
-          >
-            {t("run.queue")}
-          </Button>
-        )}
-        {runnable && catalog && (
-          <Button variant="secondary" onClick={() => setVariants(variantStart(agent, catalog))}>
-            {t("variants.open")}
-          </Button>
-        )}
-      </div>
-      {queueable && place !== undefined && (
-        <div className="a-actions">
-          <span className="s-muted">{t("run.queue.place", { n: place, total })}</span>
-          <Button
-            size="sm"
-            variant="secondary"
-            busy={dequeue.isPending}
-            onClick={() =>
-              dequeue.mutate(task.id, {
-                onSuccess: () => toast.show(t("run.queue.removed", { id: task.id }), "success"),
-                onError: queueFailed,
-              })
-            }
-          >
-            {t("run.queue.remove")}
-          </Button>
-        </div>
-      )}
-      {noSlots && (
-        <div className="a-callout a-callout--warn a-stack" role="alert">
-          <p className="a-callout__text">{startErrorText("no_slots", task.id, "")}</p>
-          <div className="a-actions">
-            <Button
-              busy={enqueue.isPending}
-              onClick={() =>
-                enqueue.mutate([item], {
-                  onSuccess: () => {
-                    setNoSlots(false);
-                    toast.show(t("run.noslots.queued", { id: task.id }), "success");
-                  },
-                  onError: queueFailed,
-                })
-              }
-            >
-              {t("run.noslots.queue")}
-            </Button>
-            <Button variant="ghost" onClick={() => setNoSlots(false)}>
-              {t("feedback.cancel")}
-            </Button>
-          </div>
-        </div>
+        ),
       )}
     </div>
   );
@@ -437,7 +151,6 @@ export function TaskPanel({
   onOpen,
   onSelectWithDeps,
   groups = [],
-  runs,
 }: {
   projectId: string;
   task: BoardTask;
@@ -451,22 +164,17 @@ export function TaskPanel({
   onSelectWithDeps?: (() => void) | undefined;
   /** The plan's groups, for moving the task while editing it. */
   groups?: readonly { id: string; name: string }[];
-  /** The project's runs (undefined while loading). */
-  runs?: readonly Run[] | undefined;
 }) {
   // Editing is the human's, and never on an invalid (read-only) plan.
   const [editing, setEditing] = useState(false);
   const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
-  const run = task.state === "review" ? reviewRun(runs, task.id) : latestRun(runs, task.id);
-  const criteria = criterionResults(run);
-  const checksFailed = task.state === "review" && runChecksFailed(run);
-  const runnable = runs !== undefined && canRun(task, { readOnly, runs, id: task.id });
-  const queueable = canQueueTask(task, readOnly);
-  // Variants (UI-24): compared side by side in review until one is chosen; each shown while live.
-  const toChoose = task.state === "review" ? variantsToChoose(runs, task.id) : [];
-  const liveVariants = task.state === "doing" ? taskVariants(runs, task.id) : [];
+  // In review, the agent's closing summary is what the human reviews: it goes first.
+  const summary =
+    task.state === "review"
+      ? [...(task.notes ?? [])].reverse().find((note) => note.kind === "summary")
+      : undefined;
   return (
     <aside className="a-detail b-panel" aria-label={t("detail.label", { id: task.id })}>
       <div className="a-detail__head">
@@ -476,7 +184,6 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
-          {task.difficulty && <span className="a-chip">{difficultyText(task.difficulty)}</span>}
           {canEdit && !editing && (
             <Button
               size="sm"
@@ -500,6 +207,15 @@ export function TaskPanel({
           readOnly={readOnly}
           showTask={false}
         />
+        {summary && (
+          <section className="a-callout a-stack b-summary" aria-label={t("detail.summary")}>
+            <div className="k-label">
+              {t("detail.summary")} ·{" "}
+              {summary.by === "human" ? t("detail.you") : summary.by.replace(/^agent:/, "")}
+            </div>
+            <Markdown className="md--compact" text={summary.text} />
+          </section>
+        )}
         {/* Keyed by task and its hash so a changed task resets any half-written form. */}
         {actions.length > 0 && (
           <Actions
@@ -507,67 +223,8 @@ export function TaskPanel({
             projectId={projectId}
             task={task}
             actions={actions}
-            checksFailed={checksFailed}
           />
         )}
-        {(runnable || queueable) && (
-          <RunButton
-            projectId={projectId}
-            task={task}
-            doc={doc}
-            runnable={runnable}
-            queueable={queueable}
-          />
-        )}
-        {toChoose.length > 1 ? (
-          <VariantCompare
-            projectId={projectId}
-            variants={toChoose}
-            notes={task.notes}
-            readOnly={readOnly}
-          />
-        ) : liveVariants.length > 1 ? (
-          <section className="a-stack" aria-label={t("variants.live")}>
-            <div className="k-label">{t("variants.live")}</div>
-            {liveVariants.map((variant) => (
-              <RunSection
-                key={variant.id}
-                projectId={projectId}
-                run={variant}
-                readOnly={readOnly}
-              />
-            ))}
-          </section>
-        ) : null}
-        {run && toChoose.length <= 1 && liveVariants.length <= 1 && (
-          <RunSection projectId={projectId} run={run} readOnly={readOnly}>
-            {task.state === "review" && run.state === "succeeded" && (
-              <ReviewSection
-                projectId={projectId}
-                run={run}
-                readOnly={readOnly}
-                notes={task.notes}
-                hasReviewer={doc.project.reviewer !== undefined}
-                summary={
-                  [...(task.notes ?? [])]
-                    .reverse()
-                    .find((n) => n.kind === "summary" && n.run === run.id)?.text ?? run.summary
-                }
-              />
-            )}
-          </RunSection>
-        )}
-        {runs?.some((r) => r.task === task.id) && (
-          <section className="a-stack" aria-label={t("cost.title")}>
-            <div className="k-label">{t("cost.title")}</div>
-            <CostSummaryView summary={taskCost(runs, task.id)} />
-          </section>
-        )}
-        <OlderRuns
-          projectId={projectId}
-          runs={olderDiscardable(runs, task.id, run?.id)}
-          readOnly={readOnly}
-        />
         {onSelectWithDeps && (
           <div className="a-actions">
             <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>
@@ -580,7 +237,6 @@ export function TaskPanel({
             projectId={projectId}
             task={task}
             groups={groups}
-            defaults={doc.project.defaults}
             onClose={() => setEditing(false)}
           />
         ) : (
@@ -590,32 +246,12 @@ export function TaskPanel({
               <table className="a-criteria">
                 <caption className="k-label">{t("detail.criteria")}</caption>
                 <tbody>
-                  {(task.acceptance ?? []).map((ac) => {
-                    const result = ac.check ? criteria.get(ac.id) : undefined;
-                    const ok = result ? result.exit_code === 0 && result.timed_out !== true : null;
-                    return (
-                      <tr key={ac.id}>
-                        <td className="k-mono a-criteria__id">{ac.id}</td>
-                        <td>
-                          {ac.text}
-                          {ac.check && <div className="k-mono a-criteria__check">{ac.check}</div>}
-                          {ac.check && (
-                            <div
-                              className={`a-criteria__result ${
-                                ok === null ? "s-muted" : ok ? "b-checks__ok" : "b-checks__fail"
-                              }`}
-                            >
-                              {result
-                                ? `${ok ? "✓" : "✕"} ${t("checks.criterion.last", {
-                                    outcome: checkOutcome(result),
-                                  })}`
-                                : t("checks.criterion.none")}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {(task.acceptance ?? []).map((ac) => (
+                    <tr key={ac.id}>
+                      <td className="k-mono a-criteria__id">{ac.id}</td>
+                      <td>{ac.text}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}

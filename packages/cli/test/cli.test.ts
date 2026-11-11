@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,8 +35,8 @@ const t = (
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "Weather", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "Weather" },
     groups: [
       { id: "BE", name: "Backend" },
       { id: "FE", name: "Frontend" },
@@ -40,7 +48,7 @@ function plan(): TasksDocument {
       t("BE-03", "todo", ["BE-02"]),
       t("BE-04", "todo", ["BE-01"], {
         desc: "Cache responses.",
-        acceptance: [{ id: "ac1", text: "Fast", check: "npm test" }],
+        acceptance: [{ id: "ac1", text: "Fast" }],
         notes: [{ id: "n1", at, by: "agent:codex", kind: "question", text: "Which TTL?" }],
       }),
       t("FE-01", "proposed", [], { created: { at, by: "agent:claude" } }),
@@ -77,21 +85,36 @@ async function run(args: string[], options: { cwd?: string; env?: NodeJS.Process
 }
 
 describe("init", () => {
-  it("creates a valid plan with the current git branch and a .gitignore for runs", async () => {
+  it("creates a valid plan, the protocol skill and the konsora server in .mcp.json", async () => {
     const r = await run(["init", "--name", "Weather", "--group", "BE", "--group-name", "Backend"]);
     expect(r.code).toBe(EXIT.ok);
-    expect(r.stdout).toContain(
-      'Created .konsora/tasks.json (project "Weather", base branch trunk, group BE)',
-    );
+    expect(r.stdout).toContain('Created .konsora/tasks.json (project "Weather", group BE)');
     const doc = JSON.parse(readFileSync(join(dir, ".konsora", "tasks.json"), "utf8"));
     expect(doc).toEqual({
-      schema: "konsora/2",
-      project: { name: "Weather", base_branch: "trunk" },
+      schema: "konsora/3",
+      project: { name: "Weather" },
       groups: [{ id: "BE", name: "Backend" }],
       seq: { BE: 0 },
       tasks: [],
     });
-    expect(readFileSync(join(dir, ".konsora", ".gitignore"), "utf8")).toBe("runs/\n");
+    expect(readdirSync(join(dir, ".konsora"))).toEqual(["tasks.json"]);
+    expect(existsSync(join(dir, ".claude", "skills", "konsora", "SKILL.md"))).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, ".mcp.json"), "utf8"))).toEqual({
+      mcpServers: {
+        konsora: {
+          type: "stdio",
+          command: "konsora",
+          args: ["mcp"],
+          env: { KONSORA_AGENT: "claude" },
+        },
+      },
+    });
+  });
+
+  it("--no-claude creates only the plan", async () => {
+    expect((await run(["init", "--no-claude"])).code).toBe(EXIT.ok);
+    expect(existsSync(join(dir, ".claude"))).toBe(false);
+    expect(existsSync(join(dir, ".mcp.json"))).toBe(false);
   });
 
   it("refuses to overwrite an existing plan (exit 1, file untouched)", async () => {
@@ -135,7 +158,7 @@ describe("read commands", () => {
 
   it("status --json", async () => {
     expect((await run(["status", "--json"])).json()).toEqual({
-      project: { name: "Weather", base_branch: "main" },
+      project: { name: "Weather" },
       groups: [
         { id: "BE", name: "Backend" },
         { id: "FE", name: "Frontend" },
@@ -190,7 +213,7 @@ describe("read commands", () => {
     expect(r.stdout).toContain("BE-04 · Title BE-04");
     expect(r.stdout).toContain("state: todo (ready; waiting for answer)   group: BE (Backend)");
     expect(r.stdout).toContain("deps: BE-01 (done)");
-    expect(r.stdout).toContain("ac1  Fast  [check: npm test]");
+    expect(r.stdout).toContain("ac1  Fast\n");
     expect(r.stdout).toContain("agent:codex  question");
     expect((await run(["show", "BE-01"])).stdout).toContain("dependents: BE-02, BE-04");
   });

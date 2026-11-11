@@ -1,5 +1,5 @@
 /**
- * Semantic validation of a structurally valid `konsora/2` document (docs/esquema-tareas.md §3).
+ * Semantic validation of a structurally valid `konsora/3` document (docs/esquema-tareas.md §3).
  * Reports every problem it finds, each located by JSON Pointer, and never throws.
  */
 import { parseJsonText } from "./json-text.ts";
@@ -24,16 +24,6 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
   const issues: SchemaIssue[] = [];
   const add = (path: (string | number)[], code: string, message: string) =>
     issues.push({ path: toPointer(path), code, message });
-
-  checkUnique(
-    doc.project.checks?.map((c) => c.id),
-    (j, id) =>
-      add(
-        ["project", "checks", j, "id"],
-        "duplicate_check_id",
-        `Project check ${id} is defined twice`,
-      ),
-  );
 
   checkUnique(
     doc.project.templates?.map((t) => t.id),

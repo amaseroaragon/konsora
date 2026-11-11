@@ -13,14 +13,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  groupCost,
-  type MovePlan,
-  planMove,
-  type Run,
-  type TaskState,
-  usageTotals,
-} from "@konsora/core";
+import { type MovePlan, planMove, type TaskState } from "@konsora/core";
 import { useMemo, useState } from "react";
 import { type BoardOk, type BoardTask, toDocument, useMoveTask } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
@@ -34,9 +27,7 @@ import {
   taskStates,
   useToast,
 } from "../ui/index.ts";
-import { difficultyText } from "./agent-model.ts";
-import { ALL_LANE, boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
-import { costLine } from "./cost-model.ts";
+import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
 import { FeedbackDialog } from "./FeedbackDialog.tsx";
 import { isSelectable } from "./selection.ts";
 
@@ -69,11 +60,6 @@ export const cellToCell: KeyboardCoordinateGetter = (event, { context, currentCo
     : currentCoordinates;
 };
 
-const agentLabel = (task: BoardTask) =>
-  task.agent
-    ? [task.agent.provider, task.agent.model, task.agent.effort].filter(Boolean).join(" · ")
-    : undefined;
-
 /** The selection as the board sees it: what is ticked and how to tick or untick a card. */
 export type BoardSelection = { selected: ReadonlySet<string>; onToggle: (id: string) => void };
 
@@ -88,7 +74,6 @@ function Card({
   onOpen?: () => void;
   selection?: BoardSelection | undefined;
 }) {
-  const agent = agentLabel(task);
   const proposer = task.created.by.replace(/^agent:/, "");
   return (
     <TaskCard
@@ -98,11 +83,7 @@ function Card({
       blockedBy={task.state === "todo" ? task.blockers : []}
       waiting={task.waiting}
       external={external}
-      checksFailed={task.checks_failed === true}
-      awaitingApproval={task.awaiting_approval === true}
       {...(onOpen ? { onOpen } : {})}
-      {...(agent ? { agent } : {})}
-      {...(task.difficulty ? { difficulty: difficultyText(task.difficulty) } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
       {...(selection
         ? {
@@ -191,14 +172,11 @@ export function Board({
   onOpen,
   selection,
   readOnly = false,
-  runs,
 }: {
   board: BoardOk;
   swimlanes: boolean;
   onOpen: (id: string) => void;
   selection: BoardSelection;
-  /** The project's runs, for each lane's accumulated cost (UI-23); live from `run.state`. */
-  runs?: readonly Run[] | undefined;
   /** The file is invalid: this is the last valid version, shown without drag or actions. */
   readOnly?: boolean;
 }) {
@@ -302,9 +280,6 @@ export function Board({
             lanes={lanes.map((lane) => ({
               id: lane.id,
               name: lane.name,
-              meta: runs
-                ? costLine(lane.id === ALL_LANE ? usageTotals(runs) : groupCost(runs, doc, lane.id))
-                : undefined,
               cells: lane.cells.map((cell) =>
                 cell.map((task) => (
                   <DraggableCard

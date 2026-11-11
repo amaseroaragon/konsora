@@ -9,11 +9,10 @@ import { TaskStateSchema } from "@konsora/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { registerPermissionTool } from "./mcp-permission.ts";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
 import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
-import { type Io, load, locate, type RunScope, runScope, VERSION } from "./shared.ts";
+import { type Io, load, locate, sessionScope, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 
@@ -33,36 +32,12 @@ const GUIDE =
   "Humans approve, accept and change approved work; there are no tools for that. " +
   "Never edit .konsora/tasks.json by hand.";
 
-/** The run scope from the environment; a bad one shows up as an error on each write. */
-function scopeOf(env: NodeJS.ProcessEnv): RunScope {
-  try {
-    return runScope(env);
-  } catch {
-    return {};
-  }
-}
-
 function instructions(env: NodeJS.ProcessEnv): string {
-  const scope = scopeOf(env);
-  if (scope.plan) {
-    return (
-      `${GUIDE}\n\nThis is a planning session: interview the human, then propose tasks with ` +
-      `propose or batch. You may revise or withdraw proposals with edit and withdraw; every ` +
-      `other write is refused, and nothing is started.`
-    );
-  }
-  if (!scope.task) return GUIDE;
-  if (scope.review) {
-    return (
-      `${GUIDE}\n\nYou are inside Konsora review run ${scope.run ?? "(unnamed)"}, reviewing the work on ` +
-      `${scope.task}. It is read-only: read the work, then call review once with your verdict and ` +
-      `reasons, and stop. Every other write is out of scope.`
-    );
-  }
+  if (!sessionScope(env).plan) return GUIDE;
   return (
-    `${GUIDE}\n\nYou are inside Konsora run ${scope.run ?? "(unnamed)"}, working on ${scope.task}. ` +
-    `It is already started: record progress with note, ask the human with ask, and end with ` +
-    `finish and a summary. You may propose follow-up tasks; every other write is out of scope.`
+    `${GUIDE}\n\nThis is a planning session: interview the human, then propose tasks with ` +
+    `propose or batch. You may revise or withdraw proposals with edit and withdraw; every ` +
+    `other write is refused, and nothing is started.`
   );
 }
 
@@ -135,8 +110,6 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
   );
 
   registerWriteTools(server, io, root);
-  const scope = scopeOf(io.env);
-  if (scope.task) registerPermissionTool(server, io.env, scope);
   return server;
 }
 

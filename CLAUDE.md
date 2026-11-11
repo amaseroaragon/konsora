@@ -1,34 +1,32 @@
 # Konsora
 
-Konsora es un gestor y lanzador de tareas para agentes de programación. Lee el plan de un proyecto desde `.konsora/tasks.json` y lo muestra en un tablero y en un grafo. Ejecuta las tareas seleccionadas con Claude Code o Codex, cada una en su propio worktree y en paralelo respetando dependencias. Después verifica el resultado y te deja revisarlo con su diff e integrarlo con un commit por tarea. Es local, de uso personal y para Ubuntu primero.
+Konsora es un gestor y visualizador de tareas para proyectos que se trabajan con agentes de programación. Se instala en un proyecto con `konsora init`, que crea `.konsora/tasks.json`, la skill de Claude Code y el servidor MCP en `.mcp.json`. Las IAs usan ese plan como plantilla a través de la CLI, el MCP y la skill, y la UI (`konsora ui`) lo muestra en un tablero y en un grafo, con un panel de IA para planificar. Konsora **no ejecuta agentes**. Es local, de uso personal y para Ubuntu primero.
 
 Documentación de referencia (léela antes de cambiar algo en su ámbito):
 - [docs/vision.md](docs/vision.md): problema, flujo, principios y no-objetivos.
-- [docs/arquitectura.md](docs/arquitectura.md): paquetes, daemon, runner, adaptadores, seguridad y ADR.
-- [docs/esquema-tareas.md](docs/esquema-tareas.md): formato `konsora/2`, máquina de estados y roles, concurrencia y runs.
-- [docs/roadmap.md](docs/roadmap.md): hitos M0–M10 con su criterio de "hecho".
+- [docs/arquitectura.md](docs/arquitectura.md): paquetes, instalación en un proyecto, daemon, panel de IA, canal de agentes y ADR.
+- [docs/esquema-tareas.md](docs/esquema-tareas.md): formato `konsora/3`, máquina de estados y roles, concurrencia y migraciones.
+- [docs/roadmap.md](docs/roadmap.md): historia de M0–M9, el giro de M11 y lo que viene después.
 
 ## Estado actual
 
-**M0–M9 cerrados.** `packages/core` está completo: esquema v2, validación, serializador canónico, grafo (con el subgrafo pendiente de una tarea), máquina de estados con operaciones semánticas (incluido el ámbito de un run), el modelo de runs (`run.json`, sus estados y los de su integración, ids `r-`+ULID), el prompt del run y el de reintento, el modelo de checks (`check_retries`, `setup`, `checks.json`, `complete` tras los checks), movimientos y acciones del tablero, y almacén de archivos (`@konsora/core/store`, solo Node). `packages/runner` tiene el almacén de runs (`.konsora/runs/<id>/`), los worktrees y ramas por run, el adaptador de Claude Code (stream-json, perfil `default`), el de Codex (`codex app-server` con tipos generados y comprobación de versión, plan B `codex exec --json`, aprobaciones al humano y commits en la rama del run dentro del sandbox), el uso y los rate limits de cada run, el supervisor del ciclo de vida (`project.setup` antes del agente, checks en el worktree con timeout y grupo de procesos propio, bucle de reintentos en la misma sesión, respuestas a `ask`, cancelación, runs `interrupted` al reiniciar), la lectura de límites sin run (`account/rateLimits/read` y `claude -p /usage`) y la integración squash al aceptar. La CLI `konsora` (init, lectura, comandos de agente, `migrate`, `skill`, `ui`, `mcp`, `plan`) está en `packages/cli`; `konsora ui` reinicia un daemon que ejecuta código más antiguo que el checkout. `konsora mcp` es el servidor MCP por stdio, con las mismas lecturas y operaciones de agente que la CLI, el modo run (`KONSORA_PROJECT`/`KONSORA_RUN`/`KONSORA_TASK`) y la herramienta `permission`. `--print-config claude|codex` imprime su configuración. El daemon en loopback (`packages/daemon`) sirve la API (incluidos lanzar, cancelar, descartar e integrar runs, sus checks, los límites de uso y el catálogo de agentes con sus modelos y esfuerzos), el WebSocket `board.*`, `run.*`, `permission.*`, `queue.*` y `limits.updated`, las aprobaciones de permisos de los runs (en memoria, con un token por run) y la web compilada. `packages/web` tiene el sistema de diseño *Plano*, la lista de proyectos, el tablero en vivo con arrastrar y soltar validado, el grafo (ELK en un worker, navegable con teclado), la selección compartida entre ambos, y el panel de tarea con markdown seguro, las acciones humanas, la edición del trabajo aprobado, el selector de agente (proveedor, modelo, esfuerzo y perfil, en el panel, la barra de selección y el editor), Ejecutar, el log del run en vivo, las aprobaciones, la revisión con diff y el historial de checks por intento, el estado del check de cada criterio, la marca de checks en rojo y la confirmación al aceptar, el uso de cada run, la vista de límites siempre visible (`#/limites`) y los ajustes del proyecto (checks, reintentos y setup). También el modo solo lectura y los cambios externos. M9 añadió la ejecución paralela: el modelo de la cola en `core` (`queue.ts`: `queue.json`, `settings.json`, `nextRuns`, `queueStatus`, `queueExits`), la cola persistente y el scheduler del daemon (`max_parallel` global y por proveedor, arranque en pausa, API y WS `queue.*`), la integración automática y serializada de las tareas intermedias de una cadena YOLO, el run de rebase que pide al agente resolver un conflicto de integración (ops `rebase`/`rebase-abort`, `rebase_of`) y la vista `#/cola` con Encolar en la barra de selección. **Siguiente: M10 (escritorio)**; sus tareas están propuestas (consulta `npm run konsora -- status`).
+**M11 (giro a gestor y visualizador) en curso.** Del 2026-10-31 al 2026-11-08 (M0–M9) Konsora también lanzaba agentes (runner, worktrees, checks, cola, integración git); todo eso se retiró y solo queda en el historial de git. Hoy: `packages/core` tiene el esquema `konsora/3`, la validación, el serializador canónico, el grafo, la máquina de estados con operaciones semánticas (incluido el modo plan), las migraciones v1/v2 → v3, el prompt de planificación (`buildPlanPrompt`, `PLAN_TOOLS`) y el store (`@konsora/core/store`, solo Node). `packages/cli` tiene la CLI `konsora` (init con la integración de Claude Code, lectura, comandos de agente, `migrate`, `skill`, `plan`, `ui`, `mcp`) y `konsora mcp`, el servidor MCP por stdio con las mismas operaciones y el modo plan (`KONSORA_PLAN=1`). `packages/daemon` es el daemon en loopback: proyectos, tablero, ops humanas, cambios externos, WebSocket `board.*` y `chat.updated`, y los chats del panel de IA (`claude -p` con solo el MCP en modo plan). `packages/web` tiene el sistema de diseño *Plano*, la lista de proyectos, el tablero, el grafo, la selección compartida con Aprobar en lote, el panel de tarea (resumen de cierre en revisión, acciones humanas, edición), la creación de tareas, el panel de IA, las plantillas y el modo solo lectura. Las tareas de M11 están en el backlog (consulta `npm run konsora -- status`).
 
-El v0 que desarrolló Codex (Tauri + sidecar Python, MVP de "copiar prompt"), con su código y sus docs, solo existe en la etiqueta git `legacy-v0`. No lo restaures ni lo tomes como referencia, salvo para la migración v1→v2 (`CLI-03`).
+El v0 que desarrolló Codex (Tauri + sidecar Python, MVP de "copiar prompt"), con su código y sus docs, solo existe en la etiqueta git `legacy-v0`. No lo restaures ni lo tomes como referencia, salvo para la migración v1 (`konsora migrate`).
 
 El backlog se gestiona con la CLI del propio repo (`npm run konsora -- …`, con `--as claude` o `KONSORA_AGENT`), siguiendo la skill `.claude/skills/konsora/SKILL.md`. Nunca edites `.konsora/tasks.json` a mano.
 
 ## Estructura
 
 ```
-packages/core     esquema v2, máquina de estados, grafo, serializador canónico, store
-packages/runner   adaptadores claude/codex, worktrees, scheduler, checks, integración git
+packages/core     esquema v3, máquina de estados, grafo, serializador canónico, migraciones, store
 packages/cli      binario `konsora` + `konsora mcp`
-packages/daemon   servidor loopback (HTTP + WS)
+packages/daemon   servidor loopback (HTTP + WS) y chats del panel de IA
 packages/web      UI React
-apps/desktop      Tauri (M10)
-schema/           tasks.v2.schema.json generado desde core
+schema/           tasks.v3.schema.json generado desde core
 ```
 
-Regla de capas: `web → daemon → runner → core` y `cli → runner, core` (y `cli → daemon` solo para `konsora ui`). **Ninguna regla de negocio fuera de `core`.**
+Regla de capas: `web → daemon → core` y `cli → core` (y `cli → daemon` solo para `konsora ui`). **Ninguna regla de negocio fuera de `core`.**
 
 ## Comandos
 
@@ -39,18 +37,19 @@ npm run lint                   # biome check
 npm run typecheck              # tsc --noEmit de los paquetes
 npm run format                 # aplica el formato y las correcciones seguras de Biome
 npm test -- packages/core      # tests de un paquete
-npm run codex:types            # regenera los tipos de codex app-server para el codex instalado
+npm run schema                 # regenera schema/tasks.v3.schema.json
+npm run install:global         # enlaza el comando `konsora` global (npm link)
 ```
 
-Usa siempre `npm run` o `npm test` (no `npx`) para ejecutar herramientas del proyecto: el perfil de permisos `default` de los runs permite `npm run`, `npm test` y `npm ci` sin preguntar, pero `npx` pide aprobación humana en cada uso.
+Usa siempre `npm run` o `npm test` (no `npx`) para ejecutar herramientas del proyecto.
 
-Requisitos: Node ≥ 22.18 (ejecuta `.ts` directamente con *type stripping*, sin paso de build), git ≥ 2.38, y `claude` y/o `codex` instalados y autenticados (solo para los runs reales).
+Requisitos: Node ≥ 22.18 (ejecuta `.ts` directamente con *type stripping*, sin paso de build) y, para el panel de IA y `konsora plan`, `claude` instalado y autenticado.
 
 Los imports relativos llevan la extensión `.ts`, y solo se admite sintaxis TS borrable (`erasableSyntaxOnly`: sin `enum`, `namespace` ni parameter properties). Biome no formatea `.konsora/`, porque ese archivo lo escribe el serializador canónico de `core`.
 
 ## Forma de trabajar
 
-1. **El backlog es `.konsora/tasks.json`** (v2 desde M0). Trabaja una tarea a la vez, en orden de `rank` y respetando las dependencias. Una tarea pendiente no autoriza implementarla: hazlo solo si te lo piden. No adelantes funciones de hitos posteriores.
+1. **El backlog es `.konsora/tasks.json`** (v3 desde M11). Trabaja una tarea a la vez, en orden de `rank` y respetando las dependencias. Una tarea pendiente no autoriza implementarla: hazlo solo si te lo piden. No adelantes funciones de hitos posteriores.
 2. **"Hecho" = criterio verificable.** Cumple los `acceptance` de la tarea (o el ✅ del hito en `roadmap.md`), ejecuta las comprobaciones y anota en el commit qué ejecutaste y con qué resultado. Si no puedes verificar algo esencial, dilo y no lo des por hecho.
 3. **Tus permisos sobre el plan son los de un agente.** Puedes proponer, empezar, anotar, preguntar y terminar con resumen. **No apruebes, aceptes ni marques `done`**: esas acciones son humanas.
 4. Cambios mínimos y tipados, con errores controlados. Ajusta las pruebas afectadas. Antes de añadir una dependencia que no esté en la tabla de `arquitectura.md`, justifícala.
@@ -69,8 +68,7 @@ Los imports relativos llevan la extensión `.ts`, y solo se admite sintaxis TS b
 - **Abrir o vincular una carpeta no escribe nada.** `init`, `migrate` y cualquier edición del plan son acciones explícitas.
 - **Un archivo de tareas inválido nunca se sobrescribe**: el proyecto pasa a solo lectura y se muestran los errores.
 - **Los cambios externos se respetan.** Escribe con operaciones semánticas, lock y escritura atómica, sin pisar los cambios de otros.
-- **Credenciales**: Konsora no lee, guarda ni transmite tokens ni claves. Usa los CLI oficiales con el login del usuario y nunca recurre a APIs de pago por su cuenta.
-- **Ejecución**: solo lanza lo que el humano selecciona explícitamente. Usa un worktree por run, el perfil de permisos `default` y nunca flags `--dangerously-*`. El prompt de cada run queda registrado.
-- **Git**: integrar significa hacer squash local en `base_branch`, con un commit por tarea. Nunca push, PR ni force.
+- **Credenciales**: Konsora no lee, guarda ni transmite tokens ni claves. El panel de IA usa el CLI oficial de Claude Code con el login del usuario y nunca recurre a APIs de pago por su cuenta.
+- **No ejecuta agentes**: ni runs, ni worktrees, ni checks, ni integración git. El panel de IA solo planifica: su agente tiene únicamente el MCP de Konsora en modo plan y nunca flags `--dangerously-*`.
 - El daemon escucha solo en loopback, con token y validación de Host y Origin.
-- Fuera de alcance: chat, debates entre modelos, gestión de cuentas, nube y distribución pública. Ver los no-objetivos en `vision.md`.
+- Fuera de alcance: ejecutar u orquestar agentes, chat de propósito general, debates entre modelos, gestión de cuentas, nube y distribución pública. Ver los no-objetivos en `vision.md`.

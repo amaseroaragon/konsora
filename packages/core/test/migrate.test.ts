@@ -2,13 +2,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { migrateV1, splitCriteria } from "../src/migrate.ts";
+import { migrateV1, migrateV2, splitCriteria } from "../src/migrate.ts";
 import { parseTasksFile } from "../src/semantics.ts";
 import { serializeDocument } from "../src/serialize.ts";
 import { tasksPath, writeMigration } from "../src/store.ts";
 
 const at = "2026-11-03T09:00:00Z";
-const opts = { name: "konsora", baseBranch: "main", at };
+const opts = { name: "konsora", at };
 const legacy = JSON.parse(
   readFileSync(new URL("./fixtures/v1-legacy-tasks.json", import.meta.url), "utf8"),
 );
@@ -18,7 +18,7 @@ describe("migrateV1 on the real v1 file from tag legacy-v0", () => {
   if (!result.ok) throw new Error(result.message);
   const { document: doc, report } = result;
 
-  it("produces a valid v2 document with every task", () => {
+  it("produces a valid v3 document with every task", () => {
     expect(parseTasksFile(serializeDocument(doc)).ok).toBe(true);
     expect(doc.tasks).toHaveLength(legacy.tasks.length);
     expect(doc.groups).toEqual([{ id: "K", name: "K" }]);
@@ -157,13 +157,122 @@ describe("writeMigration", () => {
     const stale = await writeMigration(root, {
       expectedText: `${original} `,
       text,
+      from: "v1",
       history: r.history,
     });
     expect(stale.ok ? null : stale.error.message).toContain("changed since the migration preview");
     writeFileSync(join(root, ".konsora", "tasks.v1.json.bak"), "old");
-    const exists = await writeMigration(root, { expectedText: original, text, history: r.history });
+    const exists = await writeMigration(root, {
+      expectedText: original,
+      text,
+      from: "v1",
+      history: r.history,
+    });
     expect(exists.ok ? null : exists.error.code).toBe("exists");
     expect(readFileSync(tasksPath(root), "utf8")).toBe(original);
+    rmSync(root, { recursive: true });
+  });
+});
+
+describe("migrateV2 (konsora/2 → konsora/3)", () => {
+  const v2 = {
+    $schema: "../schema/tasks.v2.schema.json",
+    schema: "konsora/2",
+    project: {
+      name: "P",
+      base_branch: "main",
+      defaults: { provider: "claude", model: "opus" },
+      recommended: { high: { provider: "claude", model: "opus" } },
+      setup: { run: "npm ci" },
+      checks: [{ id: "test", run: "npm test" }],
+      check_retries: 2,
+      reviewer: { launch: "auto", agent: { provider: "codex", model: "gpt-5" } },
+      templates: [
+        { id: "bug", name: "Bug", difficulty: "low", acceptance: [{ text: "T", check: "x" }] },
+      ],
+      "x-editor": 1,
+    },
+    groups: [{ id: "BE", name: "Backend" }],
+    seq: { BE: 1 },
+    tasks: [
+      {
+        id: "BE-01",
+        title: "T",
+        state: "review",
+        group: "BE",
+        rank: "a",
+        acceptance: [{ id: "ac1", text: "Works", check: "npm test" }],
+        difficulty: "high",
+        agent: { provider: "claude", model: "opus" },
+        created: { at, by: "human" },
+        updated_at: at,
+        notes: [
+          { id: "n1", at, by: "agent:claude", kind: "summary", text: "Done", run: "r-01JC8Z3K2Q" },
+          { id: "n2", at, by: "agent:codex", kind: "review", text: "Fine", verdict: "approve" },
+        ],
+      },
+    ],
+  };
+
+  it("drops the run-only fields, keeps the rest and reports what it dropped", () => {
+    const result = migrateV2(v2);
+    if (!result.ok) throw new Error(result.message);
+    const { document: doc, report } = result;
+    expect(doc.schema).toBe("konsora/3");
+    expect(doc.$schema).toBe("../schema/tasks.v3.schema.json");
+    expect(doc.project).toEqual({
+      name: "P",
+      templates: [{ id: "bug", name: "Bug", acceptance: [{ text: "T" }] }],
+      "x-editor": 1,
+    });
+    expect(doc.tasks[0]).not.toHaveProperty("agent");
+    expect(doc.tasks[0]).not.toHaveProperty("difficulty");
+    expect(doc.tasks[0]?.acceptance).toEqual([{ id: "ac1", text: "Works" }]);
+    expect(doc.tasks[0]?.notes?.map((n) => [n.kind, n.text])).toEqual([
+      ["summary", "Done"],
+      ["note", "[review: approve] Fine"],
+    ]);
+    expect(report).toEqual({
+      tasks: 1,
+      reviewNotes: 1,
+      dropped: {
+        "project.base_branch": 1,
+        "project.defaults": 1,
+        "project.recommended": 1,
+        "project.setup": 1,
+        "project.checks": 1,
+        "project.check_retries": 1,
+        "project.reviewer": 1,
+        "project.templates[].difficulty": 1,
+        "project.templates[].acceptance[].check": 1,
+        "tasks[].difficulty": 1,
+        "tasks[].agent": 1,
+        "tasks[].acceptance[].check": 1,
+        "tasks[].notes[].run": 1,
+        "tasks[].notes[].verdict": 1,
+      },
+    });
+    expect(parseTasksFile(serializeDocument(doc)).ok).toBe(true);
+  });
+
+  it("is deterministic and refuses anything that is not konsora/2", () => {
+    expect(migrateV2(structuredClone(v2))).toEqual(migrateV2(v2));
+    expect(migrateV2({ schema: "konsora/3" }).ok).toBe(false);
+    expect(migrateV2(legacy).ok).toBe(false);
+  });
+
+  it("writes the v3 plan with a v2 backup and no history file", async () => {
+    const root = mkdtempSync(join(tmpdir(), "konsora-mig-"));
+    mkdirSync(join(root, ".konsora"));
+    const original = JSON.stringify(v2);
+    writeFileSync(tasksPath(root), original);
+    const r = migrateV2(v2);
+    if (!r.ok) throw new Error(r.message);
+    const text = serializeDocument(r.document);
+    const written = await writeMigration(root, { expectedText: original, text, from: "v2" });
+    expect(written.ok && written.history).toBe(undefined);
+    expect(readFileSync(join(root, ".konsora", "tasks.v2.json.bak"), "utf8")).toBe(original);
+    expect(readFileSync(tasksPath(root), "utf8")).toBe(text);
     rmSync(root, { recursive: true });
   });
 });

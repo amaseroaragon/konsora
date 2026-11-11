@@ -49,13 +49,13 @@ describe("agent protocol skill", () => {
     expect(text).toContain("never edit that file by hand");
   });
 
-  it("init installs it; --no-skill skips it", async () => {
+  it("init installs it; --no-claude skips it", async () => {
     const r = await run(["init"]);
     expect(r.stdout).toContain(`Installed the agent protocol skill at ${SKILL_PATH}.`);
     expect(readFileSync(join(dir, SKILL_PATH), "utf8")).toBe(await skillText());
     const other = mkdtempSync(join(tmpdir(), "konsora-skill-"));
     let out = "";
-    await main(["init", "--no-skill"], {
+    await main(["init", "--no-claude"], {
       stdout: (s) => (out += s),
       stderr: () => {},
       cwd: other,
@@ -66,20 +66,20 @@ describe("agent protocol skill", () => {
     rmSync(other, { recursive: true });
   });
 
-  it("`konsora skill` never overwrites an existing skill and appends to AGENTS.md once", async () => {
-    await run(["init", "--no-skill"]);
+  it("`konsora skill` never overwrites an existing skill and adds the MCP server once", async () => {
+    await run(["init", "--no-claude"]);
     mkdirSync(join(dir, ".claude", "skills", "konsora"), { recursive: true });
     writeFileSync(join(dir, SKILL_PATH), "my own version");
-    writeFileSync(join(dir, "AGENTS.md"), "# Rules\nBe nice.");
-    const first = await run(["skill", "--agents-md"]);
+    const first = await run(["skill"]);
     expect(first.code).toBe(EXIT.ok);
     expect(first.stdout).toContain("already exists; left it unchanged");
-    expect(first.stdout).toContain("Appended the Konsora section to AGENTS.md");
+    expect(first.stdout).toContain("Created .mcp.json with the konsora MCP server");
     expect(readFileSync(join(dir, SKILL_PATH), "utf8")).toBe("my own version");
-    const second = await run(["skill", "--agents-md"]);
-    expect(second.stdout).toContain("AGENTS.md already has the Konsora section.");
-    const agents = readFileSync(join(dir, "AGENTS.md"), "utf8");
-    expect(agents.startsWith("# Rules\nBe nice.\n")).toBe(true);
-    expect(agents.match(/konsora:protocol/g)).toHaveLength(1);
+    const mcp = readFileSync(join(dir, ".mcp.json"), "utf8");
+    const second = await run(["skill"]);
+    expect(second.stdout).toContain(".mcp.json already has a konsora server.");
+    expect(readFileSync(join(dir, ".mcp.json"), "utf8")).toBe(mcp);
+    const skillOnly = await run(["skill", "--no-mcp", "--json"]);
+    expect(JSON.parse(skillOnly.stdout)).toEqual({ skill: "exists" });
   });
 });

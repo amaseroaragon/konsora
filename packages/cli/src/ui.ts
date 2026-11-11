@@ -112,12 +112,6 @@ async function api<T>(daemon: DaemonInfo, path: string, init: RequestInit = {}):
   return body;
 }
 
-/** Runs alive in the daemon, or `null` if it does not say (older daemons). */
-async function liveRuns(daemon: DaemonInfo): Promise<number | null> {
-  const health = await api<{ live_runs?: unknown }>(daemon, "/health").catch(() => null);
-  return typeof health?.live_runs === "number" ? health.live_runs : null;
-}
-
 /** Opens the URL with the desktop's handler; false when there is none. */
 function openBrowser(url: string): Promise<boolean> {
   const command = process.platform === "darwin" ? "open" : "xdg-open";
@@ -137,7 +131,7 @@ export function registerUi(program: Command, io: Io, root: () => string | undefi
     .description("start (or reuse) the local daemon and open the Konsora web UI in the browser")
     .option("--no-open", "print the URL instead of opening the browser")
     .option("--no-link", "do not link the current project folder")
-    .option("--restart", "restart the running daemon (its live runs become interrupted)")
+    .option("--restart", "restart the running daemon (open AI chats in the UI are closed)")
     .action(async (opts: { open: boolean; link: boolean; restart?: boolean }) => {
       const lib: Daemon = await import("@konsora/daemon");
       const web = lib.webDir(io.env);
@@ -152,30 +146,19 @@ export function registerUi(program: Command, io: Io, root: () => string | undefi
       let daemon = await lib.findDaemon(lib.dataDir(io.env));
       if (daemon && (opts.restart || lib.daemonIsStale(daemon))) {
         // A daemon started before this checkout's code changed serves a newer web UI than its
-        // API: restart it, unless that would interrupt runs nobody asked to interrupt.
-        const live = opts.restart ? 0 : await liveRuns(daemon);
-        if (live === 0) {
-          if (!(await lib.stopDaemon(daemon))) {
-            throw new CliError(
-              `The Konsora daemon (pid ${daemon.pid}) did not stop.`,
-              "Stop it by hand and run `konsora ui` again.",
-            );
-          }
-          io.stdout(
-            opts.restart
-              ? "Stopped the Konsora daemon.\n"
-              : "Stopped the Konsora daemon: it ran code older than this checkout.\n",
-          );
-          daemon = undefined;
-        } else {
-          io.stderr(
-            `Warning: the Konsora daemon at ${daemon.url} runs code older than this checkout, so parts of the UI may fail. ${
-              live === null
-                ? "It is too old to say whether runs are alive in it."
-                : `It has ${live} live run${live === 1 ? "" : "s"}.`
-            } Run \`konsora ui --restart\` when you can (live runs become interrupted).\n`,
+        // API: restart it.
+        if (!(await lib.stopDaemon(daemon))) {
+          throw new CliError(
+            `The Konsora daemon (pid ${daemon.pid}) did not stop.`,
+            "Stop it by hand and run `konsora ui` again.",
           );
         }
+        io.stdout(
+          opts.restart
+            ? "Stopped the Konsora daemon.\n"
+            : "Stopped the Konsora daemon: it ran code older than this checkout.\n",
+        );
+        daemon = undefined;
       }
       if (daemon) io.stdout(`Using the Konsora daemon at ${daemon.url} (pid ${daemon.pid}).\n`);
       else {

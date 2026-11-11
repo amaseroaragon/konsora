@@ -1,4 +1,4 @@
-/** fast-check generators for valid `konsora/2` documents, shared by core property tests. */
+/** fast-check generators for valid `konsora/3` documents, shared by core property tests. */
 import fc from "fast-check";
 import type { Note, Task, TasksDocument } from "../src/schema.ts";
 
@@ -42,7 +42,6 @@ const noteBody = fc.record(
     by: actor,
     kind: fc.constantFrom("note", "question", "answer", "feedback", "summary"),
     text: text(40),
-    run: fc.constantFrom("r-01JC8Z3K2Q", "r-01JD5A00"),
     edited: timestamp,
   },
   { requiredKeys: ["at", "by", "kind", "text"] },
@@ -59,8 +58,6 @@ const taskSpec = fc.record(
     desc: text(60),
     acceptance: fc.array(text(30), { maxLength: 3 }),
     labels: fc.uniqueArray(lowerString(1, 8), { maxLength: 3 }),
-    difficulty: fc.constantFrom("low", "medium", "high"),
-    agent: fc.record({ provider: fc.constantFrom("claude", "codex"), model: text(10) }),
     yolo: fc.boolean(),
     createdAt: timestamp,
     createdBy: actor,
@@ -81,31 +78,14 @@ const taskSpec = fc.record(
   },
 );
 
-const agentArb = fc.record(
-  {
-    provider: fc.constantFrom("claude", "codex"),
-    model: text(10),
-    effort: fc.constantFrom("low", "medium", "high", "xhigh", "max"),
-  },
-  { requiredKeys: ["provider", "model"] },
-);
-const recommendedArb = fc.record(
-  { low: agentArb, medium: agentArb, high: agentArb },
-  { requiredKeys: [] },
-);
-
 const templatesArb = fc.uniqueArray(
   fc.record(
     {
       id: fc.constantFrom("bug", "feature", "spike", "chore"),
       name: text(20),
       desc: text(40),
-      acceptance: fc.array(
-        fc.record({ text: text(20), check: text(20) }, { requiredKeys: ["text"] }),
-        { maxLength: 3 },
-      ),
+      acceptance: fc.array(fc.record({ text: text(20) }), { maxLength: 3 }),
       labels: fc.uniqueArray(lowerString(1, 8), { maxLength: 3 }),
-      difficulty: fc.constantFrom("low", "medium", "high"),
     },
     { requiredKeys: ["id", "name"] },
   ),
@@ -119,13 +99,12 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
     specs: fc.array(taskSpec, { maxLength: 12 }),
     seqSlack: fc.integer({ min: 0, max: 3 }),
     withSchemaRef: fc.boolean(),
-    recommended: fc.option(recommendedArb, { nil: undefined }),
     templates: templatesArb,
     extension: fc.option(fc.dictionary(fc.constantFrom("x-editor", "x-color"), fc.integer()), {
       nil: undefined,
     }),
   })
-  .map(({ groups, specs, seqSlack, withSchemaRef, recommended, templates, extension }) => {
+  .map(({ groups, specs, seqSlack, withSchemaRef, templates, extension }) => {
     const counters = new Map<string, number>();
     const tasks: Task[] = specs.map((spec) => {
       const group = groups[spec.groupPick % groups.length] as string;
@@ -145,8 +124,6 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
         task.acceptance = spec.acceptance.map((t, j) => ({ id: `ac${j + 1}`, text: t }));
       }
       if (spec.labels?.length) task.labels = spec.labels;
-      if (spec.difficulty) task.difficulty = spec.difficulty;
-      if (spec.agent) task.agent = spec.agent;
       if (spec.yolo && spec.state !== "done") task.yolo = true;
       if (spec.notes?.length) {
         task.notes = spec.notes.map((body, j) => ({ id: `n${j + 1}`, ...body }) as Note);
@@ -158,12 +135,10 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
       if (earlier.length) (tasks[i] as Task).deps = earlier.map((d) => (tasks[d] as Task).id);
     });
     return {
-      ...(withSchemaRef ? { $schema: "../schema/tasks.v2.schema.json" } : {}),
-      schema: "konsora/2",
+      ...(withSchemaRef ? { $schema: "../schema/tasks.v3.schema.json" } : {}),
+      schema: "konsora/3",
       project: {
         name: "Generated",
-        base_branch: "main",
-        ...(recommended && Object.keys(recommended).length ? { recommended } : {}),
         ...(templates.length ? { templates } : {}),
       },
       groups: groups.map((id) => ({ id, name: `Group ${id}` })),
@@ -194,19 +169,7 @@ export function scramble(doc: TasksDocument, seed: number): TasksDocument {
     ...doc,
     project: shuffleKeys({
       ...doc.project,
-      checks: [],
-      ...(doc.project.recommended
-        ? {
-            recommended: shuffleKeys(
-              Object.fromEntries(
-                Object.entries(doc.project.recommended).map(([k, v]) => [
-                  k,
-                  shuffleKeys({ ...(v as object) }),
-                ]),
-              ),
-            ),
-          }
-        : {}),
+      templates: doc.project.templates ?? [],
     }),
     seq: shuffleKeys({ ...doc.seq }),
     tasks: shuffle(doc.tasks).map((task) =>

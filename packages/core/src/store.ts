@@ -352,8 +352,7 @@ export async function strayTempFiles(root: string): Promise<string[]> {
 export type InitResult = ({ ok: true } & Snapshot) | { ok: false; error: StoreError };
 
 /**
- * Creates `.konsora/tasks.json` (and `.konsora/.gitignore` with `runs/` if missing) for a new
- * plan. Explicit action only: never called when merely opening a folder. Refuses to overwrite an
+ * Creates `.konsora/tasks.json` for a new plan. Explicit action only: never called when merely opening a folder. Refuses to overwrite an
  * existing tasks file (exclusive create) and refuses a symlinked `.konsora`.
  */
 export async function initTasks(root: string, doc: TasksDocument): Promise<InitResult> {
@@ -390,15 +389,6 @@ export async function initTasks(root: string, doc: TasksDocument): Promise<InitR
     } finally {
       await handle.close();
     }
-    const ignore = await open(
-      join(dir, ".gitignore"),
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
-      0o644,
-    ).catch(() => null);
-    if (ignore) {
-      await ignore.writeFile("runs/\n", "utf8");
-      await ignore.close();
-    }
     return { ok: true, document: doc, hash: fileHash(text), text };
   } catch (error) {
     return { ok: false, error: toStoreError(error) };
@@ -406,18 +396,25 @@ export async function initTasks(root: string, doc: TasksDocument): Promise<InitR
 }
 
 export const BACKUP_V1_FILE = "tasks.v1.json.bak";
+export const BACKUP_V2_FILE = "tasks.v2.json.bak";
 export const LEGACY_HISTORY_FILE = join("legacy", "v1-history.json");
 
 /**
- * Replaces a v1 `tasks.json` with its migrated v2 text, under the lock. Refuses if the file
- * changed since `expectedText` was read, or if the backup or history file already exist.
- * Order: backup → history → atomic replace, so a crash never loses the original.
+ * Replaces an old `tasks.json` (v1 or v2) with its migrated v3 text, under the lock. Refuses if
+ * the file changed since `expectedText` was read, or if the backup or history file already exist.
+ * Order: backup → history (v1 only) → atomic replace, so a crash never loses the original.
  */
 export async function writeMigration(
   root: string,
-  input: { expectedText: string; text: string; history: unknown },
+  input:
+    | { expectedText: string; text: string; from: "v1"; history: unknown }
+    | {
+        expectedText: string;
+        text: string;
+        from: "v2";
+      },
   options: StoreOptions = {},
-): Promise<{ ok: true; backup: string; history: string } | { ok: false; error: StoreError }> {
+): Promise<{ ok: true; backup: string; history?: string } | { ok: false; error: StoreError }> {
   let release: (() => Promise<void>) | undefined;
   try {
     await ensureSafe(root);
@@ -445,9 +442,13 @@ export async function writeMigration(
         await handle.close();
       }
     };
-    const backup = join(dir, BACKUP_V1_FILE);
-    const history = join(dir, LEGACY_HISTORY_FILE);
+    const backup = join(dir, input.from === "v1" ? BACKUP_V1_FILE : BACKUP_V2_FILE);
     await exclusive(backup, current);
+    if (input.from === "v2") {
+      await writeAtomically(root, input.text);
+      return { ok: true, backup };
+    }
+    const history = join(dir, LEGACY_HISTORY_FILE);
     await mkdir(join(dir, "legacy"), { recursive: true });
     await exclusive(history, `${JSON.stringify(input.history, null, 2)}\n`);
     await writeAtomically(root, input.text);

@@ -28,18 +28,16 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
   }) satisfies Task;
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/2",
+  schema: "konsora/3",
   project: {
     name: "Weather",
-    base_branch: "main",
     templates: [
       {
         id: "bug",
         name: "Bug fix",
         desc: "Reproduce and fix.",
-        acceptance: [{ text: "A test reproduces it", check: "npm test" }],
+        acceptance: [{ text: "A test reproduces it" }],
         labels: ["bug"],
-        difficulty: "medium",
       },
     ],
   },
@@ -126,7 +124,6 @@ describe("konsora mcp: agent write tools", () => {
           group: "OPS",
           deps: ["Deploy script"],
           labels: ["ops"],
-          difficulty: "high",
         },
       ],
     };
@@ -141,7 +138,6 @@ describe("konsora mcp: agent write tools", () => {
           acceptance: ["a", "b"],
           deps: ["be-01"],
           labels: ["x", "y"],
-          difficulty: "low",
         },
         [
           "propose",
@@ -158,8 +154,6 @@ describe("konsora mcp: agent write tools", () => {
           "be-01",
           "--labels",
           "x,y",
-          "--difficulty",
-          "low",
         ],
       ],
       ["batch", batch, ["batch", "--file", batchFile]],
@@ -179,8 +173,7 @@ describe("konsora mcp: agent write tools", () => {
           "BE",
         ],
       ],
-      ["edit", { id: "FE-02", difficulty: "medium" }, ["edit", "FE-02", "--difficulty", "medium"]],
-      ["edit", { id: "OPS-03", difficulty: "none" }, ["edit", "OPS-03", "--difficulty", "none"]],
+      ["edit", { id: "FE-02", desc: "Updated" }, ["edit", "FE-02", "--desc", "Updated"]],
       [
         "propose",
         { title: "Login crash", group: "BE", template: "bug", labels: ["auth"] },
@@ -207,19 +200,17 @@ describe("konsora mcp: agent write tools", () => {
     }
     expect(doc(viaMcp).tasks.find((task) => task.id === "BE-04")?.state).toBe("review");
     const tasks = doc(viaMcp).tasks;
-    expect(tasks.find((task) => task.id === "OPS-03")).not.toHaveProperty("difficulty");
+    expect(tasks.find((task) => task.id === "OPS-03")).toMatchObject({ labels: ["ops"] });
     expect(tasks.find((task) => task.id === "OPS-02")).toMatchObject({
       desc: "Reproduce and fix.",
       acceptance: [
-        { id: "ac1", text: "A test reproduces it", check: "npm test" },
+        { id: "ac1", text: "A test reproduces it" },
         { id: "ac2", text: "No regression" },
       ],
       labels: ["bug"],
-      difficulty: "medium",
     });
     expect(tasks.find((task) => task.title === "Login crash")).toMatchObject({
       labels: ["auth", "bug"],
-      difficulty: "medium",
     });
     await close();
   });
@@ -276,7 +267,7 @@ describe("konsora mcp: agent write tools", () => {
     ]);
   });
 
-  it("never lets a client impersonate a human or the runner", () => {
+  it("never lets a client impersonate a human or Konsora", () => {
     expect(mcpActor({}, "Human")).toBe("agent:unknown");
     expect(mcpActor({}, "konsora")).toBe("agent:unknown");
     expect(mcpActor({}, undefined)).toBe("agent:unknown");
@@ -291,7 +282,7 @@ describe("konsora mcp: agent write tools", () => {
     expect(shape.isError).toBe(true);
     const nothing = await call("edit", { id: "FE-01" });
     expect(nothing.text).toBe(
-      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels, group or difficulty.",
+      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels or group.",
     );
     const blocked = await call("start", { id: "BE-03" });
     expect(blocked.text).toContain("Hint: Pick another task with the ready tool");

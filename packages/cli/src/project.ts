@@ -3,8 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { KONSORA_DIR } from "@konsora/core/store";
 
 /**
- * Finds the project root: `--root`, else `KONSORA_PROJECT` (set by the runner to the main
- * checkout), else `KONSORA_ROOT`, else the nearest ancestor of `cwd` that contains a `.konsora/`
+ * Finds the project root: `--root`, else `KONSORA_ROOT`, else the nearest ancestor of `cwd` that contains a `.konsora/`
  * directory. Returns null when none is found.
  */
 export function findRoot(
@@ -12,7 +11,7 @@ export function findRoot(
   explicit?: string,
   env: NodeJS.ProcessEnv = {},
 ): string | null {
-  const given = explicit ?? env.KONSORA_PROJECT ?? env.KONSORA_ROOT;
+  const given = explicit ?? env.KONSORA_ROOT;
   if (given) return resolve(cwd, given);
   let dir = resolve(cwd);
   for (;;) {

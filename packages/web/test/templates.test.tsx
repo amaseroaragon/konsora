@@ -20,12 +20,8 @@ const saved: Template[] = [
     id: "bug",
     name: "Arreglo de bug",
     desc: "Reproduce y arregla.",
-    acceptance: [
-      { text: "Hay un test que lo reproduce", check: "npm test" },
-      { text: "Sin regresiones" },
-    ],
+    acceptance: [{ text: "Hay un test que lo reproduce" }, { text: "Sin regresiones" }],
     labels: ["bug", "fix"],
-    difficulty: "low",
   },
   { id: "doc", name: "Documentación" },
 ];
@@ -37,13 +33,12 @@ const blank = (key: string, extra: Partial<DraftTemplate> = {}): DraftTemplate =
   desc: "",
   criteria: [],
   labels: "",
-  difficulty: "",
   ...extra,
 });
 
 const plan: TasksDocument = {
-  schema: "konsora/2",
-  project: { name: "Demo", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "Demo" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: {},
   tasks: [],
@@ -66,11 +61,7 @@ describe("templates form (UI-22 ac1)", () => {
     expect(draft[0]).toMatchObject({
       id: "bug",
       labels: "bug, fix",
-      difficulty: "low",
-      criteria: [
-        { text: "Hay un test que lo reproduce", check: "npm test" },
-        { text: "Sin regresiones", check: "" },
-      ],
+      criteria: [{ text: "Hay un test que lo reproduce" }, { text: "Sin regresiones" }],
     });
     expect(templatesOp(draft, saved)).toEqual({ ok: true, op: null });
     expect(parseLabels(" a, b  c,,")).toEqual(["a", "b", "c"]);
@@ -83,9 +74,8 @@ describe("templates form (UI-22 ac1)", () => {
         id: " feature ",
         name: " Nueva función ",
         desc: "Qué consigue.",
-        criteria: [{ key: "c1", text: " Funciona ", check: " npm run check " }],
+        criteria: [{ key: "c1", text: " Funciona " }],
         labels: "fe, ui",
-        difficulty: "medium",
       }),
     ];
     const result = templatesOp(draft, saved);
@@ -96,9 +86,8 @@ describe("templates form (UI-22 ac1)", () => {
       id: "feature",
       name: "Nueva función",
       desc: "Qué consigue.",
-      acceptance: [{ text: "Funciona", check: "npm run check" }],
+      acceptance: [{ text: "Funciona" }],
       labels: ["fe", "ui"],
-      difficulty: "medium",
     });
   });
 
@@ -109,7 +98,6 @@ describe("templates form (UI-22 ac1)", () => {
       ...bug,
       name: "Bug",
       desc: "",
-      difficulty: "",
       labels: "bug",
       criteria: bug.criteria.slice(1),
     };
@@ -158,7 +146,7 @@ describe("templates form (UI-22 ac1)", () => {
     expect(html).toContain("Plantillas de tarea");
     expect(html).toContain('value="Arreglo de bug"');
     expect(html).toContain('value="bug, fix"');
-    expect(html).toContain('value="npm test"');
+    expect(html).toContain('value="Hay un test que lo reproduce"');
     expect(html).toContain("Criterio 2 de la plantilla 1");
     expect(html).toContain(">Añadir plantilla<");
     expect(render(true)).toMatch(/<button type="submit" disabled=""[^>]*>Guardar plantillas</);
@@ -173,7 +161,7 @@ describe("templates form errors (UI-22 ac2)", () => {
         blank("b", {
           id: "doc",
           name: "x".repeat(61),
-          criteria: [{ key: "c", text: " ", check: "y".repeat(1001) }],
+          criteria: [{ key: "c", text: " " }],
         }),
         blank("c", { id: "doc", name: "Otra", labels: "a, a" }),
       ],
@@ -186,7 +174,6 @@ describe("templates form errors (UI-22 ac2)", () => {
       "templates.0.labels": "«Malo» no vale como etiqueta: usa minúsculas, números y guiones.",
       "templates.1.name": "Escribe un nombre de hasta 60 caracteres.",
       "templates.1.criteria.0.text": "Escribe el criterio, de hasta 500 caracteres.",
-      "templates.1.criteria.0.check": "El check no puede pasar de 1000 caracteres.",
       "templates.2.id": "Ya hay otra plantilla con el id doc.",
       "templates.2.labels": "La etiqueta «a» está repetida.",
     });

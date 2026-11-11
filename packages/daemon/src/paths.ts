@@ -22,8 +22,8 @@ export function webDir(env: NodeJS.ProcessEnv = process.env): string {
   return env.KONSORA_WEB_DIR || fileURLToPath(new URL("../../web/dist", import.meta.url));
 }
 
-/** The packages whose code a running daemon executes (the CLI too: runs launch its MCP). */
-const CODE_PACKAGES = ["core", "runner", "daemon", "cli"];
+/** The packages whose code a running daemon executes (the CLI too: AI chats launch its MCP). */
+const CODE_PACKAGES = ["core", "daemon", "cli"];
 
 /**
  * Newest modification time (ms) of this checkout's daemon-side sources. A daemon records it when
@@ -50,7 +50,7 @@ export function logDir(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /**
- * How runs launch Konsora's MCP server: this checkout's CLI (`packages/cli/src/bin.ts mcp`) with
+ * How the AI panel's chats launch Konsora's MCP server: this checkout's CLI (`packages/cli/src/bin.ts mcp`) with
  * the Node running the daemon. `KONSORA_MCP_BIN` points to another `bin.ts`.
  */
 export function mcpCommand(env: NodeJS.ProcessEnv = process.env): {

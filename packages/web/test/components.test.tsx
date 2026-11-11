@@ -71,10 +71,7 @@ describe("TaskCard", () => {
     expect(out).toMatch(/type="checkbox"[^>]*disabled/);
   });
 
-  it("marks running, review and proposed cards", () => {
-    expect(html(<TaskCard id="A-01" state="doing" title="x" running="4:12" />)).toContain(
-      "k-card--running",
-    );
+  it("marks review and proposed cards", () => {
     expect(html(<TaskCard id="A-02" state="review" title="x" />)).toContain("k-card--review");
     expect(html(<TaskCard id="A-03" state="proposed" title="x" proposedBy="claude" />)).toContain(
       "Propuesta por claude",

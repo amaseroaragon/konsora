@@ -27,8 +27,8 @@ const t = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task =>
   ...extra,
 });
 const doc = (...tasks: Task[]): TasksDocument => ({
-  schema: "konsora/2",
-  project: { name: "P", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 9 },
   tasks,
@@ -220,7 +220,7 @@ describe("daemon ops and oversight over HTTP", () => {
           labels: ["m4"],
           acceptance: [
             { id: "ac1", text: "Old, reworded" },
-            { id: "ac2", text: "New", check: "npm test" },
+            { id: "ac2", text: "New" },
           ],
         },
       },
@@ -244,7 +244,7 @@ describe("daemon ops and oversight over HTTP", () => {
       deps: ["BE-02"],
       acceptance: [
         { id: "ac1", text: "Old, reworded" },
-        { id: "ac2", text: "New", check: "npm test" },
+        { id: "ac2", text: "New" },
       ],
       state: "todo",
     });

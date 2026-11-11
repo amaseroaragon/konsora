@@ -9,8 +9,8 @@ const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
 function valid(): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "Demo", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "Demo" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 1 },
     tasks: [
@@ -102,14 +102,9 @@ describe("validateStructure", () => {
     ],
     ["unknown actor", (d: any) => (d.tasks[0].created.by = "claude"), "/tasks/0/created/by"],
     [
-      "unknown provider",
-      (d: any) => (d.tasks[0].agent = { provider: "gemini", model: "x" }),
-      "/tasks/0/agent/provider",
-    ],
-    [
-      "unknown effort",
-      (d: any) => (d.project.defaults = { provider: "claude", model: "opus", effort: "alto" }),
-      "/project/defaults/effort",
+      "run-only task field from v2",
+      (d: any) => (d.tasks[0].agent = { provider: "claude", model: "x" }),
+      "/tasks/0/agent",
     ],
     [
       "acceptance id",
@@ -127,9 +122,9 @@ describe("validateStructure", () => {
     ["negative seq", (d: any) => (d.seq.BE = -1), "/seq/BE"],
     ["fractional seq", (d: any) => (d.seq.BE = 1.5), "/seq/BE"],
     [
-      "check timeout zero",
-      (d: any) => (d.project.checks = [{ id: "test", run: "npm test", timeout_s: 0 }]),
-      "/project/checks/0/timeout_s",
+      "run-only field from v2",
+      (d: any) => (d.project.checks = [{ id: "test", run: "npm test" }]),
+      "/project/checks",
     ],
   ])("rejects %s at its JSON Pointer", (_name, mutate, path) => {
     const issues = issuesAfter(mutate);
@@ -152,8 +147,8 @@ describe("toPointer", () => {
 });
 
 describe("JSON Schema", () => {
-  it("committed schema/tasks.v2.schema.json is up to date (run `npm run schema`)", () => {
-    expect(read("schema/tasks.v2.schema.json")).toBe(tasksJsonSchemaText());
+  it("committed schema/tasks.v3.schema.json is up to date (run `npm run schema`)", () => {
+    expect(read("schema/tasks.v3.schema.json")).toBe(tasksJsonSchemaText());
   });
 
   it("only allows x-* extension keys on every object", () => {

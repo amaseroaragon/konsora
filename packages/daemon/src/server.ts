@@ -10,14 +10,12 @@ import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 import { createApp } from "./app.ts";
-import { Approvals } from "./approvals.ts";
+import { ChatManager, type ChatManagerOptions } from "./chat.ts";
 import { EventHub } from "./events.ts";
 import { ensurePrivateDir, readJson, writePrivateFile } from "./files.ts";
 import { createOversights } from "./oversight.ts";
-import { codeStamp, DAEMON_FILE, dataDir as defaultDataDir, mcpCommand } from "./paths.ts";
-import { Scheduler } from "./queue.ts";
+import { codeStamp, DAEMON_FILE, dataDir as defaultDataDir } from "./paths.ts";
 import { Registry } from "./registry.ts";
-import { RunManager, type RunManagerOptions } from "./runs.ts";
 
 export type DaemonInfo = {
   url: string;
@@ -36,22 +34,15 @@ export type StartOptions = {
   extraOrigins?: string[];
   /** Folder with the built web UI to serve outside `/api`. */
   webDir?: string;
-  /** Agent adapters by provider (tests pass fakes); default: the installed Claude Code and Codex. */
-  adapters?: RunManagerOptions["adapters"];
-  /** How runs launch `konsora mcp`; default: this checkout's CLI. */
-  mcp?: RunManagerOptions["mcp"];
-  /** Passed to the run supervisor (tests shorten it). */
-  interruptGraceMs?: number;
+  /** The AI panel's Claude Code binary and MCP command (tests pass fakes). */
+  chat?: Pick<ChatManagerOptions, "command" | "mcp" | "env">;
   /** The code stamp to record; default `codeStamp()` of this checkout. */
   code?: number;
 };
 
 export type RunningDaemon = DaemonInfo & {
   dataDir: string;
-  /** Runs register here to get the token their MCP uses to ask for permissions (M6). */
-  approvals: Approvals;
-  runs: RunManager;
-  scheduler: Scheduler;
+  chats: ChatManager;
   close: () => Promise<void>;
 };
 
@@ -116,47 +107,16 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const oversight = createOversights(dir);
   const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
   let hub: EventHub | undefined;
-  let runs: RunManager | undefined;
-  let scheduler: Scheduler | undefined;
-  const approvals = new Approvals({
-    onEvent: (event) => {
-      hub?.publish(event.project, event);
-      runs?.onApproval(event);
-    },
-  });
   const url = `http://127.0.0.1:${port}`;
-  runs = new RunManager({
-    registry,
-    approvals,
-    dataDir: dir,
-    daemonUrl: () => url,
-    mcp: options.mcp ?? mcpCommand(),
+  const chats = new ChatManager({
     publish: (project, payload) => hub?.publish(project, payload),
-    broadcast: (payload) => hub?.broadcast(payload),
-    onRunClosed: () => scheduler?.poke(),
-    ...(options.adapters ? { adapters: options.adapters } : {}),
-    ...(options.interruptGraceMs !== undefined
-      ? { interruptGraceMs: options.interruptGraceMs }
-      : {}),
+    ...options.chat,
   });
-  // Runs that were alive when the last daemon stopped: interrupted, never resumed on their own.
-  await runs.recover();
-  // Queues come back paused: nothing launches until the human resumes them.
-  scheduler = new Scheduler({
-    registry,
-    runs,
-    dataDir: dir,
-    publish: (project, payload) => hub?.publish(project, payload),
-    broadcast: (payload) => hub?.broadcast(payload),
-  });
-  await scheduler.init();
   app = createApp({
     ...auth,
     registry,
     oversight,
-    approvals,
-    runs,
-    scheduler,
+    chats,
     ...(options.webDir ? { webDir: options.webDir } : {}),
   });
   const events = new EventHub({ ...auth, registry, oversight });
@@ -175,12 +135,9 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   return {
     ...info,
     dataDir: dir,
-    approvals,
-    runs,
-    scheduler,
+    chats,
     close: async () => {
-      scheduler?.close();
-      approvals.close();
+      chats.close();
       events.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       const current = await readJson<DaemonInfo>(join(dir, DAEMON_FILE)).catch(() => undefined);

@@ -4,23 +4,13 @@
  */
 import { z } from "zod";
 import type { Op } from "./ops.ts";
-import { RunIdSchema } from "./run.ts";
 import {
   AcceptanceSchema,
-  AgentSpecSchema,
-  CheckSchema,
-  DifficultySchema,
   GroupSchema,
-  MAX_CHECK_RETRIES,
-  RecommendedSchema,
-  ReviewerSchema,
-  ReviewVerdictSchema,
-  SetupSchema,
   TaskIdSchema,
   TaskSchema,
   TemplateSchema,
 } from "./schema.ts";
-import { MAX_VARIANTS, MIN_VARIANTS } from "./variants.ts";
 
 const expect = z.record(TaskIdSchema, z.string()).optional();
 const id = z.string().min(1).max(40);
@@ -33,8 +23,6 @@ const NewTask = {
   acceptance: z.array(z.string().min(1).max(500)).optional(),
   deps: z.array(z.string().min(1).max(120)).optional(),
   labels: z.array(z.string()).optional(),
-  difficulty: DifficultySchema.optional(),
-  agent: AgentSpecSchema.optional(),
   template: z.string().min(1).max(31).optional(),
 };
 
@@ -67,9 +55,6 @@ export const OpSchema = z.discriminatedUnion("op", [
       desc: z.string().max(32_768).optional(),
       acceptance: z.array(AcceptanceSchema).optional(),
       labels: z.array(z.string()).optional(),
-      /** `null` removes it (JSON has no `undefined`). */
-      difficulty: DifficultySchema.nullable().optional(),
-      agent: AgentSpecSchema.optional(),
       group: z.string().optional(),
       rank: z.string().optional(),
     }),
@@ -84,49 +69,9 @@ export const OpSchema = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("answer"), expect, task: id, text }),
   z.strictObject({ op: z.literal("finish"), expect, task: id, summary: text }),
   z.strictObject({
-    op: z.literal("review"),
-    expect,
-    task: id,
-    verdict: ReviewVerdictSchema,
-    text,
-  }),
-  z.strictObject({
-    op: z.literal("complete"),
-    expect,
-    task: id,
-    checks_passed: z.boolean(),
-    integrated: z.boolean().optional(),
-    text: text.optional(),
-    variants: z.array(RunIdSchema).min(MIN_VARIANTS).max(MAX_VARIANTS).optional(),
-  }),
-  z.strictObject({ op: z.literal("rebase"), expect, task: id, text: text.optional() }),
-  z.strictObject({ op: z.literal("rebase-abort"), expect, task: id, text: text.optional() }),
-  z.strictObject({
-    op: z.literal("set-checks"),
-    expect,
-    checks: z.array(CheckSchema).max(50).optional(),
-    check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).nullable().optional(),
-    setup: SetupSchema.nullable().optional(),
-  }),
-  z.strictObject({
-    op: z.literal("set-defaults"),
-    expect,
-    agent: AgentSpecSchema.nullable(),
-  }),
-  z.strictObject({
-    op: z.literal("set-recommended"),
-    expect,
-    recommended: RecommendedSchema.nullable(),
-  }),
-  z.strictObject({
     op: z.literal("set-templates"),
     expect,
     templates: z.array(TemplateSchema).max(100),
-  }),
-  z.strictObject({
-    op: z.literal("set-reviewer"),
-    expect,
-    reviewer: ReviewerSchema.nullable(),
   }),
   z.strictObject({ op: z.literal("accept"), expect, task: id }),
   z.strictObject({ op: z.literal("send-back"), expect, task: id, feedback: text }),

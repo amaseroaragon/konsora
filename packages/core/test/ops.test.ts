@@ -1,14 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { OpSchema } from "../src/op-schema.ts";
-import {
-  applyOp,
-  type Op,
-  type OpContext,
-  type OpResult,
-  skipsReview,
-  taskHash,
-} from "../src/ops.ts";
+import { applyOp, type Op, type OpContext, type OpResult, taskHash } from "../src/ops.ts";
 import type { Task, TaskState, TasksDocument } from "../src/schema.ts";
 import { validateDocument } from "../src/semantics.ts";
 import { documentArb } from "./arbitraries.ts";
@@ -34,8 +26,8 @@ function task(id: string, state: TaskState, deps: string[] = [], extra: Partial<
 
 function doc(...tasks: Task[]): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "P", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "P" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 20 },
     tasks,
@@ -305,33 +297,6 @@ describe("YOLO", () => {
   });
 });
 
-describe("run scope", () => {
-  const d = doc(task("BE-01", "doing"), task("BE-02", "doing"));
-  const inRun: OpContext = { ...agent, runTask: "BE-01", run: "r-01JC8Z3K2Q" };
-
-  it("an agent inside a run only acts on its own task, but may propose", () => {
-    expect(err(applyOp(d, { op: "note", task: "BE-02", text: "x" }, inRun))).toBe("out_of_scope");
-    expect(err(applyOp(d, { op: "finish", task: "BE-02", summary: "x" }, inRun))).toBe(
-      "out_of_scope",
-    );
-    expect(err(applyOp(d, { op: "note", task: "BE-01", text: "x" }, inRun))).toBe("ok");
-    expect(err(applyOp(d, { op: "propose", title: "Follow-up", group: "BE" }, inRun))).toBe("ok");
-  });
-
-  it("inside a run, the agent may only note, ask and finish its task (the runner starts it)", () => {
-    for (const op of [
-      { op: "pause", task: "BE-01" },
-      { op: "depend", task: "BE-01", on: "BE-02" },
-      { op: "edit", task: "BE-01", changes: { title: "x" } },
-    ] as const)
-      expect(err(applyOp(d, op, inRun)), op.op).toBe("out_of_scope");
-    expect(err(applyOp(d, { op: "ask", task: "BE-01", text: "Q?" }, inRun))).toBe("ok");
-    expect(err(applyOp(d, { op: "finish", task: "BE-01", summary: "S" }, inRun))).toBe("ok");
-    const asRunner = { actor: "konsora", at: inRun.at, runTask: "BE-01" };
-    expect(err(applyOp(d, { op: "pause", task: "BE-01" }, asRunner))).toBe("ok");
-  });
-});
-
 describe("preconditions (per-task hashes)", () => {
   const base = doc(task("BE-01", "review"), task("BE-02", "todo"));
 
@@ -394,18 +359,9 @@ describe("properties", () => {
       fc.record({ op: fc.constant("accept" as const), task: id }),
       fc.record({ op: fc.constant("reopen" as const), task: id }),
       fc.record({ op: fc.constant("set-yolo" as const), task: id, value: fc.boolean() }),
-      fc.record({ op: fc.constant("complete" as const), task: id, checks_passed: fc.boolean() }),
-      fc.record({
-        op: fc.constant("set-checks" as const),
-        check_retries: fc.integer({ min: 0, max: 5 }),
-      }),
       fc.record({
         op: fc.constant("set-templates" as const),
         templates: fc.constant([{ id: "bug", name: "Bug" }]),
-      }),
-      fc.record({
-        op: fc.constant("set-recommended" as const),
-        recommended: fc.constant({ high: { provider: "claude" as const, model: "opus" } }),
       }),
     ) as fc.Arbitrary<Op>;
   };
@@ -480,276 +436,13 @@ describe("restore (human-only revert)", () => {
   });
 });
 
-describe("checks (CORE-07)", () => {
-  const RUN = "r-01JC8Z3K2QX7M4V9T0B6N5R8PW";
-  const inRun: OpContext = { ...agent, runTask: "BE-01", run: RUN };
-  const konsora: OpContext = { ...runner, run: RUN };
-
-  it("inside a run, finish keeps the task doing with its summary; complete moves it to review", () => {
-    const d = doc(task("BE-01", "doing"));
-    const finished = ok(applyOp(d, { op: "finish", task: "BE-01", summary: "Done" }, inRun));
-    expect(finished.document.tasks[0]).toMatchObject({ state: "doing" });
-    expect(finished.document.tasks[0]?.notes?.at(-1)).toMatchObject({
-      kind: "summary",
-      text: "Done",
-      run: RUN,
-    });
-    // A retry: the agent finishes again while still doing.
-    const again = ok(
-      applyOp(finished.document, { op: "finish", task: "BE-01", summary: "Fixed" }, inRun),
-    );
-    expect(again.document.tasks[0]?.notes?.filter((n) => n.kind === "summary")).toHaveLength(2);
-
-    const closed = ok(
-      applyOp(
-        again.document,
-        {
-          op: "complete",
-          task: "BE-01",
-          checks_passed: false,
-          text: "Checks failed after 2 retries.",
-        },
-        konsora,
-      ),
-    );
-    expect(closed.document.tasks[0]).toMatchObject({ state: "review" });
-    expect(closed.document.tasks[0]?.notes?.at(-1)).toMatchObject({
-      kind: "note",
-      by: "konsora",
-      text: "Checks failed after 2 retries.",
-      run: RUN,
-    });
-  });
-
-  it("only Konsora completes, and only after this run's summary", () => {
-    const d = doc(task("BE-01", "doing"));
-    const op: Op = { op: "complete", task: "BE-01", checks_passed: true };
-    expect(err(applyOp(d, op, agent))).toBe("forbidden");
-    expect(err(applyOp(d, op, inRun))).toBe("forbidden");
-    expect(err(applyOp(d, op, human))).toBe("forbidden");
-    expect(err(applyOp(d, op, konsora))).toBe("summary_required");
-    const other = ok(
-      applyOp(
-        d,
-        { op: "finish", task: "BE-01", summary: "x" },
-        { ...inRun, run: "r-01JC8Z3K2QX7M4V9T0B6N5R8PA" },
-      ),
-    ).document;
-    expect(err(applyOp(other, op, konsora))).toBe("summary_required");
-    expect(err(applyOp(doc(task("BE-01", "review")), op, runner))).toBe("summary_required");
-  });
-
-  it("in a YOLO chain, an intermediate task goes to done only with every check green and integrated", () => {
-    const chain = doc(task("BE-01", "doing"), task("BE-02", "todo", ["BE-01"], { yolo: true }));
-    expect(skipsReview(chain, "BE-01")).toBe(true);
-    expect(skipsReview(chain, "BE-02")).toBe(false);
-    const finished = ok(
-      applyOp(chain, { op: "finish", task: "BE-01", summary: "ok" }, inRun),
-    ).document;
-    const complete = (checks_passed: boolean, integrated?: boolean) =>
-      applyOp(
-        finished,
-        {
-          op: "complete",
-          task: "BE-01",
-          checks_passed,
-          ...(integrated !== undefined ? { integrated } : {}),
-        },
-        konsora,
-      );
-    expect(state(complete(true, true), "BE-01")).toBe("done");
-    // Not integrated (a conflict, or nobody integrated it): review, never done.
-    expect(state(complete(true, false), "BE-01")).toBe("review");
-    expect(state(complete(true), "BE-01")).toBe("review");
-    expect(state(complete(false, true), "BE-01")).toBe("review");
-
-    // The YOLO task itself always goes to review, and YOLO ends there.
-    const last = doc(task("BE-01", "done"), task("BE-02", "doing", ["BE-01"], { yolo: true }));
-    const inLast: OpContext = { ...inRun, runTask: "BE-02" };
-    const f2 = ok(applyOp(last, { op: "finish", task: "BE-02", summary: "ok" }, inLast)).document;
-    const c2 = ok(
-      applyOp(f2, { op: "complete", task: "BE-02", checks_passed: true }, konsora),
-    ).document;
-    expect(c2.tasks[1]).toMatchObject({ state: "review" });
-    expect(c2.tasks[1]?.yolo).toBeUndefined();
-  });
-
-  it("only a human sets the project's checks and retries; an agent gets forbidden", () => {
-    const d = doc(task("BE-01", "todo"));
-    const op: Op = {
-      op: "set-checks",
-      checks: [{ id: "test", run: "npm test", timeout_s: 300 }],
-      check_retries: 0,
-    };
-    expect(err(applyOp(d, op, agent))).toBe("forbidden");
-    expect(err(applyOp(d, op, inRun))).toBe("forbidden");
-    expect(err(applyOp(d, op, runner))).toBe("forbidden");
-    const set = ok(applyOp(d, op, human)).document;
-    expect(set.project).toMatchObject({
-      checks: [{ id: "test", run: "npm test", timeout_s: 300 }],
-      check_retries: 0,
-    });
-    // A field left out is kept; [] and null remove.
-    const kept = ok(applyOp(set, { op: "set-checks", check_retries: 4 }, human)).document;
-    expect(kept.project.checks).toHaveLength(1);
-    const cleared = ok(
-      applyOp(kept, { op: "set-checks", checks: [], check_retries: null }, human),
-    ).document;
-    expect(cleared.project.checks).toBeUndefined();
-    expect(cleared.project.check_retries).toBeUndefined();
-    expect(err(applyOp(d, { op: "set-checks" }, human))).toBe("invalid");
-    const twice: Op = {
-      op: "set-checks",
-      checks: [
-        { id: "test", run: "a" },
-        { id: "test", run: "b" },
-      ],
-    };
-    expect(err(applyOp(d, twice, human))).toBe("invalid");
-  });
-});
-
-describe("rebase (RUN-24)", () => {
-  const d = doc(task("BE-01", "review"), task("BE-02", "doing"), task("BE-03", "todo"));
-
-  it("only Konsora takes a task in review back to doing for a rebase run, and back", () => {
-    expect(err(applyOp(d, { op: "rebase", task: "BE-01" }, human))).toBe("forbidden");
-    expect(err(applyOp(d, { op: "rebase", task: "BE-01" }, agent))).toBe("forbidden");
-    const started = ok(applyOp(d, { op: "rebase", task: "BE-01", text: "rebasing" }, runner));
-    expect(state(started, "BE-01")).toBe("doing");
-    expect(started.document.tasks[0]?.notes?.at(-1)).toMatchObject({
-      by: "konsora",
-      text: "rebasing",
-    });
-    const back = applyOp(started.document, { op: "rebase-abort", task: "BE-01" }, runner);
-    expect(state(back, "BE-01")).toBe("review");
-    expect(err(applyOp(d, { op: "rebase-abort", task: "BE-01" }, agent))).toBe("forbidden");
-  });
-
-  it("needs review to start and doing to abort", () => {
-    expect(err(applyOp(d, { op: "rebase", task: "BE-03" }, runner))).toBe("invalid_transition");
-    expect(err(applyOp(d, { op: "rebase-abort", task: "BE-03" }, runner))).toBe(
-      "invalid_transition",
-    );
-  });
-});
-
-describe("difficulty and recommended agents (CORE-09)", () => {
-  const opus = { provider: "claude" as const, model: "opus", effort: "high" as const };
-  const sonnet = { provider: "claude" as const, model: "sonnet" };
-
-  it("an agent sets the difficulty when proposing and changes it only on proposals", () => {
-    const d = doc(task("BE-01", "todo"));
-    const proposed = ok(
-      applyOp(d, { op: "propose", title: "New", group: "BE", difficulty: "high" }, agent),
-    ).document;
-    expect(proposed.tasks[1]).toMatchObject({ id: "BE-21", difficulty: "high" });
-    const batch = ok(
-      applyOp(
-        d,
-        {
-          op: "batch",
-          tasks: [
-            { title: "A", group: "BE", difficulty: "low" },
-            { title: "B", group: "BE" },
-          ],
-        },
-        agent,
-      ),
-    ).document;
-    expect(batch.tasks.map((t) => t.difficulty)).toEqual([undefined, "low", undefined]);
-    const edited = ok(
-      applyOp(proposed, { op: "edit", task: "BE-21", changes: { difficulty: "medium" } }, agent),
-    ).document;
-    expect(edited.tasks[1]?.difficulty).toBe("medium");
-    const removed = ok(
-      applyOp(edited, { op: "edit", task: "BE-21", changes: { difficulty: undefined } }, agent),
-    ).document;
-    expect(removed.tasks[1]).not.toHaveProperty("difficulty");
-    // Over JSON (the daemon, UI-21) `null` removes it, and the op schema takes it.
-    const viaJson = { op: "edit", task: "BE-21", changes: { difficulty: null } };
-    expect(OpSchema.safeParse(viaJson).success).toBe(true);
-    const cleared = ok(applyOp(edited, viaJson as Op, agent)).document;
-    expect(cleared.tasks[1]).not.toHaveProperty("difficulty");
-    // Approved work: only the human.
-    const approvedEdit: Op = { op: "edit", task: "BE-01", changes: { difficulty: "low" } };
-    expect(err(applyOp(d, approvedEdit, agent))).toBe("forbidden");
-    expect(ok(applyOp(d, approvedEdit, human)).document.tasks[0]?.difficulty).toBe("low");
-  });
-
-  it("rejects an unknown difficulty", () => {
-    const d = doc(task("BE-01", "proposed"));
-    const bad = { op: "edit", task: "BE-01", changes: { difficulty: "extreme" } } as unknown as Op;
-    expect(err(applyOp(d, bad, agent))).toBe("invalid");
-  });
-
-  it("only a human sets project.recommended; null or {} removes it; it is validated", () => {
-    const d = doc(task("BE-01", "todo"));
-    const op: Op = { op: "set-recommended", recommended: { high: opus, low: sonnet } };
-    expect(err(applyOp(d, op, agent))).toBe("forbidden");
-    expect(err(applyOp(d, op, runner))).toBe("forbidden");
-    const set = ok(applyOp(d, op, human)).document;
-    expect(set.project.recommended).toEqual({ high: opus, low: sonnet });
-    expect(
-      ok(applyOp(set, { op: "set-recommended", recommended: null }, human)).document.project,
-    ).not.toHaveProperty("recommended");
-    expect(
-      ok(applyOp(set, { op: "set-recommended", recommended: {} }, human)).document.project,
-    ).not.toHaveProperty("recommended");
-    const bad = {
-      op: "set-recommended",
-      recommended: { extreme: opus },
-    } as unknown as Op;
-    expect(err(applyOp(d, bad, human))).toBe("invalid");
-  });
-});
-
-describe("project.defaults (CORE-15)", () => {
-  const opus = { provider: "claude" as const, model: "opus", effort: "high" as const };
-  const codex = { provider: "codex" as const, model: "gpt-5.5" };
-
-  it("only a human sets project.defaults; null removes it; it is validated", () => {
-    const d = doc(task("BE-01", "todo"));
-    const op: Op = { op: "set-defaults", agent: opus };
-    expect(err(applyOp(d, op, agent))).toBe("forbidden");
-    expect(err(applyOp(d, op, runner))).toBe("forbidden");
-    const set = ok(applyOp(d, op, human)).document;
-    expect(set.project.defaults).toEqual(opus);
-    expect(set.project.name).toBe(d.project.name);
-    expect(
-      ok(applyOp(set, { op: "set-defaults", agent: codex }, human)).document.project.defaults,
-    ).toEqual(codex);
-    expect(
-      ok(applyOp(set, { op: "set-defaults", agent: null }, human)).document.project,
-    ).not.toHaveProperty("defaults");
-    const bad = {
-      op: "set-defaults",
-      agent: { provider: "claude", model: "opus", effort: "alto" },
-    };
-    expect(err(applyOp(d, bad as unknown as Op, human))).toBe("invalid");
-    const unknownField = { op: "set-defaults", agent: { provider: "claude", model: "x", x: 1 } };
-    expect(err(applyOp(d, unknownField as unknown as Op, human))).toBe("invalid");
-  });
-
-  it("the op schema takes an agent or null, and rejects an invalid agent", () => {
-    expect(OpSchema.safeParse({ op: "set-defaults", agent: opus }).success).toBe(true);
-    expect(OpSchema.safeParse({ op: "set-defaults", agent: null }).success).toBe(true);
-    expect(OpSchema.safeParse({ op: "set-defaults" }).success).toBe(false);
-    expect(
-      OpSchema.safeParse({ op: "set-defaults", agent: { provider: "claude", effort: "alto" } })
-        .success,
-    ).toBe(false);
-  });
-});
-
 describe("templates (CORE-10)", () => {
   const bug = {
     id: "bug",
     name: "Bug fix",
     desc: "Reproduce, fix and cover with a test.",
-    acceptance: [{ text: "A test reproduces the bug", check: "npm test" }, { text: "Fixed" }],
+    acceptance: [{ text: "A test reproduces the bug" }, { text: "Fixed" }],
     labels: ["bug", "fix"],
-    difficulty: "medium" as const,
   };
   const base = doc(task("BE-01", "todo"));
   const withTemplates = ok(
@@ -801,11 +494,10 @@ describe("templates (CORE-10)", () => {
     expect(plain).toMatchObject({
       desc: bug.desc,
       acceptance: [
-        { id: "ac1", text: "A test reproduces the bug", check: "npm test" },
+        { id: "ac1", text: "A test reproduces the bug" },
         { id: "ac2", text: "Fixed" },
       ],
       labels: ["bug", "fix"],
-      difficulty: "medium",
     });
     const mixed = ok(
       applyOp(
@@ -818,7 +510,6 @@ describe("templates (CORE-10)", () => {
           desc: "Own description",
           acceptance: ["No regression"],
           labels: ["fix", "ui"],
-          difficulty: "high",
         },
         agent,
       ),
@@ -826,12 +517,11 @@ describe("templates (CORE-10)", () => {
     expect(mixed).toMatchObject({
       desc: "Own description",
       acceptance: [
-        { id: "ac1", text: "A test reproduces the bug", check: "npm test" },
+        { id: "ac1", text: "A test reproduces the bug" },
         { id: "ac2", text: "Fixed" },
         { id: "ac3", text: "No regression" },
       ],
       labels: ["bug", "fix", "ui"],
-      difficulty: "high",
     });
   });
 

@@ -3,31 +3,22 @@
  * outside `/api`, the built web UI (UI-01).
  */
 import {
-  AgentSpecSchema,
-  applyOp,
   dependentsOf,
   deriveFlags,
   indexTasks,
-  MAX_VARIANTS,
-  MIN_VARIANTS,
   parseOp,
-  runAgentFor,
   type Task,
-  TaskIdSchema,
   type TasksDocument,
   taskHash,
   topoOrder,
 } from "@konsora/core";
 import { mutate, readTasks } from "@konsora/core/store";
-import { IntegrationError, RunError, RunStoreError, WorktreeError } from "@konsora/runner";
 import { Hono } from "hono";
 import { z } from "zod";
-import { Approvals } from "./approvals.ts";
-import { type AuthConfig, allowedHosts, guard } from "./auth.ts";
+import { type AuthConfig, guard } from "./auth.ts";
+import { ChatError, type ChatManager } from "./chat.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
-import { QueueError, type Scheduler } from "./queue.ts";
 import { type Registry, RegistryError } from "./registry.ts";
-import { type RunManager, RunManagerError } from "./runs.ts";
 import { site } from "./site.ts";
 
 export const VERSION = "0.0.0";
@@ -38,80 +29,18 @@ export type AppOptions = AuthConfig & {
   now?: () => Date;
   /** Folder with the built web UI (`packages/web/dist`), served outside `/api`. */
   webDir?: string;
-  /** Pending permission approvals of runs (MCP-04). */
-  approvals?: Approvals;
-  /** Runs (DMN-04); without it the run routes answer 404. */
-  runs?: RunManager;
-  /** The run queue (DMN-08); without it the queue routes answer 404. */
-  scheduler?: Scheduler;
+  /** The AI panel's planning chats; without it the chat routes answer 404. */
+  chats?: ChatManager;
 };
 
-const QueueBody = z.strictObject({
-  items: z
-    .array(
-      z.strictObject({
-        task: z
-          .string()
-          .transform((id) => id.toUpperCase())
-          .pipe(TaskIdSchema),
-        agent: AgentSpecSchema.optional(),
-      }),
-    )
-    .min(1)
-    .max(500),
-});
+const ChatBody = z.strictObject({ text: z.string().trim().min(1).max(16_384) });
 
-const QUEUE_STATUS: Record<QueueError["code"], 404 | 409 | 422> = {
-  invalid_queue: 409,
-  invalid_settings: 422,
-  unknown_task: 404,
-  not_approved: 409,
-  queue_full: 409,
-  no_agent: 422,
-  invalid_plan: 409,
-  not_queued: 404,
-};
-
-const RunBody = z
-  .strictObject({
-    task: z
-      .string()
-      .transform((id) => id.toUpperCase())
-      .pipe(TaskIdSchema),
-    agent: AgentSpecSchema.optional(),
-    /** Variants (RUN-28): one run per agent, from 2 to 3, instead of `agent`. */
-    agents: z.array(AgentSpecSchema).min(MIN_VARIANTS).max(MAX_VARIANTS).optional(),
-  })
-  .refine((body) => !(body.agent && body.agents), "Send agent or agents, not both");
-
-const ReviewBody = z.strictObject({ agent: AgentSpecSchema.optional() });
-
-/** HTTP status for the runner's errors (the body carries code and message). */
-const RUN_STATUS: Record<string, 400 | 404 | 409 | 422 | 503> = {
+/** HTTP status for the chat errors (the body carries code and message). */
+const CHAT_STATUS: Record<ChatError["code"], 404 | 409 | 503> = {
   not_found: 404,
-  not_ready: 409,
-  no_agent: 422,
-  wrong_provider: 422,
+  busy: 409,
   invalid_plan: 409,
-  launch_failed: 409,
-  no_answer: 409,
-  not_rebasable: 409,
-  not_resumable: 409,
-  not_reviewable: 409,
-  variant_not_chosen: 409,
-  variants_running: 409,
-  variant_group_closed: 409,
-  not_a_variant: 409,
-  not_choosable: 409,
-  no_slots: 409,
-  no_conflict: 409,
-  invalid_id: 404,
-  active_run: 409,
-  not_active: 409,
-  not_discardable: 409,
-  no_adapter: 422,
-  invalid_agent: 422,
-  lock_timeout: 503,
+  unavailable: 503,
 };
 
 /** Every task as the UI needs it: stored fields, derived flags and the hash for `expect`. */
@@ -141,22 +70,6 @@ const OP_STATUS: Record<string, 400 | 403 | 404 | 409 | 422> = {
   invalid: 422,
 };
 
-const PermissionBody = z.strictObject({
-  tool_name: z.string().min(1).max(200),
-  input: z.record(z.string(), z.unknown()),
-  tool_use_id: z.string().max(200).optional(),
-  /** How long to wait for the human, in seconds (default 300, at most one hour). */
-  wait_s: z.number().int().min(1).max(3600).optional(),
-});
-
-const DecisionBody = z.strictObject({
-  decision: z.enum(["allow", "deny"]),
-  message: z.string().max(2000).optional(),
-});
-
-/** Largest permission request accepted (tool inputs can carry whole files). */
-const MAX_PERMISSION_BYTES = 1024 * 1024;
-
 const LinkBody = z.strictObject({
   path: z.string().min(1),
   name: z.string().min(1).max(80).optional(),
@@ -175,30 +88,12 @@ export function createApp(options: AppOptions): Hono {
   const now = () => (options.now?.() ?? new Date()).toISOString().replace(/\.\d{3}Z$/, "Z");
   const app = new Hono();
   const oversight = options.oversight ?? createOversights(registry.dataDir);
-  const approvals = options.approvals ?? new Approvals();
 
   app.onError((error, c) => {
-    if (
-      error instanceof RunError ||
-      error instanceof RunStoreError ||
-      error instanceof RunManagerError ||
-      error instanceof WorktreeError
-    ) {
+    if (error instanceof ChatError) {
       return c.json(
         { error: { code: error.code, message: error.message } },
-        RUN_STATUS[error.code] ?? 409,
-      );
-    }
-    if (error instanceof QueueError) {
-      return c.json(
-        {
-          error: {
-            code: error.code,
-            message: error.message,
-            ...(error.task ? { task: error.task } : {}),
-          },
-        },
-        QUEUE_STATUS[error.code],
+        CHAT_STATUS[error.code],
       );
     }
     if (error instanceof RegistryError) {
@@ -216,15 +111,7 @@ export function createApp(options: AppOptions): Hono {
   const api = new Hono();
   api.use("*", guard(options));
 
-  /** `live_runs`: runs alive in this daemon (a restart would leave them interrupted). */
-  api.get("/health", (c) =>
-    c.json({
-      ok: true,
-      service: "konsora-daemon",
-      version: VERSION,
-      live_runs: options.runs?.live().length ?? 0,
-    }),
-  );
+  api.get("/health", (c) => c.json({ ok: true, service: "konsora-daemon", version: VERSION }));
 
   /** Linked projects, each with the state of its plan (never modifies anything). */
   api.get("/projects", async (c) => {
@@ -335,57 +222,6 @@ export function createApp(options: AppOptions): Hono {
     const watch = oversight(project.id);
     await watch.check(before.document, before.hash, at);
 
-    // Accepting work done by a run integrates it first (one squash commit on the base branch);
-    // the task only becomes done once that succeeded.
-    let integrated: { run: string; commit: string } | undefined;
-    let discarded: string | undefined;
-    const runs = options.runs;
-    if (parsed.op.op === "accept" && runs) {
-      const run = await runs.integrable(project, parsed.op.task);
-      if (run) {
-        const dry = applyOp(before.document, parsed.op, { actor: "human", at });
-        if (!dry.ok) return c.json({ error: dry.error }, OP_STATUS[dry.error.code] ?? 409);
-        let outcome: Awaited<ReturnType<RunManager["integrate"]>> | null;
-        try {
-          outcome = await runs.integrate(project, run);
-        } catch (error) {
-          // A run that changed nothing (a check, an investigation) is accepted without a commit.
-          if (error instanceof IntegrationError && error.code === "nothing_to_integrate") {
-            await runs.discard(project, run);
-            discarded = run.id;
-            outcome = null;
-          } else if (error instanceof IntegrationError) {
-            return c.json(
-              {
-                error: {
-                  code: `integration_${error.code}`,
-                  message: error.message,
-                  ...(error.files.length ? { files: error.files } : {}),
-                },
-              },
-              409,
-            );
-          } else {
-            throw error;
-          }
-        }
-        if (outcome?.status === "conflict") {
-          return c.json(
-            {
-              error: {
-                code: "integration_conflict",
-                message: `The work of run ${run.id} conflicts with ${before.document.project.base_branch}; ${parsed.op.task} stays in review`,
-                run: run.id,
-                files: outcome.files,
-              },
-            },
-            409,
-          );
-        }
-        if (outcome) integrated = { run: run.id, commit: outcome.commit };
-      }
-    }
-
     const result = await mutate(project.path, parsed.op, { actor: "human", at });
     if (!result.ok) {
       if (result.source === "store") {
@@ -419,15 +255,9 @@ export function createApp(options: AppOptions): Hono {
     });
     await watch.log(entries);
     await watch.trust(result.document, result.hash, at);
-    if (parsed.op.op === "answer" && runs) {
-      // The run waiting for this answer gets it now (its open input, or a resumed session).
-      await runs.deliverAnswer(project, parsed.op.task).catch(() => false);
-    }
     const affected = new Set([...result.created, ...result.changed]);
     return c.json({
       ok: true,
-      ...(integrated ? { integrated } : {}),
-      ...(discarded ? { discarded } : {}),
       hash: result.hash,
       created: result.created,
       changed: result.changed,
@@ -510,298 +340,42 @@ export function createApp(options: AppOptions): Hono {
     });
   });
 
-  // ── Runs (DMN-04) ──────────────────────────────────────────────────────────
+  // ── AI panel: planning chats ──────────────────────────────────────────────
 
-  const runsOf = () => {
-    if (!options.runs)
-      throw new RunManagerError("not_found", "Runs are not available in this daemon");
-    return options.runs;
+  const chatsOf = () => {
+    if (!options.chats) throw new ChatError("unavailable", "The AI panel is not available");
+    return options.chats;
   };
 
-  /** What each provider offers: installed and version, models with their efforts, profiles. */
-  api.get("/agents", async (c) => c.json({ agents: await runsOf().catalog.list() }));
-
-  /**
-   * The providers' rate limits without launching a run (DMN-06): each one's freshest data with
-   * its source and date, or why there is none. `?refresh=1` reads the providers again.
-   */
-  api.get("/limits", async (c) =>
-    c.json({ limits: await runsOf().limits.list({ refresh: c.req.query("refresh") === "1" }) }),
-  );
-
-  /** Launch a run of one task. Only the human calls this, and only for what they selected. */
-  api.post("/projects/:id/runs", async (c) => {
+  /** The project's chat: its messages so far and whether the agent is answering. */
+  api.get("/projects/:id/chat", async (c) => {
     const project = await registry.get(c.req.param("id"));
-    const body = RunBody.safeParse(await c.req.json().catch(() => null));
+    return c.json({ chat: chatsOf().view(project.id) });
+  });
+
+  /** Sends the human's message; the answer streams over the WebSocket as `chat.*`. */
+  api.post("/projects/:id/chat", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const body = ChatBody.safeParse(await c.req.json().catch(() => null));
     if (!body.success)
-      return c.json(
-        {
-          error: {
-            code: "bad_request",
-            message:
-              "Send {task, agent?} as JSON, or {task, agents} with 2 or 3 agents for variants",
-          },
-        },
-        400,
-      );
-    if (body.data.agents) {
-      // Variants start at once: they must all fit within max_parallel now.
-      const full = await options.scheduler?.fits(
-        project,
-        body.data.agents.map((a) => a.provider),
-      );
-      if (full) throw new RunManagerError("no_slots", full);
-      const runs = await runsOf().startVariants(project, {
-        task: body.data.task,
-        agents: body.data.agents,
-      });
-      return c.json({ runs }, 201);
-    }
-    // A run launched by hand respects the same limits as the queue (DMN-11): if it does not fit
-    // now, nothing is created and the human may queue it instead. (Review and rebase runs do not
-    // take this limit: they have their own routes.)
-    const plan = await readTasks(project.path);
-    const task = plan.ok ? plan.document.tasks.find((t) => t.id === body.data.task) : undefined;
-    const agent = plan.ok && task ? runAgentFor(task, plan.document, body.data.agent) : undefined;
-    const full = await options.scheduler?.fits(project, [
-      (agent ?? body.data.agent)?.provider ?? "claude",
-    ]);
-    if (full) throw new RunManagerError("no_slots", full);
-    const run = await runsOf().start(project, {
-      task: body.data.task,
-      ...(body.data.agent ? { agent: body.data.agent } : {}),
-    });
-    return c.json({ run }, 201);
+      return c.json({ error: { code: "bad_request", message: "Send {text} as JSON" } }, 400);
+    return c.json({ chat: await chatsOf().send(project, body.data.text) }, 202);
   });
 
-  api.get("/projects/:id/runs", async (c) => {
+  /** Stops the answer in progress, if any. */
+  api.post("/projects/:id/chat/stop", async (c) => {
     const project = await registry.get(c.req.param("id"));
-    const task = c.req.query("task")?.toUpperCase();
-    return c.json({ runs: await runsOf().list(project, task) });
+    return c.json({ chat: chatsOf().stop(project.id) });
   });
 
-  api.get("/projects/:id/runs/:runId", async (c) => {
+  /** Starts over: stops the agent and forgets the conversation. */
+  api.delete("/projects/:id/chat", async (c) => {
     const project = await registry.get(c.req.param("id"));
-    return c.json({ run: await runsOf().get(project, c.req.param("runId")) });
-  });
-
-  api.get("/projects/:id/runs/:runId/events", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ events: await runsOf().events(project, c.req.param("runId")) });
-  });
-
-  /** The run's `diff.patch` (base..head, without `.konsora/`), or null before it closes. */
-  api.get("/projects/:id/runs/:runId/diff", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ diff: await runsOf().diff(project, c.req.param("runId")) });
-  });
-
-  /**
-   * The run's `checks.json` (DMN-07): every attempt, each check with its command, result and the
-   * tail of its output; null before the checks ran. Validated with core's schema.
-   */
-  api.get("/projects/:id/runs/:runId/checks", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ checks: await runsOf().checks(project, c.req.param("runId")) });
-  });
-
-  /**
-   * The human asks the agent to rebase a run whose integration conflicts (RUN-24): a new run on
-   * the same branch, whose task goes from review to doing and comes back to review.
-   */
-  api.post("/projects/:id/runs/:runId/rebase", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ run: await runsOf().rebase(project, c.req.param("runId")) }, 201);
-  });
-
-  /**
-   * The human resumes a run left `interrupted` when the daemon stopped (RUN-27): the same run, in
-   * its worktree and session; its task stays doing. 200: no new run is created.
-   */
-  api.post("/projects/:id/runs/:runId/resume", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ run: await runsOf().resume(project, c.req.param("runId")) });
-  });
-
-  /**
-   * The human asks for a review of a succeeded run (RUN-29): `{agent?}`, else the project's
-   * reviewer, reviews it read-only and leaves a `review` note; the task stays in review.
-   */
-  api.post("/projects/:id/runs/:runId/review", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    const body = ReviewBody.safeParse(await c.req.json().catch(() => ({})));
-    if (!body.success) {
-      return c.json(
-        { error: { code: "bad_request", message: "Send {agent?} as JSON, or nothing" } },
-        400,
-      );
-    }
-    const run = await runsOf().review(project, c.req.param("runId"), body.data.agent);
-    return c.json({ run }, 201);
-  });
-
-  /**
-   * The human chooses the winning variant (RUN-28): the others are discarded, with their
-   * worktrees and branches; their runs and diffs stay. Accepting the task integrates the winner.
-   */
-  api.post("/projects/:id/runs/:runId/choose", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ run: await runsOf().choose(project, c.req.param("runId")) });
-  });
-
-  api.post("/projects/:id/runs/:runId/cancel", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ run: await runsOf().cancel(project, c.req.param("runId")) });
-  });
-
-  /**
-   * The human discards a finished run whose work is not kept: its worktree and branch are
-   * removed and its integration becomes `discarded`; the run and its diff stay.
-   */
-  api.post("/projects/:id/runs/:runId/discard", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ run: await runsOf().discardById(project, c.req.param("runId")) });
-  });
-
-  // ── Queue (DMN-08) ─────────────────────────────────────────────────────────
-
-  const queueOf = (): Scheduler => {
-    if (!options.scheduler) throw new RunManagerError("not_found", "This daemon has no queue");
-    return options.scheduler;
-  };
-
-  /** The queue with why each entry waits, the limits and the slots in use. */
-  api.get("/projects/:id/queue", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json(await queueOf().view(project));
-  });
-
-  /** The human queues the selected tasks, each with its agent. Only what is queued ever runs. */
-  api.post("/projects/:id/queue", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    const body = QueueBody.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) {
-      return c.json(
-        { error: { code: "bad_request", message: "Send {items: [{task, agent?}]} as JSON" } },
-        400,
-      );
-    }
-    const items = body.data.items.map((item) => ({
-      task: item.task,
-      ...(item.agent ? { agent: item.agent } : {}),
-    }));
-    const result = await queueOf().enqueue(project, items);
-    return c.json({ ...result, ...(await queueOf().view(project)) }, 201);
-  });
-
-  api.delete("/projects/:id/queue/:task", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    await queueOf().remove(project, [c.req.param("task").toUpperCase()]);
-    return c.json(await queueOf().view(project));
-  });
-
-  api.post("/projects/:id/queue/clear", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    await queueOf().clear(project);
-    return c.json(await queueOf().view(project));
-  });
-
-  api.post("/projects/:id/queue/pause", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    await queueOf().setState(project, "paused");
-    return c.json(await queueOf().view(project));
-  });
-
-  api.post("/projects/:id/queue/resume", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    await queueOf().setState(project, "running");
-    return c.json(await queueOf().view(project));
-  });
-
-  /** The parallelism limits, shared by every project of the daemon. */
-  api.get("/settings/parallel", async (c) =>
-    c.json({ limits: (await queueOf().settings()).parallel }),
-  );
-
-  api.put("/settings/parallel", async (c) =>
-    c.json({ limits: await queueOf().setLimits(await c.req.json().catch(() => null)) }),
-  );
-
-  /** Konsora worktrees and `konsora/` branches no run needs any more. Read-only. */
-  api.get("/projects/:id/worktrees/orphans", async (c) => {
-    const project = await registry.get(c.req.param("id"));
-    return c.json({ orphans: await runsOf().orphans(project) });
-  });
-
-  /** Pending permission approvals of every run, for the human. */
-  api.get("/approvals", (c) => c.json({ approvals: approvals.pending() }));
-
-  /** The human allows or denies one pending approval of a run. */
-  api.post("/runs/:run/permissions/:approval", async (c) => {
-    const body = DecisionBody.safeParse(await c.req.json().catch(() => null));
-    if (!body.success)
-      return c.json(
-        { error: { code: "bad_request", message: 'Send {decision: "allow" | "deny", message?}' } },
-        400,
-      );
-    const result = approvals.decide(c.req.param("run"), c.req.param("approval"), {
-      behavior: body.data.decision,
-      ...(body.data.message ? { message: body.data.message } : {}),
-    });
-    if (!result.ok)
-      return result.code === "resolved"
-        ? c.json({ error: { code: "resolved", message: "That approval was already decided" } }, 409)
-        : c.json(
-            {
-              error: { code: "not_found", message: "No pending approval with that id in this run" },
-            },
-            404,
-          );
-    return c.json({ ok: true, approval: result.approval });
+    chatsOf().reset(project.id);
+    return c.body(null, 204);
   });
 
   api.notFound((c) => c.json({ error: { code: "not_found", message: "Unknown endpoint" } }, 404));
-
-  /**
-   * A run's MCP asks for a permission (MCP-04). This is the only route that takes a run token
-   * instead of the human's: it can ask, never decide, and only for its own run. It answers when
-   * the human decides or the wait runs out (then deny).
-   */
-  app.post("/api/runs/:run/permissions", async (c) => {
-    const deny = (reason: string, message: string, status: 400 | 403 | 413) =>
-      c.json({ error: { code: "forbidden", reason, message } }, status);
-    const host = c.req.header("host")?.toLowerCase();
-    if (!host || !allowedHosts(options.port).has(host))
-      return deny("host", "Forbidden: unexpected Host header", 403);
-    // Only the run's MCP calls this; a browser never should.
-    if (c.req.header("origin")) return deny("origin", "Forbidden: origin not allowed", 403);
-    const token = /^Bearer ([0-9a-f]{64})$/.exec(c.req.header("authorization") ?? "")?.[1];
-    const info = token ? approvals.authenticate(c.req.param("run"), token) : undefined;
-    if (!info) return deny("token", "Forbidden: missing or invalid run token", 403);
-    const text = await c.req.text();
-    if (Buffer.byteLength(text) > MAX_PERMISSION_BYTES)
-      return deny("size", "The permission request is too large", 413);
-    let json: unknown = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
-    const body = PermissionBody.safeParse(json);
-    if (!body.success)
-      return c.json(
-        {
-          error: { code: "bad_request", message: "Send {tool_name, input, tool_use_id?, wait_s?}" },
-        },
-        400,
-      );
-    c.header("Cache-Control", "no-store");
-    const { approval, decision } = await approvals.request(
-      info,
-      body.data,
-      (body.data.wait_s ?? 300) * 1000,
-      c.req.raw.signal,
-    );
-    return c.json({ id: approval.id, ...decision });
-  });
 
   app.route("/api", api);
   app.route("/", site(options));

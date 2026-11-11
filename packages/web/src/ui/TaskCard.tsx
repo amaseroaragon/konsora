@@ -11,16 +11,6 @@ export type TaskCardProps = {
   waiting?: boolean;
   /** An unapproved change made outside Konsora is pending on this task. */
   external?: boolean;
-  /** In review with its run's checks failing. */
-  checksFailed?: boolean;
-  /** Its run waits for the human to approve something. */
-  awaitingApproval?: boolean;
-  /** Elapsed time of the active run, e.g. "4:12". */
-  running?: string;
-  /** "claude · opus · alto" */
-  agent?: string;
-  /** The task's estimated difficulty, as shown: "Dificultad alta". */
-  difficulty?: string;
   proposedBy?: string;
   selected?: boolean;
   /** Whether the checkbox can be ticked; defaults to ready tasks only. */
@@ -37,11 +27,6 @@ export function TaskCard({
   blockedBy = [],
   waiting = false,
   external = false,
-  checksFailed = false,
-  awaitingApproval = false,
-  running,
-  agent,
-  difficulty,
   proposedBy,
   selected = false,
   selectable,
@@ -59,24 +44,18 @@ export function TaskCard({
         state === "proposed" && "k-card--proposed",
         state === "review" && "k-card--review",
         blocked && "k-card--blocked",
-        running && "k-card--running",
         external && "k-card--external",
-        checksFailed && "k-card--checks",
-        awaitingApproval && "k-card--approval",
         selected && "k-card--selected",
       )}
     >
       <div className="k-card__head">
         <span className="k-card__id">{id}</span>
-        {running && <StateBadge kind="running" label={running} />}
         {blocked && (
           <StateBadge kind="blocked" label={t("card.blockedBy", { ids: blockedBy.join(", ") })} />
         )}
         {ready && <StateBadge kind="ready" />}
         {waiting && <StateBadge kind="waiting" />}
         {external && <StateBadge kind="external" />}
-        {checksFailed && <StateBadge kind="checks" />}
-        {awaitingApproval && <StateBadge kind="approval" />}
         {state === "proposed" && proposedBy && (
           <StateBadge kind="proposed" label={t("card.proposedBy", { actor: proposedBy })} />
         )}
@@ -105,12 +84,6 @@ export function TaskCard({
           title
         )}
       </h3>
-      {(agent || difficulty) && (
-        <div className="k-card__meta">
-          {difficulty && <span className="k-card__difficulty">{difficulty}</span>}
-          {agent && <span>{agent}</span>}
-        </div>
-      )}
     </article>
   );
 }

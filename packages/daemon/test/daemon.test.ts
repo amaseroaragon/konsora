@@ -27,8 +27,8 @@ let app: ReturnType<typeof createApp>;
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/2",
-    project: { name: "Weather", base_branch: "main" },
+    schema: "konsora/3",
+    project: { name: "Weather" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 2 },
     tasks: [
@@ -305,7 +305,7 @@ describe("startDaemon (real server)", () => {
       });
       expect([health.status, await health.json()]).toEqual([
         200,
-        { ok: true, service: "konsora-daemon", version: "0.0.0", live_runs: 0 },
+        { ok: true, service: "konsora-daemon", version: "0.0.0" },
       ]);
       expect((await fetch(`${daemon.url}/api/health`)).status).toBe(403);
       expect(

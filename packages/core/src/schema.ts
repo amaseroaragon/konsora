@@ -1,8 +1,8 @@
 /**
- * Structural schema of `.konsora/tasks.json`, format `konsora/2` (docs/esquema-tareas.md §1).
+ * Structural schema of `.konsora/tasks.json`, format `konsora/3` (docs/esquema-tareas.md §1).
  *
  * This is the single source of truth: types are inferred from it and
- * `schema/tasks.v2.schema.json` is generated from it (`npm run schema`).
+ * `schema/tasks.v3.schema.json` is generated from it (`npm run schema`).
  * Semantic rules (ids vs groups, seq, deps existence, cycles…) live in CORE-02.
  */
 import { z } from "zod";
@@ -25,7 +25,7 @@ function strict<T extends z.ZodRawShape>(shape: T) {
     });
 }
 
-export const SCHEMA_VERSION = "konsora/2";
+export const SCHEMA_VERSION = "konsora/3";
 
 export const GroupIdSchema = z
   .string()
@@ -54,86 +54,13 @@ export const ActorSchema = z
 
 export const TaskStateSchema = z.enum(["proposed", "todo", "doing", "review", "done"]);
 
-export const EffortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
-
-export const ProviderSchema = z.enum(["claude", "codex"]);
-
-/** How hard a task is expected to be; it picks the project's recommended agent (CORE-09). */
-export const DifficultySchema = z.enum(["low", "medium", "high"]);
-
 const slug = /^[a-z][a-z0-9-]{0,30}$/;
-
-export const AgentSpecSchema = strict({
-  provider: ProviderSchema,
-  model: z.string().min(1).max(100),
-  effort: EffortSchema.optional(),
-  permissions: z.string().regex(slug, "Permission profile must be a lowercase slug").optional(),
-});
-
-/**
- * The permission profile of review runs (CORE-13): the agent reads the worktree and runs
- * read-only commands, and changes nothing. Each adapter turns it into its own restrictions.
- */
-export const READONLY_PROFILE = "readonly";
-
-/**
- * The automatic reviewer (CORE-13): a second agent that reviews a finished run's work, always
- * with the `readonly` profile, and leaves its verdict as a `review` note. `launch: auto` starts it
- * when a task reaches review; `manual`, only when the human asks. Only the human sets it.
- */
-export const ReviewerSchema = strict({
-  agent: AgentSpecSchema,
-  launch: z.enum(["auto", "manual"]),
-}).superRefine((reviewer, ctx) => {
-  const profile = reviewer.agent.permissions;
-  if (profile !== undefined && profile !== READONLY_PROFILE) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["agent", "permissions"],
-      message: `The reviewer always runs with the "${READONLY_PROFILE}" profile, not "${profile}"`,
-    });
-  }
-});
-
-/** The reviewer's agent as its runs use it: always with the `readonly` profile. */
-export function reviewerAgent(reviewer: Reviewer): AgentSpec {
-  return { ...reviewer.agent, permissions: READONLY_PROFILE };
-}
-
-/** The agent the project recommends for each difficulty. Only the human sets it. */
-export const RecommendedSchema = strict({
-  low: AgentSpecSchema.optional(),
-  medium: AgentSpecSchema.optional(),
-  high: AgentSpecSchema.optional(),
-});
-
-/** Retries when `project.check_retries` is absent, and the most it may be. */
-export const DEFAULT_CHECK_RETRIES = 2;
-export const MAX_CHECK_RETRIES = 5;
-/** A check's timeout when `timeout_s` is absent. */
-export const DEFAULT_CHECK_TIMEOUT_S = 600;
-
-export const CheckSchema = strict({
-  id: z.string().regex(slug, "Check id must be a lowercase slug"),
-  run: z.string().min(1).max(1000),
-  timeout_s: z.int().min(1).max(86_400).optional(),
-});
-
-/**
- * A command that prepares a new worktree before the agent starts (e.g. `npm ci`), so checks do
- * not fail for missing dependencies. Only the human sets it.
- */
-export const SetupSchema = strict({
-  run: z.string().min(1).max(1000),
-  timeout_s: z.int().min(1).max(86_400).optional(),
-});
 
 const LabelSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug");
 
 /** A template's acceptance criterion: like a task's, without the id (the task numbers them). */
 export const TemplateCriterionSchema = strict({
   text: z.string().min(1).max(500),
-  check: z.string().min(1).max(1000).optional(),
 });
 
 /**
@@ -146,20 +73,11 @@ export const TemplateSchema = strict({
   desc: z.string().max(32_768).optional(),
   acceptance: z.array(TemplateCriterionSchema).max(50).optional(),
   labels: z.array(LabelSchema).optional(),
-  difficulty: DifficultySchema.optional(),
 });
 
 export const ProjectSchema = strict({
   name: z.string().min(1).max(80),
-  base_branch: z.string().min(1).max(255),
-  defaults: AgentSpecSchema.optional(),
-  recommended: RecommendedSchema.optional(),
-  setup: SetupSchema.optional(),
-  checks: z.array(CheckSchema).optional(),
-  /** How many times a run's agent gets the failed checks back to fix them (default 2). */
-  check_retries: z.int().min(0).max(MAX_CHECK_RETRIES).optional(),
   templates: z.array(TemplateSchema).max(100).optional(),
-  reviewer: ReviewerSchema.optional(),
 });
 
 export const GroupSchema = strict({
@@ -170,20 +88,9 @@ export const GroupSchema = strict({
 export const AcceptanceSchema = strict({
   id: z.string().regex(/^ac\d+$/, "Acceptance id must look like ac1"),
   text: z.string().min(1).max(500),
-  check: z.string().min(1).max(1000).optional(),
 });
 
-export const NoteKindSchema = z.enum([
-  "note",
-  "question",
-  "answer",
-  "feedback",
-  "summary",
-  "review",
-]);
-
-/** A reviewer's verdict (CORE-13): it would approve the work, or ask for changes. */
-export const ReviewVerdictSchema = z.enum(["approve", "changes"]);
+export const NoteKindSchema = z.enum(["note", "question", "answer", "feedback", "summary"]);
 
 export const NoteSchema = strict({
   id: z.string().regex(/^n\d+$/, "Note id must look like n1"),
@@ -191,24 +98,7 @@ export const NoteSchema = strict({
   by: ActorSchema,
   kind: NoteKindSchema,
   text: z.string().min(1).max(16_384),
-  run: z
-    .string()
-    .regex(/^r-[0-9A-Z]{6,26}$/, "Run id must look like r-01JC8Z3K2Q")
-    .optional(),
   edited: TimestampSchema.optional(),
-  /** Only on `review` notes, which always have it. */
-  verdict: ReviewVerdictSchema.optional(),
-}).superRefine((note, ctx) => {
-  if ((note.kind === "review") !== (note.verdict !== undefined)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["verdict"],
-      message:
-        note.kind === "review"
-          ? "A review note needs a verdict"
-          : "Only review notes have a verdict",
-    });
-  }
 });
 
 export const TaskSchema = strict({
@@ -225,8 +115,6 @@ export const TaskSchema = strict({
   desc: z.string().max(32_768).optional(),
   acceptance: z.array(AcceptanceSchema).optional(),
   labels: z.array(LabelSchema).optional(),
-  difficulty: DifficultySchema.optional(),
-  agent: AgentSpecSchema.optional(),
   yolo: z.literal(true).optional(),
   created: strict({ at: TimestampSchema, by: ActorSchema }),
   updated_at: TimestampSchema,
@@ -243,22 +131,8 @@ export const DocumentSchema = strict({
 });
 
 export type TaskState = z.infer<typeof TaskStateSchema>;
-export type Effort = z.infer<typeof EffortSchema>;
-export type Provider = z.infer<typeof ProviderSchema>;
-export type Difficulty = z.infer<typeof DifficultySchema>;
-export type Recommended = z.infer<typeof RecommendedSchema>;
 export type Template = z.infer<typeof TemplateSchema>;
-export type AgentSpec = z.infer<typeof AgentSpecSchema>;
-export type Check = z.infer<typeof CheckSchema>;
-export type Setup = z.infer<typeof SetupSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
-export type Reviewer = z.infer<typeof ReviewerSchema>;
-export type ReviewVerdict = z.infer<typeof ReviewVerdictSchema>;
-
-/** `project.check_retries`, or its default when absent. */
-export function checkRetries(project: Pick<Project, "check_retries">): number {
-  return project.check_retries ?? DEFAULT_CHECK_RETRIES;
-}
 export type Group = z.infer<typeof GroupSchema>;
 export type Acceptance = z.infer<typeof AcceptanceSchema>;
 export type NoteKind = z.infer<typeof NoteKindSchema>;

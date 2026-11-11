@@ -3,12 +3,14 @@
  * (core's `TemplateSchema` and the plan's uniqueness rules, explained in Spanish and by field),
  * the `set-templates` op it turns into and where the daemon's errors belong.
  */
-import { type Difficulty, type Template, TemplateSchema } from "@konsora/core";
+import { type Template, TemplateSchema } from "@konsora/core";
 import { t } from "../i18n/index.ts";
-import type { FieldErrors } from "./settings-model.ts";
+
+/** Errors by form field, e.g. `templates.0.name`. */
+export type FieldErrors = Record<string, string>;
 
 /** `key` identifies a row while it is edited, for React. */
-export type DraftCriterion = { key: string; text: string; check: string };
+export type DraftCriterion = { key: string; text: string };
 export type DraftTemplate = {
   key: string;
   id: string;
@@ -17,7 +19,6 @@ export type DraftTemplate = {
   criteria: DraftCriterion[];
   /** As typed: labels separated by commas or spaces. */
   labels: string;
-  difficulty: "" | Difficulty;
 };
 
 export const TEMPLATE_LIMITS = {
@@ -26,7 +27,6 @@ export const TEMPLATE_LIMITS = {
   name: 60,
   desc: 32_768,
   text: 500,
-  check: 1000,
 } as const;
 
 const SLUG = /^[a-z][a-z0-9-]{0,30}$/;
@@ -41,10 +41,8 @@ export function templatesFrom(templates: readonly Template[] | undefined): Draft
     criteria: (template.acceptance ?? []).map((ac, j) => ({
       key: `saved-${i}-${j}`,
       text: ac.text,
-      check: ac.check ?? "",
     })),
     labels: (template.labels ?? []).join(", "),
-    difficulty: template.difficulty ?? "",
   }));
 }
 
@@ -57,17 +55,13 @@ export function parseLabels(text: string): string[] {
 function templateOf(draft: DraftTemplate): Template {
   const desc = draft.desc.trim();
   const labels = parseLabels(draft.labels);
-  const acceptance = draft.criteria.map((row) => {
-    const check = row.check.trim();
-    return { text: row.text.trim(), ...(check ? { check } : {}) };
-  });
+  const acceptance = draft.criteria.map((row) => ({ text: row.text.trim() }));
   return {
     id: draft.id.trim(),
     name: draft.name.trim(),
     ...(desc ? { desc } : {}),
     ...(acceptance.length > 0 ? { acceptance } : {}),
     ...(labels.length > 0 ? { labels } : {}),
-    ...(draft.difficulty ? { difficulty: draft.difficulty } : {}),
   };
 }
 
@@ -83,12 +77,8 @@ function fieldText(field: string): string {
       return t("templates.error.desc", { max: TEMPLATE_LIMITS.desc });
     case "text":
       return t("templates.error.criterion", { max: TEMPLATE_LIMITS.text });
-    case "check":
-      return t("templates.error.check", { max: TEMPLATE_LIMITS.check });
     case "labels":
       return t("templates.error.labels");
-    case "difficulty":
-      return t("templates.error.difficulty");
     default:
       return t("templates.error.invalid");
   }
@@ -101,21 +91,10 @@ function fieldText(field: string): string {
 function templateField(index: number, path: readonly PropertyKey[]): string {
   const [head, j, leaf] = path.map(String);
   const at = `templates.${index}`;
-  if (
-    head === "acceptance" &&
-    j !== undefined &&
-    /^\d+$/.test(j) &&
-    (leaf === "text" || leaf === "check")
-  )
+  if (head === "acceptance" && j !== undefined && /^\d+$/.test(j) && leaf === "text")
     return `${at}.criteria.${j}.${leaf}`;
   if (head === "acceptance") return `${at}.criteria`;
-  if (
-    head === "id" ||
-    head === "name" ||
-    head === "desc" ||
-    head === "labels" ||
-    head === "difficulty"
-  )
+  if (head === "id" || head === "name" || head === "desc" || head === "labels")
     return `${at}.${head}`;
   return at;
 }
@@ -153,7 +132,6 @@ export function templatesOp(
     draft.criteria.forEach((row, j) => {
       const text = row.text.trim();
       if (!text || text.length > TEMPLATE_LIMITS.text) set(`${at}.criteria.${j}.text`);
-      if (row.check.trim().length > TEMPLATE_LIMITS.check) set(`${at}.criteria.${j}.check`);
     });
     const labels = template.labels ?? [];
     const bad = labels.find((label) => !LABEL.test(label));

@@ -2,20 +2,11 @@
 import type { Op, Task, TaskAction, TaskFlags, TasksDocument } from "@konsora/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { applyLimitsMessage } from "./limits.ts";
+import { applyChatMessage } from "./chat.ts";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
-import { applyQueueMessage, queueKey } from "./queue.ts";
-import { applyRunMessage } from "./runs.ts";
 import { reconnectDelay, TOKEN_KEY } from "./session.ts";
 
-export type BoardTask = Task &
-  TaskFlags & {
-    hash: string;
-    /** Set by the page from the task's latest run: in review with checks failing (UI-16). */
-    checks_failed?: boolean;
-    /** UI only: its run waits for the human's approval. */
-    awaiting_approval?: boolean;
-  };
+export type BoardTask = Task & TaskFlags & { hash: string };
 export type ExternalFlag = {
   task: string;
   kind: string;
@@ -109,9 +100,8 @@ export type LiveState = "connecting" | "live" | "offline";
 export { reconnectDelay } from "./session.ts";
 
 /**
- * Subscribes to the daemon's events for a project: `board.*` refetch the board, `run.*` update
- * the runs in place, `permission.*` refetch the approvals and `limits.updated` replaces the
- * rate limits (everything is refetched after
+ * Subscribes to the daemon's events for a project: `board.*` refetch the board and
+ * `chat.updated` replaces the AI panel's conversation (everything is refetched after
  * reconnecting, in case events were missed). Returns the connection state.
  */
 export function useBoardEvents(projectId: string): LiveState {
@@ -128,8 +118,7 @@ export function useBoardEvents(projectId: string): LiveState {
     };
     const resync = () => {
       refresh();
-      client.invalidateQueries({ queryKey: ["runs", projectId] });
-      client.invalidateQueries({ queryKey: ["approvals"] });
+      client.invalidateQueries({ queryKey: ["chat", projectId] });
     };
     const connect = () => {
       let token: string | null = null;
@@ -145,9 +134,7 @@ export function useBoardEvents(projectId: string): LiveState {
         const message = JSON.parse(String(event.data)) as {
           type: string;
           project?: string;
-          run?: unknown;
-          event?: unknown;
-          limits?: unknown;
+          chat?: unknown;
         };
         if (message.type === "ready")
           socket?.send(JSON.stringify({ type: "subscribe", project: projectId }));
@@ -155,18 +142,10 @@ export function useBoardEvents(projectId: string): LiveState {
           if (attempt > 0) resync();
           attempt = 0;
           setState("live");
-        } else if (message.type === "limits.updated") {
-          applyLimitsMessage(client, message);
         } else if (message.project !== projectId) {
           return;
         } else if (message.type.startsWith("board.")) refresh();
-        else if (message.type.startsWith("run.")) {
-          applyRunMessage(client, projectId, message);
-          if (message.type === "run.state")
-            client.invalidateQueries({ queryKey: queueKey(projectId) });
-        } else if (message.type.startsWith("queue.")) applyQueueMessage(client, message);
-        else if (message.type.startsWith("permission."))
-          client.invalidateQueries({ queryKey: ["approvals"] });
+        else if (message.type === "chat.updated") applyChatMessage(client, projectId, message);
       };
       socket.onclose = (event) => {
         if (closed) return;
@@ -249,8 +228,8 @@ export function useEditTask(projectId: string) {
   });
 }
 
-/** The human's `set-checks`: the project's checks, retries and setup (UI-17). */
-export function useSetChecks(projectId: string) {
+/** A project-wide human op from the settings, such as `set-templates`. */
+export function useProjectOp(projectId: string) {
   const api = useApi();
   const client = useQueryClient();
   return useMutation({

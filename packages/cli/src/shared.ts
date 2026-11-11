@@ -1,5 +1,4 @@
 /** Helpers shared by the CLI commands: I/O, errors, plan discovery and loading. */
-import { resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import type { TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError, tasksPath } from "@konsora/core/store";
@@ -60,43 +59,17 @@ export function storeError(error: StoreError, root: string): never {
   }
 }
 
-export type RunScope = { task?: string; run?: string; plan?: boolean; review?: boolean };
+export type SessionScope = { plan?: boolean };
 
 /**
- * Inside a Konsora run the runner sets KONSORA_TASK (KONSORA_RUN_TASK is accepted as an alias)
- * and KONSORA_RUN: an agent may then only work on that task, and its notes carry the run id.
- * In a planning session KONSORA_PLAN=1 limits the agent to proposals.
+ * A planning session (`konsora plan`, the UI's AI panel) starts its MCP server with
+ * KONSORA_PLAN=1: the agent may then only propose tasks and revise or withdraw proposals.
  */
-export function runScope(env: NodeJS.ProcessEnv): RunScope {
-  const task = env.KONSORA_TASK?.trim().toUpperCase() || undefined;
-  const alias = env.KONSORA_RUN_TASK?.trim().toUpperCase() || undefined;
-  if (task && alias && task !== alias) {
-    throw new CliError(
-      `KONSORA_TASK (${task}) and KONSORA_RUN_TASK (${alias}) name different tasks.`,
-      "Set only KONSORA_TASK.",
-      EXIT.usage,
-    );
-  }
-  const scope: RunScope = {};
-  const runTask = task ?? alias;
-  if (runTask) scope.task = runTask;
-  if (env.KONSORA_RUN?.trim()) scope.run = env.KONSORA_RUN.trim();
-  // `konsora plan` starts its MCP server with KONSORA_PLAN=1: proposals only (CLI-05).
-  if (env.KONSORA_PLAN === "1") scope.plan = true;
-  // A review run (RUN-29) starts its MCP server with KONSORA_REVIEW=1: review notes only.
-  if (env.KONSORA_REVIEW === "1") scope.review = true;
-  return scope;
+export function sessionScope(env: NodeJS.ProcessEnv): SessionScope {
+  return env.KONSORA_PLAN === "1" ? { plan: true } : {};
 }
 
 export function locate(io: Io, explicit: string | undefined): string {
-  const project = io.env.KONSORA_PROJECT;
-  if (project && explicit && resolve(io.cwd, explicit) !== resolve(io.cwd, project)) {
-    throw new CliError(
-      "--root points to a different plan than KONSORA_PROJECT.",
-      HINTS.rootMismatch,
-      EXIT.usage,
-    );
-  }
   const root = findRoot(io.cwd, explicit, io.env);
   if (!root) {
     throw new CliError(`No .konsora/ folder found in ${io.cwd} or its parents.`, HINTS.noProject);

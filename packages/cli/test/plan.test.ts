@@ -13,10 +13,9 @@ import type { Io } from "../src/shared.ts";
 
 const at = "2026-11-08T10:00:00Z";
 const plan = (): TasksDocument => ({
-  schema: "konsora/2",
+  schema: "konsora/3",
   project: {
     name: "Weather",
-    base_branch: "main",
     templates: [{ id: "bug", name: "Bug fix" }],
   },
   groups: [{ id: "BE", name: "Backend" }],
@@ -71,7 +70,6 @@ beforeEach(() => {
   writeFileSync(join(project, ".konsora", "tasks.json"), serializeDocument(plan()));
   mkdirSync(bin);
   fakeCli("claude");
-  fakeCli("codex");
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -95,7 +93,7 @@ describe("konsora plan (CLI-05)", () => {
   it("opens Claude Code with the interview prompt and only the MCP server in plan mode", async () => {
     const r = await run(["plan", "Add a forecast cache", "--model", "opus"]);
     expect(r.code, r.stderr).toBe(EXIT.ok);
-    expect(r.stderr).toContain("Starting a planning session with claude");
+    expect(r.stderr).toContain("Starting a planning session with Claude Code");
     const { name, args, cwd } = launched();
     expect(name).toBe("claude");
     expect(cwd).toBe(project());
@@ -115,27 +113,15 @@ describe("konsora plan (CLI-05)", () => {
     expect(args).not.toContain("-p");
   });
 
-  it("opens Codex with its MCP server in plan mode", async () => {
-    expect((await run(["plan", "--agent", "codex"])).code).toBe(EXIT.ok);
-    const { name, args } = launched();
-    expect(name).toBe("codex");
-    expect(args.at(-1)).toBe(buildPlanPrompt(plan()));
-    expect(args).toContain(
-      'mcp_servers.konsora.env={ "KONSORA_AGENT" = "codex", "KONSORA_PLAN" = "1" }',
-    );
-    expect(args.some((a) => a.startsWith("--dangerously") || a.includes("bypass"))).toBe(false);
-    expect(args).not.toContain("exec");
-  });
-
   it("reports a missing agent CLI and a failed session", async () => {
-    rmSync(join(bin, "codex"));
-    const missing = await run(["plan", "--agent", "codex"]);
-    expect(missing.code).toBe(EXIT.failure);
-    expect(missing.stderr).toContain("codex is not installed or not on PATH.");
     const failed = await run(["plan"], { FAKE_EXIT: "3" });
     expect(failed.code).toBe(EXIT.failure);
     expect(failed.stderr).toContain("claude exited with code 3.");
-    expect((await run(["plan", "--agent", "gemini"])).code).toBe(EXIT.usage);
+    rmSync(join(bin, "claude"));
+    const missing = await run(["plan"]);
+    expect(missing.code).toBe(EXIT.failure);
+    expect(missing.stderr).toContain("claude is not installed or not on PATH.");
+    expect((await run(["plan", "--agent", "codex"])).code).toBe(EXIT.usage);
   });
 });
 

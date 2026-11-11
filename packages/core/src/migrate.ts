@@ -1,5 +1,6 @@
 /**
- * Migration from the v0 format (`schema_version: 1`) to `konsora/2` (docs/esquema-tareas.md §7).
+ * Migrations to `konsora/3` (docs/esquema-tareas.md §7): from the v0 format (`schema_version: 1`)
+ * and from `konsora/2`, whose run-only fields (agents, checks, setup, reviewer…) v3 dropped.
  * Pure: the CLI decides whether to write (dry-run by default).
  */
 import { z } from "zod";
@@ -46,7 +47,7 @@ const STATE: Record<z.infer<typeof V1Task>["status"], TaskState> = {
   done: "done",
 };
 
-export type MigrationOptions = { name: string; baseBranch: string; at: string };
+export type MigrationOptions = { name: string; at: string };
 
 export type MigrationReport = {
   tasks: number;
@@ -125,7 +126,7 @@ export function migrateV1(value: unknown, options: MigrationOptions): MigrationR
   }
   for (const prefix of groups.keys()) {
     if (!GroupIdSchema.safeParse(prefix).success)
-      return { ok: false, message: `Group prefix ${prefix} is not a valid v2 group id` };
+      return { ok: false, message: `Group prefix ${prefix} is not a valid group id` };
   }
 
   const states: MigrationReport["states"] = {};
@@ -148,7 +149,7 @@ export function migrateV1(value: unknown, options: MigrationOptions): MigrationR
     let acceptance: Acceptance[] | undefined;
     const items = splitCriteria(task.acceptance_criteria);
     if (items.some((item) => item.length > 500)) {
-      // Too long for v2 criteria: keep the text, losslessly, in the description.
+      // Too long for criteria: keep the text, losslessly, in the description.
       desc = `${desc}${desc ? "\n\n" : ""}## Acceptance criteria (v1)\n\n${task.acceptance_criteria.trim()}`;
       criteriaInDescription.push(id);
     } else if (items.length) {
@@ -183,8 +184,8 @@ export function migrateV1(value: unknown, options: MigrationOptions): MigrationR
 
   const groupIds = [...groups.keys()].sort();
   const document: TasksDocument = {
-    schema: "konsora/2",
-    project: { name: options.name, base_branch: options.baseBranch },
+    schema: "konsora/3",
+    project: { name: options.name },
     groups: groupIds.map((id) => ({ id, name: id })),
     seq: Object.fromEntries(groupIds.map((id) => [id, groups.get(id) ?? 0])),
     tasks: tasks.sort((a, b) => compareTaskIds(a.id, b.id)),
@@ -219,5 +220,101 @@ export function migrateV1(value: unknown, options: MigrationOptions): MigrationR
         reviews: v1.reviews.length,
       },
     },
+  };
+}
+
+export function isV2(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { schema?: unknown }).schema === "konsora/2"
+  );
+}
+
+/** Project keys of `konsora/2` that only made sense with runs. */
+const V2_PROJECT_KEYS = [
+  "base_branch",
+  "defaults",
+  "recommended",
+  "setup",
+  "checks",
+  "check_retries",
+  "reviewer",
+] as const;
+
+export type V2MigrationReport = {
+  tasks: number;
+  /** Each dropped field, as a JSON path pattern, with how many times it appeared. */
+  dropped: Record<string, number>;
+  /** Review notes, kept as plain notes with their verdict at the start of the text. */
+  reviewNotes: number;
+};
+
+export type V2MigrationResult =
+  | { ok: true; document: TasksDocument; report: V2MigrationReport }
+  | { ok: false; message: string };
+
+type Obj = Record<string, unknown>;
+const isObj = (value: unknown): value is Obj =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * `konsora/2` → `konsora/3`: drops the run-only fields and keeps everything else as it was.
+ * Deterministic: the same v2 plan always yields the same v3 plan and report.
+ */
+export function migrateV2(value: unknown): V2MigrationResult {
+  if (!isV2(value) || !isObj(value)) return { ok: false, message: "Not a konsora/2 plan" };
+  const doc = structuredClone(value);
+  const dropped: Record<string, number> = {};
+  const drop = (target: Obj, key: string, path: string) => {
+    if (!(key in target)) return;
+    delete target[key];
+    dropped[path] = (dropped[path] ?? 0) + 1;
+  };
+  let reviewNotes = 0;
+
+  doc.schema = "konsora/3";
+  if (typeof doc.$schema === "string") doc.$schema = doc.$schema.replace("tasks.v2.", "tasks.v3.");
+  const project = isObj(doc.project) ? doc.project : {};
+  for (const key of V2_PROJECT_KEYS) drop(project, key, `project.${key}`);
+  for (const template of Array.isArray(project.templates) ? project.templates : []) {
+    if (!isObj(template)) continue;
+    drop(template, "difficulty", "project.templates[].difficulty");
+    for (const criterion of Array.isArray(template.acceptance) ? template.acceptance : []) {
+      if (isObj(criterion)) drop(criterion, "check", "project.templates[].acceptance[].check");
+    }
+  }
+
+  const tasks = Array.isArray(doc.tasks) ? doc.tasks : [];
+  for (const task of tasks) {
+    if (!isObj(task)) continue;
+    drop(task, "difficulty", "tasks[].difficulty");
+    drop(task, "agent", "tasks[].agent");
+    for (const criterion of Array.isArray(task.acceptance) ? task.acceptance : []) {
+      if (isObj(criterion)) drop(criterion, "check", "tasks[].acceptance[].check");
+    }
+    for (const note of Array.isArray(task.notes) ? task.notes : []) {
+      if (!isObj(note)) continue;
+      drop(note, "run", "tasks[].notes[].run");
+      if (note.kind === "review") {
+        const verdict = typeof note.verdict === "string" ? note.verdict : "review";
+        note.kind = "note";
+        note.text = `[review: ${verdict}] ${String(note.text ?? "")}`.slice(0, 16_384);
+        reviewNotes++;
+      }
+      drop(note, "verdict", "tasks[].notes[].verdict");
+    }
+  }
+
+  const valid = validateDocument(doc);
+  if (!valid.ok)
+    return {
+      ok: false,
+      message: `Migration produced an invalid plan: ${valid.issues[0]?.path} ${valid.issues[0]?.message}`,
+    };
+  return {
+    ok: true,
+    document: valid.document,
+    report: { tasks: tasks.length, dropped, reviewNotes },
   };
 }

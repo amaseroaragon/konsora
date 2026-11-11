@@ -23,8 +23,8 @@ const t = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task =>
 });
 
 const doc: TasksDocument = {
-  schema: "konsora/2",
-  project: { name: "P", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 7 },
   tasks: [

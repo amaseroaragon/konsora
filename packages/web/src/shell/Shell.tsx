@@ -7,7 +7,7 @@ import { Rich } from "./Rich.tsx";
 
 /**
  * The real app's frame: header with the brand, a link home and, once there is a session, the
- * link to the usage limits (`nav`), then the page.
+ * optional extra links (`nav`), then the page.
  */
 export function Shell({
   children,

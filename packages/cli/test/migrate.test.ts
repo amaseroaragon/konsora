@@ -54,7 +54,7 @@ describe("konsora migrate", () => {
     });
   });
 
-  it("--write backs up the original, saves history and writes a valid v2 plan", async () => {
+  it("--write backs up the original, saves history and writes a valid v3 plan", async () => {
     const r = await run(["migrate", "--write"]);
     expect(r.code).toBe(EXIT.ok);
     expect(r.stdout).toContain("Migrated .konsora/tasks.json");
@@ -64,16 +64,13 @@ describe("konsora migrate", () => {
       activity: [],
       reviews: [],
     });
-    const v2 = parseTasksFile(readFileSync(k("tasks.json"), "utf8"));
-    expect(v2.ok && v2.document.project).toEqual({
-      name: dir.split("/").pop(),
-      base_branch: "trunk",
-    });
+    const v3 = parseTasksFile(readFileSync(k("tasks.json"), "utf8"));
+    expect(v3.ok && v3.document.project).toEqual({ name: dir.split("/").pop() });
     expect((await run(["status", "--json"])).json()).toMatchObject({
       tasks: 29,
       byState: { done: 4, todo: 25 },
     });
-    expect((await run(["migrate"])).stdout).toBe("Already konsora/2; nothing to migrate.\n");
+    expect((await run(["migrate"])).stdout).toBe("Already konsora/3; nothing to migrate.\n");
   });
 
   it("refuses to overwrite an existing backup", async () => {
@@ -84,8 +81,43 @@ describe("konsora migrate", () => {
     expect(readFileSync(k("tasks.json"), "utf8")).toBe(legacy);
   });
 
-  it("rejects files that are neither v1 nor v2", async () => {
+  it("rejects files that are neither v1, v2 nor v3", async () => {
     writeFileSync(k("tasks.json"), JSON.stringify({ hello: "world" }));
-    expect((await run(["migrate"])).stderr).toContain("neither konsora/2 nor v1");
+    expect((await run(["migrate"])).stderr).toContain("neither konsora/3, konsora/2 nor v1");
+  });
+
+  it("migrates a konsora/2 plan: preview lists the dropped fields, --write backs it up", async () => {
+    const at = "2026-11-02T10:00:00Z";
+    const v2 = `${JSON.stringify({
+      schema: "konsora/2",
+      project: { name: "P", base_branch: "main", checks: [{ id: "t", run: "npm test" }] },
+      groups: [{ id: "BE", name: "Backend" }],
+      seq: { BE: 1 },
+      tasks: [
+        {
+          id: "BE-01",
+          title: "T",
+          state: "todo",
+          group: "BE",
+          rank: "a",
+          difficulty: "low",
+          created: { at, by: "human" },
+          updated_at: at,
+        },
+      ],
+    })}\n`;
+    writeFileSync(k("tasks.json"), v2);
+    const preview = await run(["migrate"]);
+    expect(preview.code).toBe(EXIT.ok);
+    expect(preview.stdout).toContain("konsora/2 → konsora/3, 1 tasks");
+    expect(preview.stdout).toMatch(/project\.checks +1/);
+    expect(preview.stdout).toMatch(/tasks\[\]\.difficulty +1/);
+    expect(readFileSync(k("tasks.json"), "utf8")).toBe(v2);
+    const r = await run(["migrate", "--write"]);
+    expect(r.code).toBe(EXIT.ok);
+    expect(readFileSync(k("tasks.v2.json.bak"), "utf8")).toBe(v2);
+    const v3 = parseTasksFile(readFileSync(k("tasks.json"), "utf8"));
+    expect(v3.ok && v3.document.project).toEqual({ name: "P" });
+    expect(readdirSync(k()).sort()).toEqual(["tasks.json", "tasks.v2.json.bak"]);
   });
 });

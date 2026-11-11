@@ -36,8 +36,8 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
   }) satisfies Task;
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/2",
-  project: { name: "Weather", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "Weather" },
   groups: [
     { id: "BE", name: "Backend" },
     { id: "FE", name: "Frontend" },
@@ -49,7 +49,7 @@ const plan = (): TasksDocument => ({
     t("BE-03", "todo", ["BE-02"]),
     t("BE-04", "todo", ["BE-01"], {
       desc: "Cache responses.",
-      acceptance: [{ id: "ac1", text: "Fast", check: "npm test" }],
+      acceptance: [{ id: "ac1", text: "Fast" }],
       notes: [{ id: "n1", at, by: "agent:codex", kind: "question", text: "Which TTL?" }],
     }),
     t("FE-01", "proposed", [], { created: { at, by: "agent:claude" } }),

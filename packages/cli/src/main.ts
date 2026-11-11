@@ -2,9 +2,8 @@
  * `konsora` command-line interface (CLI-01: init and read commands).
  * `main()` is pure with respect to its `io`, so tests run it in-process.
  */
-import { execFileSync } from "node:child_process";
 import { basename, relative, resolve } from "node:path";
-import { GroupIdSchema, type TaskState, type TasksDocument } from "@konsora/core";
+import { GroupIdSchema, SCHEMA_VERSION, type TaskState, type TasksDocument } from "@konsora/core";
 import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
 import { issuesText, STATES, showText, statusText, type TaskView, taskTable } from "./format.ts";
@@ -20,29 +19,15 @@ import { registerWriteCommands } from "./write.ts";
 
 export { EXIT, type Io } from "./shared.ts";
 
-function gitBranch(cwd: string): string | undefined {
-  try {
-    const name = execFileSync("git", ["symbolic-ref", "--short", "HEAD"], {
-      cwd,
-      stdio: ["ignore", "pipe", "ignore"],
-    })
-      .toString()
-      .trim();
-    return name && name !== "HEAD" ? name : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export async function main(argv: readonly string[], io: Io): Promise<number> {
   const program = new Command("konsora")
     .description(
-      "Konsora: plan, launch and review coding-agent tasks stored in .konsora/tasks.json",
+      "Konsora: a task board for coding agents, stored in .konsora/tasks.json and shown in `konsora ui`",
     )
     .version(VERSION)
     .option(
       "--root <dir>",
-      "project folder (default: $KONSORA_PROJECT, $KONSORA_ROOT, or nearest ancestor with .konsora/)",
+      "project folder (default: $KONSORA_ROOT, or nearest ancestor with .konsora/)",
     )
     .showHelpAfterError("(run `konsora --help` for usage)")
     .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
@@ -56,20 +41,16 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .option("--group <id>", "id of the first group, 1–6 uppercase letters/digits", "TASK")
     .option("--group-name <name>", "name of the first group", "Tasks")
     .option(
-      "--base-branch <branch>",
-      "branch accepted work is merged into (default: current git branch, else main)",
+      "--no-claude",
+      "do not install the Claude Code integration (.claude/skills/konsora and .mcp.json)",
     )
-    .option("--no-skill", "do not install the agent protocol skill (.claude/skills/konsora)")
-    .option("--agents-md", "also append a Konsora section to AGENTS.md (for Codex)")
     .option("--json", "print the created plan as JSON")
     .action(
       async (opts: {
         name?: string;
         group: string;
         groupName: string;
-        baseBranch?: string;
-        skill: boolean;
-        agentsMd?: boolean;
+        claude: boolean;
         json?: boolean;
       }) => {
         const target = resolve(io.cwd, root() ?? ".");
@@ -81,11 +62,8 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           );
         }
         const doc: TasksDocument = {
-          schema: "konsora/2",
-          project: {
-            name: opts.name ?? basename(target),
-            base_branch: opts.baseBranch ?? gitBranch(target) ?? "main",
-          },
+          schema: SCHEMA_VERSION,
+          project: { name: opts.name ?? basename(target) },
           groups: [{ id: opts.group, name: opts.groupName }],
           seq: { [opts.group]: 0 },
           tasks: [],
@@ -106,15 +84,20 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           }
           throw new CliError(result.error.message);
         }
-        const skill = opts.skill
-          ? await installSkill(target, { agentsMd: Boolean(opts.agentsMd) })
+        const skill = opts.claude
+          ? await installSkill(target).catch((error: Error) => {
+              throw new CliError(
+                `Created the plan, but could not install the Claude Code integration: ${error.message}`,
+                "Fix it and run `konsora skill`.",
+              );
+            })
           : undefined;
         if (opts.json) json(io, result.document);
         else {
           io.stdout(
-            `Created ${relative(io.cwd, tasksPath(target)) || tasksPath(target)} (project "${doc.project.name}", base branch ${doc.project.base_branch}, group ${opts.group}).\n` +
+            `Created ${relative(io.cwd, tasksPath(target)) || tasksPath(target)} (project "${doc.project.name}", group ${opts.group}).\n` +
               (skill ? describeInstall(skill) : "") +
-              "Next: ask an agent to plan with you; it will propose tasks with `konsora batch` for you to approve.\n",
+              "Next: open the board with `konsora ui`, and ask Claude to plan with you (or use `konsora plan`); it proposes tasks for you to approve.\n",
           );
         }
       },

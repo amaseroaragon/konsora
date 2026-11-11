@@ -16,8 +16,5 @@
   },
   "bin": {
     "konsora": "./src/bin.ts"
-  },
-  "devDependencies": {
-    "smol-toml": "1.9.0"
   }
 }

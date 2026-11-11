@@ -86,7 +86,6 @@ function templatesText(doc: TasksDocument): string {
   if (templates.length === 0) return "";
   const rows = templates.map((t) => {
     const details = [
-      t.difficulty,
       t.acceptance?.length ? `${t.acceptance.length} criteria` : undefined,
       t.labels?.length ? `labels ${t.labels.join(", ")}` : undefined,
     ].filter(Boolean);
@@ -109,26 +108,17 @@ export function showText(doc: TasksDocument, view: TaskView): string {
   }
   const dependents = dependentsOf(view.id, doc);
   if (dependents.length) lines.push(`dependents: ${dependents.join(", ")}`);
-  if (view.agent) {
-    lines.push(
-      `agent: ${[view.agent.provider, view.agent.model, view.agent.effort].filter(Boolean).join("/")}`,
-    );
-  }
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
-  if (view.difficulty) lines.push(`difficulty: ${view.difficulty}`);
   lines.push(`created: ${view.created.at} by ${view.created.by} · updated: ${view.updated_at}`);
   if (view.desc) lines.push("", view.desc);
   if (view.acceptance?.length) {
     lines.push("", "Acceptance:");
-    for (const a of view.acceptance)
-      lines.push(`  ${a.id.padEnd(4)} ${a.text}${a.check ? `  [check: ${a.check}]` : ""}`);
+    for (const a of view.acceptance) lines.push(`  ${a.id.padEnd(4)} ${a.text}`);
   }
   if (view.notes?.length) {
     lines.push("", "Notes:");
     for (const n of view.notes) {
-      lines.push(
-        `  ${n.at.replace("T", " ").slice(0, 16)}  ${n.by}  ${n.kind}${n.run ? ` (${n.run})` : ""}`,
-      );
+      lines.push(`  ${n.at.replace("T", " ").slice(0, 16)}  ${n.by}  ${n.kind}`);
       for (const line of n.text.split("\n")) lines.push(`      ${line}`);
     }
   }

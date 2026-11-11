@@ -1,32 +1,26 @@
 /**
- * Installs the agent protocol skill (CLI-04). Never overwrites: the skill file is created only if
- * missing, and the AGENTS.md section is appended only when asked and only once (marker comment).
+ * Installs the Claude Code integration in a project (CLI-04): the agent protocol skill at
+ * `.claude/skills/konsora/SKILL.md` and the `konsora` server in `.mcp.json`. Never overwrites:
+ * the skill file is created only if missing, and `.mcp.json` only gains the `konsora` entry.
  */
 import { constants } from "node:fs";
 import { mkdir, open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Command } from "commander";
+import { installMcpJson, MCP_JSON, type McpJsonInstall } from "./mcp-config.ts";
 import { CliError, type Io, json, locate } from "./shared.ts";
 
 export const SKILL_PATH = join(".claude", "skills", "konsora", "SKILL.md");
-const MARKER = "<!-- konsora:protocol -->";
-
-export const AGENTS_SNIPPET = `
-${MARKER}
-## Konsora
-
-This project's plan lives in \`.konsora/tasks.json\`. Follow the Konsora protocol in \`${SKILL_PATH}\`: read and change the plan only with the \`konsora\` command or its MCP tools (never edit the file by hand), pass \`--as <your-name>\` on writes, and remember that agents propose, start, note, ask and finish while only the human approves and accepts. If this session has Konsora's MCP server (tools such as \`mcp__konsora__status\`), prefer its tools over the shell commands: same operations and rules, and writes are signed for you. Inside a Konsora run, use only its \`note\`, \`ask\` and \`finish\` tools on the run's task (or \`propose\` follow-ups). The human connects the server with \`konsora mcp --print-config codex\`.
-`;
 
 export function skillText(): Promise<string> {
   return readFile(new URL("../assets/SKILL.md", import.meta.url), "utf8");
 }
 
-export type SkillInstall = { skill: "created" | "exists"; agentsMd?: "appended" | "present" };
+export type SkillInstall = { skill: "created" | "exists"; mcp?: McpJsonInstall };
 
 export async function installSkill(
   root: string,
-  options: { agentsMd?: boolean } = {},
+  options: { mcp?: boolean } = {},
 ): Promise<SkillInstall> {
   const target = join(root, SKILL_PATH);
   await mkdir(join(root, ".claude", "skills", "konsora"), { recursive: true });
@@ -47,23 +41,7 @@ export async function installSkill(
     skill = "exists";
   }
   const result: SkillInstall = { skill };
-  if (options.agentsMd) {
-    const path = join(root, "AGENTS.md");
-    const current = await readFile(path, "utf8").catch(() => "");
-    if (current.includes(MARKER)) result.agentsMd = "present";
-    else {
-      const handle = await open(path, "a");
-      try {
-        await handle.writeFile(
-          `${current && !current.endsWith("\n") ? "\n" : ""}${AGENTS_SNIPPET}`,
-          "utf8",
-        );
-      } finally {
-        await handle.close();
-      }
-      result.agentsMd = "appended";
-    }
-  }
+  if (options.mcp !== false) result.mcp = await installMcpJson(root);
   return result;
 }
 
@@ -73,27 +51,27 @@ export function describeInstall(result: SkillInstall): string {
       ? `Installed the agent protocol skill at ${SKILL_PATH}.`
       : `${SKILL_PATH} already exists; left it unchanged.`,
   ];
-  if (result.agentsMd === "appended")
-    lines.push("Appended the Konsora section to AGENTS.md (for Codex and other agents).");
-  if (result.agentsMd === "present") lines.push("AGENTS.md already has the Konsora section.");
-  if (!result.agentsMd)
-    lines.push("Codex reads AGENTS.md: add the protocol there with `konsora skill --agents-md`.");
+  if (result.mcp === "created")
+    lines.push(`Created ${MCP_JSON} with the konsora MCP server (it runs \`konsora mcp\`).`);
+  if (result.mcp === "added") lines.push(`Added the konsora MCP server to ${MCP_JSON}.`);
+  if (result.mcp === "present") lines.push(`${MCP_JSON} already has a konsora server.`);
+  if (result.mcp) lines.push("Restart Claude Code in this folder and approve the konsora server.");
   return `${lines.join("\n")}\n`;
 }
 
 export function registerSkill(program: Command, io: Io, rootOption: () => string | undefined) {
   program
     .command("skill")
-    .description("install the agent protocol skill in this project (never overwrites)")
-    .option("--agents-md", "also append a short Konsora section to AGENTS.md (once)")
+    .description(
+      "install the Claude Code integration: the protocol skill and the MCP server in .mcp.json (never overwrites)",
+    )
+    .option("--no-mcp", "only the skill, without touching .mcp.json")
     .option("--json", "machine-readable output")
-    .action(async (opts: { agentsMd?: boolean; json?: boolean }) => {
+    .action(async (opts: { mcp: boolean; json?: boolean }) => {
       const root = locate(io, rootOption());
-      const result = await installSkill(root, { agentsMd: Boolean(opts.agentsMd) }).catch(
-        (error: Error) => {
-          throw new CliError(`Could not install the skill: ${error.message}`);
-        },
-      );
+      const result = await installSkill(root, { mcp: opts.mcp }).catch((error: Error) => {
+        throw new CliError(`Could not install the integration: ${error.message}`);
+      });
       if (opts.json) json(io, result);
       else io.stdout(describeInstall(result));
     });

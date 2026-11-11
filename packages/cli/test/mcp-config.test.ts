@@ -1,13 +1,20 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { parse as parseToml } from "smol-toml";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AGENTS_SNIPPET, skillText } from "../src/skill.ts";
+import { skillText } from "../src/skill.ts";
 
 const bin = fileURLToPath(new URL("../src/bin.ts", import.meta.url));
 
@@ -23,7 +30,7 @@ afterEach(() => {
   rmSync(project, { recursive: true, force: true });
 });
 
-/** Runs the real binary with a throwaway HOME, so any write to ~/.claude or ~/.codex shows up. */
+/** Runs the real binary with a throwaway HOME, so any write to ~/.claude shows up. */
 function konsora(args: string[]) {
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
@@ -61,34 +68,12 @@ describe("konsora mcp --print-config", () => {
     expect(r.stderr).toContain(".mcp.json");
   });
 
-  it("prints valid TOML for Codex (config.toml) pointing to this project's konsora", () => {
-    expect(konsora(["init"]).code).toBe(0);
-    const r = konsora(["mcp", "--print-config", "codex"]);
-    expect(r.code).toBe(0);
-    const config = parseToml(r.stdout) as { mcp_servers: { konsora: Server } };
-    expect(config.mcp_servers.konsora).toEqual({
-      command: process.execPath,
-      args: [bin, "mcp", "--root", project],
-      env: { KONSORA_AGENT: "codex" },
-    });
-    expect(r.stderr).toContain("config.toml");
-  });
-
-  it("escapes paths so the TOML stays valid", async () => {
-    const { configSnippet } = await import("../src/mcp-config.ts");
-    const odd = '/tmp/a "quoted" \\ dir\nwith newline';
-    const parsed = parseToml(configSnippet("codex", odd)) as {
-      mcp_servers: { konsora: Server };
-    };
-    expect(parsed.mcp_servers.konsora.args.at(-1)).toBe(odd);
-  });
-
   it("the printed command starts a working server", async () => {
     expect(konsora(["init", "--name", "Demo"]).code).toBe(0);
-    const config = parseToml(konsora(["mcp", "--print-config", "codex"]).stdout) as {
-      mcp_servers: { konsora: Server };
+    const config = JSON.parse(konsora(["mcp", "--print-config", "claude"]).stdout) as {
+      mcpServers: { konsora: Server };
     };
-    const server = config.mcp_servers.konsora;
+    const server = config.mcpServers.konsora;
     const transport = new StdioClientTransport({
       command: server.command,
       args: server.args,
@@ -112,41 +97,47 @@ describe("konsora mcp --print-config", () => {
   });
 });
 
-describe("no command writes agent configuration on its own", () => {
-  it("init, skill and print-config leave HOME empty and write no .mcp.json or .codex/", () => {
-    expect(konsora(["init", "--agents-md"]).code).toBe(0);
-    expect(konsora(["skill", "--agents-md"]).code).toBe(0);
+describe("agent configuration", () => {
+  it("init writes the skill and .mcp.json in the project, never HOME; print-config writes nothing", () => {
+    expect(konsora(["init"]).code).toBe(0);
     const before = files(project);
-    for (const agent of ["claude", "codex"]) {
-      expect(konsora(["mcp", "--print-config", agent]).code).toBe(0);
-    }
+    expect(konsora(["mcp", "--print-config", "claude"]).code).toBe(0);
+    expect(konsora(["skill"]).code).toBe(0);
     expect(files(project)).toEqual(before);
-    expect(before).toEqual([
-      ".claude/skills/konsora/SKILL.md",
-      ".konsora/.gitignore",
-      ".konsora/tasks.json",
-      "AGENTS.md",
-    ]);
+    expect(before).toEqual([".claude/skills/konsora/SKILL.md", ".konsora/tasks.json", ".mcp.json"]);
     expect(files(home)).toEqual([]);
     expect(existsSync(join(home, ".claude"))).toBe(false);
-    expect(existsSync(join(home, ".codex"))).toBe(false);
+  });
+
+  it("adds konsora to an existing .mcp.json, keeps its servers, and refuses an invalid one", () => {
+    const other = { mcpServers: { other: { command: "x" } }, extra: true };
+    writeFileSync(join(project, ".mcp.json"), JSON.stringify(other));
+    expect(konsora(["init"]).code).toBe(0);
+    const config = JSON.parse(readFileSync(join(project, ".mcp.json"), "utf8"));
+    expect(config.extra).toBe(true);
+    expect(Object.keys(config.mcpServers)).toEqual(["other", "konsora"]);
+    expect(config.mcpServers.konsora).toEqual({
+      type: "stdio",
+      command: "konsora",
+      args: ["mcp"],
+      env: { KONSORA_AGENT: "claude" },
+    });
+    writeFileSync(join(project, ".mcp.json"), "{ not json");
+    const r = konsora(["skill"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("not valid JSON");
+    expect(readFileSync(join(project, ".mcp.json"), "utf8")).toBe("{ not json");
   });
 });
 
 describe("the protocol mentions the MCP tools", () => {
-  it("the skill explains when to use the MCP tools and the run mode", async () => {
+  it("the skill explains when to use the MCP tools and the planning session", async () => {
     const text = await skillText();
     expect(text).toContain("## MCP tools");
     expect(text).toContain("mcp__konsora__status");
     expect(text).toContain("prefer its tools over the shell commands");
-    expect(text).toContain("konsora mcp --print-config claude");
-    expect(text).toContain("Inside a Konsora run");
-  });
-
-  it("the AGENTS.md snippet points Codex to the MCP tools", () => {
-    expect(AGENTS_SNIPPET).toContain("mcp__konsora__status");
-    expect(AGENTS_SNIPPET).toContain("konsora mcp --print-config codex");
-    expect(AGENTS_SNIPPET).toContain("Inside a Konsora run");
+    expect(text).toContain(".mcp.json");
+    expect(text).toContain("In a planning session");
   });
 
   it("this repository's own skill matches the one Konsora installs", async () => {

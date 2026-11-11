@@ -61,7 +61,7 @@ describe("konsora ui", () => {
       KONSORA_WEB_DIR: web,
       XDG_STATE_HOME: join(base, "state"),
     };
-    expect((await run(["init", "--no-skill"], project, env)).code).toBe(EXIT.ok);
+    expect((await run(["init", "--no-claude"], project, env)).code).toBe(EXIT.ok);
 
     const first = await run(["ui", "--no-open"], project, env);
     const info = await findDaemon(data);
@@ -114,8 +114,8 @@ describe("konsora ui", () => {
         await fetch(`${restarted?.url}/api/health`, {
           headers: { authorization: `Bearer ${restarted?.token}` },
         })
-      ).json()) as { live_runs: number };
-      expect(health.live_runs).toBe(0);
+      ).json()) as { ok: boolean };
+      expect(health.ok).toBe(true);
 
       // A fresh daemon is reused; --restart restarts it anyway.
       expect((await run(["ui", "--no-open", "--no-link"], base, env)).out).toContain(

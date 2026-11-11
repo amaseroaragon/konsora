@@ -34,8 +34,8 @@ const task = (id: string, state: Task["state"], deps: string[] = []): Task => ({
 });
 
 const doc: TasksDocument = {
-  schema: "konsora/2",
-  project: { name: "P", base_branch: "main" },
+  schema: "konsora/3",
+  project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 5 },
   tasks: [
@@ -139,12 +139,12 @@ describe("selection shared by graph and board (UI-07)", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("keeps Run disabled until the runs are known, so it never launches a task twice (UI-10)", () => {
+  it("offers Approve only for the selected proposals", () => {
     const board = boardOf(doc, "p-sel000000003");
     selectionStore.dispatch(board.project.id, { type: "toggle", id: "BE-05" });
     const html = render(board, "board");
     expect(html).toContain("1 tarea seleccionada:");
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Ejecutar/);
-    expect(html).toContain("Ninguna de las seleccionadas está lista para ejecutarse.");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Aprobar/);
+    expect(html).toContain("Ninguna de las seleccionadas es una propuesta.");
   });
 });

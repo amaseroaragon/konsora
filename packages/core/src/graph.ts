@@ -1,5 +1,5 @@
 /**
- * Pure derivations over a validated `konsora/2` document (docs/esquema-tareas.md §2, "Derivados").
+ * Pure derivations over a validated `konsora/3` document (docs/esquema-tareas.md §2, "Derivados").
  * Nothing here is stored in the file: `blocked`, `ready` and `waiting` are always computed.
  */
 import type { Task, TasksDocument } from "./schema.ts";
