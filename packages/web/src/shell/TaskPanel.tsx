@@ -1,34 +1,35 @@
-import { ACTION_TEXT, availableActions, type TaskAction, type TasksDocument } from "@konsora/core";
-import { type FormEvent, useState } from "react";
-import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
+import {
+  ACTION_TEXT,
+  availableActions,
+  dependentsOf,
+  type TaskAction,
+  type TasksDocument,
+} from "@konsora/core";
+import { type FormEvent, useId, useState } from "react";
+import { type BoardTask, type ExternalFlag, useProjectOp, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
-import { confirmWithdraw, opErrorText } from "./board-model.ts";
+import { confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
-  approve: "action.approve",
-  withdraw: "action.withdraw",
+  promote: "action.promote",
   answer: "action.answer",
-  accept: "action.accept",
-  "send-back": "action.send-back",
   reopen: "action.reopen",
+  delete: "action.delete",
 };
 const TEXT_LABEL: Partial<Record<TaskAction, MessageKey>> = {
   answer: "action.text.answer",
-  "send-back": "action.text.send-back",
   reopen: "action.text.reopen",
 };
 const DONE: Record<TaskAction, MessageKey> = {
-  approve: "move.done.approve",
-  withdraw: "move.done.withdraw",
+  promote: "move.done.promote",
   answer: "move.done.answer",
-  accept: "move.done.accept",
-  "send-back": "move.done.send-back",
   reopen: "move.done.reopen",
+  delete: "move.done.delete",
 };
 
 const when = (iso: string) =>
@@ -39,10 +40,13 @@ function Actions({
   projectId,
   task,
   actions,
+  dependents,
 }: {
   projectId: string;
   task: BoardTask;
   actions: TaskAction[];
+  /** Tasks that depend on this one: deleting it asks first, naming them. */
+  dependents: readonly string[];
 }) {
   const mutation = useTaskAction(projectId);
   const toast = useToast();
@@ -50,7 +54,10 @@ function Actions({
   const [open, setOpen] = useState<TaskAction | null>(actions.includes("answer") ? "answer" : null);
   const [text, setText] = useState("");
   const run = (action: TaskAction, value?: string) => {
-    if (action === "withdraw" && !confirmWithdraw(task.id, (question) => window.confirm(question)))
+    if (
+      action === "delete" &&
+      !confirmDelete(task.id, dependents, (question) => window.confirm(question))
+    )
       return;
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
@@ -119,7 +126,7 @@ function Actions({
         ACTION_TEXT[action] === "none" ? (
           <Button
             key={action}
-            variant={index === 0 ? "primary" : "secondary"}
+            variant={action === "delete" ? "danger" : index === 0 ? "primary" : "secondary"}
             busy={busy(action)}
             onClick={() => run(action)}
           >
@@ -134,6 +141,73 @@ function Actions({
             {t(LABEL[action])}
           </Button>
         ),
+      )}
+    </div>
+  );
+}
+
+/** The task's block: shown, and changeable (or cleared) while neither the task nor the block is closed. */
+function BlockField({
+  projectId,
+  task,
+  doc,
+  readOnly,
+}: {
+  projectId: string;
+  task: BoardTask;
+  doc: TasksDocument;
+  readOnly: boolean;
+}) {
+  const id = useId();
+  const mutation = useProjectOp(projectId);
+  const toast = useToast();
+  const blocks = doc.blocks ?? [];
+  const current = blocks.find((b) => b.id === task.block);
+  if (blocks.length === 0 && !current) return null;
+  const locked = readOnly || current?.merged !== undefined;
+  const open = blocks.filter((b) => !b.merged);
+  return (
+    <div className="k-field">
+      <label htmlFor={id} className="k-field__label">
+        {t("blocks.field")}
+      </label>
+      {locked ? (
+        <p className="s-text">
+          {current ? `${current.name} · ${current.branch}` : t("blocks.none")}
+          {current?.merged && ` · ${t("blocks.status.merged")}`}
+        </p>
+      ) : (
+        <select
+          id={id}
+          className="k-field__control"
+          value={task.block ?? ""}
+          disabled={mutation.isPending}
+          onChange={(event) =>
+            mutation.mutate(
+              {
+                op: "set-block",
+                task: task.id,
+                block: event.target.value || null,
+                expect: { [task.id]: task.hash },
+              },
+              {
+                onSuccess: () => toast.show(t("blocks.set.done", { id: task.id }), "success"),
+                onError: (error) => {
+                  if (error instanceof ApiError && error.unauthorized) return;
+                  const code = error instanceof ApiError ? error.code : "error";
+                  toast.show(opErrorText(code, task.id, error.message), "error");
+                },
+              },
+            )
+          }
+        >
+          <option value="">{t("blocks.none")}</option>
+          {open.map((block) => (
+            <option key={block.id} value={block.id}>
+              {block.name} · {block.branch}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );
@@ -170,9 +244,9 @@ export function TaskPanel({
   const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
-  // In review, the agent's closing summary is what the human reviews: it goes first.
+  // Once done, the agent's closing summary is what the human reads first.
   const summary =
-    task.state === "review"
+    task.state === "done"
       ? [...(task.notes ?? [])].reverse().find((note) => note.kind === "summary")
       : undefined;
   return (
@@ -184,6 +258,7 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
+          {task.block && <span className="a-chip k-mono">{task.block}</span>}
           {canEdit && !editing && (
             <Button
               size="sm"
@@ -223,8 +298,10 @@ export function TaskPanel({
             projectId={projectId}
             task={task}
             actions={actions}
+            dependents={dependentsOf(task.id, doc)}
           />
         )}
+        <BlockField projectId={projectId} task={task} doc={doc} readOnly={readOnly} />
         {onSelectWithDeps && (
           <div className="a-actions">
             <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>

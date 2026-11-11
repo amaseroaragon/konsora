@@ -70,7 +70,7 @@ describe("konsora migrate", () => {
       tasks: 29,
       byState: { done: 4, todo: 25 },
     });
-    expect((await run(["migrate"])).stdout).toBe("Already konsora/3; nothing to migrate.\n");
+    expect((await run(["migrate"])).stdout).toBe("Already konsora/4; nothing to migrate.\n");
   });
 
   it("refuses to overwrite an existing backup", async () => {
@@ -83,7 +83,9 @@ describe("konsora migrate", () => {
 
   it("rejects files that are neither v1, v2 nor v3", async () => {
     writeFileSync(k("tasks.json"), JSON.stringify({ hello: "world" }));
-    expect((await run(["migrate"])).stderr).toContain("neither konsora/3, konsora/2 nor v1");
+    expect((await run(["migrate"])).stderr).toContain(
+      "neither konsora/4, konsora/3, konsora/2 nor v1",
+    );
   });
 
   it("migrates a konsora/2 plan: preview lists the dropped fields, --write backs it up", async () => {
@@ -109,7 +111,7 @@ describe("konsora migrate", () => {
     writeFileSync(k("tasks.json"), v2);
     const preview = await run(["migrate"]);
     expect(preview.code).toBe(EXIT.ok);
-    expect(preview.stdout).toContain("konsora/2 → konsora/3, 1 tasks");
+    expect(preview.stdout).toContain("konsora/2 → konsora/4, 1 tasks");
     expect(preview.stdout).toMatch(/project\.checks +1/);
     expect(preview.stdout).toMatch(/tasks\[\]\.difficulty +1/);
     expect(readFileSync(k("tasks.json"), "utf8")).toBe(v2);

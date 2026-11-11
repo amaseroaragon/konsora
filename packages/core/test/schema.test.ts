@@ -9,7 +9,7 @@ const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
 function valid(): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "Demo" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 1 },
@@ -83,7 +83,8 @@ describe("validateStructure", () => {
     ["derived state stored", (d: any) => (d.tasks[0].state = "blocked"), "/tasks/0/state"],
     ["uppercase rank", (d: any) => (d.tasks[0].rank = "A0"), "/tasks/0/rank"],
     ["dep with bad id", (d: any) => (d.tasks[0].deps = ["be-01"]), "/tasks/0/deps/0"],
-    ["yolo false stored", (d: any) => (d.tasks[0].yolo = false), "/tasks/0/yolo"],
+    ["yolo from v3", (d: any) => (d.tasks[0].yolo = true), "/tasks/0/yolo"],
+    ["review state from v3", (d: any) => (d.tasks[0].state = "review"), "/tasks/0/state"],
     ["label with spaces", (d: any) => (d.tasks[0].labels = ["needs review"]), "/tasks/0/labels/0"],
     [
       "local timestamp",
@@ -147,8 +148,8 @@ describe("toPointer", () => {
 });
 
 describe("JSON Schema", () => {
-  it("committed schema/tasks.v3.schema.json is up to date (run `npm run schema`)", () => {
-    expect(read("schema/tasks.v3.schema.json")).toBe(tasksJsonSchemaText());
+  it("committed schema/tasks.v4.schema.json is up to date (run `npm run schema`)", () => {
+    expect(read("schema/tasks.v4.schema.json")).toBe(tasksJsonSchemaText());
   });
 
   it("only allows x-* extension keys on every object", () => {

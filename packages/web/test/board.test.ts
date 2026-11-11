@@ -29,7 +29,7 @@ const t = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task =>
 });
 
 const doc: TasksDocument = {
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "P" },
   groups: [
     { id: "BE", name: "Backend" },
@@ -39,7 +39,7 @@ const doc: TasksDocument = {
   seq: { BE: 3, FE: 2 },
   tasks: [
     t("BE-01", "done"),
-    t("BE-02", "review", { deps: ["BE-01"] }),
+    t("BE-02", "doing", { deps: ["BE-01"] }),
     t("BE-03", "todo", { deps: ["BE-02"] }),
     t("FE-01", "proposed", { created: { at, by: "agent:claude" } }),
     t("FE-02", "doing"),
@@ -73,11 +73,10 @@ describe("board data", () => {
 
   it("sends a move as one op conditioned on the task hash", () => {
     const task = board.tasks.find((x) => x.id === "BE-02") as BoardOk["tasks"][number];
-    expect(moveBody({ task, op: "send-back", to: "todo", feedback: "Add tests" })).toEqual({
-      op: "send-back",
+    expect(moveBody({ task, op: "pause", to: "todo" })).toEqual({
+      op: "pause",
       task: "BE-02",
       expect: { "BE-02": taskHash(doc.tasks[1] as Task) },
-      feedback: "Add tests",
     });
   });
 
@@ -93,7 +92,6 @@ describe("lanes", () => {
     expect(lanes[0]?.cells.map((cell) => cell.map((x) => x.id))).toEqual([
       [],
       ["BE-03"],
-      [],
       ["BE-02"],
       ["BE-01"],
     ]);
@@ -111,7 +109,7 @@ describe("drops", () => {
     const allowed = (id: string) =>
       [...dropTargets(doc, id)].filter(([, plan]) => plan.ok).map(([state]) => state);
     expect(allowed("FE-01")).toEqual(["todo"]);
-    expect(allowed("BE-02")).toEqual(["todo", "done"]);
+    expect(allowed("BE-02")).toEqual(["todo"]);
     expect(allowed("BE-01")).toEqual(["todo"]);
     expect(allowed("BE-03")).toEqual([]);
     expect(allowed("FE-02")).toEqual(["todo"]);
@@ -119,12 +117,10 @@ describe("drops", () => {
 
   it("explains every refusal in Spanish", () => {
     const say = (id: string, to: Task["state"]) => refusalText(planMove(doc, id, to), id);
-    expect(say("FE-01", "done")).toBe(
-      "FE-01 es una propuesta: apruébala primero arrastrándola a Por hacer.",
-    );
+    expect(say("FE-01", "done")).toBe("FE-01 es una idea: pásala primero a Por hacer.");
     expect(say("BE-03", "doing")).toContain("las empieza un agente");
-    expect(say("FE-02", "review")).toBe(
-      "Solo el agente termina FE-02, con un resumen. Después tú la revisas en En revisión.",
+    expect(say("FE-02", "done")).toBe(
+      "Solo el agente termina FE-02, con un resumen de lo que hizo.",
     );
     expect(say("BE-03", "done")).toBe("BE-03 no puede pasar de Por hacer a Hecho en un solo paso.");
     expect(say("BE-03", "todo")).toBeNull();
@@ -144,16 +140,15 @@ describe("task actions", () => {
   const expectHash = { "BE-02": task.hash };
 
   it("builds each op with its text field and the task hash", () => {
-    expect(actionBody({ task, action: "accept" })).toEqual({
-      op: "accept",
+    expect(actionBody({ task, action: "promote" })).toEqual({
+      op: "promote",
       task: "BE-02",
       expect: expectHash,
     });
-    expect(actionBody({ task, action: "send-back", text: "  More tests " })).toEqual({
-      op: "send-back",
+    expect(actionBody({ task, action: "delete", text: "ignored" })).toEqual({
+      op: "delete",
       task: "BE-02",
       expect: expectHash,
-      feedback: "More tests",
     });
     expect(actionBody({ task, action: "answer", text: "10 min" })).toMatchObject({
       text: "10 min",
@@ -173,15 +168,15 @@ describe("external changes", () => {
   });
 
   it("describes each kind in Spanish", () => {
-    expect(externalText(flag({ from: "review", to: "done" }))).toBe(
-      "En revisión → Hecho sin tu aprobación.",
+    expect(externalText(flag({ from: "done", to: "todo" }))).toBe(
+      "Hecho → Por hacer hecho fuera de Konsora, y ningún agente puede hacerlo.",
     );
     expect(externalText(flag({ kind: "created_approved", to: "todo" }))).toBe(
       "Creada fuera de Konsora directamente en Por hacer.",
     );
     expect(externalText(flag({ kind: "deleted", from: "done" }))).toContain("estaba en Hecho");
     expect(externalText(flag({ kind: "edited" }))).toBe(
-      "Tarea aprobada modificada fuera de Konsora.",
+      "Tarea terminada modificada fuera de Konsora.",
     );
     expect(externalText(flag({ kind: "future_kind" }))).toBe("english");
   });

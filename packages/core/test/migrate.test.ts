@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { migrateV1, migrateV2, splitCriteria } from "../src/migrate.ts";
+import { migratePlan, migrateV1, migrateV2, splitCriteria } from "../src/migrate.ts";
 import { parseTasksFile } from "../src/semantics.ts";
 import { serializeDocument } from "../src/serialize.ts";
 import { tasksPath, writeMigration } from "../src/store.ts";
@@ -80,7 +80,7 @@ describe("migrateV1 edge cases", () => {
       opts,
     );
     if (!r.ok) throw new Error(r.message);
-    expect(r.document.tasks.map((t) => t.state)).toEqual(["todo", "review", "proposed"]);
+    expect(r.document.tasks.map((t) => t.state)).toEqual(["todo", "done", "proposed"]);
     expect(r.document.tasks[0]?.notes?.[0]).toMatchObject({
       by: "konsora",
       text: expect.stringContaining("in_progress"),
@@ -174,7 +174,7 @@ describe("writeMigration", () => {
   });
 });
 
-describe("migrateV2 (konsora/2 → konsora/3)", () => {
+describe("migrateV2 (konsora/2 → konsora/4)", () => {
   const v2 = {
     $schema: "../schema/tasks.v2.schema.json",
     schema: "konsora/2",
@@ -215,11 +215,12 @@ describe("migrateV2 (konsora/2 → konsora/3)", () => {
   };
 
   it("drops the run-only fields, keeps the rest and reports what it dropped", () => {
-    const result = migrateV2(v2);
+    const result = migrateV2(v2, { at });
     if (!result.ok) throw new Error(result.message);
     const { document: doc, report } = result;
-    expect(doc.schema).toBe("konsora/3");
-    expect(doc.$schema).toBe("../schema/tasks.v3.schema.json");
+    expect(doc.schema).toBe("konsora/4");
+    expect(doc.$schema).toBe("../schema/tasks.v4.schema.json");
+    expect(doc.tasks[0]?.state).toBe("done");
     expect(doc.project).toEqual({
       name: "P",
       templates: [{ id: "bug", name: "Bug", acceptance: [{ text: "T" }] }],
@@ -231,10 +232,13 @@ describe("migrateV2 (konsora/2 → konsora/3)", () => {
     expect(doc.tasks[0]?.notes?.map((n) => [n.kind, n.text])).toEqual([
       ["summary", "Done"],
       ["note", "[review: approve] Fine"],
+      ["note", "Migrated from review to done: konsora/4 has no review step."],
     ]);
     expect(report).toEqual({
+      from: "konsora/2",
       tasks: 1,
       reviewNotes: 1,
+      reviewToDone: ["BE-01"],
       dropped: {
         "project.base_branch": 1,
         "project.defaults": 1,
@@ -256,17 +260,17 @@ describe("migrateV2 (konsora/2 → konsora/3)", () => {
   });
 
   it("is deterministic and refuses anything that is not konsora/2", () => {
-    expect(migrateV2(structuredClone(v2))).toEqual(migrateV2(v2));
-    expect(migrateV2({ schema: "konsora/3" }).ok).toBe(false);
-    expect(migrateV2(legacy).ok).toBe(false);
+    expect(migrateV2(structuredClone(v2), { at })).toEqual(migrateV2(v2, { at }));
+    expect(migrateV2({ schema: "konsora/4" }, { at }).ok).toBe(false);
+    expect(migrateV2(legacy, { at }).ok).toBe(false);
   });
 
-  it("writes the v3 plan with a v2 backup and no history file", async () => {
+  it("writes the v4 plan with a v2 backup and no history file", async () => {
     const root = mkdtempSync(join(tmpdir(), "konsora-mig-"));
     mkdirSync(join(root, ".konsora"));
     const original = JSON.stringify(v2);
     writeFileSync(tasksPath(root), original);
-    const r = migrateV2(v2);
+    const r = migrateV2(v2, { at });
     if (!r.ok) throw new Error(r.message);
     const text = serializeDocument(r.document);
     const written = await writeMigration(root, { expectedText: original, text, from: "v2" });
@@ -274,5 +278,65 @@ describe("migrateV2 (konsora/2 → konsora/3)", () => {
     expect(readFileSync(join(root, ".konsora", "tasks.v2.json.bak"), "utf8")).toBe(original);
     expect(readFileSync(tasksPath(root), "utf8")).toBe(text);
     rmSync(root, { recursive: true });
+  });
+});
+
+describe("migratePlan (konsora/3 → konsora/4)", () => {
+  const v3 = {
+    schema: "konsora/3",
+    project: { name: "P" },
+    groups: [{ id: "BE", name: "Backend" }],
+    seq: { BE: 3 },
+    tasks: [
+      {
+        id: "BE-01",
+        title: "A",
+        state: "review",
+        group: "BE",
+        rank: "a",
+        created: { at, by: "human" },
+        updated_at: at,
+        notes: [{ id: "n1", at, by: "agent:claude", kind: "summary", text: "ok" }],
+      },
+      {
+        id: "BE-02",
+        title: "B",
+        state: "todo",
+        group: "BE",
+        rank: "b",
+        yolo: true,
+        created: { at, by: "human" },
+        updated_at: at,
+      },
+      {
+        id: "BE-03",
+        title: "C",
+        state: "proposed",
+        group: "BE",
+        rank: "c",
+        created: { at, by: "human" },
+        updated_at: at,
+      },
+    ],
+  };
+
+  it("moves review to done with a note, drops YOLO and keeps proposals as ideas", () => {
+    const r = migratePlan(v3, { at });
+    if (!r.ok) throw new Error(r.message);
+    expect(r.document.tasks.map((t) => t.state)).toEqual(["done", "todo", "proposed"]);
+    expect(r.document.tasks[0]?.notes?.at(-1)).toMatchObject({
+      id: "n2",
+      by: "konsora",
+      kind: "note",
+    });
+    expect(r.document.tasks[1]).not.toHaveProperty("yolo");
+    expect(r.report).toEqual({
+      from: "konsora/3",
+      tasks: 3,
+      dropped: { "tasks[].yolo": 1 },
+      reviewNotes: 0,
+      reviewToDone: ["BE-01"],
+    });
+    expect(migratePlan({ schema: "konsora/4" }, { at }).ok).toBe(false);
   });
 });

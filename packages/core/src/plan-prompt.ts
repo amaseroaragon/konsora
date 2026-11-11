@@ -16,7 +16,8 @@ export type PlanPromptOptions = {
 
 /**
  * Konsora's MCP tools a planning session may call without asking: reads, plus proposing and
- * revising or withdrawing proposals. Core's ops still refuse anything else (`ctx.plan`).
+ * revising or deleting tasks nobody started, and setting up blocks. Core's ops still refuse
+ * anything else (`ctx.plan`).
  */
 export const PLAN_TOOLS: readonly string[] = [
   "status",
@@ -28,15 +29,21 @@ export const PLAN_TOOLS: readonly string[] = [
   "propose",
   "batch",
   "edit",
-  "withdraw",
+  "delete",
+  "depend",
+  "undepend",
+  "promote",
+  "add_block",
+  "edit_block",
+  "set_block",
 ].map((tool) => `mcp__konsora__${tool}`);
 
-const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "review", "done"];
+const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "done"];
 
 export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOptions = {}): string {
   const { project } = document;
   const parts: string[] = [
-    `You are helping the human plan work on the project "${project.name}", whose plan Konsora keeps in .konsora/tasks.json. This is a planning session: you interview the human and propose tasks; the human approves them or not. Do not change any code and do not start any task.`,
+    `You are helping the human plan work on the project "${project.name}", whose plan Konsora keeps in .konsora/tasks.json. This is a planning session: you interview the human and create the tasks of the plan. Tasks go straight to "todo" (no approval); use state "proposed" only for loose ideas the human has not committed to. Do not change any code and do not start any task.`,
   ];
 
   const goal = options.goal?.trim();
@@ -52,7 +59,7 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
         "   - the constraints: technology, deadlines, things that must not change.",
         "2. Read the plan with Konsora's status, list and show tools, and read the code the goal touches, so the tasks fit what exists and do not repeat planned work.",
         "3. Sum up what you understood, with the tasks you would propose, and let the human correct it.",
-        "4. Propose all the tasks with a single batch call. Then tell the human their ids, remind them that they approve proposals in Konsora, and stop.",
+        "4. Create all the tasks with a single batch call. Then tell the human their ids, and stop.",
       ].join("\n"),
     ),
   );
@@ -65,6 +72,7 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
         '- Acceptance criteria that can be verified: a command that passes or an observable result, never a judgement such as "works well". Each task should be small enough for one agent run.',
         "- deps on the tasks it needs (ids of existing tasks, or titles of earlier tasks in the same batch).",
         "- A group from the plan's groups; a new one only if none fits, declared in the batch's groups.",
+        "- A block when several dependent tasks should land together: they are worked on one git branch and the human merges it when the last one is done. Declare it in the batch's blocks ({id, name}; the branch defaults to konsora/<id> and the base to the current branch) and set block: <id> on each of its tasks. Standalone tasks need no block.",
         "- A template when one fits (template: <id>): the task takes its description, criteria and labels, and what you pass completes or replaces them.",
       ].join("\n"),
     ),
@@ -88,7 +96,7 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
       "Rules",
       [
         "- Read and change the plan only with Konsora's tools; never edit .konsora/tasks.json.",
-        "- In this session you may only propose (propose, batch) and revise or withdraw proposals (edit, withdraw). Konsora refuses anything else.",
+        "- In this session you may only plan: create tasks (propose, batch), revise or delete tasks nobody started (edit, delete, depend, undepend, promote) and set up blocks (add_block, edit_block, set_block). Konsora refuses anything else.",
         "- If something is unclear, ask the human instead of guessing.",
       ].join("\n"),
     ),

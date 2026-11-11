@@ -1,5 +1,6 @@
 /** Plain-text renderers for the CLI. English, no colors, stable column layout. */
 import {
+  blockProgress,
   dependentsOf,
   deriveFlags,
   indexTasks,
@@ -11,7 +12,7 @@ import {
   topoOrder,
 } from "@konsora/core";
 
-export const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "review", "done"];
+export const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "done"];
 
 /** A task plus its derived flags: the shape of every task in `--json` output. */
 export type TaskView = Task & Omit<TaskFlags, "blocked"> & { blocked: boolean };
@@ -30,7 +31,7 @@ function flagText(view: TaskView): string {
   if (view.ready) parts.push("ready");
   if (view.blocked) parts.push(`blocked by ${view.blockers.join(", ")}`);
   if (view.waiting) parts.push("waiting for answer");
-  if (view.yolo) parts.push("yolo");
+  if (view.block) parts.push(`block ${view.block}`);
   return parts.join("; ");
 }
 
@@ -61,10 +62,6 @@ export function statusText(doc: TasksDocument, file: string): string {
       list.filter((t) => t.waiting),
     ),
     section(
-      "In review (needs a human)",
-      list.filter((t) => t.state === "review"),
-    ),
-    section(
       "Doing",
       list.filter((t) => t.state === "doing"),
     ),
@@ -73,11 +70,40 @@ export function statusText(doc: TasksDocument, file: string): string {
       list.filter((t) => t.ready),
     ),
     section(
-      "Proposed (needs approval)",
+      "Ideas (proposed; anyone can promote them to todo)",
       list.filter((t) => t.state === "proposed"),
     ),
+    blocksText(doc),
     templatesText(doc),
   ].join("");
+}
+
+/** The plan's blocks: branch, base, progress and whether the human can merge it. */
+function blocksText(doc: TasksDocument): string {
+  const blocks = doc.blocks ?? [];
+  if (blocks.length === 0) return "";
+  const rows = blocks.map((b) => {
+    const p = blockProgress(doc, b.id);
+    const status =
+      p.status === "merged"
+        ? `merged ${b.merged?.commit.slice(0, 12)}`
+        : p.status === "ready"
+          ? "ready to merge (the human merges it in the Konsora UI)"
+          : "open";
+    return `  ${b.id.padEnd(12)} ${b.name}  [${b.branch} → ${b.base} · ${p.done}/${p.tasks.length} done · ${status}]`;
+  });
+  return `\nBlocks:\n${rows.join("\n")}\n`;
+}
+
+/**
+ * Where to work on a task of a block: its branch, created from the base when missing. Empty for a
+ * task outside any block or in a merged one.
+ */
+export function branchHint(doc: TasksDocument, taskId: string): string {
+  const task = doc.tasks.find((t) => t.id === taskId);
+  const block = doc.blocks?.find((b) => b.id === task?.block);
+  if (!block || block.merged) return "";
+  return `${taskId} is in block ${block.id}: work and commit on branch ${block.branch} (git switch ${block.branch}, or git switch -c ${block.branch} ${block.base} if it does not exist yet). Leave .konsora/tasks.json out of those commits. The human merges the branch into ${block.base} when every task of the block is done.`;
 }
 
 /** The project's templates, for `propose --template <id>`. */
@@ -109,6 +135,12 @@ export function showText(doc: TasksDocument, view: TaskView): string {
   const dependents = dependentsOf(view.id, doc);
   if (dependents.length) lines.push(`dependents: ${dependents.join(", ")}`);
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
+  if (view.block) {
+    const block = doc.blocks?.find((b) => b.id === view.block);
+    lines.push(
+      `block: ${view.block}${block ? ` (${block.name}; branch ${block.branch} → ${block.base}${block.merged ? "; merged" : ""})` : ""}`,
+    );
+  }
   lines.push(`created: ${view.created.at} by ${view.created.by} · updated: ${view.updated_at}`);
   if (view.desc) lines.push("", view.desc);
   if (view.acceptance?.length) {

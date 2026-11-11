@@ -11,12 +11,13 @@ Konsora es un gestor y visualizador de tareas (ver [visión](vision.md)). La eta
                      WebSocket  │ board.* · chat.updated    │ HTTP + token
                 ┌───────────────┴──────────────────────────▼──────────────────┐
                 │ daemon (loopback, uno por usuario, varios proyectos)         │
-                │   watcher · cambios externos y aprobaciones · chats de IA    │
-                └───────┬──────────────────────────────────┬──────────────────┘
-                        │ core                             │ spawn (panel IA)
-        ┌───────────────▼─────┐                  ┌─────────▼──────────────┐
-        │ .konsora/tasks.json │◀──── MCP ────────│ claude -p (plan mode)  │
-        └───────────▲─────────┘                  └────────────────────────┘
+                │   watcher · cambios externos · chats de IA · merge bloques │
+                └───────┬──────────────────┬───────────────┬──────────────────┘
+                        │ core             │ git (local)   │ spawn (panel IA)
+        ┌───────────────▼─────┐   ┌────────▼───────┐ ┌─────▼──────────────────┐
+        │ .konsora/tasks.json │◀──│ rama del bloque│ │ claude -p (plan mode)  │
+        └───────────▲─────────┘   │ → rama base    │ └──────────┬─────────────┘
+                    │             └────────────────┘     MCP ───┘
                     │ core
         ┌───────────┴──────────────────┐
         │ konsora (CLI) · konsora mcp  │  ← tus sesiones de Claude Code (skill + .mcp.json)
@@ -36,12 +37,13 @@ packages/
              migraciones v1/v2 → v3 · prompt de planificación
   cli/       binario `konsora` (commander) · `konsora mcp` (servidor MCP stdio) · init/skill/plan/ui
   daemon/    Hono (HTTP) + ws · registro de proyectos · cambios externos · chats del panel IA
+             merge local de bloques (git.ts)
   web/       React + Vite + TanStack Query · @xyflow/react + elkjs · dnd-kit
-schema/      tasks.v3.schema.json (generado desde core)
+schema/      tasks.v4.schema.json (generado desde core)
 docs/
 ```
 
-Dependencias permitidas entre capas: `web → (HTTP/WS) → daemon → core` y `cli → core`, más `cli → daemon` solo para que `konsora ui` localice y arranque el daemon, que además sirve la UI compilada fuera de `/api`. `core` no depende de nada del proyecto ni de procesos externos.
+Dependencias permitidas entre capas: `web → (HTTP/WS) → daemon → core` y `cli → core`, más `cli → daemon` solo para que `konsora ui` localice y arranque el daemon, que además sirve la UI compilada fuera de `/api`. `core` no depende de nada del proyecto ni de procesos externos: el git del merge vive en el daemon, y la CLI solo lee la rama actual para la base por defecto de un bloque.
 
 ### Dependencias y por qué
 
@@ -62,7 +64,7 @@ Cualquier dependencia nueva fuera de esta lista se justifica en el commit que la
 ## 3. Instalación en un proyecto
 
 - **CLI global**: `npm run install:global` hace `npm link` del paquete `packages/cli` de este checkout, de modo que `konsora` queda en el PATH y se actualiza con `git pull` (Node ejecuta el TypeScript directamente, sin build). No hay distribución en npm.
-- **`konsora init`** (acción explícita): crea `.konsora/tasks.json` (`konsora/3`, con un grupo) y, salvo `--no-claude`, la integración con Claude Code: la skill `.claude/skills/konsora/SKILL.md` (si no existe) y la entrada `konsora` en `.mcp.json` (`{"command": "konsora", "args": ["mcp"], "env": {"KONSORA_AGENT": "claude"}}`). En un `.mcp.json` que ya exista solo añade esa entrada, y si el archivo no es un objeto JSON válido lo deja intacto y falla con un error. Nunca escribe en `~/.claude`. `konsora skill` repite solo la integración.
+- **`konsora init`** (acción explícita): crea `.konsora/tasks.json` (`konsora/4`, con un grupo) y, salvo `--no-claude`, la integración con Claude Code: la skill `.claude/skills/konsora/SKILL.md` (si no existe) y la entrada `konsora` en `.mcp.json` (`{"command": "konsora", "args": ["mcp"], "env": {"KONSORA_AGENT": "claude"}}`). En un `.mcp.json` que ya exista solo añade esa entrada, y si el archivo no es un objeto JSON válido lo deja intacto y falla con un error. Nunca escribe en `~/.claude`. `konsora skill` repite solo la integración.
 - **`konsora mcp --print-config claude`** imprime, sin escribir nada, un snippet con rutas absolutas a este checkout, para sesiones sin la CLI global.
 
 ## 4. Datos y rutas
@@ -83,7 +85,8 @@ Reglas: **abrir o vincular no escribe nada** (`konsora init` y `migrate` son acc
 
 - Escucha solo en `127.0.0.1`, en un puerto libre, con un token aleatorio de 256 bits guardado en `daemon.json`. `konsora ui` arranca el daemon si no está en marcha (y lo reinicia si ejecuta código más antiguo que el checkout) y abre `http://127.0.0.1:<port>/#token=…`; la UI pasa el token del fragmento a `sessionStorage`, de modo que nunca aparece en logs ni en el historial del servidor.
 - Valida `Host` y `Origin` en cada petición (protección contra DNS rebinding) y exige `Authorization: Bearer` en HTTP y en el primer mensaje del WS. CORS no es autenticación.
-- **HTTP**: `GET /api/health`; proyectos (`GET`/`POST /api/projects`, `DELETE /api/projects/:id`); lecturas (`GET /projects/:id/board`, `/projects/:id/tasks/:task`); operaciones semánticas (`POST /projects/:id/ops`), que corren como `human`; y cambios externos (`GET /projects/:id/external`, `POST …/external/:task/confirm` y `…/revert`). Las ops humanas (`approve`, `accept`, `send-back`, `reopen`, `set-yolo`, `set-templates`, editar trabajo aprobado, crear en `todo`) **solo** existen aquí.
+- **HTTP**: `GET /api/health`; proyectos (`GET`/`POST /api/projects`, `DELETE /api/projects/:id`); lecturas (`GET /projects/:id/board`, `/projects/:id/tasks/:task`, `/projects/:id/git` con la rama actual y las ramas locales); operaciones semánticas (`POST /projects/:id/ops`), que corren como `human`; cambios externos (`GET /projects/:id/external`, `POST …/external/:task/confirm` y `…/revert`); y el merge de un bloque (`POST /projects/:id/blocks/:block/merge`). Las ops humanas (`reopen`, `answer`, `set-templates`, `delete-block`, `mark-merged`, cambiar trabajo hecho y borrar trabajo empezado) **solo** existen aquí.
+- **Merge de un bloque** (`git.ts`): `POST …/blocks/:block/merge` `{strategy?: "squash" | "merge"}` (por defecto `squash`). Primero comprueba el plan en seco (`mark-merged`: bloque listo y sin integrar; si no, `409 block_not_ready` o `block_merged`). Después calcula el merge sin tocar ningún árbol de trabajo (`git merge-tree --write-tree`): un conflicto responde `409 git_conflict` con los ficheros y no cambia nada. El resultado se convierte en un commit con `git commit-tree` (un padre con squash, dos con merge commit), con el mensaje de `blockCommitMessage` de `core` (nombre del bloque, sus tareas y el trailer `Konsora-Block`). Por último mueve la rama base: con `git merge --ff-only` en el worktree que la tiene abierta (git se niega, sin cambiar nada, si hay cambios locales que el merge pisaría: `409 git_dirty`), o con un `git update-ref` de compare-and-swap si no está abierta en ningún sitio. Luego registra `mark-merged` con el commit y lo anota en `approvals.jsonl`. Nunca hace push y no borra la rama del bloque. Otros errores: `git_no_branch`, `git_no_base`, `git_nothing_to_merge`, `git_not_a_repo` (422).
 - **Panel de IA** (`ChatManager`, `packages/daemon/src/chat.ts`): un chat por proyecto, en memoria. `GET /projects/:id/chat` devuelve `{chat: {messages, busy}}`; `POST /projects/:id/chat` `{text}` lanza un turno (`409 busy` si hay otro en marcha) y responde `202`; `POST …/chat/stop` lo detiene; `DELETE …/chat` lo detiene y olvida la conversación. Cada turno es un proceso `claude -p <prompt> --output-format stream-json --verbose --strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>` en la carpeta del proyecto, con `--resume <session>` a partir del segundo. El primer turno usa el prompt de entrevista de `core` (`buildPlanPrompt` con el mensaje como objetivo). El único servidor MCP es el de este checkout (`mcpCommand()`), con `KONSORA_PLAN=1`, así que el agente solo puede leer el plan y proponer o revisar propuestas. Las herramientas fuera de la lista se rechazan en modo `-p`. Nunca se pasan flags `--dangerously-*`, y Claude Code usa el login del usuario. Los textos del agente, sus llamadas a herramientas (resumidas) y los errores se añaden como mensajes y se publican como `chat.updated` `{chat}`. Las propuestas llegan al tablero por el watcher, como cualquier escritura.
 - **WS**: `board.changed` (hash nuevo y diff por tarea), `board.invalid` (errores), `board.missing` y `chat.updated`.
 - El watcher (`fs.watch` sobre `.konsora/` con un debounce de 100 ms y comparación de hash) sustituye al polling.
@@ -94,21 +97,22 @@ La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salid
 
 | Lectura | Escritura (agente) |
 |---|---|
-| `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose`, `batch` (JSON por stdin, todo o nada), `edit` / `withdraw` / `undepend` (solo propuestas), `depend`, `start`, `pause`, `note`, `ask`, `finish --summary` |
+| `status` (con los bloques), `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea] [--block]`, `batch` (JSON por stdin, todo o nada, con `blocks`), `edit` / `undepend` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `add-block`, `edit-block`, `set-block`, `start` (indica la rama del bloque), `pause`, `note`, `ask`, `finish --summary` |
 
-Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las transiciones humanas **no** están en la CLI ni en el MCP.
+Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las acciones humanas **no** están en la CLI ni en el MCP. En el MCP, los bloques son `add_block`, `edit_block` y `set_block`, y la base por defecto es la rama actual del proyecto.
 
-- **Sesión de planificación**: `konsora plan [objetivo] [--model …]` abre en la terminal una sesión interactiva de Claude Code con el prompt de entrevista de `core` y solo el MCP de Konsora con `KONSORA_PLAN=1` (`--strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>`). El panel de IA hace lo mismo en modo `-p`. En ese modo la regla de `core` (`OpContext.plan`) solo deja proponer (`propose`, `batch`) y revisar o retirar propuestas (`edit`, `withdraw`); el resto da `out_of_scope`.
+- **Sesión de planificación**: `konsora plan [objetivo] [--model …]` abre en la terminal una sesión interactiva de Claude Code con el prompt de entrevista de `core` y solo el MCP de Konsora con `KONSORA_PLAN=1` (`--strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>`). El panel de IA hace lo mismo en modo `-p`. En ese modo la regla de `core` (`OpContext.plan`) solo deja crear tareas, revisar, enlazar, pasar a `todo` o borrar las que nadie empezó y preparar bloques; el resto da `out_of_scope`.
 - **Sesión normal**: el agente usa `konsora` o el MCP de `.mcp.json`, que funcionan sin daemon, y sigue la skill.
 - Los mensajes de la CLI y el MCP están en inglés y los errores son accionables: `Error: BE-03 is blocked by BE-02. Pick another task with konsora ready…`.
 
 ## 7. UI
 
 - **Proyectos**: lista de proyectos vinculados con el estado de su plan.
-- **Tablero**: columnas por estado (`proposed`, `todo`, `doing`, `review`, `done`), *swimlanes* opcionales por grupo y arrastrar y soltar con validación de transición. Lo prohibido no se puede soltar y explica por qué. Indicadores de `blocked`, `waiting` y "cambio externo sin aprobar".
+- **Tablero**: columnas por estado (Ideas, Por hacer, En curso, Hecho), *swimlanes* opcionales por grupo y arrastrar y soltar con validación de transición. Lo prohibido no se puede soltar y explica por qué. Indicadores de `blocked`, `waiting` y "cambio externo sin aprobar".
 - **Grafo**: dependencias como DAG con disposición ELK en capas (en un worker), coloreado por estado y navegable con teclado. Seleccionar un nodo con sus dependencias selecciona ese subgrafo.
-- **Selección**: compartida entre tablero y grafo; la barra ofrece **Aprobar** las propuestas seleccionadas.
-- **Panel de tarea**: en `review`, el resumen de cierre del agente destacado; acciones humanas según el estado; descripción en markdown seguro; criterios; dependencias navegables; notas como línea de tiempo; edición del contenido y de las dependencias.
+- **Selección**: compartida entre tablero y grafo; la barra ofrece **Pasar a Por hacer** las ideas seleccionadas y **Eliminar** (con confirmación).
+- **Panel de tarea**: en `done`, el resumen de cierre del agente destacado; acciones según el estado (pasar a Por hacer, responder, reabrir, eliminar con confirmación que nombra a las dependientes); su bloque, que se cambia con un selector; descripción en markdown seguro; criterios; dependencias navegables; notas como línea de tiempo; edición del contenido y de las dependencias.
+- **Bloques** (`?view=blocks`): cada bloque con su rama → base, su progreso y sus tareas; **Hacer merge** (squash o merge commit, con confirmación) cuando está listo, con los ficheros en conflicto si git no puede; eliminar el bloque; y un formulario para crear bloques con la rama base elegida entre las ramas locales.
 - **Panel de IA**: el chat de planificación del daemon (§5), en el lateral cuando no hay una tarea abierta.
 - **Ajustes**: plantillas de tarea del proyecto.
 - **Solo lectura**: con un plan inválido, se muestran los errores y la última versión válida sin acciones.
@@ -134,3 +138,5 @@ Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las t
 | 7 | Gestor y visualizador, sin ejecutar agentes (M11) | Seguir como lanzador: duplicaba lo que los agentes ya hacen bien (worktrees, permisos, reintentos) y concentraba casi todo el código y el mantenimiento |
 | 8 | Panel de IA sobre `claude -p` con el login del usuario y solo el MCP en modo plan | API de Anthropic (coste aparte, credenciales), Agent SDK (más dependencias para lo mismo) |
 | 9 | Integración solo con Claude Code (skill + `.mcp.json`) | Varios agentes desde el principio (más superficie sin uso real todavía) |
+| 10 | Sin aprobación ni revisión por tarea (M12); el control humano está en el merge de los bloques | Aprobar cada propuesta y revisar cada tarea (demasiada ceremonia para el uso real) |
+| 11 | Merge del bloque con `merge-tree` + `commit-tree` + `ff-only`/`update-ref` | `git merge` en el árbol de trabajo (deja conflictos a medias y depende de la rama abierta), que el agente haga el merge (sin control humano) |

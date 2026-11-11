@@ -27,7 +27,7 @@ let app: ReturnType<typeof createApp>;
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "Weather" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 2 },
@@ -35,7 +35,7 @@ function plan(): TasksDocument {
       {
         id: "BE-01",
         title: "First",
-        state: "review",
+        state: "doing",
         group: "BE",
         rank: "a",
         created: { at, by: "human" },
@@ -272,7 +272,7 @@ describe("read endpoints", () => {
     const { body } = await link();
     const res = await call(`/api/projects/${body.project.id}/tasks/be-01`);
     expect(await res.json()).toMatchObject({
-      task: { id: "BE-01", state: "review" },
+      task: { id: "BE-01", state: "doing" },
       dependents: ["BE-02"],
     });
     expect((await call(`/api/projects/${body.project.id}/tasks/BE-09`)).status).toBe(404);

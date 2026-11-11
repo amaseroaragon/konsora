@@ -155,7 +155,6 @@ a {
 .k-badge--doing .k-badge__mark {
   background: currentColor;
 }
-.k-badge--review,
 .k-badge--ready {
   background: var(--k-accent-soft);
   color: var(--k-accent-soft-ink);
@@ -229,6 +228,11 @@ a {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.k-card__meta {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}
 .k-card--proposed {
   border-style: dashed;
   border-color: var(--k-proposed);
@@ -238,10 +242,6 @@ a {
 }
 .k-card--blocked .k-card__title {
   color: var(--k-ink-muted);
-}
-.k-card--review {
-  background: var(--k-accent-soft);
-  border-color: var(--k-accent);
 }
 .k-card--selected {
   outline: 2px solid var(--k-accent);
@@ -317,10 +317,6 @@ a {
 .k-state-mark--doing {
   border-color: var(--k-accent);
   background: var(--k-accent);
-}
-.k-state-mark--review {
-  border-color: var(--k-accent);
-  background: var(--k-accent-soft);
 }
 .k-state-mark--done {
   border-color: var(--k-done);

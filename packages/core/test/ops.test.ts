@@ -26,7 +26,7 @@ function task(id: string, state: TaskState, deps: string[] = [], extra: Partial<
 
 function doc(...tasks: Task[]): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "P" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 20 },
@@ -42,21 +42,19 @@ const err = (r: OpResult) => (r.ok ? "ok" : r.error.code);
 const state = (r: OpResult, id: string) => ok(r).document.tasks.find((t) => t.id === id)?.state;
 
 describe("roles", () => {
-  const d = doc(task("BE-01", "proposed"), task("BE-02", "review"), task("BE-03", "done"));
+  const d = doc(task("BE-01", "proposed"), task("BE-02", "doing"), task("BE-03", "done"));
 
   it.each([
-    ["approve", { op: "approve", task: "BE-01" }],
-    ["accept", { op: "accept", task: "BE-02" }],
-    ["send-back", { op: "send-back", task: "BE-02", feedback: "x" }],
     ["reopen", { op: "reopen", task: "BE-03" }],
-    ["set-yolo", { op: "set-yolo", task: "BE-01", value: true }],
     ["answer", { op: "answer", task: "BE-01", text: "x" }],
+    ["delete-block", { op: "delete-block", block: "cache" }],
+    ["set-templates", { op: "set-templates", templates: [] }],
   ] as [string, Op][])("an agent cannot %s", (_name, op) => {
     expect(err(applyOp(d, op, agent))).toBe("forbidden");
     expect(err(applyOp(d, op, runner))).toBe("forbidden");
   });
 
-  it("humans cannot start, finish or ask: those are agent/runner actions", () => {
+  it("humans cannot start, finish or ask: those are the agent's", () => {
     const d2 = doc(task("BE-01", "todo"), task("BE-02", "doing"));
     expect(err(applyOp(d2, { op: "start", task: "BE-01" }, human))).toBe("forbidden");
     expect(err(applyOp(d2, { op: "finish", task: "BE-02", summary: "x" }, human))).toBe(
@@ -65,11 +63,11 @@ describe("roles", () => {
     expect(err(applyOp(d2, { op: "ask", task: "BE-02", text: "?" }, human))).toBe("forbidden");
   });
 
-  it("agents edit and undepend proposals only; humans edit anything", () => {
+  it("agents edit and undepend unfinished tasks; only humans change done work", () => {
     const d2 = doc(
-      task("BE-01", "todo"),
-      task("BE-02", "proposed", ["BE-01"]),
-      task("BE-03", "todo", ["BE-01"]),
+      task("BE-01", "done"),
+      task("BE-02", "todo", ["BE-01"]),
+      task("BE-03", "done", ["BE-01"]),
     );
     expect(err(applyOp(d2, { op: "edit", task: "BE-01", changes: { title: "x" } }, agent))).toBe(
       "forbidden",
@@ -78,10 +76,10 @@ describe("roles", () => {
       ok(applyOp(d2, { op: "edit", task: "BE-02", changes: { title: "New" } }, agent)).document
         .tasks[1]?.title,
     ).toBe("New");
+    expect(err(applyOp(d2, { op: "undepend", task: "BE-02", on: "BE-01" }, agent))).toBe("ok");
     expect(err(applyOp(d2, { op: "undepend", task: "BE-03", on: "BE-01" }, agent))).toBe(
       "forbidden",
     );
-    expect(err(applyOp(d2, { op: "undepend", task: "BE-03", on: "BE-01" }, human))).toBe("ok");
     expect(
       err(applyOp(d2, { op: "edit", task: "BE-01", changes: { title: "Human edit" } }, human)),
     ).toBe("ok");
@@ -93,19 +91,22 @@ describe("roles", () => {
     expect(err(applyOp(d2, sneaky, agent))).toBe("forbidden");
   });
 
-  it("only humans may create a task directly in todo", () => {
-    const d2 = doc();
-    expect(err(applyOp(d2, { op: "propose", title: "x", group: "BE", state: "todo" }, agent))).toBe(
-      "forbidden",
-    );
-    expect(
-      state(applyOp(d2, { op: "propose", title: "x", group: "BE", state: "todo" }, human), "BE-21"),
-    ).toBe("todo");
+  it("anyone creates tasks in todo (no approval) or as ideas, and promotes ideas", () => {
+    for (const ctx of [agent, human]) {
+      expect(state(applyOp(doc(), { op: "propose", title: "x", group: "BE" }, ctx), "BE-21")).toBe(
+        "todo",
+      );
+      const idea = ok(
+        applyOp(doc(), { op: "propose", title: "x", group: "BE", state: "proposed" }, ctx),
+      ).document;
+      expect(idea.tasks[0]?.state).toBe("proposed");
+      expect(state(applyOp(idea, { op: "promote", task: "BE-21" }, ctx), "BE-21")).toBe("todo");
+    }
   });
 });
 
 describe("transitions", () => {
-  it("propose creates the next id from seq (ids never reused) as a proposal", () => {
+  it("propose creates the next id from seq (ids never reused), in todo", () => {
     const r = ok(
       applyOp(
         doc(task("BE-01", "todo")),
@@ -118,7 +119,7 @@ describe("transitions", () => {
     expect(r.document.tasks[1]).toMatchObject({
       id: "BE-21",
       title: "Cache",
-      state: "proposed",
+      state: "todo",
       created: { at, by: "agent:claude" },
       acceptance: [{ id: "ac1", text: "fast" }],
     });
@@ -127,7 +128,7 @@ describe("transitions", () => {
 
   it("start on a blocked task is rejected, naming the blockers", () => {
     const r = applyOp(
-      doc(task("BE-01", "review"), task("BE-02", "todo", ["BE-01"])),
+      doc(task("BE-01", "doing"), task("BE-02", "todo", ["BE-01"])),
       { op: "start", task: "BE-02" },
       agent,
     );
@@ -154,40 +155,27 @@ describe("transitions", () => {
     );
   });
 
-  it("finish requires a summary and moves doing → review with a summary note", () => {
+  it("finish requires a summary and moves doing → done with a summary note", () => {
     const d = doc(task("BE-01", "doing"));
     expect(err(applyOp(d, { op: "finish", task: "BE-01", summary: "  " }, agent))).toBe(
       "summary_required",
     );
     const r = ok(applyOp(d, { op: "finish", task: "BE-01", summary: "Done it" }, agent));
-    expect(r.document.tasks[0]?.state).toBe("review");
+    expect(r.document.tasks[0]?.state).toBe("done");
     expect(r.document.tasks[0]?.notes?.at(-1)).toMatchObject({ kind: "summary", text: "Done it" });
   });
 
-  it("send-back requires feedback and returns review → todo with a feedback note", () => {
-    const d = doc(task("BE-01", "review"));
-    expect(err(applyOp(d, { op: "send-back", task: "BE-01", feedback: "" }, human))).toBe(
-      "feedback_required",
-    );
-    const r = ok(applyOp(d, { op: "send-back", task: "BE-01", feedback: "Add tests" }, human));
-    expect(r.document.tasks[0]?.state).toBe("todo");
-    expect(r.document.tasks[0]?.notes?.at(-1)).toMatchObject({ kind: "feedback", by: "human" });
-  });
-
-  it("approve, accept and reopen follow the state machine", () => {
+  it("promote and reopen follow the state machine", () => {
     expect(
       state(
-        applyOp(doc(task("BE-01", "proposed")), { op: "approve", task: "BE-01" }, human),
+        applyOp(doc(task("BE-01", "proposed")), { op: "promote", task: "BE-01" }, agent),
         "BE-01",
       ),
     ).toBe("todo");
     expect(
-      state(applyOp(doc(task("BE-01", "review")), { op: "accept", task: "BE-01" }, human), "BE-01"),
-    ).toBe("done");
-    expect(
       state(applyOp(doc(task("BE-01", "done")), { op: "reopen", task: "BE-01" }, human), "BE-01"),
     ).toBe("todo");
-    expect(err(applyOp(doc(task("BE-01", "doing")), { op: "accept", task: "BE-01" }, human))).toBe(
+    expect(err(applyOp(doc(task("BE-01", "todo")), { op: "promote", task: "BE-01" }, human))).toBe(
       "invalid_transition",
     );
   });
@@ -205,15 +193,23 @@ describe("transitions", () => {
     ).toBe("invalid_transition");
   });
 
-  it("withdraw removes a proposal unless something depends on it", () => {
-    const d = doc(task("BE-01", "proposed"), task("BE-02", "proposed", ["BE-01"]));
-    expect(err(applyOp(d, { op: "withdraw", task: "BE-01" }, agent))).toBe("has_dependents");
-    expect(
-      ok(applyOp(d, { op: "withdraw", task: "BE-02" }, agent)).document.tasks.map((t) => t.id),
-    ).toEqual(["BE-01"]);
-    expect(err(applyOp(doc(task("BE-01", "todo")), { op: "withdraw", task: "BE-01" }, human))).toBe(
-      "invalid_transition",
-    );
+  it("delete removes a task and drops it from its dependents, with a note", () => {
+    const d = doc(task("BE-01", "doing"), task("BE-02", "todo", ["BE-01"]), task("BE-03", "todo"));
+    const r = ok(applyOp(d, { op: "delete", task: "BE-01" }, human));
+    expect(r.document.tasks.map((t) => t.id)).toEqual(["BE-02", "BE-03"]);
+    expect(r.document.tasks[0]?.deps).toBeUndefined();
+    expect(r.document.tasks[0]?.notes?.at(-1)?.text).toBe("Dependency BE-01 (BE-01) was deleted.");
+    expect(r.changed.sort()).toEqual(["BE-01", "BE-02"]);
+    expect(r.document.seq.BE).toBe(20); // the id is never reused
+  });
+
+  it("agents only delete tasks nobody started; humans delete any", () => {
+    const d = doc(task("BE-01", "proposed"), task("BE-02", "todo"), task("BE-03", "doing"));
+    expect(err(applyOp(d, { op: "delete", task: "BE-01" }, agent))).toBe("ok");
+    expect(err(applyOp(d, { op: "delete", task: "BE-02" }, agent))).toBe("ok");
+    expect(err(applyOp(d, { op: "delete", task: "BE-03" }, agent))).toBe("forbidden");
+    expect(err(applyOp(d, { op: "delete", task: "BE-03" }, human))).toBe("ok");
+    expect(err(applyOp(d, { op: "delete", task: "BE-09" }, human))).toBe("not_found");
   });
 
   it("depend rejects cycles and done tasks; adding an existing dep is a no-op", () => {
@@ -270,42 +266,113 @@ describe("transitions", () => {
   });
 });
 
-describe("YOLO", () => {
-  const d = doc(
-    task("BE-01", "proposed"),
-    task("BE-02", "proposed", ["BE-01"]),
-    task("BE-03", "proposed", ["BE-02"]),
-  );
+describe("blocks", () => {
+  const block = { id: "cache", name: "Forecast cache", base: "main" };
+  const withBlock = (...tasks: Task[]) =>
+    ok(applyOp(doc(...tasks), { op: "add-block", ...block }, agent)).document;
 
-  it("turning YOLO on approves the chain's proposals", () => {
-    const r = ok(applyOp(d, { op: "set-yolo", task: "BE-03", value: true }, human)).document;
-    expect(r.tasks.map((t) => t.state)).toEqual(["todo", "todo", "todo"]);
-    expect(r.tasks[2]?.yolo).toBe(true);
+  it("add-block creates it with a default branch; ids are unique", () => {
+    const d = withBlock();
+    expect(d.blocks).toEqual([
+      { ...block, branch: "konsora/cache", created: { at, by: "agent:claude" } },
+    ]);
+    expect(err(applyOp(d, { op: "add-block", ...block }, agent))).toBe("invalid");
+    const named = ok(
+      applyOp(doc(), { op: "add-block", ...block, branch: "feat/cache" }, human),
+    ).document;
+    expect(named.blocks?.[0]?.branch).toBe("feat/cache");
   });
 
-  it("intermediate tasks finish straight to done; the YOLO task goes to review and YOLO ends", () => {
-    let cur = ok(applyOp(d, { op: "set-yolo", task: "BE-03", value: true }, human)).document;
-    for (const id of ["BE-01", "BE-02"]) {
-      cur = ok(applyOp(cur, { op: "start", task: id }, runner)).document;
-      cur = ok(applyOp(cur, { op: "finish", task: id, summary: "ok" }, runner)).document;
-      expect(cur.tasks.find((t) => t.id === id)?.state).toBe("done");
-    }
-    cur = ok(applyOp(cur, { op: "start", task: "BE-03" }, runner)).document;
-    cur = ok(applyOp(cur, { op: "finish", task: "BE-03", summary: "ok" }, runner)).document;
-    expect(cur.tasks[2]).toMatchObject({ state: "review" });
-    expect(cur.tasks[2]?.yolo).toBeUndefined();
+  it("tasks join a block when created, in a batch with new blocks, or with set-block", () => {
+    const d = withBlock(task("BE-01", "todo"));
+    const created = ok(
+      applyOp(d, { op: "propose", title: "A", group: "BE", block: "cache" }, agent),
+    ).document;
+    expect(created.tasks.at(-1)?.block).toBe("cache");
+    const batch = ok(
+      applyOp(
+        doc(),
+        {
+          op: "batch",
+          blocks: [{ id: "ui", name: "UI", base: "main" }],
+          tasks: [
+            { title: "A", group: "BE", block: "ui" },
+            { title: "B", group: "BE", block: "ui", deps: ["A"] },
+          ],
+        },
+        agent,
+      ),
+    ).document;
+    expect(batch.tasks.map((t) => t.block)).toEqual(["ui", "ui"]);
+    const moved = ok(applyOp(d, { op: "set-block", task: "BE-01", block: "cache" }, agent));
+    expect(moved.document.tasks[0]?.block).toBe("cache");
+    const out = ok(applyOp(moved.document, { op: "set-block", task: "BE-01", block: null }, agent));
+    expect(out.document.tasks[0]?.block).toBeUndefined();
+    expect(err(applyOp(d, { op: "set-block", task: "BE-01", block: "nope" }, agent))).toBe(
+      "unknown_block",
+    );
+    expect(
+      err(applyOp(doc(), { op: "propose", title: "A", group: "BE", block: "nope" }, agent)),
+    ).toBe("unknown_block");
+  });
+
+  it("mark-merged needs every task done, is the human's, and closes the block", () => {
+    let d = withBlock(task("BE-01", "done"), task("BE-02", "doing"));
+    d = ok(applyOp(d, { op: "set-block", task: "BE-01", block: "cache" }, human)).document;
+    d = ok(applyOp(d, { op: "set-block", task: "BE-02", block: "cache" }, agent)).document;
+    const merge: Op = {
+      op: "mark-merged",
+      block: "cache",
+      commit: "a".repeat(40),
+      strategy: "squash",
+    };
+    expect(err(applyOp(d, merge, human))).toBe("block_not_ready");
+    d = ok(applyOp(d, { op: "finish", task: "BE-02", summary: "ok" }, agent)).document;
+    expect(err(applyOp(d, merge, agent))).toBe("forbidden");
+    const merged = ok(applyOp(d, merge, human)).document;
+    expect(merged.blocks?.[0]?.merged).toEqual({
+      at,
+      by: "human",
+      commit: "a".repeat(40),
+      strategy: "squash",
+    });
+    expect(err(applyOp(merged, merge, human))).toBe("block_merged");
+    expect(err(applyOp(merged, { op: "reopen", task: "BE-01" }, human))).toBe("block_merged");
+    expect(err(applyOp(merged, { op: "set-block", task: "BE-01", block: null }, human))).toBe(
+      "block_merged",
+    );
+    expect(err(applyOp(merged, { op: "delete", task: "BE-01" }, human))).toBe("block_merged");
+    expect(
+      err(applyOp(merged, { op: "propose", title: "Late", group: "BE", block: "cache" }, agent)),
+    ).toBe("block_merged");
+  });
+
+  it("edit-block and delete-block work until it is merged; deleting keeps its tasks", () => {
+    let d = withBlock(task("BE-01", "todo"));
+    d = ok(applyOp(d, { op: "set-block", task: "BE-01", block: "cache" }, agent)).document;
+    const edited = ok(
+      applyOp(
+        d,
+        { op: "edit-block", block: "cache", changes: { name: "Cache", base: "dev" } },
+        agent,
+      ),
+    ).document;
+    expect(edited.blocks?.[0]).toMatchObject({ name: "Cache", base: "dev" });
+    const gone = ok(applyOp(edited, { op: "delete-block", block: "cache" }, human)).document;
+    expect(gone.blocks).toBeUndefined();
+    expect(gone.tasks[0]?.block).toBeUndefined();
   });
 });
 
 describe("preconditions (per-task hashes)", () => {
-  const base = doc(task("BE-01", "review"), task("BE-02", "todo"));
+  const base = doc(task("BE-01", "proposed"), task("BE-02", "todo"));
 
   it("an op whose task changed returns conflict with the current task", () => {
     const seen = taskHash(base.tasks[0] as Task);
     const changed = ok(
       applyOp(base, { op: "note", task: "BE-01", text: "meanwhile" }, agent),
     ).document;
-    const r = applyOp(changed, { op: "accept", task: "BE-01", expect: { "BE-01": seen } }, human);
+    const r = applyOp(changed, { op: "promote", task: "BE-01", expect: { "BE-01": seen } }, human);
     expect(r.ok ? null : r.error).toMatchObject({
       code: "conflict",
       task: "BE-01",
@@ -318,15 +385,15 @@ describe("preconditions (per-task hashes)", () => {
     const other = ok(applyOp(base, { op: "start", task: "BE-02" }, agent)).document;
     expect(
       state(
-        applyOp(other, { op: "accept", task: "BE-01", expect: { "BE-01": seen } }, human),
+        applyOp(other, { op: "promote", task: "BE-01", expect: { "BE-01": seen } }, human),
         "BE-01",
       ),
-    ).toBe("done");
+    ).toBe("todo");
   });
 
   it("a task that disappeared is a conflict too", () => {
     expect(
-      err(applyOp(base, { op: "accept", task: "BE-01", expect: { "BE-09": "sha256:x" } }, human)),
+      err(applyOp(base, { op: "promote", task: "BE-01", expect: { "BE-09": "sha256:x" } }, human)),
     ).toBe("conflict");
   });
 });
@@ -346,7 +413,13 @@ describe("properties", () => {
       fc.record({ op: fc.constant("finish" as const), task: id, summary: textArb }),
       fc.record({ op: fc.constant("note" as const), task: id, text: textArb }),
       fc.record({ op: fc.constant("ask" as const), task: id, text: textArb }),
-      fc.record({ op: fc.constant("withdraw" as const), task: id }),
+      fc.record({ op: fc.constant("delete" as const), task: id }),
+      fc.record({ op: fc.constant("promote" as const), task: id }),
+      fc.record({
+        op: fc.constant("set-block" as const),
+        task: id,
+        block: fc.constantFrom("cache", null),
+      }),
       fc.record({ op: fc.constant("depend" as const), task: id, on: id }),
       fc.record({ op: fc.constant("undepend" as const), task: id, on: id }),
       fc.record({
@@ -355,10 +428,8 @@ describe("properties", () => {
         changes: fc.constant({ title: "edited" }),
       }),
       // Human-only ops must also be refused when an agent tries them.
-      fc.record({ op: fc.constant("approve" as const), task: id }),
-      fc.record({ op: fc.constant("accept" as const), task: id }),
       fc.record({ op: fc.constant("reopen" as const), task: id }),
-      fc.record({ op: fc.constant("set-yolo" as const), task: id, value: fc.boolean() }),
+      fc.record({ op: fc.constant("answer" as const), task: id, text: fc.constant("x") }),
       fc.record({
         op: fc.constant("set-templates" as const),
         templates: fc.constant([{ id: "bug", name: "Bug" }]),
@@ -366,15 +437,10 @@ describe("properties", () => {
     ) as fc.Arbitrary<Op>;
   };
 
-  const withoutYolo = documentArb.map((d) => ({
-    ...d,
-    tasks: d.tasks.map(({ yolo: _y, ...t }) => t),
-  }));
-
-  it("no sequence of agent ops ever yields proposed→todo or →done, and results stay valid", () => {
+  it("agents never touch done work and reach done only by finishing; results stay valid", () => {
     fc.assert(
       fc.property(
-        withoutYolo.chain((d) =>
+        documentArb.chain((d) =>
           fc.tuple(fc.constant(d), fc.array(agentOps(d.tasks.map((t) => t.id)), { maxLength: 25 })),
         ),
         fc.constantFrom<OpContext>(agent, runner),
@@ -383,15 +449,15 @@ describe("properties", () => {
           for (const op of ops) {
             const r = applyOp(cur, op, ctx);
             if (!r.ok) continue;
-            const before = new Map(cur.tasks.map((t) => [t.id, t.state]));
+            const before = new Map(cur.tasks.map((t) => [t.id, t]));
             for (const t of r.document.tasks) {
               const prev = before.get(t.id);
-              if (prev === undefined) expect(t.state).toBe("proposed");
-              else {
-                expect(prev === "proposed" && t.state === "todo").toBe(false);
-                if (prev !== "done") expect(t.state).not.toBe("done");
-              }
+              if (prev === undefined) expect(t.state).toBe("todo");
+              else if (prev.state === "done") expect(t).toEqual(prev);
+              else if (t.state === "done") expect([prev.state, op.op]).toEqual(["doing", "finish"]);
             }
+            for (const prev of cur.tasks.filter((t) => t.state === "done"))
+              expect(r.document.tasks.some((t) => t.id === prev.id)).toBe(true);
             expect(validateDocument(r.document).ok).toBe(true);
             cur = r.document;
           }
@@ -418,12 +484,12 @@ describe("properties", () => {
 
 describe("restore (human-only revert)", () => {
   it("puts back a previous version, or re-adds a deleted task; agents cannot", () => {
-    const original = task("BE-01", "review");
+    const original = task("BE-01", "todo");
     const changed = doc({ ...original, state: "done", title: "Hand edit" });
     const restored = ok(
       applyOp(changed, { op: "restore", task: "BE-01", version: original }, human),
     ).document;
-    expect(restored.tasks[0]).toMatchObject({ state: "review", title: "BE-01", updated_at: at });
+    expect(restored.tasks[0]).toMatchObject({ state: "todo", title: "BE-01", updated_at: at });
     expect(
       ok(applyOp(doc(), { op: "restore", task: "BE-01", version: original }, human)).document.tasks,
     ).toHaveLength(1);
@@ -573,37 +639,40 @@ describe("planning sessions (CLI-05)", () => {
   const planner: OpContext = { ...agent, plan: true };
   const d = doc(task("BE-01", "todo"), task("BE-02", "proposed"), task("BE-03", "doing"));
 
-  it("lets the agent propose and revise or withdraw proposals", () => {
-    expect(err(applyOp(d, { op: "propose", title: "N", group: "BE" }, planner))).toBe("ok");
-    expect(err(applyOp(d, { op: "batch", tasks: [{ title: "N", group: "BE" }] }, planner))).toBe(
-      "ok",
-    );
-    expect(
-      err(applyOp(d, { op: "edit", task: "BE-02", changes: { title: "Better" } }, planner)),
-    ).toBe("ok");
-    expect(err(applyOp(d, { op: "withdraw", task: "BE-02" }, planner))).toBe("ok");
+  it("lets the agent create, revise and delete tasks nobody started, and set up blocks", () => {
+    const allowed: Op[] = [
+      { op: "propose", title: "N", group: "BE" },
+      { op: "batch", tasks: [{ title: "N", group: "BE" }] },
+      { op: "edit", task: "BE-01", changes: { title: "Better" } },
+      { op: "edit", task: "BE-02", changes: { title: "Better" } },
+      { op: "depend", task: "BE-02", on: "BE-01" },
+      { op: "promote", task: "BE-02" },
+      { op: "delete", task: "BE-02" },
+      { op: "add-block", id: "cache", name: "Cache", base: "main" },
+    ];
+    for (const op of allowed) expect(err(applyOp(d, op, planner)), op.op).toBe("ok");
   });
 
-  it("refuses everything else, and any change to approved work", () => {
+  it("refuses everything else, and any change to started work", () => {
     const refused: Op[] = [
       { op: "start", task: "BE-01" },
       { op: "note", task: "BE-02", text: "x" },
-      { op: "note", task: "BE-03", text: "x" },
       { op: "ask", task: "BE-03", text: "x" },
       { op: "finish", task: "BE-03", summary: "x" },
       { op: "pause", task: "BE-03" },
-      { op: "depend", task: "BE-02", on: "BE-01" },
-      { op: "undepend", task: "BE-02", on: "BE-01" },
       { op: "add-group", id: "OPS", name: "Ops" },
-      { op: "edit", task: "BE-01", changes: { title: "Hijack" } },
-      { op: "withdraw", task: "BE-03" },
+      { op: "edit", task: "BE-03", changes: { title: "Hijack" } },
+      { op: "delete", task: "BE-03" },
     ];
     for (const op of refused) expect(err(applyOp(d, op, planner)), op.op).toBe("out_of_scope");
     const r = applyOp(d, { op: "start", task: "BE-01" }, planner);
     expect(r.ok ? "" : r.error.message).toContain("planning session");
   });
 
-  it("does not limit humans or Konsora", () => {
-    expect(err(applyOp(d, { op: "approve", task: "BE-02" }, { ...human, plan: true }))).toBe("ok");
+  it("does not limit humans", () => {
+    expect(err(applyOp(d, { op: "reopen", task: "BE-03" }, { ...human, plan: true }))).toBe(
+      "invalid_transition",
+    );
+    expect(err(applyOp(d, { op: "delete", task: "BE-03" }, { ...human, plan: true }))).toBe("ok");
   });
 });

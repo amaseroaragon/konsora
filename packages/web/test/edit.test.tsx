@@ -34,7 +34,7 @@ const groups = [
   { id: "FE", name: "Frontend" },
 ];
 const doc: TasksDocument = {
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "P" },
   groups,
   seq: { BE: 3 },

@@ -397,10 +397,11 @@ export async function initTasks(root: string, doc: TasksDocument): Promise<InitR
 
 export const BACKUP_V1_FILE = "tasks.v1.json.bak";
 export const BACKUP_V2_FILE = "tasks.v2.json.bak";
+export const BACKUP_V3_FILE = "tasks.v3.json.bak";
 export const LEGACY_HISTORY_FILE = join("legacy", "v1-history.json");
 
 /**
- * Replaces an old `tasks.json` (v1 or v2) with its migrated v3 text, under the lock. Refuses if
+ * Replaces an old `tasks.json` (v1, v2 or v3) with its migrated v4 text, under the lock. Refuses if
  * the file changed since `expectedText` was read, or if the backup or history file already exist.
  * Order: backup → history (v1 only) → atomic replace, so a crash never loses the original.
  */
@@ -411,7 +412,7 @@ export async function writeMigration(
     | {
         expectedText: string;
         text: string;
-        from: "v2";
+        from: "v2" | "v3";
       },
   options: StoreOptions = {},
 ): Promise<{ ok: true; backup: string; history?: string } | { ok: false; error: StoreError }> {
@@ -442,9 +443,10 @@ export async function writeMigration(
         await handle.close();
       }
     };
-    const backup = join(dir, input.from === "v1" ? BACKUP_V1_FILE : BACKUP_V2_FILE);
+    const backupFile = { v1: BACKUP_V1_FILE, v2: BACKUP_V2_FILE, v3: BACKUP_V3_FILE }[input.from];
+    const backup = join(dir, backupFile);
     await exclusive(backup, current);
-    if (input.from === "v2") {
+    if (input.from !== "v1") {
       await writeAtomically(root, input.text);
       return { ok: true, backup };
     }

@@ -35,7 +35,7 @@ const t = (
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "Weather" },
     groups: [
       { id: "BE", name: "Backend" },
@@ -44,7 +44,7 @@ function plan(): TasksDocument {
     seq: { BE: 4, FE: 1 },
     tasks: [
       t("BE-01", "done"),
-      t("BE-02", "review", ["BE-01"]),
+      t("BE-02", "doing", ["BE-01"]),
       t("BE-03", "todo", ["BE-02"]),
       t("BE-04", "todo", ["BE-01"], {
         desc: "Cache responses.",
@@ -91,7 +91,7 @@ describe("init", () => {
     expect(r.stdout).toContain('Created .konsora/tasks.json (project "Weather", group BE)');
     const doc = JSON.parse(readFileSync(join(dir, ".konsora", "tasks.json"), "utf8"));
     expect(doc).toEqual({
-      schema: "konsora/3",
+      schema: "konsora/4",
       project: { name: "Weather" },
       groups: [{ id: "BE", name: "Backend" }],
       seq: { BE: 0 },
@@ -148,12 +148,12 @@ describe("read commands", () => {
     const r = await run(["status"]);
     expect(r.code).toBe(EXIT.ok);
     expect(r.stdout).toContain("Weather · .konsora/tasks.json · 5 tasks in 2 groups");
-    expect(r.stdout).toContain("proposed 1   todo 2   doing 0   review 1   done 1");
+    expect(r.stdout).toContain("proposed 1   todo 2   doing 1   done 1");
     expect(r.stdout).toContain("ready 1 · blocked 1 · waiting 1");
     expect(r.stdout).toMatch(/Waiting for an answer:\n {2}BE-04/);
-    expect(r.stdout).toMatch(/In review \(needs a human\):\n {2}BE-02/);
+    expect(r.stdout).toMatch(/Doing:\n {2}BE-02/);
     expect(r.stdout).toMatch(/Ready to start:\n {2}BE-04/);
-    expect(r.stdout).toMatch(/Proposed \(needs approval\):\n {2}FE-01/);
+    expect(r.stdout).toMatch(/Ideas \(proposed; anyone can promote them to todo\):\n {2}FE-01/);
   });
 
   it("status --json", async () => {
@@ -164,12 +164,12 @@ describe("read commands", () => {
         { id: "FE", name: "Frontend" },
       ],
       tasks: 5,
-      byState: { proposed: 1, todo: 2, doing: 0, review: 1, done: 1 },
+      byState: { proposed: 1, todo: 2, doing: 1, done: 1 },
       ready: ["BE-04"],
       blocked: ["BE-03"],
       waiting: ["BE-04"],
-      review: ["BE-02"],
       proposed: ["FE-01"],
+      blocks: [],
     });
   });
 

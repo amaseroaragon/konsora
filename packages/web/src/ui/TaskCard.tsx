@@ -12,6 +12,8 @@ export type TaskCardProps = {
   /** An unapproved change made outside Konsora is pending on this task. */
   external?: boolean;
   proposedBy?: string;
+  /** The block it belongs to, shown as a mono tag. */
+  block?: string;
   selected?: boolean;
   /** Whether the checkbox can be ticked; defaults to ready tasks only. */
   selectable?: boolean;
@@ -28,6 +30,7 @@ export function TaskCard({
   waiting = false,
   external = false,
   proposedBy,
+  block,
   selected = false,
   selectable,
   onSelectedChange,
@@ -42,7 +45,6 @@ export function TaskCard({
       className={cx(
         "k-card",
         state === "proposed" && "k-card--proposed",
-        state === "review" && "k-card--review",
         blocked && "k-card--blocked",
         external && "k-card--external",
         selected && "k-card--selected",
@@ -84,6 +86,7 @@ export function TaskCard({
           title
         )}
       </h3>
+      {block && <div className="k-card__meta">{block}</div>}
     </article>
   );
 }

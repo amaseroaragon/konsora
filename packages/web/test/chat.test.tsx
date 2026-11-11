@@ -27,7 +27,7 @@ describe("AI panel", () => {
   it("explains what it does before the first message", () => {
     const html = render({ messages: [], busy: false });
     expect(html).toContain("Planificar con IA");
-    expect(html).toContain("solo puede proponer");
+    expect(html).toContain("solo puede planificar");
     expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Enviar/);
     expect(html).not.toContain("Empezar de nuevo");
   });

@@ -1,14 +1,15 @@
 /**
- * `konsora migrate`: v1 (schema_version 1) or konsora/2 → konsora/3. Dry-run unless --write.
- * From v2 it drops the run-only fields (agents, checks, setup, reviewer…) and reports them.
+ * `konsora migrate`: v1 (schema_version 1), konsora/2 or konsora/3 → konsora/4. Dry-run unless
+ * --write. From v2 it drops the run-only fields; from v2 and v3, review becomes done and YOLO goes.
  */
 import { readFile } from "node:fs/promises";
 import { basename, relative } from "node:path";
 import {
   isV1,
   isV2,
+  isV3,
+  migratePlan,
   migrateV1,
-  migrateV2,
   parseJsonText,
   SCHEMA_VERSION,
   serializeDocument,
@@ -16,6 +17,7 @@ import {
 import {
   BACKUP_V1_FILE,
   BACKUP_V2_FILE,
+  BACKUP_V3_FILE,
   LEGACY_HISTORY_FILE,
   tasksPath,
   writeMigration,
@@ -39,7 +41,7 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
   program
     .command("migrate")
     .description(
-      `convert an older tasks.json (v1 or konsora/2) to ${SCHEMA_VERSION} — preview by default`,
+      `convert an older tasks.json (v1, konsora/2 or konsora/3) to ${SCHEMA_VERSION} — preview by default`,
     )
     .option("--write", "apply the migration (backs up the original first)")
     .option("--name <name>", "project name, for v1 plans (default: folder name)")
@@ -61,23 +63,24 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
         return;
       }
 
-      if (isV2(parsed.value)) {
-        const result = migrateV2(parsed.value);
+      if (isV2(parsed.value) || isV3(parsed.value)) {
+        const result = migratePlan(parsed.value, { at: timestamp(io) });
         if (!result.ok) throw new CliError(result.message);
         const { report } = result;
+        const from = report.from === "konsora/2" ? "v2" : "v3";
         if (opts.write) {
           check(
             await writeMigration(root, {
               expectedText: text,
               text: serializeDocument(result.document),
-              from: "v2",
+              from,
             }),
           );
         }
         if (opts.json) {
           json(io, {
             ok: true,
-            from: "konsora/2",
+            from: report.from,
             migrated: Boolean(opts.write),
             report,
             ...(opts.write ? {} : { preview: result.document }),
@@ -86,9 +89,9 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
         }
         const dropped = Object.entries(report.dropped);
         const lines = [
-          `${opts.write ? "Migrated" : "Migration preview for"} ${rel(path)}: konsora/2 → ${SCHEMA_VERSION}, ${report.tasks} tasks`,
+          `${opts.write ? "Migrated" : "Migration preview for"} ${rel(path)}: ${report.from} → ${SCHEMA_VERSION}, ${report.tasks} tasks`,
           "",
-          dropped.length ? "Dropped run-only fields:" : "No run-only fields to drop.",
+          dropped.length ? "Dropped fields:" : "No fields to drop.",
           ...dropped.map(([field, count]) => `  ${field.padEnd(40)} ${count}`),
         ];
         if (report.reviewNotes)
@@ -96,9 +99,14 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
             "",
             `Review notes kept as plain notes, with their verdict: ${report.reviewNotes}`,
           );
+        if (report.reviewToDone.length)
+          lines.push(
+            "",
+            `In review → done (v4 has no review step): ${report.reviewToDone.join(", ")}`,
+          );
         lines.push(
           "",
-          `Backup of the original: ${sibling(BACKUP_V2_FILE)}`,
+          `Backup of the original: ${sibling(from === "v2" ? BACKUP_V2_FILE : BACKUP_V3_FILE)}`,
           "",
           opts.write
             ? "Done. Review the result with `konsora status`."
@@ -110,7 +118,7 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
 
       if (!isV1(parsed.value))
         throw new CliError(
-          `${path} is neither ${SCHEMA_VERSION}, konsora/2 nor v1 (schema_version 1).`,
+          `${path} is neither ${SCHEMA_VERSION}, konsora/3, konsora/2 nor v1 (schema_version 1).`,
         );
       const result = migrateV1(parsed.value, {
         name: opts.name ?? basename(root),

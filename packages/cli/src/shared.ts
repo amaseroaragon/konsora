@@ -1,6 +1,7 @@
 /** Helpers shared by the CLI commands: I/O, errors, plan discovery and loading. */
+import { execFileSync } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
-import type { TasksDocument } from "@konsora/core";
+import { DEFAULT_BASE_BRANCH, type TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError, tasksPath } from "@konsora/core/store";
 import { issuesText } from "./format.ts";
 import { type Channel, HINTS, type Hint } from "./hints.ts";
@@ -89,4 +90,19 @@ export async function load(
 
 export function json(io: Io, value: unknown) {
   io.stdout(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+/** The branch checked out in `root`, the default base of a new block (`main` when unknown). */
+export function defaultBase(root: string): string {
+  try {
+    const name = execFileSync("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], {
+      cwd: root,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+    return name || DEFAULT_BASE_BRANCH;
+  } catch {
+    return DEFAULT_BASE_BRANCH;
+  }
 }

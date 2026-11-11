@@ -4,7 +4,9 @@ import { type BoardOk, type LiveState, toDocument, useTaskAction } from "../api/
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
+import { BlocksView } from "./BlocksView.tsx";
 import { Board } from "./Board.tsx";
+import { confirmDelete } from "./board-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
@@ -60,6 +62,7 @@ const LIVE_KEYS: Record<LiveState, MessageKey> = {
 const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
   board: "app.view.board",
   graph: "app.view.graph",
+  blocks: "app.view.blocks",
   settings: "app.view.settings",
 };
 
@@ -93,7 +96,7 @@ export function ProjectView({
     setChatOpen(!chatOpen);
     writeChatPref(!chatOpen);
   };
-  const approve = useTaskAction(projectId);
+  const action = useTaskAction(projectId);
   const [creating, setCreating] = useState(false);
   const selection = useSelection(projectId);
   const selectedIds = visibleSelection(selection.selected, board.tasks);
@@ -125,28 +128,36 @@ export function ProjectView({
     [projectId, view, openId],
   );
   const open = useCallback((id: string) => go({ task: id }), [go]);
-  const approvable = selectedIds.filter(
-    (id) => !readOnly && board.tasks.find((task) => task.id === id)?.state === "proposed",
-  );
-  /** Approves the selected proposals one after another; the ones refused stay selected. */
-  const approveSelected = async (ids: readonly string[]) => {
+  const stateOf = (id: string) => board.tasks.find((task) => task.id === id)?.state;
+  const promotable = readOnly ? [] : selectedIds.filter((id) => stateOf(id) === "proposed");
+  const deletable = readOnly ? [] : selectedIds;
+  /** Runs one action on each selected task in turn; the ones refused stay selected. */
+  const runSelected = async (kind: "promote" | "delete", ids: readonly string[]) => {
+    if (kind === "delete") {
+      const dependents = doc.tasks
+        .filter((task) => task.deps?.some((dep) => ids.includes(dep)) && !ids.includes(task.id))
+        .map((task) => task.id);
+      if (!confirmDelete(ids.join(", "), dependents, (question) => window.confirm(question)))
+        return;
+    }
     const refused: string[] = [];
     for (const id of ids) {
       const task = board.tasks.find((x) => x.id === id);
       if (!task) continue;
       try {
-        await approve.mutateAsync({ task, action: "approve" });
+        await action.mutateAsync({ task, action: kind });
       } catch (error) {
         if (error instanceof ApiError && error.unauthorized) return;
         refused.push(id);
-        toast.show(
-          t("selection.approve.error", { id, message: (error as Error).message }),
-          "error",
-        );
+        toast.show(t("selection.error", { id, message: (error as Error).message }), "error");
       }
     }
-    const approved = ids.length - refused.length;
-    if (approved > 0) toast.show(t("selection.approve.done", { n: approved }), "success");
+    const done = ids.length - refused.length;
+    if (done > 0)
+      toast.show(
+        t(kind === "promote" ? "selection.promote.done" : "selection.delete.done", { n: done }),
+        "success",
+      );
     dispatchSelection({ type: "clear" });
     if (refused.length > 0) dispatchSelection({ type: "add", ids: refused });
   };
@@ -229,7 +240,15 @@ export function ProjectView({
           <div
             className={view === "graph" ? "b-layout__main b-layout__main--graph" : "b-layout__main"}
           >
-            {board.tasks.length === 0 ? (
+            {view === "blocks" ? (
+              <BlocksView
+                projectId={projectId}
+                doc={doc}
+                tasks={board.tasks}
+                readOnly={readOnly}
+                onOpen={open}
+              />
+            ) : board.tasks.length === 0 ? (
               <p className="s-text s-muted">{t("board.empty")}</p>
             ) : view === "graph" ? (
               <Graph
@@ -288,10 +307,12 @@ export function ProjectView({
       {selectedIds.length > 0 && (
         <SelectionBar
           ids={selectedIds}
-          approvable={approvable}
+          promotable={promotable}
+          deletable={deletable}
           readOnly={readOnly}
-          busy={approve.isPending}
-          onApprove={(ids) => void approveSelected(ids)}
+          busy={action.isPending}
+          onPromote={(ids) => void runSelected("promote", ids)}
+          onDelete={(ids) => void runSelected("delete", ids)}
           onClear={() => dispatchSelection({ type: "clear" })}
         />
       )}

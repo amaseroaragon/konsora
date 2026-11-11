@@ -20,13 +20,13 @@ const t = (id: string, state: Task["state"], deps: string[] = []): Task => ({
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "P" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 5 },
     tasks: [
       t("BE-01", "done"),
-      t("BE-02", "review", ["BE-01"]),
+      t("BE-02", "doing", ["BE-01"]),
       t("BE-03", "todo", ["BE-02"]),
       t("BE-04", "todo", ["BE-01"]),
       t("BE-05", "proposed"),
@@ -96,7 +96,7 @@ describe("attribution", () => {
 });
 
 describe("planning commands", () => {
-  it("propose creates a proposal with criteria, deps and labels", async () => {
+  it("propose creates a todo task with criteria, deps and labels; --idea creates an idea", async () => {
     const r = await run([
       "propose",
       "Add caching",
@@ -114,9 +114,9 @@ describe("planning commands", () => {
       "perf",
     ]);
     expect(r.code).toBe(EXIT.ok);
-    expect(r.stdout).toBe("Proposed BE-06: Add caching\nIt is waiting for human approval.\n");
+    expect(r.stdout).toBe("Created BE-06: Add caching (todo).\n");
     expect(task("BE-06")).toMatchObject({
-      state: "proposed",
+      state: "todo",
       desc: "Cache it",
       deps: ["BE-01"],
       labels: ["perf"],
@@ -125,6 +125,11 @@ describe("planning commands", () => {
         { id: "ac2", text: "Correct" },
       ],
     });
+    const idea = await run(["propose", "Maybe later", "--group", "BE", "--idea"]);
+    expect(idea.stdout).toContain("Created idea BE-07");
+    expect(task("BE-07").state).toBe("proposed");
+    expect((await run(["promote", "BE-07"])).stdout).toBe("Promoted BE-07 to todo.\n");
+    expect(task("BE-07").state).toBe("todo");
   });
 
   it("batch from stdin creates groups and resolves deps by earlier titles", async () => {
@@ -137,8 +142,8 @@ describe("planning commands", () => {
     });
     const r = await run(["batch", "--as", "claude"], { stdin: input });
     expect(r.code).toBe(EXIT.ok);
-    expect(r.stdout).toContain("Proposed 2 task(s):\n  BE-06     API endpoint\n  FE-01     Screen");
-    expect(task("FE-01")).toMatchObject({ state: "proposed", deps: ["BE-06"] });
+    expect(r.stdout).toContain("Created 2 task(s):\n  BE-06     API endpoint\n  FE-01     Screen");
+    expect(task("FE-01")).toMatchObject({ state: "todo", deps: ["BE-06"] });
   });
 
   it.each([
@@ -241,11 +246,11 @@ describe("planning commands", () => {
     expect(task("BE-06").title).toBe("From file");
   });
 
-  it("edit, depend, undepend and withdraw work on proposals only", async () => {
+  it("edit, depend, undepend and delete work on unfinished tasks only", async () => {
     expect(
-      (await run(["edit", "BE-05", "--title", "Better title", "--criterion", "Works"])).code,
+      (await run(["edit", "BE-04", "--title", "Better title", "--criterion", "Works"])).code,
     ).toBe(EXIT.ok);
-    expect(task("BE-05")).toMatchObject({
+    expect(task("BE-04")).toMatchObject({
       title: "Better title",
       acceptance: [{ id: "ac1", text: "Works" }],
     });
@@ -253,14 +258,48 @@ describe("planning commands", () => {
     expect((await run(["undepend", "BE-05", "BE-04"])).code).toBe(EXIT.ok);
     expect(task("BE-05").deps).toBeUndefined();
 
-    const approved = await run(["edit", "BE-04", "--title", "Hijack"]);
-    expect(approved.code).toBe(EXIT.failure);
-    expect(approved.stderr).toContain("only humans can change approved work");
-    expect(approved.stderr).toContain("Hint: Agents propose, start, note, ask and finish");
+    const finished = await run(["edit", "BE-01", "--title", "Hijack"]);
+    expect(finished.code).toBe(EXIT.failure);
+    expect(finished.stderr).toContain("only humans can change finished work");
+    expect(finished.stderr).toContain("Hint: Agents create, start, note, ask and finish");
 
-    expect((await run(["withdraw", "BE-05"])).stdout).toBe("Withdrew BE-05.\n");
+    expect((await run(["delete", "BE-05"])).stdout).toBe("Deleted BE-05.\n");
     expect(doc().tasks.map((x) => x.id)).not.toContain("BE-05");
-    expect((await run(["withdraw", "BE-04"])).code).toBe(EXIT.failure);
+    expect((await run(["delete", "BE-02"])).code).toBe(EXIT.failure); // doing: the human's
+    expect((await run(["delete", "BE-03"])).code).toBe(EXIT.ok);
+  });
+
+  it("add-block, set-block and propose --block put tasks in a branch block; status shows it", async () => {
+    execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "init"], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "T",
+        GIT_AUTHOR_EMAIL: "t@x",
+        GIT_COMMITTER_NAME: "T",
+        GIT_COMMITTER_EMAIL: "t@x",
+      },
+    });
+    execFileSync("git", ["switch", "-q", "-c", "dev"], { cwd: dir });
+    const added = await run(["add-block", "Cache", "--name", "Forecast cache"]);
+    expect(added.stdout).toContain("Created block cache (branch konsora/cache → dev).");
+    expect((await run(["set-block", "BE-04", "cache"])).code).toBe(EXIT.ok);
+    expect((await run(["propose", "TTL", "--group", "BE", "--block", "cache"])).code).toBe(EXIT.ok);
+    expect(task("BE-04").block).toBe("cache");
+    expect(task("BE-06").block).toBe("cache");
+    expect((await run(["edit-block", "cache", "--base", "main"])).code).toBe(EXIT.ok);
+    const status = await run(["status"]);
+    expect(status.stdout).toContain(
+      "Blocks:\n  cache        Forecast cache  [konsora/cache → main · 0/2 done · open]",
+    );
+    const started = await run(["start", "BE-04"]);
+    expect(started.stdout).toContain("work and commit on branch konsora/cache");
+    expect((await run(["set-block", "BE-04", "none"])).stdout).toBe(
+      "BE-04 is no longer in a block.\n",
+    );
+    const missing = await run(["set-block", "BE-04", "nope"]);
+    expect(missing.stderr).toContain("Block nope does not exist");
+    expect(missing.stderr).toContain("Hint: `konsora status` lists the blocks");
   });
 
   it("depend rejects cycles", async () => {
@@ -279,7 +318,7 @@ describe("work commands", () => {
     );
   });
 
-  it("start → note → ask → finish moves a ready task to review with notes", async () => {
+  it("start → note → ask → finish moves a ready task to done with notes", async () => {
     const started = await run(["start", "BE-04", "-m", "Plan: add an LRU", "--as", "claude"]);
     expect(started.code).toBe(EXIT.ok);
     expect(started.stdout).toContain("Started BE-04 (doing).");
@@ -298,8 +337,8 @@ describe("work commands", () => {
       "--as",
       "claude",
     ]);
-    expect(done.stdout).toBe("Finished BE-04: waiting for human review. Stop here.\n");
-    expect(task("BE-04").state).toBe("review");
+    expect(done.stdout).toBe("Finished BE-04: done.\n");
+    expect(task("BE-04").state).toBe("done");
     expect(task("BE-04").notes?.map((n) => [n.kind, n.text])).toEqual([
       ["note", "Plan: add an LRU"],
       ["note", "Line one\nLínea dos ✓"],
@@ -329,24 +368,28 @@ describe("work commands", () => {
 });
 
 describe("no human transitions in the CLI", () => {
-  it.each(["approve", "accept", "send-back", "reopen", "yolo", "done", "answer"])(
-    "`konsora %s` does not exist",
-    async (name) => {
-      const r = await run([name, "BE-02"]);
-      expect(r.code).toBe(EXIT.usage);
-      expect(r.stderr).toContain("unknown command");
-    },
-  );
+  it.each([
+    "approve",
+    "accept",
+    "send-back",
+    "reopen",
+    "yolo",
+    "done",
+    "answer",
+    "merge",
+    "delete-block",
+  ])("`konsora %s` does not exist", async (name) => {
+    const r = await run([name, "BE-02"]);
+    expect(r.code).toBe(EXIT.usage);
+    expect(r.stderr).toContain("unknown command");
+  });
 
-  it("no command sequence an agent can run marks a task done", async () => {
-    // finish is the only way out of doing, and it leads to review.
+  it("an agent reaches done only by finishing, and never reopens finished work", async () => {
     await run(["start", "BE-04"]);
     await run(["finish", "BE-04", "--summary", "x"]);
-    expect(task("BE-04").state).toBe("review");
-    expect(
-      doc()
-        .tasks.filter((x) => x.state === "done")
-        .map((x) => x.id),
-    ).toEqual(["BE-01"]);
+    expect(task("BE-04").state).toBe("done");
+    expect(task("BE-04").notes?.at(-1)?.kind).toBe("summary");
+    expect((await run(["edit", "BE-04", "--title", "x"])).code).toBe(EXIT.failure);
+    expect((await run(["delete", "BE-04"])).code).toBe(EXIT.failure);
   });
 });

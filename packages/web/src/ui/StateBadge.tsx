@@ -1,18 +1,17 @@
 import { type MessageKey, t } from "../i18n/index.ts";
 
 /** Stored task states (docs/esquema-tareas.md §2). */
-export type TaskState = "proposed" | "todo" | "doing" | "review" | "done";
+export type TaskState = "proposed" | "todo" | "doing" | "done";
 /** Derived conditions shown alongside the state. */
 export type TaskFlag = "blocked" | "waiting" | "ready" | "external";
 export type BadgeKind = TaskState | TaskFlag;
 
-export const taskStates: readonly TaskState[] = ["proposed", "todo", "doing", "review", "done"];
+export const taskStates: readonly TaskState[] = ["proposed", "todo", "doing", "done"];
 
 const labelKey: Record<BadgeKind, MessageKey> = {
   proposed: "state.proposed",
   todo: "state.todo",
   doing: "state.doing",
-  review: "state.review",
   done: "state.done",
   blocked: "state.blocked",
   waiting: "state.waiting",

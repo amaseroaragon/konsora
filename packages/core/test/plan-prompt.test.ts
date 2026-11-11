@@ -13,7 +13,7 @@ const task = (id: string, state: Task["state"]): Task => ({
   updated_at: at,
 });
 const doc: TasksDocument = {
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: {
     name: "Weather",
     templates: [

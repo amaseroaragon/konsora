@@ -4,9 +4,10 @@
  * Per project, in the data dir (never in the project): `snapshot.json` (last trusted plan),
  * `external.json` (open flags) and `approvals.jsonl` (append-only log of human actions done
  * through the daemon). On every check the current file is diffed against the snapshot: changes
- * an agent may make (start, finish, notes, proposals, deps added) pass; changes that need a human
- * (approve, accept, send back, reopen, YOLO, approved tasks created/edited/deleted, notes
- * rewritten) are flagged "unapproved external change" until the human confirms or reverts them.
+ * an agent may make (create in todo or as an idea, promote, start, pause, finish, notes, edits of
+ * unfinished work, deleting what nobody started) pass; changes that need a human (reopen, jumps
+ * no single op makes, edits of done work, deleting started work, notes rewritten) are flagged
+ * "unapproved external change" until the human confirms or reverts them.
  * The snapshot then advances, so each change is evaluated once; flags persist.
  */
 import { appendFile, open, readFile } from "node:fs/promises";
@@ -39,17 +40,31 @@ export type LedgerEntry = {
 
 type Snapshot = { taken_at: string; hash: string; document: TasksDocument };
 
-/** State changes only a human may make (docs/esquema-tareas.md §2). */
-function humanTransition(from: Task["state"], to: Task["state"]): boolean {
-  if (from === to) return false;
-  if (from === "proposed") return true; // approve
-  if (to === "done") return true; // accept
-  if (from === "review" && to === "todo") return true; // send back
-  if (from === "done") return true; // reopen
-  return false;
+/**
+ * Where an agent's own ops can take a task, possibly in several steps seen at once (promote,
+ * start, pause; `done` only by finishing, checked separately). Done work never moves.
+ */
+const AGENT_REACH: Record<Task["state"], readonly Task["state"][]> = {
+  proposed: ["todo", "doing"],
+  todo: ["doing"],
+  doing: ["todo"],
+  done: [],
+};
+
+/**
+ * State changes only a human may make: reopening, and anything agents cannot reach. Reaching
+ * `done` counts as the agent's only with a new `summary` note, which `finish` always leaves.
+ */
+function humanTransition(before: Task, after: Task): boolean {
+  if (before.state === after.state) return false;
+  if (after.state === "done") {
+    const added = (after.notes ?? []).slice((before.notes ?? []).length);
+    return before.state === "done" || !added.some((note) => note.kind === "summary");
+  }
+  return !AGENT_REACH[before.state].includes(after.state);
 }
 
-const CONTENT = ["title", "desc", "acceptance", "labels", "agent", "group"] as const;
+const CONTENT = ["title", "desc", "acceptance", "labels", "group", "block"] as const;
 
 function notesRewritten(before: Task, after: Task): boolean {
   const old = before.notes ?? [];
@@ -69,11 +84,11 @@ export function detectUnapproved(
   for (const task of after.tasks) {
     const prev = old.get(task.id);
     if (!prev) {
-      if (task.state !== "proposed") {
+      if (task.state !== "proposed" && task.state !== "todo") {
         flags.push({
           task: task.id,
           kind: "created_approved",
-          message: `created directly as ${task.state} (only humans create approved tasks)`,
+          message: `created directly as ${task.state} (tasks start as todo or as ideas)`,
           to: task.state,
           previous: null,
           detected_at: at,
@@ -81,25 +96,17 @@ export function detectUnapproved(
       }
       continue;
     }
-    if (humanTransition(prev.state, task.state)) {
+    if (humanTransition(prev, task)) {
       flags.push({
         task: task.id,
         kind: "transition",
-        message: `${prev.state} → ${task.state} without your approval`,
+        message: `${prev.state} → ${task.state} without you (no agent op does that)`,
         from: prev.state,
         to: task.state,
         previous: prev,
         detected_at: at,
       });
-    } else if (task.yolo && !prev.yolo) {
-      flags.push({
-        task: task.id,
-        kind: "edited",
-        message: "YOLO turned on outside Konsora (only humans enable it)",
-        previous: prev,
-        detected_at: at,
-      });
-    } else if (prev.state !== "proposed") {
+    } else if (prev.state === "done") {
       const changed = CONTENT.filter(
         (key) => stableStringify(prev[key] ?? null) !== stableStringify(task[key] ?? null),
       );
@@ -112,7 +119,7 @@ export function detectUnapproved(
         flags.push({
           task: task.id,
           kind: "edited",
-          message: `approved task changed outside Konsora (${what})`,
+          message: `finished task changed outside Konsora (${what})`,
           previous: prev,
           detected_at: at,
         });
@@ -136,11 +143,11 @@ export function detectUnapproved(
     }
   }
   for (const prev of before.tasks) {
-    if (!now.has(prev.id) && prev.state !== "proposed") {
+    if (!now.has(prev.id) && prev.state !== "proposed" && prev.state !== "todo") {
       flags.push({
         task: prev.id,
         kind: "deleted",
-        message: `approved task deleted outside Konsora (was ${prev.state})`,
+        message: `started task deleted outside Konsora (was ${prev.state})`,
         from: prev.state,
         previous: prev,
         detected_at: at,

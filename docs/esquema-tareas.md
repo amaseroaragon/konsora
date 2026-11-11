@@ -1,4 +1,4 @@
-# Esquema de tareas v3 (`konsora/3`)
+# Esquema de tareas v4 (`konsora/4`)
 
 La implementación de referencia es `packages/core`. Este documento la describe; si discrepan, manda el código y se corrige el documento.
 
@@ -8,14 +8,14 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | **Integración con Claude Code**: skill y servidor MCP | `.claude/skills/konsora/SKILL.md`, `.mcp.json` | Sí, si quieres compartirla. |
 | **Procedencia y estado local**: aprobaciones humanas registradas, instantáneas para detectar cambios externos, registro de proyectos | `$XDG_DATA_HOME/konsora/` (`~/.local/share/konsora/`) | No. Fuera de cualquier repo. |
 
-`konsora/3` es `konsora/2` sin los campos de ejecución (agentes, checks, setup, revisor, dificultad, runs), que se retiraron en M11. Ver §6 para migrar.
+`konsora/4` (M12) parte de `konsora/3`, que ya había quitado los campos de ejecución de `konsora/2` (agentes, checks, setup, revisor, dificultad, runs). Además quita la aprobación y la revisión: las tareas nacen en `todo` y `finish` las da por hechas. Añade los **bloques**: tareas dependientes que se trabajan en una misma rama de git y que el humano integra con un merge cuando terminan todas. Ver §6 para migrar.
 
 ## 1. Documento
 
 ```json
 {
-  "$schema": "https://konsora.local/schema/tasks.v3.json",
-  "schema": "konsora/3",
+  "$schema": "https://konsora.local/schema/tasks.v4.json",
+  "schema": "konsora/4",
   "project": {
     "name": "Weather app",
     "templates": [
@@ -27,6 +27,15 @@ La implementación de referencia es `packages/core`. Este documento la describe;
     { "id": "FE", "name": "Frontend" }
   ],
   "seq": { "BE": 2, "FE": 0 },
+  "blocks": [
+    {
+      "id": "cache",
+      "name": "Forecast cache",
+      "branch": "konsora/cache",
+      "base": "main",
+      "created": { "at": "2026-11-02T10:04:00Z", "by": "agent:claude" }
+    }
+  ],
   "tasks": [
     {
       "id": "BE-01",
@@ -40,7 +49,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
     {
       "id": "BE-02",
       "title": "Cache forecasts for 10 minutes",
-      "state": "review",
+      "state": "done",
       "group": "BE",
       "deps": ["BE-01"],
       "rank": "a1",
@@ -50,6 +59,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
         { "id": "ac2", "text": "Cache entries expire after 10 min" }
       ],
       "labels": ["perf"],
+      "block": "cache",
       "created": { "at": "2026-11-02T10:05:00Z", "by": "agent:claude" },
       "updated_at": "2026-11-02T13:10:00Z",
       "notes": [
@@ -68,10 +78,11 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | Campo | Tipo | Oblig. | Notas |
 |---|---|---|---|
 | `$schema` | string | no | Solo para autocompletado en editores. Se ignora al validar. |
-| `schema` | `"konsora/3"` | sí | Versión del formato. Un valor desconocido u otra versión → solo lectura, con el error mostrado (`konsora migrate` convierte las antiguas). |
+| `schema` | `"konsora/4"` | sí | Versión del formato. Un valor desconocido u otra versión → solo lectura, con el error mostrado (`konsora migrate` convierte las antiguas). |
 | `project` | objeto | sí | Ver abajo. |
 | `groups` | `Group[]` | sí (≥1) | `konsora init` crea un grupo por defecto. |
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
+| `blocks` | `Block[]` | no | Ver abajo. Se omite cuando está vacío. |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
 **`project`**: `name` (1–80) y `templates` (opcional, `Template[]` con ids únicos): las plantillas de tarea. Solo las define el humano, con `set-templates`, que las sustituye todas (`[]` las quita); un agente recibe `forbidden`.
@@ -80,25 +91,27 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 
 **`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60).
 
+**`Block`**: `id` (slug en minúsculas, único), `name` (1–80), `branch` (la rama de git en la que se trabajan sus tareas; por defecto `konsora/<id>`), `base` (la rama en la que se integra; por defecto, la rama actual al crearlo, o `main` si git no la da), `created` (`{at, by}`) y `merged` (opcional, `{at, by, commit, strategy}`: lo registra Konsora cuando el humano hace el merge; `strategy` es `squash` o `merge`). Un bloque está **abierto** mientras alguna de sus tareas no está `done`, **listo** cuando tiene tareas y todas están `done`, e **integrado** cuando tiene `merged` (`blockProgress`). Un bloque integrado está cerrado: ninguna tarea entra, sale, se reabre ni se borra en él.
+
 **`Task`**
 
 | Campo | Tipo | Oblig. | Notas |
 |---|---|---|---|
 | `id` | `^[A-Z][A-Z0-9]{0,5}-\d{2,}$` | sí | `GRUPO-NN`. Estable e inmutable. |
 | `title` | string 1–120 | sí | |
-| `state` | `proposed \| todo \| doing \| review \| done` | sí | Ver §2. `blocked` y `waiting` son **derivados**, nunca se guardan. |
+| `state` | `proposed \| todo \| doing \| done` | sí | Ver §2. `proposed` es una **idea**. `blocked` y `waiting` son **derivados**, nunca se guardan. |
 | `group` | id de grupo | sí | Mover una tarea de grupo **no** cambia su ID. |
 | `deps` | `TaskId[]` | no | Sin repetidos, sin autodependencia, sin ciclos, todas existentes. Se guarda ordenado. |
 | `rank` | string `[0-9a-z]+` | sí | Rango fraccional (estilo LexoRank). Reordenar cambia una sola tarea, no todas. |
 | `desc` | markdown ≤ 32 KB | no | Qué se consigue y por qué. |
 | `acceptance` | `Acceptance[]` | no | Criterios de "hecho"; ver abajo. |
 | `labels` | `string[]` | no | `^[a-z0-9][a-z0-9-]{0,30}$`, ordenados. |
-| `yolo` | `true` | no | Solo lo activa el humano. Se omite cuando es falso. |
+| `block` | id de bloque | no | El bloque en cuya rama se trabaja. |
 | `created` | `{at, by}` | sí | |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
 
-**`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno y el humano lo comprueba al revisar.
+**`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno.
 
 **`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB) y `edited` (opcional: fecha). Tipos de `kind`:
 
@@ -107,8 +120,8 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `note` | cualquiera | Comentario o progreso. |
 | `question` | agente | El agente necesita al humano. La tarea queda `waiting` hasta que llega un `answer` posterior. |
 | `answer` | humano | Responde a la última `question`. |
-| `feedback` | humano | Motivo de una devolución (`review → todo`). **Sustituye a los prefijos de texto de Kanvas** ("Sent back:"). |
-| `summary` | agente | Resumen al terminar (`doing → review`). Obligatorio. La UI lo muestra destacado en la revisión. |
+| `feedback` | humano | Heredado de versiones con revisión (devoluciones); se conserva al migrar. |
+| `summary` | agente | Resumen al terminar (`doing → done`). Obligatorio. La UI lo muestra destacado en las tareas hechas. |
 
 **Actores (`by`)**: `human`, `agent:<nombre>` (por ejemplo, `agent:claude`) y `konsora` (una migración). Un agente se identifica con `--as` o con `KONSORA_AGENT` en la CLI y en el MCP (por defecto, `agent:unknown` en la CLI y el nombre del cliente MCP en el servidor).
 
@@ -117,47 +130,46 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 ## 2. Máquina de estados
 
 ```
-            approve (H)            start (A)            finish (A)            accept (H)
- proposed ─────────────▶ todo ─────────────▶ doing ─────────────▶ review ─────────────▶ done
-    │  ▲                  ▲  ▲                 │                     │                     │
-    │  └ edit/depend (A,H)│  └──── pause ──────┘                     │                     │
-    │                     └──────────── send back + feedback (H) ────┘                     │
-    └─ withdraw (A,H) → borrada                 ▲────────────── reopen (H) ────────────────┘
+            promote (A,H)          start (A)            finish (A)
+ proposed ─────────────▶ todo ─────────────▶ doing ─────────────▶ done
+ (idea)                   ▲  ▲                 │                     │
+                          │  └──── pause ──────┘                     │
+                          └─────────────────── reopen (H) ───────────┘
+ delete (A: proposed/todo; H: cualquiera) → borrada
 ```
 
-H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP).
+H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobación ni revisión**: una tarea creada está lista para trabajarse, y `finish` la da por hecha.
 
-| Transición | Quién | Condiciones y efectos |
+| Operación | Quién | Condiciones y efectos |
 |---|---|---|
-| crear → `proposed` | A, H | `propose` / `batch`. El humano también puede crear una tarea directamente en `todo`. |
-| editar `proposed` | A, H | Título, desc, criterios, etiquetas, deps, grupo. |
-| `proposed` → borrada | A, H | `withdraw`. Solo si ninguna otra tarea depende de ella. |
-| `proposed` → `todo` | **H** | `approve`. |
-| editar `todo`/`doing`/`review`/`done` | **H** | Los agentes no cambian trabajo aprobado; solo añaden notas y dependencias. |
+| crear → `todo` | A, H | `propose` / `batch`. Con `state: "proposed"` (`--idea`), se crea como idea. |
+| `proposed` → `todo` | A, H | `promote`. |
+| editar | A, H | Título, desc, criterios, etiquetas, deps, grupo (`edit`, `depend`, `undepend`). Un agente no cambia tareas `done`. |
+| borrar | A, H | `delete`. Un agente solo borra lo que nadie empezó (`proposed`, `todo`) y nunca una tarea de la que depende otra ya `done`; el humano, cualquiera salvo las de un bloque integrado. Las tareas que dependían de ella pierden esa dependencia y reciben una nota. El ID no se reutiliza. |
 | `todo` → `doing` | A | `start`. Rechazado si está `blocked`. |
 | `doing` → `todo` | A, H | `pause`, opcionalmente con una nota. |
-| `doing` → `review` | A | `finish` con `summary` (o a `done` en una cadena YOLO, ver abajo). |
-| `review` → `done` | **H** | `accept`. |
-| `review` → `todo` | **H** | `send-back` con una nota `feedback`, que el agente leerá. |
-| `done` → `todo` | **H** | `reopen`. |
+| `doing` → `done` | A | `finish` con `summary`. |
+| `done` → `todo` | **H** | `reopen`. No en un bloque integrado. |
 | añadir `deps` | A, H | No en tareas `done`. Rechazado si crea un ciclo. |
+| bloques | A, H | `add-block {id, name, branch?, base}`, `edit-block` (nombre, rama, base) y `set-block {task, block \| null}` mientras el bloque no esté integrado; un agente no mueve tareas `done`. `delete-block` es del humano: las tareas se quedan, sin bloque. |
+| `mark-merged` | **H** | Solo con el bloque listo (todas sus tareas `done`). Lo aplica el daemon justo después de hacer el merge (`arquitectura.md` §5); fuera de él no tiene sentido. |
 
-**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede `propose`, `batch`, `edit` y `withdraw`, y solo sobre propuestas (`out_of_scope` en otro caso). Así planifica sin empezar nada ni tocar trabajo aprobado.
+**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `depend`, `undepend`, `promote`, `delete`) y preparar bloques (`add-block`, `edit-block`, `set-block`). Todo lo demás da `out_of_scope`.
 
 **Derivados**
 
-- `blocked` = `state == todo` y alguna dependencia no está en `done`. Una dependencia en `review` **no** desbloquea (igual que Kanvas).
+- `blocked` = `state == todo` y alguna dependencia no está en `done`.
 - `waiting` = la última nota `question` no tiene un `answer` posterior.
 - `ready` = `todo` y no `blocked`.
 
-**YOLO** (adaptado de Kanvas): el humano activa `yolo` en una tarea T, lo que aprueba todas las propuestas de la cadena de T, es decir, T y sus dependencias transitivas. Mientras está activo, un `finish` de una tarea de la cadena que no sea T la pasa directamente a `done`, sin revisión, para que sus dependientes queden listos. El `finish` de T la lleva a `review` y desactiva el modo YOLO. Así, un agente puede avanzar por una cadena entera y tú revisas solo el final.
+**Ramas**: Konsora no ejecuta git por los agentes. Cuando un agente empieza una tarea de un bloque, la CLI y el MCP le indican la rama del bloque (créala desde `base` si no existe, haz commit ahí y deja fuera `.konsora/tasks.json`). El merge lo pide el humano en la UI.
 
 ## 3. Validación
 
 Hay dos niveles, ambos en `packages/core` y compartidos por la CLI, el MCP, el daemon y la UI:
 
-1. **Estructural**: un esquema zod es la fuente de verdad, y de él se genera `schema/tasks.v3.schema.json` para editores y agentes que editen el archivo a mano. Los campos desconocidos se rechazan en la raíz y en las tareas, salvo bajo una clave `x-*`, que se conserva sin interpretarse.
-2. **Semántica**: IDs únicos con prefijo igual a `group`; `seq[g]` ≥ al mayor número usado; grupos existentes; deps existentes, sin ciclos (Kahn, iterativo); IDs de notas, criterios y plantillas únicos; `yolo` solo en tareas no `done`; claves JSON duplicadas rechazadas; tamaño ≤ 8 MiB.
+1. **Estructural**: un esquema zod es la fuente de verdad, y de él se genera `schema/tasks.v4.schema.json` para editores y agentes que editen el archivo a mano. Los campos desconocidos se rechazan en la raíz y en las tareas, salvo bajo una clave `x-*`, que se conserva sin interpretarse.
+2. **Semántica**: IDs únicos con prefijo igual a `group`; `seq[g]` ≥ al mayor número usado; grupos existentes; deps existentes, sin ciclos (Kahn, iterativo); IDs de notas, criterios, plantillas y bloques únicos; el `block` de cada tarea existe; claves JSON duplicadas rechazadas; tamaño ≤ 8 MiB.
 
 Los errores se devuelven como `{path: JSON Pointer, code, message}`. Un archivo inválido **no se sobrescribe nunca**: Konsora pasa ese proyecto a solo lectura y muestra los errores hasta que se corrija.
 
@@ -166,10 +178,10 @@ Los errores se devuelven como `{path: JSON Pointer, code, message}`. Un archivo 
 Para conseguir diffs mínimos y escrituras byte-idénticas entre la CLI, el MCP y el daemon:
 
 - Las claves van en el orden de este documento. Detrás van las claves de extensión `x-*`, en orden alfabético.
-- Los campos opcionales vacíos se omiten (`deps: []`, `desc: ""`, `notes: []`, `yolo: false`…).
+- Los campos opcionales vacíos se omiten (`deps: []`, `desc: ""`, `notes: []`, `blocks: []`…).
 - Indentación de 2 espacios, LF, UTF-8 sin BOM, salto de línea final.
 - Las tareas se ordenan en el array según el orden de `groups` y, dentro de cada grupo, por número de ID (orden natural: `BE-99` va antes que `BE-100`). Así, añadir una tarea es un *hunk* aislado. Las claves de `seq` siguen el orden de `groups`.
-- `deps` va en orden natural de ID y `labels`, alfabéticamente. Las notas, los criterios, los grupos y las plantillas conservan su orden, porque ese orden tiene significado.
+- `deps` va en orden natural de ID y `labels`, alfabéticamente. Las notas, los criterios, los grupos, los bloques y las plantillas conservan su orden, porque ese orden tiene significado.
 - `parse(serialize(doc))` es idéntico a `doc`, y `serialize(parse(bytes))` es idéntico a `bytes` cuando `bytes` ya es canónico. Ambas propiedades se prueban con fast-check.
 
 ## 5. Concurrencia y cambios externos
@@ -188,7 +200,7 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 
 - Se detectan con un watcher sobre `.konsora/`, comparando el hash con la última instantánea conocida.
 - Si el resultado es inválido → solo lectura con los errores (ver §3).
-- Si es válido → se calcula el diff contra la instantánea y se buscan **transiciones que exigen humano** (`→ todo` desde `proposed`, `→ done`, cambios en tareas aprobadas). Se cruzan con el **registro de aprobaciones** (`~/.local/share/konsora/projects/<id>/approvals.jsonl`, que solo escribe el daemon). Una transición sin registro se marca en la UI como **"cambio externo sin aprobar"**, con opciones de confirmarla o revertirla.
+- Si es válido → se calcula el diff contra la instantánea y se buscan **cambios que exigen humano**: reabrir, saltos de estado que ningún agente puede dar (llegar a `done` sin una nota `summary` nueva, por ejemplo), editar tareas `done`, crear tareas directamente en `doing` o `done` y borrar tareas empezadas. Se cruzan con el **registro de aprobaciones** (`~/.local/share/konsora/projects/<id>/approvals.jsonl`, que solo escribe el daemon). Una transición sin registro se marca en la UI como **"cambio externo sin aprobar"**, con opciones de confirmarla o revertirla.
 
 Límite honesto: un proceso con los permisos del usuario puede escribir cualquier archivo. Los roles se aplican en la CLI, el MCP y la UI, y las violaciones se **detectan y señalan**; no existe una frontera de seguridad contra un agente decidido a engañar.
 
@@ -196,25 +208,28 @@ Límite honesto: un proceso con los permisos del usuario puede escribir cualquie
 
 Con `konsora migrate` (acción explícita; nunca automática al abrir). Por defecto solo muestra el resumen; `--write` guarda primero una copia del original y después escribe.
 
-**`konsora/2` → `konsora/3`**: se descartan los campos de ejecución y se conserva todo lo demás. La copia es `tasks.v2.json.bak`.
+**`konsora/3` → `konsora/4`**: las tareas en `review` pasan a `done` con una nota de Konsora ("Migrated from review to done…"), se quita `yolo` y las propuestas (`proposed`) se quedan como ideas. La copia es `tasks.v3.json.bak`.
 
-| v2 | v3 |
+**`konsora/2` → `konsora/4`**: primero se descartan los campos de ejecución y después se aplica lo anterior. La copia es `tasks.v2.json.bak`.
+
+| v2 | v4 |
 |---|---|
-| `schema: "konsora/2"` | `schema: "konsora/3"` (y `$schema` apunta a `tasks.v3`) |
+| `schema: "konsora/2"` | `schema: "konsora/4"` (y `$schema` apunta a `tasks.v4`) |
 | `project.base_branch`, `defaults`, `recommended`, `setup`, `checks`, `check_retries`, `reviewer` | Se descartan |
-| `tasks[].agent`, `tasks[].difficulty`, `templates[].difficulty` | Se descartan |
+| `tasks[].agent`, `tasks[].difficulty`, `templates[].difficulty`, `tasks[].yolo` | Se descartan |
 | `acceptance[].check` (en tareas y plantillas) | Se descarta; el texto del criterio se conserva |
 | `notes[].run` | Se descarta |
 | Notas `review` con `verdict` | Pasan a `note` con el veredicto al principio del texto: `[review: approve] …` |
+| `state: "review"` | `done`, con una nota |
 
-El resumen lista cuántas veces aparecía cada campo descartado.
+El resumen lista cuántas veces aparecía cada campo descartado y qué tareas pasaron de `review` a `done`.
 
-**v1 (`schema_version: 1`, el v0) → `konsora/3`**:
+**v1 (`schema_version: 1`, el v0) → `konsora/4`**:
 
-| v1 | v3 |
+| v1 | v4 |
 |---|---|
-| `schema_version: 1` | `schema: "konsora/3"` |
-| `proposal / pending / in_progress / in_review / done` | `proposed / todo / todo + nota / review / done` (`in_progress` pasa a `todo`) |
+| `schema_version: 1` | `schema: "konsora/4"` |
+| `proposal / pending / in_progress / in_review / done` | `proposed / todo / todo + nota / done + nota / done` |
 | `id` (p. ej. `K-031`) | Se conserva si cumple `GRUPO-NN`, con un grupo creado a partir del prefijo; si no lo cumple, se renumera y el ID antiguo queda en una nota |
 | `acceptance_criteria` (texto) | Un elemento `acceptance` por línea de viñeta o por párrafo |
 | `sort_order` | `rank` en el mismo orden |

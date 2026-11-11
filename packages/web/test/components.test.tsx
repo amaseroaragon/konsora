@@ -71,10 +71,12 @@ describe("TaskCard", () => {
     expect(out).toMatch(/type="checkbox"[^>]*disabled/);
   });
 
-  it("marks review and proposed cards", () => {
-    expect(html(<TaskCard id="A-02" state="review" title="x" />)).toContain("k-card--review");
+  it("marks ideas with who had them, and shows the block", () => {
     expect(html(<TaskCard id="A-03" state="proposed" title="x" proposedBy="claude" />)).toContain(
-      "Propuesta por claude",
+      "Idea de claude",
+    );
+    expect(html(<TaskCard id="A-04" state="todo" title="x" block="cache" />)).toContain(
+      '<div class="k-card__meta">cache</div>',
     );
   });
 });
@@ -142,6 +144,6 @@ describe("Matrix", () => {
       />,
     );
     expect(out.match(/k-matrix__cell/g)?.length).toBe(taskStates.length);
-    expect(out).toContain('aria-label="Núcleo · En revisión"');
+    expect(out).toContain('aria-label="Núcleo · En curso"');
   });
 });

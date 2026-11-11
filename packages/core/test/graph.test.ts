@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   blockers,
+  blockProgress,
   dependentsOf,
   deriveFlags,
   indexTasks,
@@ -11,8 +12,6 @@ import {
   topoOrder,
   transitiveDependents,
   transitiveDeps,
-  yoloChain,
-  yoloCovering,
 } from "../src/graph.ts";
 import type { Note, Task, TaskState } from "../src/schema.ts";
 import { documentArb, scramble } from "./arbitraries.ts";
@@ -37,7 +36,7 @@ const note = (id: string, kind: Note["kind"]): Note => ({ id, at, by: "human", k
 //  └── C ──┘
 const tasks = [
   task("T-01", "done"),
-  task("T-02", "review", ["T-01"]),
+  task("T-02", "doing", ["T-01"]),
   task("T-03", "done", ["T-01"]),
   task("T-04", "todo", ["T-02", "T-03"]),
   task("T-05", "todo"),
@@ -48,7 +47,7 @@ const index = indexTasks(doc);
 const get = (id: string) => index.get(id) as Task;
 
 describe("blockers / ready", () => {
-  it("a dependency in review still blocks; only done unblocks", () => {
+  it("a dependency in progress still blocks; only done unblocks", () => {
     expect(blockers(get("T-04"), index)).toEqual(["T-02"]);
     expect(isReady(get("T-04"), index)).toBe(false);
   });
@@ -172,33 +171,46 @@ describe("topoOrder", () => {
   });
 });
 
-describe("YOLO", () => {
-  const yolo = [
-    task("Y-01", "proposed"),
-    task("Y-02", "todo", ["Y-01"]),
-    task("Y-03", "todo", ["Y-02"], { yolo: true }),
-    task("Y-04", "todo"),
-    task("Y-05", "review", ["Y-04"], { yolo: true }),
+describe("blockProgress", () => {
+  const at = "2026-11-02T10:00:00Z";
+  const blocks = [
+    { id: "a", name: "A", branch: "konsora/a", base: "main", created: { at, by: "human" } },
+    { id: "b", name: "B", branch: "konsora/b", base: "main", created: { at, by: "human" } },
+    {
+      id: "m",
+      name: "M",
+      branch: "konsora/m",
+      base: "main",
+      created: { at, by: "human" },
+      merged: { at, by: "human", commit: "a".repeat(40), strategy: "squash" as const },
+    },
   ];
-  const yIndex = indexTasks({ tasks: yolo });
+  const tasks = [
+    task("B-01", "done", [], { block: "a" }),
+    task("B-02", "doing", ["B-01"], { block: "a" }),
+    task("B-03", "done", [], { block: "b" }),
+    task("B-04", "done", [], { block: "m" }),
+  ];
 
-  it("a chain is the task plus all its transitive dependencies", () => {
-    expect([...yoloChain(yIndex.get("Y-03") as Task, yIndex)].sort()).toEqual([
-      "Y-01",
-      "Y-02",
-      "Y-03",
-    ]);
-  });
-
-  it("only active YOLO tasks (not in review/done) cover their chain", () => {
-    expect(yoloCovering("Y-01", { tasks: yolo })).toEqual(["Y-03"]);
-    expect(yoloCovering("Y-04", { tasks: yolo })).toEqual([]);
+  it("is open until every task is done, then ready; merged once recorded", () => {
+    expect(blockProgress({ tasks, blocks }, "a")).toEqual({
+      tasks: ["B-01", "B-02"],
+      done: 1,
+      status: "open",
+    });
+    expect(blockProgress({ tasks, blocks }, "b").status).toBe("ready");
+    expect(blockProgress({ tasks, blocks }, "m").status).toBe("merged");
+    expect(blockProgress({ tasks, blocks: [...blocks] }, "zz")).toEqual({
+      tasks: [],
+      done: 0,
+      status: "open",
+    });
   });
 });
 
 describe("pendingSubgraph", () => {
   //  D-01 (done) ── D-02 (todo) ── D-04 (todo) ── D-05 (todo)
-  //  D-03 (review) ───────────────────┘             │
+  //  D-03 (doing) ────────────────────┘             │
   //  D-06 (done) ── D-07 (proposed) ────────────────┘
   //  D-00 (todo) ── D-06 (behind a done task: not needed)
   const doc = {
@@ -206,7 +218,7 @@ describe("pendingSubgraph", () => {
       task("D-00", "todo"),
       task("D-01", "done"),
       task("D-02", "todo", ["D-01"]),
-      task("D-03", "review"),
+      task("D-03", "doing"),
       task("D-04", "todo", ["D-02", "D-03"]),
       task("D-06", "done", ["D-00"]),
       task("D-07", "proposed", ["D-06"]),

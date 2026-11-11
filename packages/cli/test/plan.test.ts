@@ -13,7 +13,7 @@ import type { Io } from "../src/shared.ts";
 
 const at = "2026-11-08T10:00:00Z";
 const plan = (): TasksDocument => ({
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: {
     name: "Weather",
     templates: [{ id: "bug", name: "Bug fix" }],
@@ -155,7 +155,7 @@ describe("the MCP server in plan mode (CLI-05)", () => {
     await client.close();
   });
 
-  it("refuses start, note, finish, ask, pause, depend and changes to approved work", async () => {
+  it("refuses start, note, finish, ask and pause", async () => {
     const { client, call } = await connect();
     const before = file();
     const refused: [string, Record<string, unknown>][] = [
@@ -164,10 +164,6 @@ describe("the MCP server in plan mode (CLI-05)", () => {
       ["finish", { id: "BE-01", summary: "x" }],
       ["ask", { id: "BE-01", question: "x" }],
       ["pause", { id: "BE-01" }],
-      ["depend", { id: "BE-02", on: "BE-01" }],
-      ["undepend", { id: "BE-02", on: "BE-01" }],
-      ["edit", { id: "BE-01", title: "Hijack" }],
-      ["withdraw", { id: "BE-01" }],
     ];
     for (const [tool, args] of refused) {
       const result = await call(tool, args);
@@ -178,7 +174,7 @@ describe("the MCP server in plan mode (CLI-05)", () => {
     await client.close();
   });
 
-  it("lets the agent read, propose and revise or withdraw proposals", async () => {
+  it("lets the agent read, create, revise and delete unstarted tasks, and set up blocks", async () => {
     const { client, call } = await connect();
     expect((await call("status")).isError).toBe(false);
     expect((await call("show", { id: "BE-01" })).isError).toBe(false);
@@ -186,18 +182,21 @@ describe("the MCP server in plan mode (CLI-05)", () => {
       title: "Cache",
       group: "BE",
       template: "bug",
-      difficulty: "low",
     });
     expect(proposed.isError, proposed.text).toBe(false);
     const batch = await call("batch", { tasks: [{ title: "A", group: "BE", deps: ["BE-03"] }] });
     expect(batch.isError, batch.text).toBe(false);
-    expect((await call("edit", { id: "BE-02", title: "Better" })).isError).toBe(false);
-    expect((await call("withdraw", { id: "BE-04" })).isError).toBe(false);
+    expect((await call("edit", { id: "BE-01", title: "Better" })).isError).toBe(false);
+    expect((await call("delete", { id: "BE-04" })).isError).toBe(false);
+    const block = await call("add_block", { id: "cache", name: "Cache", base: "main" });
+    expect(block.isError, block.text).toBe(false);
+    expect((await call("set_block", { id: "BE-03", block: "cache" })).isError).toBe(false);
+    expect((await call("promote", { id: "BE-02" })).isError).toBe(false);
     const doc = JSON.parse(file()) as TasksDocument;
-    expect(doc.tasks.map((t) => [t.id, t.state])).toEqual([
-      ["BE-01", "todo"],
-      ["BE-02", "proposed"],
-      ["BE-03", "proposed"],
+    expect(doc.tasks.map((t) => [t.id, t.state, t.block])).toEqual([
+      ["BE-01", "todo", undefined],
+      ["BE-02", "todo", undefined],
+      ["BE-03", "todo", "cache"],
     ]);
     await client.close();
   });

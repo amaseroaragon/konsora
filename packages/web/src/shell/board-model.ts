@@ -50,12 +50,17 @@ export function refusalText(plan: MovePlan, id: string): string | null {
   }
 }
 
-/**
- * Rejecting (withdrawing) a proposal removes it from the plan, so it needs the human's explicit
- * yes (`ask` shows the question, e.g. `window.confirm`); without it nothing is sent.
- */
-export function confirmWithdraw(id: string, ask: (question: string) => boolean): boolean {
-  return ask(t("withdraw.confirm", { id }));
+/** Asks before deleting a task, naming the tasks that will lose it as a dependency. */
+export function confirmDelete(
+  id: string,
+  dependents: readonly string[],
+  ask: (question: string) => boolean,
+): boolean {
+  return ask(
+    dependents.length > 0
+      ? t("delete.confirm.dependents", { id, ids: dependents.join(", ") })
+      : t("delete.confirm", { id }),
+  );
 }
 
 /** Spanish text for an op the daemon refused after the drop (e.g. the file changed meanwhile). */

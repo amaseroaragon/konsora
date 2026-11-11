@@ -3,23 +3,28 @@ import { t } from "../i18n/index.ts";
 import { Button } from "../ui/index.ts";
 
 /**
- * How many tasks are selected, which ones, and Approve: it approves the selected proposals, one
- * op each. Tasks that are not proposals are left out, and the hint says which are approved.
+ * How many tasks are selected, which ones, and what can be done with all of them: promote the
+ * ideas to todo, or delete them (core still refuses what the human may not do, task by task).
  */
 export function SelectionBar({
   ids,
-  approvable,
+  promotable,
+  deletable,
   readOnly,
   busy = false,
-  onApprove,
+  onPromote,
+  onDelete,
   onClear,
 }: {
   ids: readonly string[];
-  /** The selected tasks Approve would approve (proposals). */
-  approvable: readonly string[];
+  /** The selected ideas Promote would move to todo. */
+  promotable: readonly string[];
+  /** The selected tasks Delete would remove. */
+  deletable: readonly string[];
   readOnly: boolean;
   busy?: boolean;
-  onApprove: (ids: readonly string[]) => void;
+  onPromote: (ids: readonly string[]) => void;
+  onDelete: (ids: readonly string[]) => void;
   onClear: () => void;
 }) {
   const hint = useId();
@@ -38,20 +43,28 @@ export function SelectionBar({
       <div className="a-selection__controls">
         <p id={hint} className="b-selection__hint s-muted">
           {readOnly
-            ? t("selection.approve.readonly")
-            : approvable.length === 0
-              ? t("selection.approve.none")
-              : t("selection.approve.ready", { n: approvable.length, ids: approvable.join(", ") })}
+            ? t("selection.readonly")
+            : promotable.length === 0
+              ? t("selection.promote.none")
+              : t("selection.promote.ready", { n: promotable.length, ids: promotable.join(", ") })}
         </p>
+        <Button
+          variant="danger"
+          disabled={readOnly || deletable.length === 0}
+          busy={busy}
+          onClick={() => onDelete(deletable)}
+        >
+          {t("app.selection.delete")}
+        </Button>
         <Button
           variant="primary"
           className="a-selection__run"
-          disabled={readOnly || approvable.length === 0}
+          disabled={readOnly || promotable.length === 0}
           busy={busy}
           aria-describedby={hint}
-          onClick={() => onApprove(approvable)}
+          onClick={() => onPromote(promotable)}
         >
-          {t("app.selection.approve")}
+          {t("app.selection.promote")}
         </Button>
       </div>
     </section>

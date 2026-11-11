@@ -9,16 +9,15 @@ import type { TaskState, TasksDocument } from "./schema.ts";
 
 /** The op behind each state change; any pair not listed has no single op. */
 const EDGES: Partial<Record<TaskState, Partial<Record<TaskState, OpName>>>> = {
-  proposed: { todo: "approve" },
+  proposed: { todo: "promote" },
   todo: { doing: "start" },
-  doing: { todo: "pause", review: "finish" },
-  review: { done: "accept", todo: "send-back" },
+  doing: { todo: "pause", done: "finish" },
   done: { todo: "reopen" },
 };
 
 /** Text the op requires from the person moving the task. */
-export type MoveInput = "feedback" | "summary";
-const INPUT: Partial<Record<OpName, MoveInput>> = { "send-back": "feedback", finish: "summary" };
+export type MoveInput = "summary";
+const INPUT: Partial<Record<OpName, MoveInput>> = { finish: "summary" };
 
 export type MoveDenial =
   /** Dropped where it already is. */
@@ -71,7 +70,6 @@ export function planMove(
     {
       op,
       task: taskId,
-      ...(needs === "feedback" ? { feedback: "…" } : {}),
       ...(needs === "summary" ? { summary: "…" } : {}),
     } as Parameters<typeof applyOp>[1],
     { actor, at: "1970-01-01T00:00:00Z" },
@@ -91,7 +89,7 @@ export function planMove(
       message: probe.error.message,
     };
   }
-  // Inside a YOLO chain `finish` may land in done rather than review; report where it lands.
+  // Should an op ever land elsewhere than the column it was dropped on, say so.
   const landed = probe.document.tasks.find((t) => t.id === taskId)?.state ?? to;
   if (landed !== to)
     return {
@@ -106,24 +104,15 @@ export function planMove(
 }
 
 /** Actions offered as buttons on a task (UI-03), in display order. */
-export const TASK_ACTIONS = [
-  "approve",
-  "withdraw",
-  "answer",
-  "accept",
-  "send-back",
-  "reopen",
-] as const;
+export const TASK_ACTIONS = ["promote", "answer", "reopen", "delete"] as const;
 export type TaskAction = (typeof TASK_ACTIONS)[number];
 
 /** Text each action asks for: required, optional or none. */
 export const ACTION_TEXT: Record<TaskAction, "required" | "optional" | "none"> = {
-  approve: "none",
-  withdraw: "none",
+  promote: "none",
   answer: "required",
-  accept: "none",
-  "send-back": "required",
   reopen: "optional",
+  delete: "none",
 };
 
 /** The actions `actor` may take on a task right now, decided by dry-running each op. */
@@ -137,7 +126,6 @@ export function availableActions(
       op: action,
       task: taskId,
       ...(action === "answer" ? { text: "…" } : {}),
-      ...(action === "send-back" ? { feedback: "…" } : {}),
     } as Parameters<typeof applyOp>[1];
     return applyOp(doc, op, { actor, at: "1970-01-01T00:00:00Z" }).ok;
   });

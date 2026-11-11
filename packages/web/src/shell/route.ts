@@ -5,8 +5,8 @@
  */
 import { useEffect, useState } from "react";
 
-export type ProjectViewName = "board" | "graph" | "settings";
-export const projectViews: readonly ProjectViewName[] = ["board", "graph", "settings"];
+export type ProjectViewName = "board" | "graph" | "blocks" | "settings";
+export const projectViews: readonly ProjectViewName[] = ["board", "graph", "blocks", "settings"];
 
 export type Route =
   | { name: "projects" }
@@ -23,7 +23,7 @@ export function parseRoute(hash: string): Route {
     return {
       name: "project",
       id: decodeURIComponent(project[1]),
-      view: view === "graph" || view === "settings" ? view : "board",
+      view: view === "graph" || view === "blocks" || view === "settings" ? view : "board",
       task: query.get("task") || null,
     };
   }

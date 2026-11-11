@@ -101,13 +101,6 @@ export const NODE_COLORS: Record<NodeTone, NodeColors> = {
     dashed: true,
   },
   doing: { bg: "surface", ink: "ink", muted: "accent", border: "accent", dashed: false },
-  review: {
-    bg: "accent-soft",
-    ink: "ink",
-    muted: "accent-soft-ink",
-    border: "accent",
-    dashed: false,
-  },
   done: { bg: "done-soft", ink: "ink", muted: "done-ink", border: "done", dashed: false },
 };
 

@@ -36,7 +36,7 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
   }) satisfies Task;
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "Weather" },
   groups: [
     { id: "BE", name: "Backend" },
@@ -45,7 +45,7 @@ const plan = (): TasksDocument => ({
   seq: { BE: 4, FE: 1 },
   tasks: [
     t("BE-01", "done"),
-    t("BE-02", "review", ["BE-01"]),
+    t("BE-02", "doing", ["BE-01"]),
     t("BE-03", "todo", ["BE-02"]),
     t("BE-04", "todo", ["BE-01"], {
       desc: "Cache responses.",

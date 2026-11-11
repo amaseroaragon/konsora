@@ -34,14 +34,14 @@ const task = (id: string, state: Task["state"], deps: string[] = []): Task => ({
 });
 
 const doc: TasksDocument = {
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 5 },
   tasks: [
     task("BE-01", "done"),
     task("BE-02", "todo", ["BE-01"]),
-    task("BE-03", "review"),
+    task("BE-03", "doing"),
     task("BE-04", "todo", ["BE-02", "BE-03"]),
     task("BE-05", "todo"),
   ],
@@ -139,12 +139,13 @@ describe("selection shared by graph and board (UI-07)", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("offers Approve only for the selected proposals", () => {
+  it("offers promote only for the selected ideas, and delete for any", () => {
     const board = boardOf(doc, "p-sel000000003");
     selectionStore.dispatch(board.project.id, { type: "toggle", id: "BE-05" });
     const html = render(board, "board");
     expect(html).toContain("1 tarea seleccionada:");
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Aprobar/);
-    expect(html).toContain("Ninguna de las seleccionadas es una propuesta.");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Pasar a Por hacer/);
+    expect(html).toContain("Ninguna de las seleccionadas es una idea.");
+    expect(html).toMatch(/<button type="button" class="k-btn k-btn--danger[^"]*">Eliminar/);
   });
 });

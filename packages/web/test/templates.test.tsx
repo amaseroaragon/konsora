@@ -37,7 +37,7 @@ const blank = (key: string, extra: Partial<DraftTemplate> = {}): DraftTemplate =
 });
 
 const plan: TasksDocument = {
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "Demo" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: {},

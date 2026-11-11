@@ -3,6 +3,10 @@
  * outside `/api`, the built web UI (UI-01).
  */
 import {
+  applyOp,
+  BlockIdSchema,
+  blockCommitMessage,
+  blockProgress,
   dependentsOf,
   deriveFlags,
   indexTasks,
@@ -17,6 +21,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthConfig, guard } from "./auth.ts";
 import { ChatError, type ChatManager } from "./chat.ts";
+import { currentBranch, GitError, localBranches, mergeBranch } from "./git.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
 import { site } from "./site.ts";
@@ -34,6 +39,19 @@ export type AppOptions = AuthConfig & {
 };
 
 const ChatBody = z.strictObject({ text: z.string().trim().min(1).max(16_384) });
+
+const MergeBody = z.strictObject({ strategy: z.enum(["squash", "merge"]).default("squash") });
+
+/** HTTP status for the git errors of a merge (the body carries code, message and files). */
+const GIT_STATUS: Record<GitError["code"], 409 | 422> = {
+  not_a_repo: 422,
+  no_branch: 409,
+  no_base: 409,
+  nothing_to_merge: 409,
+  conflict: 409,
+  dirty: 409,
+  git_failed: 409,
+};
 
 /** HTTP status for the chat errors (the body carries code and message). */
 const CHAT_STATUS: Record<ChatError["code"], 404 | 409 | 503> = {
@@ -61,8 +79,10 @@ const OP_STATUS: Record<string, 400 | 403 | 404 | 409 | 422> = {
   conflict: 409,
   invalid_transition: 409,
   blocked: 409,
-  has_dependents: 409,
   unknown_template: 404,
+  unknown_block: 404,
+  block_merged: 409,
+  block_not_ready: 409,
   not_waiting: 409,
   summary_required: 422,
   feedback_required: 422,
@@ -90,6 +110,18 @@ export function createApp(options: AppOptions): Hono {
   const oversight = options.oversight ?? createOversights(registry.dataDir);
 
   app.onError((error, c) => {
+    if (error instanceof GitError) {
+      return c.json(
+        {
+          error: {
+            code: `git_${error.code}`,
+            message: error.message,
+            ...(error.files.length ? { files: error.files } : {}),
+          },
+        },
+        GIT_STATUS[error.code],
+      );
+    }
     if (error instanceof ChatError) {
       return c.json(
         { error: { code: error.code, message: error.message } },
@@ -169,6 +201,7 @@ export function createApp(options: AppOptions): Hono {
         project: plan.document.project,
         groups: plan.document.groups,
         seq: plan.document.seq,
+        ...(plan.document.blocks ? { blocks: plan.document.blocks } : {}),
       },
       tasks: taskViews(plan.document),
     });
@@ -337,6 +370,85 @@ export function createApp(options: AppOptions): Hono {
       ok: true,
       hash: result.hash,
       task: taskViews(result.document).find((t) => t.id === task) ?? null,
+    });
+  });
+
+  // ── Blocks: git branch and merge ──────────────────────────────────────────
+
+  /** The project's current branch and its local branches (for a block's base). Read-only. */
+  api.get("/projects/:id/git", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    return c.json({
+      branch: (await currentBranch(project.path)) ?? null,
+      branches: await localBranches(project.path),
+    });
+  });
+
+  /**
+   * The human merges a ready block: Konsora checks the plan first (every task done, not merged),
+   * merges the branch into its base locally (never pushes), then records `mark-merged`.
+   */
+  api.post("/projects/:id/blocks/:block/merge", async (c) => {
+    const project = await registry.get(c.req.param("id"));
+    const id = BlockIdSchema.safeParse(c.req.param("block"));
+    const body = MergeBody.safeParse(await c.req.json().catch(() => ({})));
+    if (!id.success || !body.success)
+      return c.json(
+        { error: { code: "bad_request", message: 'Send {strategy?: "squash" | "merge"}' } },
+        400,
+      );
+    const at = now();
+    const before = await readTasks(project.path);
+    if (!before.ok)
+      return c.json(
+        { error: { code: `plan_${before.error.code}`, message: before.error.message } },
+        409,
+      );
+    const watch = oversight(project.id);
+    await watch.check(before.document, before.hash, at);
+    const block = before.document.blocks?.find((b) => b.id === id.data);
+    if (!block)
+      return c.json(
+        { error: { code: "unknown_block", message: `Block ${id.data} does not exist` } },
+        404,
+      );
+    const strategy = body.data.strategy;
+    const dry = applyOp(
+      before.document,
+      { op: "mark-merged", block: block.id, commit: "0".repeat(40), strategy },
+      { actor: "human", at },
+    );
+    if (!dry.ok) return c.json({ error: dry.error }, OP_STATUS[dry.error.code] ?? 409);
+    const { commit } = await mergeBranch(project.path, {
+      branch: block.branch,
+      base: block.base,
+      strategy,
+      message: blockCommitMessage(before.document, block.id),
+    });
+    const result = await mutate(
+      project.path,
+      { op: "mark-merged", block: block.id, commit, strategy },
+      { actor: "human", at },
+    );
+    if (!result.ok)
+      return c.json(
+        {
+          error: {
+            code: "merge_not_recorded",
+            message: `${block.branch} was merged into ${block.base} (${commit.slice(0, 12)}), but the plan could not record it: ${result.error.message}`,
+            commit,
+          },
+        },
+        409,
+      );
+    await watch.log([{ at, task: `block:${block.id}`, op: "merge-block", actor: "human" }]);
+    await watch.trust(result.document, result.hash, at);
+    return c.json({
+      ok: true,
+      commit,
+      hash: result.hash,
+      block: result.document.blocks?.find((b) => b.id === block.id) ?? null,
+      progress: blockProgress(result.document, block.id),
     });
   });
 

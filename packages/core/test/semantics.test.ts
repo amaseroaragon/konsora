@@ -22,7 +22,7 @@ function task(id: string, deps: string[] = [], extra: Partial<Task> = {}): Task 
 
 function doc(): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "Demo" },
     groups: [
       { id: "BE", name: "Backend" },
@@ -123,10 +123,10 @@ describe("validateSemantics", () => {
       "duplicate_note_id",
     ],
     [
-      "yolo on a done task",
-      (d: any) => Object.assign(d.tasks[0], { state: "done", yolo: true }),
-      "/tasks/0/yolo",
-      "yolo_on_done",
+      "task in an unknown block",
+      (d: any) => Object.assign(d.tasks[0], { block: "nope" }),
+      "/tasks/0/block",
+      "unknown_block",
     ],
     ["two-task cycle", (d: any) => (d.tasks[0].deps = ["BE-02"]), "/tasks/0/deps", "cycle"],
   ])("rejects %s", (_name, mutate, path, code) => {

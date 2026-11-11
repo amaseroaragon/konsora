@@ -42,7 +42,7 @@ describe("graph node colors (UI-05 ac3)", () => {
   it("derives the tone from the state, with blocked todos apart", () => {
     expect(nodeTone({ state: "todo", blocked: true })).toBe("blocked");
     expect(nodeTone({ state: "todo", blocked: false })).toBe("todo");
-    expect(nodeTone({ state: "review", blocked: true })).toBe("review");
+    expect(nodeTone({ state: "doing", blocked: true })).toBe("doing");
   });
 });
 

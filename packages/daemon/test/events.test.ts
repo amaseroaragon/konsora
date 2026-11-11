@@ -18,7 +18,7 @@ const t = (id: string, state: Task["state"], title = `Title ${id}`): Task => ({
   updated_at: at,
 });
 const doc = (...tasks: Task[]): TasksDocument => ({
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 9 },
@@ -35,7 +35,7 @@ beforeEach(async () => {
   data = mkdtempSync(join(tmpdir(), "konsora-ev-data-"));
   root = mkdtempSync(join(tmpdir(), "konsora-ev-proj-"));
   mkdirSync(join(root, ".konsora"));
-  writeFileSync(file(), serializeDocument(doc(t("BE-01", "review"), t("BE-02", "todo"))));
+  writeFileSync(file(), serializeDocument(doc(t("BE-01", "doing"), t("BE-02", "todo"))));
   daemon = await startDaemon({ dataDir: data });
   const res = await fetch(`${daemon.url}/api/projects`, {
     method: "POST",
@@ -144,7 +144,7 @@ describe("board events", () => {
     const started = Date.now();
     writeFileSync(
       file(),
-      serializeDocument(doc(t("BE-01", "review"), t("BE-02", "doing"), t("BE-03", "proposed"))),
+      serializeDocument(doc(t("BE-01", "doing"), t("BE-02", "doing"), t("BE-03", "proposed"))),
     );
     const event = await c.next("board.changed", 1000);
     expect(Date.now() - started).toBeLessThan(500);
@@ -185,13 +185,13 @@ describe("board events", () => {
     const res = await fetch(`${daemon.url}/api/projects/${projectId}/ops`, {
       method: "POST",
       headers: { authorization: `Bearer ${daemon.token}`, "content-type": "application/json" },
-      body: JSON.stringify({ op: "accept", task: "BE-01" }),
+      body: JSON.stringify({ op: "pause", task: "BE-01" }),
     });
     expect(res.status).toBe(200);
     const event = await c.next("board.changed");
     expect(event).toMatchObject({ changes: { modified: ["BE-01"] }, external: [] });
     const onDisk = parseTasksFile(readFileSync(file(), "utf8"));
-    expect(onDisk.ok && onDisk.document.tasks[0]?.state).toBe("done");
+    expect(onDisk.ok && onDisk.document.tasks[0]?.state).toBe("todo");
     c.ws.close();
   });
 
@@ -200,7 +200,7 @@ describe("board events", () => {
     const b = await subscribed();
     writeFileSync(
       file(),
-      serializeDocument(doc(t("BE-01", "review", "Renamed"), t("BE-02", "todo"))),
+      serializeDocument(doc(t("BE-01", "doing", "Renamed"), t("BE-02", "todo"))),
     );
     await Promise.all([a.next("board.changed"), b.next("board.changed")]);
     a.send({ type: "unsubscribe", project: projectId });
@@ -208,10 +208,7 @@ describe("board events", () => {
     b.ws.close();
     await b.closed;
     await new Promise((r) => setTimeout(r, 50));
-    writeFileSync(
-      file(),
-      serializeDocument(doc(t("BE-01", "review", "Again"), t("BE-02", "todo"))),
-    );
+    writeFileSync(file(), serializeDocument(doc(t("BE-01", "doing", "Again"), t("BE-02", "todo"))));
     await new Promise((r) => setTimeout(r, 300));
     expect(a.queue.filter((m) => m.type === "board.changed")).toEqual([]);
     a.ws.close();

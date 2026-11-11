@@ -28,7 +28,6 @@ import {
   useToast,
 } from "../ui/index.ts";
 import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
-import { FeedbackDialog } from "./FeedbackDialog.tsx";
 import { isSelectable } from "./selection.ts";
 
 /** Keyboard dragging jumps from cell to cell in the arrow's direction instead of by pixels. */
@@ -85,6 +84,7 @@ function Card({
       external={external}
       {...(onOpen ? { onOpen } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
+      {...(task.block ? { block: task.block } : {})}
       {...(selection
         ? {
             selected: selection.selected.has(task.id),
@@ -158,9 +158,7 @@ function DropCell({
 }
 
 const DONE_KEYS: Record<string, MessageKey> = {
-  approve: "move.done.approve",
-  accept: "move.done.accept",
-  "send-back": "move.done.send-back",
+  promote: "move.done.promote",
   reopen: "move.done.reopen",
   pause: "move.done.pause",
 };
@@ -182,10 +180,6 @@ export function Board({
 }) {
   const doc = useMemo(() => toDocument(board), [board]);
   const [active, setActive] = useState<BoardTask | null>(null);
-  const [sendBack, setSendBack] = useState<{
-    task: BoardTask;
-    plan: MovePlan & { ok: true };
-  } | null>(null);
   const move = useMoveTask(board.project.id);
   const toast = useToast();
   const sensors = useSensors(
@@ -198,16 +192,14 @@ export function Board({
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const stateOf = (over: Over | null) => over?.data.current?.state as TaskState | undefined;
 
-  const commit = (task: BoardTask, plan: MovePlan & { ok: true }, feedback?: string) =>
+  const commit = (task: BoardTask, plan: MovePlan & { ok: true }) =>
     move.mutate(
-      { task, op: plan.op, to: plan.to, ...(feedback ? { feedback } : {}) },
+      { task, op: plan.op, to: plan.to },
       {
         onSuccess: () => {
-          setSendBack(null);
           toast.show(t(DONE_KEYS[plan.op] ?? "move.done.other", { id: task.id }), "success");
         },
         onError: (error) => {
-          setSendBack(null);
           if (error instanceof ApiError && error.unauthorized) return;
           const code = error instanceof ApiError ? error.code : "error";
           toast.show(opErrorText(code, task.id, error.message), "error");
@@ -228,8 +220,7 @@ export function Board({
       if (text) toast.show(text, "info");
       return;
     }
-    if (plan.needs === "feedback") setSendBack({ task, plan });
-    else commit(task, plan);
+    commit(task, plan);
   };
 
   const announcements: Announcements = {
@@ -259,55 +250,45 @@ export function Board({
   };
 
   return (
-    <>
-      <DndContext
-        sensors={sensors}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => setActive(null)}
-        accessibility={{
-          announcements,
-          screenReaderInstructions: { draggable: t("board.dnd.instructions") },
-        }}
-      >
-        <div className="a-board">
-          <Matrix
-            label={t("board.label", { name: board.project.name })}
-            columns={taskStates.map((state) => ({
-              state,
-              count: board.tasks.filter((task) => task.state === state).length,
-            }))}
-            lanes={lanes.map((lane) => ({
-              id: lane.id,
-              name: lane.name,
-              cells: lane.cells.map((cell) =>
-                cell.map((task) => (
-                  <DraggableCard
-                    key={task.id}
-                    task={task}
-                    external={flagged.has(task.id)}
-                    disabled={readOnly}
-                    onOpen={() => onOpen(task.id)}
-                    selection={selection}
-                  />
-                )),
-              ),
-            }))}
-            renderCell={(props) => <DropCell {...props} verdict={verdict(props.state)} />}
-          />
-        </div>
-        <DragOverlay dropAnimation={null}>
-          {active ? <Card task={active} external={flagged.has(active.id)} /> : null}
-        </DragOverlay>
-      </DndContext>
-      {sendBack && (
-        <FeedbackDialog
-          id={sendBack.task.id}
-          busy={move.isPending}
-          onCancel={() => setSendBack(null)}
-          onSubmit={(feedback) => commit(sendBack.task, sendBack.plan, feedback)}
+    <DndContext
+      sensors={sensors}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActive(null)}
+      accessibility={{
+        announcements,
+        screenReaderInstructions: { draggable: t("board.dnd.instructions") },
+      }}
+    >
+      <div className="a-board">
+        <Matrix
+          label={t("board.label", { name: board.project.name })}
+          columns={taskStates.map((state) => ({
+            state,
+            count: board.tasks.filter((task) => task.state === state).length,
+          }))}
+          lanes={lanes.map((lane) => ({
+            id: lane.id,
+            name: lane.name,
+            cells: lane.cells.map((cell) =>
+              cell.map((task) => (
+                <DraggableCard
+                  key={task.id}
+                  task={task}
+                  external={flagged.has(task.id)}
+                  disabled={readOnly}
+                  onOpen={() => onOpen(task.id)}
+                  selection={selection}
+                />
+              )),
+            ),
+          }))}
+          renderCell={(props) => <DropCell {...props} verdict={verdict(props.state)} />}
         />
-      )}
-    </>
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {active ? <Card task={active} external={flagged.has(active.id)} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

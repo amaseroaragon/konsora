@@ -27,7 +27,7 @@ const t = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task =>
   ...extra,
 });
 const doc = (...tasks: Task[]): TasksDocument => ({
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 9 },
@@ -38,54 +38,66 @@ const kinds = (before: TasksDocument, after: TasksDocument) =>
 
 describe("detectUnapproved (pure)", () => {
   it.each([
-    ["proposed → todo (approve)", "proposed", "todo"],
-    ["review → done (accept)", "review", "done"],
-    ["doing → done (skipping review)", "doing", "done"],
-    ["review → todo (send back)", "review", "todo"],
     ["done → todo (reopen)", "done", "todo"],
+    ["todo → done without a summary", "todo", "done"],
+    ["done → doing", "done", "doing"],
   ] as const)("flags %s", (_name, from, to) => {
     expect(kinds(doc(t("BE-01", from)), doc(t("BE-01", to)))).toEqual(["BE-01:transition"]);
   });
 
   it.each([
+    ["proposed → todo (promote)", "proposed", "todo"],
     ["todo → doing (start)", "todo", "doing"],
-    ["doing → review (finish)", "doing", "review"],
     ["doing → todo (pause)", "doing", "todo"],
+    ["proposed → doing (promote + start)", "proposed", "doing"],
   ] as const)("lets agents do %s", (_name, from, to) => {
     expect(kinds(doc(t("BE-01", from)), doc(t("BE-01", to)))).toEqual([]);
   });
 
-  it("allows new proposals, appended notes and added deps; flags the rest", () => {
+  it("lets agents reach done only by finishing, with a new summary note", () => {
+    const summary = {
+      id: "n1",
+      at,
+      by: "agent:claude" as const,
+      kind: "summary" as const,
+      text: "ok",
+    };
+    for (const from of ["doing", "todo"] as const)
+      expect(kinds(doc(t("BE-01", from)), doc(t("BE-01", "done", { notes: [summary] })))).toEqual(
+        [],
+      );
+    expect(kinds(doc(t("BE-01", "doing")), doc(t("BE-01", "done")))).toEqual(["BE-01:transition"]);
+  });
+
+  it("allows new tasks, notes, edits of unfinished work and deleting unstarted work; flags the rest", () => {
     const note = { id: "n1", at, by: "agent:claude" as const, kind: "note" as const, text: "hi" };
     expect(
       kinds(
         doc(t("BE-01", "todo")),
-        doc(t("BE-01", "todo", { notes: [note], deps: [] }), t("BE-02", "proposed")),
+        doc(
+          t("BE-01", "todo", { notes: [note], title: "Revised" }),
+          t("BE-02", "proposed"),
+          t("BE-03", "todo"),
+        ),
       ),
     ).toEqual([]);
-    expect(kinds(doc(t("BE-01", "todo")), doc(t("BE-01", "todo"), t("BE-02", "todo")))).toEqual([
+    expect(kinds(doc(t("BE-01", "todo")), doc(t("BE-01", "todo"), t("BE-02", "done")))).toEqual([
       "BE-02:created_approved",
     ]);
-    expect(kinds(doc(t("BE-01", "todo")), doc(t("BE-01", "todo", { title: "Hijacked" })))).toEqual([
+    expect(kinds(doc(t("BE-01", "done")), doc(t("BE-01", "done", { title: "Hijacked" })))).toEqual([
       "BE-01:edited",
     ]);
     expect(
-      kinds(doc(t("BE-01", "proposed")), doc(t("BE-01", "proposed", { title: "Revised" }))),
-    ).toEqual([]);
-    expect(
       kinds(
-        doc(t("BE-01", "todo"), t("BE-02", "todo", { deps: ["BE-01"] })),
-        doc(t("BE-01", "todo"), t("BE-02", "todo")),
+        doc(t("BE-01", "todo"), t("BE-02", "done", { deps: ["BE-01"] })),
+        doc(t("BE-01", "todo"), t("BE-02", "done")),
       ),
     ).toEqual(["BE-02:edited"]);
     expect(kinds(doc(t("BE-01", "todo", { notes: [note] })), doc(t("BE-01", "todo")))).toEqual([
       "BE-01:notes_rewritten",
     ]);
-    expect(kinds(doc(t("BE-01", "todo")), doc())).toEqual(["BE-01:deleted"]);
-    expect(kinds(doc(t("BE-01", "proposed")), doc())).toEqual([]); // withdrawing a proposal is fine
-    expect(kinds(doc(t("BE-01", "todo")), doc(t("BE-01", "todo", { yolo: true })))).toEqual([
-      "BE-01:edited",
-    ]);
+    expect(kinds(doc(t("BE-01", "doing")), doc())).toEqual(["BE-01:deleted"]);
+    expect(kinds(doc(t("BE-01", "todo"), t("BE-02", "proposed")), doc())).toEqual([]);
   });
 });
 
@@ -121,7 +133,7 @@ describe("daemon ops and oversight over HTTP", () => {
     data = mkdtempSync(join(tmpdir(), "konsora-ov-data-"));
     root = mkdtempSync(join(tmpdir(), "konsora-ov-proj-"));
     mkdirSync(join(root, ".konsora"));
-    writeByHand(doc(t("BE-01", "proposed"), t("BE-02", "review"), t("BE-03", "todo")));
+    writeByHand(doc(t("BE-01", "proposed"), t("BE-02", "done"), t("BE-03", "todo")));
     app = createApp({ token, port, registry: new Registry(data), now: () => new Date(at) });
     id = (await call("/projects", { path: root })).body.project.id;
   });
@@ -132,7 +144,7 @@ describe("daemon ops and oversight over HTTP", () => {
 
   it("applies human ops, logs them in approvals.jsonl and does not flag its own writes", async () => {
     await board(); // baseline
-    const r = await call(`/projects/${id}/ops`, { op: "approve", task: "BE-01" });
+    const r = await call(`/projects/${id}/ops`, { op: "promote", task: "BE-01" });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({
       ok: true,
@@ -145,7 +157,7 @@ describe("daemon ops and oversight over HTTP", () => {
       .split("\n")
       .map((l) => JSON.parse(l));
     expect(ledger).toEqual([
-      { at, task: "BE-01", op: "approve", from: "proposed", to: "todo", actor: "human" },
+      { at, task: "BE-01", op: "promote", from: "proposed", to: "todo", actor: "human" },
     ]);
     expect((await board()).body.external).toEqual([]);
   });
@@ -154,22 +166,20 @@ describe("daemon ops and oversight over HTTP", () => {
     writeByHand(
       doc(
         t("BE-01", "proposed"),
-        t("BE-02", "review"),
         t("BE-03", "done"),
         t("BE-04", "doing", {
           notes: [{ id: "n1", at, by: "agent:claude", kind: "question", text: "Which TTL?" }],
         }),
-        t("BE-05", "review"),
+        t("BE-05", "doing"),
+        t("BE-06", "todo", { deps: ["BE-05"] }),
       ),
     );
     await board(); // baseline: the hand-written file is the trusted starting point
     const hashOf = (task: string) => taskHash(read().tasks.find((x) => x.id === task) as Task);
     const actions = [
-      { op: "approve", task: "BE-01", state: "todo" },
-      { op: "accept", task: "BE-02", state: "done" },
+      { op: "promote", task: "BE-01", state: "todo" },
       { op: "reopen", task: "BE-03", state: "todo", text: "Found a bug" },
       { op: "answer", task: "BE-04", state: "doing", text: "10 minutes" },
-      { op: "send-back", task: "BE-05", state: "todo", feedback: "Add a test" },
     ];
     for (const { state, ...op } of actions) {
       const r = await call(`/projects/${id}/ops`, {
@@ -179,24 +189,34 @@ describe("daemon ops and oversight over HTTP", () => {
       expect(r.status, op.op).toBe(200);
       expect(read().tasks.find((x) => x.id === op.task)?.state, op.op).toBe(state);
     }
+    const deleted = await call(`/projects/${id}/ops`, {
+      op: "delete",
+      task: "BE-05",
+      expect: { "BE-05": hashOf("BE-05") },
+    });
+    expect(deleted.status).toBe(200);
+    expect(read().tasks.map((x) => x.id)).not.toContain("BE-05");
+    expect(read().tasks.find((x) => x.id === "BE-06")?.deps).toBeUndefined();
     const notes = (task: string) =>
       read()
         .tasks.find((x) => x.id === task)
         ?.notes?.at(-1);
     expect(notes("BE-03")).toMatchObject({ by: "human", kind: "note", text: "Found a bug" });
     expect(notes("BE-04")).toMatchObject({ by: "human", kind: "answer", text: "10 minutes" });
-    expect(notes("BE-05")).toMatchObject({ by: "human", kind: "feedback", text: "Add a test" });
+    expect(notes("BE-06")).toMatchObject({ by: "human", kind: "note" });
     const ledger = readFileSync(join(data, "projects", id, "approvals.jsonl"), "utf8")
       .trim()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(ledger.map((e) => [e.task, e.op, e.from, e.to, e.actor])).toEqual([
-      ["BE-01", "approve", "proposed", "todo", "human"],
-      ["BE-02", "accept", "review", "done", "human"],
-      ["BE-03", "reopen", "done", "todo", "human"],
-      ["BE-04", "answer", "doing", "doing", "human"],
-      ["BE-05", "send-back", "review", "todo", "human"],
-    ]);
+    expect(ledger.map((e) => [e.task, e.op, e.from, e.to, e.actor]).sort()).toEqual(
+      [
+        ["BE-01", "promote", "proposed", "todo", "human"],
+        ["BE-03", "reopen", "done", "todo", "human"],
+        ["BE-04", "answer", "doing", "doing", "human"],
+        ["BE-05", "delete", "doing", undefined, "human"],
+        ["BE-06", "delete", "todo", "todo", "human"],
+      ].sort(),
+    );
     expect((await board()).body.external).toEqual([]);
   });
 
@@ -204,7 +224,7 @@ describe("daemon ops and oversight over HTTP", () => {
     writeByHand(
       doc(
         t("BE-01", "done"),
-        t("BE-02", "review", { deps: ["BE-01"] }),
+        t("BE-02", "doing", { deps: ["BE-01"] }),
         t("BE-03", "todo", { acceptance: [{ id: "ac1", text: "Old" }] }),
       ),
     );
@@ -256,7 +276,7 @@ describe("daemon ops and oversight over HTTP", () => {
     expect(ledger.map((e) => [e.task, e.op, e.from, e.to, e.actor])).toEqual([
       ["BE-03", "edit", "todo", "todo", "human"],
       ["BE-03", "depend", "todo", "todo", "human"],
-      ["BE-02", "undepend", "review", "review", "human"],
+      ["BE-02", "undepend", "doing", "doing", "human"],
     ]);
     expect((await board()).body.external).toEqual([]);
   });
@@ -309,7 +329,7 @@ describe("daemon ops and oversight over HTTP", () => {
     await board();
     const before = readFileSync(file(), "utf8");
     const r = await call(`/projects/${id}/ops`, {
-      op: "accept",
+      op: "reopen",
       task: "BE-02",
       expect: { "BE-02": "sha256:stale" },
     });
@@ -323,50 +343,51 @@ describe("daemon ops and oversight over HTTP", () => {
   });
 
   it("rejects malformed ops and reports op errors with fitting statuses", async () => {
-    expect((await call(`/projects/${id}/ops`, { op: "approve" })).status).toBe(400);
+    expect((await call(`/projects/${id}/ops`, { op: "promote" })).status).toBe(400);
     expect(
-      (await call(`/projects/${id}/ops`, { op: "approve", task: "BE-01", state: "done" })).status,
+      (await call(`/projects/${id}/ops`, { op: "promote", task: "BE-01", state: "done" })).status,
     ).toBe(400);
-    expect((await call(`/projects/${id}/ops`, { op: "accept", task: "BE-03" })).status).toBe(409);
+    expect((await call(`/projects/${id}/ops`, { op: "accept", task: "BE-02" })).status).toBe(400);
+    expect((await call(`/projects/${id}/ops`, { op: "promote", task: "BE-03" })).status).toBe(409);
     expect(
-      (await call(`/projects/${id}/ops`, { op: "send-back", task: "BE-02", feedback: "" })).status,
+      (await call(`/projects/${id}/ops`, { op: "note", task: "BE-03", text: "" })).status,
     ).toBe(422);
-    expect((await call(`/projects/${id}/ops`, { op: "approve", task: "BE-99" })).status).toBe(404);
+    expect((await call(`/projects/${id}/ops`, { op: "promote", task: "BE-99" })).status).toBe(404);
   });
 
   it("a conflict returns 409 with the current task", async () => {
-    const seen = taskHash(read().tasks[1] as Task);
+    const seen = taskHash(read().tasks[2] as Task);
     await mutate(
       root,
-      { op: "note", task: "BE-02", text: "meanwhile" },
+      { op: "note", task: "BE-03", text: "meanwhile" },
       { actor: "agent:claude", at },
     );
     const r = await call(`/projects/${id}/ops`, {
-      op: "accept",
-      task: "BE-02",
-      expect: { "BE-02": seen },
+      op: "delete",
+      task: "BE-03",
+      expect: { "BE-03": seen },
     });
     expect(r.status).toBe(409);
     expect(r.body.error).toMatchObject({
       code: "conflict",
-      task: "BE-02",
-      current: { id: "BE-02", notes: [{ text: "meanwhile" }] },
+      task: "BE-03",
+      current: { id: "BE-03", notes: [{ text: "meanwhile" }] },
     });
   });
 
   it("setting a task to done by hand is reported as an unapproved external change", async () => {
     await board();
     const d = read();
-    (d.tasks[1] as Task).state = "done";
+    (d.tasks[2] as Task).state = "done";
     writeByHand(d);
     const flags = (await board()).body.external;
     expect(flags).toEqual([
       expect.objectContaining({
-        task: "BE-02",
+        task: "BE-03",
         kind: "transition",
-        from: "review",
+        from: "todo",
         to: "done",
-        message: "review → done without your approval",
+        message: "todo → done without you (no agent op does that)",
       }),
     ]);
     expect((await board()).body.external).toHaveLength(1); // persists until resolved
@@ -386,65 +407,65 @@ describe("daemon ops and oversight over HTTP", () => {
   it("confirm clears the flag and logs it; the change stays", async () => {
     await board();
     const d = read();
-    (d.tasks[0] as Task).state = "todo";
+    (d.tasks[1] as Task).state = "todo";
     writeByHand(d);
     await board();
-    const r = await call(`/projects/${id}/external/BE-01/confirm`, {});
-    expect(r.body).toMatchObject({ ok: true, confirmed: [{ task: "BE-01", kind: "transition" }] });
+    const r = await call(`/projects/${id}/external/BE-02/confirm`, {});
+    expect(r.body).toMatchObject({ ok: true, confirmed: [{ task: "BE-02", kind: "transition" }] });
     expect((await board()).body.external).toEqual([]);
-    expect(read().tasks[0]?.state).toBe("todo");
+    expect(read().tasks[1]?.state).toBe("todo");
     expect((await call(`/projects/${id}/external`)).body.approvals).toContainEqual(
-      expect.objectContaining({ task: "BE-01", op: "confirm:transition" }),
+      expect.objectContaining({ task: "BE-02", op: "confirm:transition" }),
     );
   });
 
   it("revert restores the version before the first unapproved change", async () => {
     await board();
     const d = read();
-    (d.tasks[1] as Task).state = "done";
+    (d.tasks[1] as Task).state = "todo";
     (d.tasks[1] as Task).title = "Edited by hand";
     writeByHand(d);
     await board();
     const r = await call(`/projects/${id}/external/BE-02/revert`, {});
     expect(r.status).toBe(200);
-    expect(read().tasks[1]).toMatchObject({ id: "BE-02", state: "review", title: "Title BE-02" });
+    expect(read().tasks[1]).toMatchObject({ id: "BE-02", state: "done", title: "Title BE-02" });
     expect((await board()).body.external).toEqual([]);
   });
 
   it("revert of a task created as approved turns it into a proposal; deleted tasks come back", async () => {
     await board();
-    writeByHand(doc(t("BE-01", "proposed"), t("BE-02", "review"), t("BE-04", "todo")));
+    writeByHand(doc(t("BE-01", "proposed"), t("BE-03", "todo"), t("BE-04", "done")));
     const flags = (await board()).body.external.map(
       (f: { task: string; kind: string }) => `${f.task}:${f.kind}`,
     );
-    expect(flags.sort()).toEqual(["BE-03:deleted", "BE-04:created_approved"]);
+    expect(flags.sort()).toEqual(["BE-02:deleted", "BE-04:created_approved"]);
     await call(`/projects/${id}/external/BE-04/revert`, {});
-    await call(`/projects/${id}/external/BE-03/revert`, {});
+    await call(`/projects/${id}/external/BE-02/revert`, {});
     expect(
       read()
         .tasks.map((x) => `${x.id}:${x.state}`)
         .sort(),
-    ).toEqual(["BE-01:proposed", "BE-02:review", "BE-03:todo", "BE-04:proposed"]);
+    ).toEqual(["BE-01:proposed", "BE-02:done", "BE-03:todo", "BE-04:proposed"]);
   });
 
   it("an external change made before a UI op is still caught", async () => {
     await board();
     const d = read();
-    (d.tasks[1] as Task).state = "done";
+    (d.tasks[2] as Task).state = "done";
     writeByHand(d);
-    const r = await call(`/projects/${id}/ops`, { op: "approve", task: "BE-01" });
+    const r = await call(`/projects/${id}/ops`, { op: "promote", task: "BE-01" });
     expect(r.body.external).toEqual([
-      expect.objectContaining({ task: "BE-02", kind: "transition" }),
+      expect.objectContaining({ task: "BE-03", kind: "transition" }),
     ]);
   });
 
   it("a flag clears by itself when the task leaves the flagged state", async () => {
     await board();
     const d = read();
-    (d.tasks[1] as Task).state = "done";
+    (d.tasks[2] as Task).state = "done";
     writeByHand(d);
     await board();
-    (d.tasks[1] as Task).state = "review";
+    (d.tasks[2] as Task).state = "todo";
     writeByHand(d);
     expect((await board()).body.external).toEqual([]);
   });

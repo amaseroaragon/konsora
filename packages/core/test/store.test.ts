@@ -31,7 +31,7 @@ const human = { actor: "human", at };
 
 function seed(): TasksDocument {
   return {
-    schema: "konsora/3",
+    schema: "konsora/4",
     project: { name: "Fixture" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 1 },
@@ -91,7 +91,7 @@ describe("readTasks", () => {
 
 describe("mutate", () => {
   it("applies an op and writes canonical text atomically, leaving no lock or temp files", async () => {
-    const r = await mutate(root, { op: "approve", task: "BE-01" }, human);
+    const r = await mutate(root, { op: "promote", task: "BE-01" }, human);
     expect(r.ok && r.changed).toEqual(["BE-01"]);
     const text = readFileSync(tasksPath(root), "utf8");
     expect(text).toBe(r.ok ? r.text : "");
@@ -102,13 +102,13 @@ describe("mutate", () => {
 
   it("returns op errors without touching the file", async () => {
     const before = readFileSync(tasksPath(root), "utf8");
-    const r = await mutate(root, { op: "approve", task: "BE-01" }, agent);
+    const r = await mutate(root, { op: "answer", task: "BE-01", text: "x" }, agent);
     expect(r.ok ? null : r.error.code).toBe("forbidden");
     expect(readFileSync(tasksPath(root), "utf8")).toBe(before);
   });
 
   it("never overwrites an invalid file", async () => {
-    const broken = '{ "schema": "konsora/3", "tasks": [ ] , "oops": true }\n';
+    const broken = '{ "schema": "konsora/4", "tasks": [ ] , "oops": true }\n';
     writeFileSync(tasksPath(root), broken);
     const r = await mutate(root, { op: "propose", title: "x", group: "BE" }, agent);
     expect(r.ok ? null : r.error.code).toBe("invalid");
@@ -126,7 +126,7 @@ describe("mutate", () => {
     });
     doc.seq.BE = 2;
     writeFileSync(tasksPath(root), serializeDocument(doc));
-    const r = await mutate(root, { op: "approve", task: "BE-01" }, human);
+    const r = await mutate(root, { op: "promote", task: "BE-01" }, human);
     expect(r.ok && r.document.tasks.map((t) => `${t.id}:${t.state}`)).toEqual([
       "BE-01:todo",
       "BE-02:proposed",
@@ -138,7 +138,7 @@ describe("mutate", () => {
       join(root, ".konsora", LOCK_FILE),
       JSON.stringify({ pid: process.pid, host: hostname(), at }),
     );
-    const r = await mutate(root, { op: "approve", task: "BE-01" }, human, { lockTimeoutMs: 150 });
+    const r = await mutate(root, { op: "promote", task: "BE-01" }, human, { lockTimeoutMs: 150 });
     expect(r.ok ? null : r.error).toMatchObject({ code: "lock_timeout" });
     expect(r.ok ? "" : r.error.message).toContain(`pid ${process.pid}`);
   });
@@ -148,7 +148,7 @@ describe("mutate", () => {
       join(root, ".konsora", LOCK_FILE),
       JSON.stringify({ pid: 999999, host: "elsewhere", at }),
     );
-    const r = await mutate(root, { op: "approve", task: "BE-01" }, human, { lockTimeoutMs: 100 });
+    const r = await mutate(root, { op: "promote", task: "BE-01" }, human, { lockTimeoutMs: 100 });
     expect(r.ok ? null : r.error.code).toBe("lock_timeout");
   });
 
@@ -158,7 +158,7 @@ describe("mutate", () => {
       join(root, ".konsora", LOCK_FILE),
       JSON.stringify({ pid: dead, host: hostname(), at }),
     );
-    const r = await mutate(root, { op: "approve", task: "BE-01" }, human, { lockTimeoutMs: 1000 });
+    const r = await mutate(root, { op: "promote", task: "BE-01" }, human, { lockTimeoutMs: 1000 });
     expect(r.ok).toBe(true);
   });
 

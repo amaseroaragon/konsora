@@ -3,7 +3,7 @@
 Konsora es un gestor y visualizador de tareas para proyectos que se trabajan con agentes de programación.
 El plan de cada proyecto vive en `.konsora/tasks.json`, versionado con el código.
 Las IAs lo leen y lo actualizan con la CLI `konsora`, su servidor MCP y una skill de Claude Code.
-Tú lo ves en un tablero por estados y en un grafo de dependencias, apruebas lo que proponen y revisas lo que terminan.
+Tú lo ves en un tablero por estados y en un grafo de dependencias, sin aprobar nada tarea a tarea. Las tareas dependientes se agrupan en bloques con su propia rama, y cuando terminan haces el merge desde la UI.
 Un panel de IA en la UI te deja planificar con Claude Code, que propone tareas para que las apruebes.
 Es local y de uso personal.
 

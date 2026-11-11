@@ -1,5 +1,5 @@
 /**
- * Canonical serialization of `konsora/3` documents (docs/esquema-tareas.md §4).
+ * Canonical serialization of `konsora/4` documents (docs/esquema-tareas.md §4).
  *
  * The same document always produces the same bytes, whoever writes it (CLI, MCP, daemon),
  * so git diffs only show real changes. Rules:
@@ -7,7 +7,7 @@
  * - optional fields that are empty are omitted (`deps: []`, `desc: ""`, `notes: []`…);
  * - tasks ordered by the order of `groups`, then by id number; `seq` keys by `groups` order;
  * - `deps` in natural id order and `labels` (of tasks and templates) alphabetically; notes,
- *   criteria, groups and templates keep their order (it is meaningful);
+ *   criteria, groups, blocks and templates keep their order (it is meaningful);
  * - 2-space indentation, LF line endings, trailing newline, UTF-8 without BOM.
  */
 import type { TasksDocument } from "./schema.ts";
@@ -16,7 +16,9 @@ import { taskNumber } from "./semantics.ts";
 type Obj = Record<string, unknown>;
 
 const ORDER = {
-  root: ["$schema", "schema", "project", "groups", "seq", "tasks"],
+  root: ["$schema", "schema", "project", "groups", "seq", "blocks", "tasks"],
+  block: ["id", "name", "branch", "base", "created", "merged"],
+  merged: ["at", "by", "commit", "strategy"],
   project: ["name", "templates"],
   template: ["id", "name", "desc", "acceptance", "labels"],
   criterion: ["text"],
@@ -31,7 +33,7 @@ const ORDER = {
     "desc",
     "acceptance",
     "labels",
-    "yolo",
+    "block",
     "created",
     "updated_at",
     "notes",
@@ -58,7 +60,6 @@ function ordered(
   for (const key of order) {
     const value = source[key];
     if (value === undefined || (OMIT_WHEN_EMPTY.has(key) && isEmpty(value))) continue;
-    if (key === "yolo" && value !== true) continue;
     out[key] = map(key, value);
   }
   for (const key of Object.keys(source)
@@ -126,6 +127,16 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
         });
       case "groups":
         return (value as Obj[]).map((g) => ordered(g, ORDER.group));
+      case "blocks":
+        return (value as Obj[]).map((b) =>
+          ordered(b, ORDER.block, (k, v) =>
+            k === "created"
+              ? ordered(v as Obj, ORDER.created)
+              : k === "merged"
+                ? ordered(v as Obj, ORDER.merged)
+                : v,
+          ),
+        );
       case "seq":
         return seq;
       case "tasks":

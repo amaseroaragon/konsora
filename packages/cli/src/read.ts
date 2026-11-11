@@ -2,7 +2,7 @@
  * Read operations shared by the CLI (`--json`) and the MCP server: each returns the exact value
  * the CLI prints with `--json`, so both surfaces stay identical by construction.
  */
-import type { TaskState, TasksDocument } from "@konsora/core";
+import { blockProgress, type TaskState, type TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError } from "@konsora/core/store";
 import { STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
@@ -21,8 +21,11 @@ export function statusData(doc: TasksDocument) {
     ready: list.filter((t) => t.ready).map((t) => t.id),
     blocked: list.filter((t) => t.blocked).map((t) => t.id),
     waiting: list.filter((t) => t.waiting).map((t) => t.id),
-    review: list.filter((t) => t.state === "review").map((t) => t.id),
     proposed: list.filter((t) => t.state === "proposed").map((t) => t.id),
+    blocks: (doc.blocks ?? []).map((block) => ({
+      ...block,
+      progress: blockProgress(doc, block.id),
+    })),
   };
 }
 

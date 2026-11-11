@@ -1,5 +1,5 @@
 {
-  "schema": "konsora/3",
+  "schema": "konsora/4",
   "project": {
     "name": "Konsora"
   },
@@ -26,17 +26,17 @@
     }
   ],
   "seq": {
-    "CORE": 3,
-    "CLI": 1,
+    "CORE": 4,
+    "CLI": 2,
     "MCP": 1,
-    "DMN": 1,
-    "UI": 1
+    "DMN": 2,
+    "UI": 3
   },
   "tasks": [
     {
       "id": "CORE-01",
       "title": "Retirar la ejecución de agentes",
-      "state": "proposed",
+      "state": "done",
       "group": "CORE",
       "rank": "i",
       "desc": "M11: Konsora deja de lanzar agentes. Fuera `packages/runner`, `apps/desktop` y, en core, daemon, CLI y web, todo lo ligado a runs: runs, cola, límites, costes, aprobaciones de permisos, variantes, revisor, checks y setup.",
@@ -58,12 +58,21 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:40Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:40Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Retirado en de87eab: sin packages/runner ni apps/desktop, ningún paquete depende de @konsora/runner, y el daemon y la web no tienen rutas ni vistas de runs, cola, límites, agentes ni aprobaciones. npm run check pasa (41 ficheros, 571 tests)."
+        }
+      ]
     },
     {
       "id": "CORE-02",
       "title": "Esquema konsora/3 y migración desde v2",
-      "state": "proposed",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-01"
@@ -88,12 +97,21 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:40Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:40Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "konsora/3 se implementó en de87eab y M12 lo ha llevado a konsora/4. schema/tasks.v4.schema.json se genera y su test de actualización pasa. migrate convierte v2 (migratePlan, con tests en core y en la CLI y el backlog v2 real de 121 tareas validado) y v3 (el backlog de este repo, que pasa konsora check)."
+        }
+      ]
     },
     {
       "id": "CORE-03",
       "title": "Docs y backlog del giro a gestor",
-      "state": "proposed",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-01"
@@ -118,12 +136,61 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:41Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:41Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "vision, arquitectura, esquema de tareas (v4, con bloques), roadmap (M11 y M12), README y CLAUDE.md describen Konsora como gestor sin ejecución ni revisión. El ejemplo de docs/esquema-tareas.md valida (test). Los runs y Codex solo aparecen como historia."
+        }
+      ]
+    },
+    {
+      "id": "CORE-04",
+      "title": "Esquema konsora/4: sin revisión, ideas y bloques",
+      "state": "done",
+      "group": "CORE",
+      "rank": "zv",
+      "desc": "M12: quita la aprobación y la revisión (review, YOLO, accept, send-back), deja `proposed` como ideas que cualquiera pasa a todo (`promote`), añade `delete` y los bloques (`blocks`, `task.block`, `add-block`, `edit-block`, `delete-block`, `set-block`, `mark-merged`) y migra v3 → v4.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`finish` lleva a done y los agentes nunca cambian tareas done (test de propiedades)"
+        },
+        {
+          "id": "ac2",
+          "text": "`delete` quita la dependencia de las tareas dependientes con una nota, y un agente solo borra lo que nadie empezó"
+        },
+        {
+          "id": "ac3",
+          "text": "`mark-merged` exige el bloque listo y lo cierra: ni reabrir, ni mover, ni borrar sus tareas"
+        },
+        {
+          "id": "ac4",
+          "text": "`konsora migrate` convierte un plan v3 (review → done con nota, sin yolo) y el de este repo pasa `konsora check`"
+        }
+      ],
+      "created": {
+        "at": "2026-11-11T10:35:10Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-11T10:36:42Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:42Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Estados proposed (idea), todo, doing y done; ops promote, delete (los dependientes pierden la dependencia con nota; un agente solo borra lo que nadie empezó y nunca lo que necesita una tarea hecha) y bloques (add-block, edit-block, delete-block, set-block, mark-merged). El test de propiedades comprueba que los agentes no tocan trabajo hecho y solo llegan a done con finish. migratePlan v3→v4 y el backlog del repo migrado pasan konsora check."
+        }
+      ]
     },
     {
       "id": "CLI-01",
       "title": "Instalación en proyectos: CLI global e init con Claude Code",
-      "state": "proposed",
+      "state": "todo",
       "group": "CLI",
       "deps": [
         "CORE-02"
@@ -148,12 +215,51 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:38Z"
+    },
+    {
+      "id": "CLI-02",
+      "title": "Bloques, eliminar y promover en la CLI y el MCP",
+      "state": "done",
+      "group": "CLI",
+      "deps": [
+        "CORE-04"
+      ],
+      "rank": "zx",
+      "desc": "Comandos `delete`, `promote`, `add-block`, `edit-block`, `set-block`, `propose --idea --block`, `blocks` en `batch`, y las herramientas MCP equivalentes. Al empezar y terminar una tarea de un bloque se indica su rama. La skill explica el flujo sin revisión y con ramas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada herramienta MCP escribe exactamente lo mismo que el comando equivalente (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora status` lista los bloques con rama, base y progreso (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La base de un bloque nuevo es la rama actual de git si no se indica (test)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-11T10:35:10Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-11T10:36:43Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:43Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Comandos delete, promote, add-block, edit-block, set-block, propose --idea/--block y blocks en batch, con sus herramientas MCP. El test de paridad comprueba que MCP y CLI escriben lo mismo. status lista los bloques. La base por defecto es la rama actual (test con git) y start y finish indican la rama del bloque. La skill está reescrita."
+        }
+      ]
     },
     {
       "id": "MCP-01",
       "title": "Sesión real de Claude Code con el MCP instalado por init",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "deps": [
         "CLI-01"
@@ -174,12 +280,12 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:39Z"
     },
     {
       "id": "DMN-01",
       "title": "Panel de IA en el daemon sobre claude -p",
-      "state": "proposed",
+      "state": "done",
       "group": "DMN",
       "deps": [
         "CORE-02"
@@ -204,41 +310,143 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:42Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:42Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ChatManager sobre claude -p, con tests sobre un claude falso: argumentos, modo plan, --allowedTools sin start, note ni finish, sin --dangerously-* y --resume. Los fallos, el CLI ausente, el chat ocupado y la parada dan mensajes claros. La prueba manual la hiciste tú: UI-02 la creó agent:claude desde el panel de IA el 2026-11-11 a las 10:00."
+        }
+      ]
+    },
+    {
+      "id": "DMN-02",
+      "title": "Merge local de un bloque desde el daemon",
+      "state": "done",
+      "group": "DMN",
+      "deps": [
+        "CORE-04"
+      ],
+      "rank": "zy",
+      "desc": "`POST /projects/:id/blocks/:block/merge` hace el merge de la rama del bloque en su base sin dejar nada a medias (merge-tree, commit-tree, ff-only o update-ref), nunca hace push y registra `mark-merged`. Los cambios externos siguen las reglas nuevas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con git real: squash sin tocar el árbol si la base no está abierta y merge commit con la base abierta (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Un conflicto, cambios locales o un bloque sin terminar se rechazan sin cambiar ninguna rama ni el plan (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Un start y un finish de agente vistos de golpe no se marcan como cambio externo (test)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-11T10:35:10Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-11T10:36:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:44Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "git.ts usa merge-tree, commit-tree y ff-only/update-ref. Tests con git real: squash sin tocar el árbol, merge commit con la base abierta, y conflicto, cambios locales o bloque sin terminar rechazados sin cambiar nada. Los cambios externos siguen las reglas de v4: start+finish vistos de golpe no se marcan (test). Prueba de humo con el daemon real: un bloque de dos tareas dejó un commit en main con sus tareas y el trailer Konsora-Block."
+        }
+      ]
     },
     {
       "id": "UI-01",
-      "title": "UI de gestor: crear, aprobar en lote, revisar y planificar con IA",
-      "state": "proposed",
+      "title": "UI de gestor: crear tareas, acciones en lote y panel de IA",
+      "state": "todo",
       "group": "UI",
       "deps": [
         "DMN-01"
       ],
       "rank": "z",
-      "desc": "La web sin ejecución: crear tareas (aprobadas o como propuesta), aprobar en lote desde la barra de selección, el resumen de cierre destacado en revisión y el panel de IA en el lateral.",
+      "desc": "La web sin ejecución: crear tareas (en Por hacer o como idea), acciones en lote desde la barra de selección (pasar a Por hacer, eliminar), el resumen de cierre destacado en las tareas hechas y el panel de IA en el lateral.",
       "acceptance": [
         {
           "id": "ac1",
-          "text": "Crear una tarea envía un solo `propose` que core acepta, con sus errores en español (test)"
+          "text": "Crear una tarea envía un solo propose que core acepta, con sus errores en español (test)"
         },
         {
           "id": "ac2",
-          "text": "La barra de selección ofrece Aprobar solo para propuestas (test)"
-        },
-        {
-          "id": "ac3",
           "text": "El panel de IA muestra la conversación, las herramientas usadas y el estado de la respuesta, y no deja enviar en solo lectura (test)"
         },
         {
-          "id": "ac4",
-          "text": "En `konsora ui`, el tablero y el grafo cargan y se puede crear, editar, aprobar y aceptar una tarea (prueba manual)"
+          "id": "ac3",
+          "text": "En konsora ui, el tablero y el grafo cargan y se puede crear, editar, pasar a Por hacer y eliminar una tarea (prueba manual)"
         }
       ],
       "created": {
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T09:46:52Z"
+      "updated_at": "2026-11-11T10:36:55Z"
+    },
+    {
+      "id": "UI-02",
+      "title": "Tarea de prueba del panel de IA",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zr",
+      "desc": "Tarea ficticia para comprobar el flujo de propuesta y aprobación desde el panel de IA. No requiere trabajo y se eliminará después.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La tarea aparece en el tablero de `konsora ui` como propuesta."
+        }
+      ],
+      "created": {
+        "at": "2026-11-11T10:00:10Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-11T10:00:34Z"
+    },
+    {
+      "id": "UI-03",
+      "title": "UI: eliminar, pasar a Por hacer y vista de bloques con Merge",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "DMN-02"
+      ],
+      "rank": "zz",
+      "desc": "Eliminar con confirmación (también en lote), pasar ideas a Por hacer, el bloque en el panel, la tarjeta y la creación, y la vista Bloques con el progreso, Merge (squash o merge commit), los ficheros en conflicto y la creación de bloques.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El panel ofrece eliminar en todas las tareas y pasar a Por hacer solo en ideas (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "La vista Bloques solo ofrece Merge con el bloque listo y explica en español un merge rechazado (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "En `konsora ui`, un bloque con dos tareas terminadas se integra con Merge y queda un commit en la base (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-11T10:35:10Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-11T10:36:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-11T10:36:44Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Implementado y con tests de componentes (panel, selección y vista Bloques). El merge se ha probado de punta a punta contra el daemon real por la API. Falta la prueba manual en el navegador (ac3); por eso sigue en Por hacer."
+        }
+      ]
     }
   ]
 }

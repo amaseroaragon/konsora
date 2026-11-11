@@ -138,8 +138,8 @@ describe("node labels for screen readers (ac3)", () => {
     expect(
       nodeLabel({ id: "C", title: "Tarea C", state: "todo", blocked: true }, false, graph),
     ).toBe("C, Tarea C. Bloqueada. Depende de A, B. La necesitan E, F.");
-    expect(nodeLabel({ id: "D", title: "Sola", state: "review", waiting: true }, true, graph)).toBe(
-      "D, Sola. En revisión. Esperando respuesta. Cambio externo. Sin dependencias. Ninguna tarea depende de ella.",
+    expect(nodeLabel({ id: "D", title: "Sola", state: "doing", waiting: true }, true, graph)).toBe(
+      "D, Sola. En curso. Esperando respuesta. Cambio externo. Sin dependencias. Ninguna tarea depende de ella.",
     );
   });
 });

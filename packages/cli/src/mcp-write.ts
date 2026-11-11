@@ -1,8 +1,8 @@
 /**
  * Agent write tools of `konsora mcp` (MCP-02): the same operations as the CLI write commands,
  * built into the same core ops and applied by the same `runOp` (lock + validation + atomic
- * write). Human transitions (approve, accept, send back, reopen, YOLO, editing approved work)
- * have no tool, on purpose.
+ * write). Human actions (reopen, answer, changing finished work, deleting started work, deleting
+ * or merging blocks) have no tool, on purpose.
  *
  * The actor is `agent:<name>`, from KONSORA_AGENT or else the MCP client's name
  * (`claude-code` → `agent:claude`).
@@ -11,9 +11,11 @@ import type { Op, TasksDocument } from "@konsora/core";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { branchHint } from "./format.ts";
 import { opHint } from "./hints.ts";
 import { failure, guarded, ok } from "./mcp-result.ts";
 import type { Io } from "./shared.ts";
+import { defaultBase, locate } from "./shared.ts";
 import { agentActor, BatchSchema, batchOp, editOp, runOp, writeJson } from "./write.ts";
 
 /** The agent for attribution: KONSORA_AGENT, else the first word of the MCP client's name. */
@@ -54,8 +56,9 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
   server.registerTool(
     "propose",
     {
-      title: "Propose a task",
-      description: "Propose a new task. It stays proposed until a human approves it.",
+      title: "Create a task",
+      description:
+        "Create a task in todo, ready to be worked on (no approval needed). With idea: true it is created as an idea (proposed) that anyone can promote later.",
       inputSchema: {
         title: text("short imperative title"),
         group: text("group id, e.g. CORE (see status for the groups)"),
@@ -70,43 +73,44 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           .describe(
             "id of a project template the task starts from (status lists them); explicit values complete or replace it",
           ),
+        block: z.string().min(1).optional().describe("block id to put it in (status lists them)"),
+        idea: z.boolean().optional().describe("create it as an idea (proposed) instead of todo"),
       },
       annotations: WRITE,
     },
     (args) =>
-      apply(
-        () => ({
-          op: "propose",
-          title: args.title,
-          group: args.group.toUpperCase(),
-          ...(args.desc ? { desc: args.desc } : {}),
-          ...(args.acceptance ? { acceptance: args.acceptance } : {}),
-          ...(args.deps ? { deps: args.deps.map((d) => d.toUpperCase()) } : {}),
-          ...(args.labels ? { labels: args.labels } : {}),
-          ...(args.template ? { template: args.template.toLowerCase() } : {}),
-        }),
-        "The proposal is waiting for human approval.",
-      ),
+      apply(() => ({
+        op: "propose",
+        title: args.title,
+        group: args.group.toUpperCase(),
+        ...(args.desc ? { desc: args.desc } : {}),
+        ...(args.acceptance ? { acceptance: args.acceptance } : {}),
+        ...(args.deps ? { deps: args.deps.map((d) => d.toUpperCase()) } : {}),
+        ...(args.labels ? { labels: args.labels } : {}),
+        ...(args.template ? { template: args.template.toLowerCase() } : {}),
+        ...(args.block ? { block: args.block.toLowerCase() } : {}),
+        ...(args.idea ? { state: "proposed" as const } : {}),
+      })),
   );
 
   server.registerTool(
     "batch",
     {
-      title: "Propose many tasks",
+      title: "Create many tasks",
       description:
-        "Propose several tasks at once, all or nothing. deps may name task ids or the titles of earlier tasks in the same batch; new groups go in groups.",
+        "Create several tasks (in todo) at once, all or nothing. deps may name task ids or the titles of earlier tasks in the same batch; new groups go in groups and new blocks in blocks (a block without base merges into the current git branch).",
       inputSchema: BatchSchema.shape,
       annotations: WRITE,
     },
-    (args) => apply(() => batchOp(args), "The proposals are waiting for human approval."),
+    (args) => apply(() => batchOp(args, defaultBase(locate(io, root)))),
   );
 
   server.registerTool(
     "edit",
     {
-      title: "Revise a proposal",
+      title: "Revise a task",
       description:
-        "Revise one of the proposals. Approved tasks can only be changed by a human. acceptance replaces every criterion.",
+        "Revise a task that is not done. Finished tasks can only be changed by a human. acceptance replaces every criterion.",
       inputSchema: {
         id,
         title: z.string().min(1).optional(),
@@ -121,14 +125,92 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
   );
 
   server.registerTool(
-    "withdraw",
+    "delete",
     {
-      title: "Withdraw a proposal",
-      description: "Delete one of the proposals while it is still a proposal.",
+      title: "Delete a task",
+      description:
+        "Delete a task nobody started (an idea or a todo task). Tasks that depended on it lose that dependency.",
       inputSchema: { id },
       annotations: { ...WRITE, destructiveHint: true },
     },
-    (args) => apply(() => ({ op: "withdraw", task: args.id.toUpperCase() })),
+    (args) => apply(() => ({ op: "delete", task: args.id.toUpperCase() })),
+  );
+
+  server.registerTool(
+    "promote",
+    {
+      title: "Promote an idea",
+      description: "Turn an idea (proposed) into work to do (todo).",
+      inputSchema: { id },
+      annotations: WRITE,
+    },
+    (args) => apply(() => ({ op: "promote", task: args.id.toUpperCase() })),
+  );
+
+  const blockId = z.string().min(1).describe("block id, e.g. forecast-cache");
+  server.registerTool(
+    "add_block",
+    {
+      title: "Create a block",
+      description:
+        "Create a block: dependent tasks worked on one git branch. When all are done, the human merges the branch into its base from the Konsora UI.",
+      inputSchema: {
+        id: blockId,
+        name: text("what the block delivers"),
+        branch: z.string().min(1).optional().describe("git branch (default konsora/<id>)"),
+        base: z.string().min(1).optional().describe("branch it merges into (default: current)"),
+      },
+      annotations: WRITE,
+    },
+    (args) =>
+      apply(() => ({
+        op: "add-block",
+        id: args.id.toLowerCase(),
+        name: args.name,
+        base: args.base ?? defaultBase(locate(io, root)),
+        ...(args.branch ? { branch: args.branch } : {}),
+      })),
+  );
+
+  server.registerTool(
+    "edit_block",
+    {
+      title: "Revise a block",
+      description: "Rename a block or change its branch or base, until it is merged.",
+      inputSchema: {
+        id: blockId,
+        name: z.string().min(1).optional(),
+        branch: z.string().min(1).optional(),
+        base: z.string().min(1).optional(),
+      },
+      annotations: WRITE,
+    },
+    ({ id: block, name, branch, base }) =>
+      apply(() => ({
+        op: "edit-block",
+        block: block.toLowerCase(),
+        changes: {
+          ...(name ? { name } : {}),
+          ...(branch ? { branch } : {}),
+          ...(base ? { base } : {}),
+        },
+      })),
+  );
+
+  server.registerTool(
+    "set_block",
+    {
+      title: "Put a task in a block",
+      description: "Put a task in a block, or take it out of its block with block: null.",
+      inputSchema: { id, block: blockId.nullable() },
+      annotations: WRITE,
+    },
+    (args) =>
+      apply(() => ({
+        op: "set-block",
+        task: args.id.toUpperCase(),
+        block: args.block === null ? null : args.block.toLowerCase(),
+      })),
   );
 
   for (const name of ["depend", "undepend"] as const) {
@@ -139,7 +221,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         description:
           name === "depend"
             ? "Make task id depend on task on (rejected if it would create a cycle)."
-            : "Remove a dependency from one of the proposals.",
+            : "Remove a dependency from a task that is not done.",
         inputSchema: { id, on: z.string().min(1).describe("the task it depends on") },
         annotations: WRITE,
       },
@@ -156,11 +238,14 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       annotations: WRITE,
     },
     (args) =>
-      apply(() => ({
-        op: "start",
-        task: args.id.toUpperCase(),
-        ...(args.plan ? { text: args.plan } : {}),
-      })),
+      apply(
+        () => ({
+          op: "start",
+          task: args.id.toUpperCase(),
+          ...(args.plan ? { text: args.plan } : {}),
+        }),
+        (doc) => branchHint(doc, args.id.toUpperCase()) || "Work on it, then finish it.",
+      ),
   );
 
   server.registerTool(
@@ -211,7 +296,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     {
       title: "Finish a task",
       description:
-        "Finish a task you are doing (doing → review) with a summary of what you did and how it meets each acceptance criterion.",
+        "Finish a task you are doing (doing → done) with a summary of what you did and how it meets each acceptance criterion.",
       inputSchema: { id, summary: text("what you did and how it meets each criterion") },
       annotations: WRITE,
     },
@@ -219,10 +304,10 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       apply(
         () => ({ op: "finish", task: args.id.toUpperCase(), summary: args.summary }),
         (doc) => {
-          const state = doc.tasks.find((t) => t.id === args.id.toUpperCase())?.state;
-          return state === "done"
-            ? "The task is done (part of a YOLO chain, no review needed)."
-            : "The task is waiting for human review. Stop here.";
+          const hint = branchHint(doc, args.id.toUpperCase());
+          return hint
+            ? `The task is done. Make sure your work is committed on the block's branch. ${hint}`
+            : "The task is done.";
         },
       ),
   );

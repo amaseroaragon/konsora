@@ -26,11 +26,13 @@ const listFilter = {
 
 const GUIDE =
   "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
-  "show. Plan by proposing tasks (propose, batch): a human approves them. Work one task at a " +
-  "time: start it, add notes as you go, ask when blocked on a decision (then stop and wait), " +
-  "and finish with a summary of how you met each acceptance criterion (then stop for review). " +
-  "Humans approve, accept and change approved work; there are no tools for that. " +
-  "Never edit .konsora/tasks.json by hand.";
+  "show. Plan by creating tasks (propose, batch): they go straight to todo, no approval. Group " +
+  "dependent tasks that should land together in a block (add_block, set_block): they are " +
+  "worked on one git branch that the human merges when the last one is done. Work one task at " +
+  "a time: start it (on its block's branch, if it has one), add notes as you go, ask when " +
+  "blocked on a decision (then stop and wait), and finish with a summary of how you met each " +
+  "acceptance criterion. Humans reopen tasks, change finished work and merge blocks; there are " +
+  "no tools for that. Never edit .konsora/tasks.json by hand.";
 
 function instructions(env: NodeJS.ProcessEnv): string {
   if (!sessionScope(env).plan) return GUIDE;
@@ -52,7 +54,7 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
     {
       title: "Plan status",
       description:
-        "Summary of the plan: counts per state, ids that are ready, blocked, waiting, in review or proposed, and the project (its task templates in project.templates).",
+        "Summary of the plan: counts per state, ids that are ready, blocked, waiting or ideas (proposed), the blocks with their branch and progress, and the project (its task templates in project.templates).",
       annotations: READ_ONLY,
     },
     () =>

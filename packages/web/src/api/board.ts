@@ -23,7 +23,7 @@ export type BoardOk = {
   project: ProjectInfo;
   hash: string;
   external: ExternalFlag[];
-  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq">;
+  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq" | "blocks">;
   tasks: BoardTask[];
 };
 export type BoardUnavailable = {
@@ -55,14 +55,13 @@ export function useBoard(id: string) {
 }
 
 /** A move as sent to the daemon: one human op, conditioned on the task as the board saw it. */
-export type Move = { task: BoardTask; op: Op["op"]; to: Task["state"]; feedback?: string };
+export type Move = { task: BoardTask; op: Op["op"]; to: Task["state"] };
 
 export function moveBody(move: Move): Record<string, unknown> {
   return {
     op: move.op,
     task: move.task.id,
     expect: { [move.task.id]: move.task.hash },
-    ...(move.feedback ? { feedback: move.feedback } : {}),
   };
 }
 
@@ -178,8 +177,7 @@ export function actionBody({ task, action, text }: TaskActionInput): Record<stri
     expect: { [task.id]: task.hash },
   };
   const value = text?.trim();
-  if (action === "send-back") body.feedback = value ?? "";
-  else if (action === "answer" || (action === "reopen" && value)) body.text = value ?? "";
+  if (action === "answer" || (action === "reopen" && value)) body.text = value ?? "";
   return body;
 }
 
@@ -236,5 +234,34 @@ export function useProjectOp(projectId: string) {
     mutationFn: (op: Record<string, unknown>) =>
       api.post(`/projects/${encodeURIComponent(projectId)}/ops`, op),
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
+}
+
+/** The project's git branch and local branches, for a block's base. */
+export type GitInfo = { branch: string | null; branches: string[] };
+
+export function useGitInfo(projectId: string, enabled = true) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ["git", projectId],
+    queryFn: () => api.get<GitInfo>(`/projects/${encodeURIComponent(projectId)}/git`),
+    enabled,
+  });
+}
+
+/** The human merges a ready block into its base (squash or merge commit), locally. */
+export function useMergeBlock(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ block, strategy }: { block: string; strategy: "squash" | "merge" }) =>
+      api.post<{ ok: true; commit: string }>(
+        `/projects/${encodeURIComponent(projectId)}/blocks/${encodeURIComponent(block)}/merge`,
+        { strategy },
+      ),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: boardKey(projectId) });
+      client.invalidateQueries({ queryKey: ["git", projectId] });
+    },
   });
 }

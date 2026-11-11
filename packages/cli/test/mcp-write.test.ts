@@ -28,7 +28,7 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
   }) satisfies Task;
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/3",
+  schema: "konsora/4",
   project: {
     name: "Weather",
     templates: [
@@ -48,7 +48,7 @@ const plan = (): TasksDocument => ({
   seq: { BE: 4, FE: 1 },
   tasks: [
     t("BE-01", "done"),
-    t("BE-02", "review", ["BE-01"]),
+    t("BE-02", "doing", ["BE-01"]),
     t("BE-03", "todo", ["BE-02"]),
     t("BE-04", "todo", ["BE-01"], { acceptance: [{ id: "ac1", text: "Fast" }] }),
     t("FE-01", "proposed", [], { created: { at, by: "agent:claude" } }),
@@ -181,7 +181,21 @@ describe("konsora mcp: agent write tools", () => {
       ],
       ["depend", { id: "OPS-01", on: "FE-02" }, ["depend", "OPS-01", "FE-02"]],
       ["undepend", { id: "OPS-01", on: "FE-02" }, ["undepend", "OPS-01", "FE-02"]],
-      ["withdraw", { id: "FE-02" }, ["withdraw", "FE-02"]],
+      ["delete", { id: "FE-02" }, ["delete", "FE-02"]],
+      ["promote", { id: "FE-01" }, ["promote", "FE-01"]],
+      [
+        "add_block",
+        { id: "cache", name: "Cache", base: "main" },
+        ["add-block", "cache", "--name", "Cache", "--base", "main"],
+      ],
+      [
+        "edit_block",
+        { id: "cache", name: "Forecast cache" },
+        ["edit-block", "cache", "--name", "Forecast cache"],
+      ],
+      ["set_block", { id: "BE-04", block: "cache" }, ["set-block", "BE-04", "cache"]],
+      ["set_block", { id: "OPS-01", block: "cache" }, ["set-block", "OPS-01", "cache"]],
+      ["set_block", { id: "OPS-01", block: null }, ["set-block", "OPS-01", "none"]],
       ["start", { id: "BE-04", plan: "Plan" }, ["start", "BE-04", "-m", "Plan"]],
       ["note", { id: "BE-04", text: "Progress" }, ["note", "BE-04", "Progress"]],
       ["ask", { id: "BE-04", question: "Which TTL?" }, ["ask", "BE-04", "Which TTL?"]],
@@ -198,7 +212,11 @@ describe("konsora mcp: agent write tools", () => {
       expect(fromMcp.json(), tool).toEqual(fromCli.json());
       expect(file(viaMcp), tool).toBe(file(viaCli));
     }
-    expect(doc(viaMcp).tasks.find((task) => task.id === "BE-04")?.state).toBe("review");
+    expect(doc(viaMcp).tasks.find((task) => task.id === "BE-04")).toMatchObject({
+      state: "done",
+      block: "cache",
+    });
+    expect(doc(viaMcp).blocks?.[0]).toMatchObject({ id: "cache", name: "Forecast cache" });
     const tasks = doc(viaMcp).tasks;
     expect(tasks.find((task) => task.id === "OPS-03")).toMatchObject({ labels: ["ops"] });
     expect(tasks.find((task) => task.id === "OPS-02")).toMatchObject({
@@ -215,7 +233,7 @@ describe("konsora mcp: agent write tools", () => {
     await close();
   });
 
-  it("exposes no human transition, and refuses to change approved work with a hint", async () => {
+  it("exposes no human action, and refuses to change finished work with a hint", async () => {
     const dir = project();
     const { client, call, close } = await connect(dir);
     const names = (await client.listTools()).tools.map((tool) => tool.name);
@@ -229,17 +247,20 @@ describe("konsora mcp: agent write tools", () => {
       "set-yolo",
       "restore",
       "add-group",
+      "delete_block",
+      "mark_merged",
+      "merge",
+      "withdraw",
     ])
       expect(names).not.toContain(human);
     const before = file(dir);
-    const edit = await call("edit", { id: "BE-04", title: "Hijacked" });
+    const edit = await call("edit", { id: "BE-01", title: "Hijacked" });
     expect(edit.isError).toBe(true);
-    expect(edit.text).toContain("Error (forbidden): BE-04 is approved");
-    expect(edit.text).toContain("Hint: Agents propose, start, note, ask and finish");
-    const withdraw = await call("withdraw", { id: "BE-03" });
-    expect(withdraw.isError).toBe(true);
-    expect(withdraw.text).toContain("only proposals can be withdrawn");
-    expect((await call("undepend", { id: "BE-04", on: "BE-01" })).text).toContain("forbidden");
+    expect(edit.text).toContain("Error (forbidden): BE-01 is done");
+    expect(edit.text).toContain("Hint: Agents create, start, note, ask and finish");
+    const deleted = await call("delete", { id: "BE-02" });
+    expect(deleted.isError).toBe(true);
+    expect(deleted.text).toContain("agents can only delete tasks nobody started");
     expect((await call("start", { id: "BE-03" })).text).toContain("Error (blocked)");
     expect(file(dir)).toBe(before);
     await close();
@@ -306,7 +327,7 @@ describe("konsora mcp: agent write tools", () => {
     await close();
   });
 
-  it("tells the agent to stop after ask and finish", async () => {
+  it("tells the agent to stop after ask, and where to commit in a block", async () => {
     const dir = project();
     const { call, close } = await connect(dir);
     await call("start", { id: "BE-04" });
@@ -314,8 +335,13 @@ describe("konsora mcp: agent write tools", () => {
       "Stop here and wait",
     );
     expect((await call("finish", { id: "BE-04", summary: "S" })).text).toContain(
-      "waiting for human review. Stop here.",
+      "The task is done.",
     );
+    await call("add_block", { id: "cache", name: "Cache", base: "main" });
+    await call("set_block", { id: "BE-03", block: "cache" });
+    await call("set_block", { id: "BE-02", block: "cache" });
+    const started = await call("finish", { id: "BE-02", summary: "S" });
+    expect(started.text).toContain("work and commit on branch konsora/cache");
     await close();
   });
 });
