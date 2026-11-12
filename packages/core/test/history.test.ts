@@ -82,6 +82,8 @@ describe("completionLog", () => {
         task("T-01", "done", { notes: [note("n1", "summary", "2026-11-06T10:00:00Z")] }),
         task("T-02", "done", { notes: [note("n1", "summary", "2026-11-07T10:00:00Z")] }),
         task("T-03", "done", { notes: [note("n1", "summary", "2026-11-02T10:00:00Z")] }),
+        task("T-04", "done", { notes: [note("n1", "summary", "2026-11-02T10:00:00Z")] }),
+        task("T-100", "done", { notes: [note("n1", "summary", "2026-11-02T10:00:00Z")] }),
       ],
       blocks: [block("open"), block("docs", merged)],
     });
@@ -89,6 +91,8 @@ describe("completionLog", () => {
       "task:T-02",
       "block:docs", // same second as T-01: the merge goes first
       "task:T-01",
+      "task:T-100", // same second as T-04 and T-03: the higher id first, by number
+      "task:T-04",
       "task:T-03",
     ]);
     expect(log[1]).toEqual({

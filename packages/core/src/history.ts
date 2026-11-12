@@ -35,7 +35,7 @@ export type LogEntry = TaskLogEntry | BlockLogEntry;
 /**
  * Done tasks and merged blocks, newest first. Timestamps are UTC with seconds precision, so they
  * sort as strings. Ties put a block before tasks (a merge comes after its tasks are finished),
- * then go by id, so the order is deterministic.
+ * then the higher id first (usually the later one), so the order is deterministic.
  */
 export function completionLog(doc: Pick<TasksDocument, "tasks" | "blocks">): LogEntry[] {
   const entries: LogEntry[] = [];
@@ -59,7 +59,7 @@ export function completionLog(doc: Pick<TasksDocument, "tasks" | "blocks">): Log
     (a, b) =>
       compare(b.at, a.at) ||
       compare(a.kind === "block" ? 0 : 1, b.kind === "block" ? 0 : 1) ||
-      compare(a.id, b.id),
+      b.id.localeCompare(a.id, "en", { numeric: true }),
   );
 }
 
