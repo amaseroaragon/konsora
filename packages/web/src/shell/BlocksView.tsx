@@ -194,7 +194,7 @@ function BlockCard({
           {t(STATUS[progress.status])}
         </span>
       </div>
-      <p className="s-text k-mono">
+      <p className="b-blocks__meta k-mono">
         {block.branch} → {block.base} ·{" "}
         {t("blocks.progress", { done: progress.done, total: progress.tasks.length })}
         {block.merged && ` · ${block.merged.commit.slice(0, 12)} (${block.merged.strategy})`}
@@ -250,7 +250,7 @@ function BlockCard({
               </Button>
             </>
           )}
-          <Button variant="ghost" busy={remove.isPending} onClick={doDelete}>
+          <Button variant="danger" busy={remove.isPending} onClick={doDelete}>
             {t("blocks.delete")}
           </Button>
         </div>
