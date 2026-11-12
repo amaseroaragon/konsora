@@ -26,11 +26,11 @@
     }
   ],
   "seq": {
-    "CORE": 8,
-    "CLI": 2,
-    "MCP": 1,
-    "DMN": 4,
-    "UI": 9
+    "CORE": 21,
+    "CLI": 12,
+    "MCP": 2,
+    "DMN": 7,
+    "UI": 31
   },
   "tasks": [
     {
@@ -370,6 +370,423 @@
       ]
     },
     {
+      "id": "CORE-09",
+      "title": "Registrar quién empezó cada tarea en curso y desde cuándo",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzx",
+      "desc": "`start` solo deja rastro si se pasa un texto: una tarea en `doing` no dice qué agente la tiene ni desde cuándo, y con varias sesiones en paralelo no se distinguen. Guardar en la tarea quién la empezó y cuándo (campo nuevo, con su migración) y enseñarlo en `status`, `show`, la tarjeta y el panel.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Tras `konsora start <ID> --as claude`, `konsora show <ID> --json` incluye quién la empezó y la fecha, y `pause` o `finish` lo limpian o lo conservan según se documente en esquema-tareas.md"
+        },
+        {
+          "id": "ac2",
+          "text": "La tarjeta de una tarea en curso muestra el agente que la tiene"
+        },
+        {
+          "id": "ac3",
+          "text": "El esquema generado y `konsora migrate` cubren el campo nuevo, con tests en core"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:35:06Z"
+    },
+    {
+      "id": "CORE-10",
+      "title": "Señalar las tareas en curso abandonadas",
+      "state": "todo",
+      "group": "CORE",
+      "deps": [
+        "CORE-09"
+      ],
+      "rank": "zzzzy",
+      "desc": "Si una sesión de agente muere, su tarea se queda en `doing` para siempre y nadie lo nota. Derivar un indicador `stale` (en curso sin notas ni cambios desde hace más de un umbral configurable) y mostrarlo en `status` y en la UI, donde el humano ya puede pausarla.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una tarea en `doing` sin actividad durante más del umbral aparece como abandonada en `konsora status` y con un distintivo en su tarjeta (tests en core con reloj inyectado)"
+        },
+        {
+          "id": "ac2",
+          "text": "Una nota nueva o cualquier cambio en la tarea quita el indicador"
+        },
+        {
+          "id": "ac3",
+          "text": "El indicador es derivado: no se guarda en tasks.json"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:35:17Z"
+    },
+    {
+      "id": "CORE-11",
+      "title": "Reordenar tareas dentro de su columna",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzz",
+      "desc": "`rank` decide el orden y cuál es la siguiente tarea lista, pero nadie puede cambiarlo: la web no tiene arrastre vertical y `konsora edit` no expone `rank` (solo la op `edit` de core lo admite). Permitir priorizar arrastrando en el tablero y con un comando.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Arrastrar una tarjeta arriba o abajo dentro de su columna cambia solo el `rank` de esa tarea y el orden se conserva al recargar"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora move <ID> --before <ID>`, `--after <ID>` y `--top` hacen lo mismo desde la CLI, con su herramienta MCP"
+        },
+        {
+          "id": "ac3",
+          "text": "`konsora ready` refleja el orden nuevo (test)"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:35:24Z"
+    },
+    {
+      "id": "CORE-12",
+      "title": "Devolver una tarea de Por hacer a Ideas",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzi",
+      "desc": "`promote` lleva una idea a `todo`, pero no hay camino de vuelta: si algo se pasó a Por hacer antes de tiempo solo queda borrarlo o dejar que un agente lo empiece. Añadir la operación inversa para tareas que nadie ha empezado.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una op nueva lleva una tarea `todo` a `proposed`; se rechaza en `doing` y `done` (tests en core)"
+        },
+        {
+          "id": "ac2",
+          "text": "En el tablero se puede arrastrar de Por hacer a Ideas, y el panel de tarea ofrece la acción"
+        },
+        {
+          "id": "ac3",
+          "text": "CLI y MCP exponen la operación, también en modo plan, y el daemon no la marca como cambio externo"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:35:34Z"
+    },
+    {
+      "id": "CORE-13",
+      "title": "Gestionar los grupos y el nombre del proyecto",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzr",
+      "desc": "Los grupos solo se crean en `init` o dentro de un `batch`: la op `add-group` existe en core pero no tiene comando ni UI, y no se puede renombrar un grupo, reordenarlos, quitar uno vacío ni cambiar el nombre del proyecto sin editar el JSON a mano.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Hay ops para renombrar un grupo, reordenar los grupos, eliminar un grupo sin tareas y renombrar el proyecto, con tests en core"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora group add|rename|remove` y sus herramientas MCP las exponen"
+        },
+        {
+          "id": "ac3",
+          "text": "Ajustes en la web permite crear, renombrar, reordenar y eliminar grupos vacíos, y cambiar el nombre del proyecto"
+        },
+        {
+          "id": "ac4",
+          "text": "Eliminar un grupo con tareas se rechaza con un error accionable"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:35:51Z"
+    },
+    {
+      "id": "CORE-14",
+      "title": "Enlazar los commits de una tarea al terminarla",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzv",
+      "desc": "Idea del roadmap («Enlaces a commits»), sin que Konsora ejecute git: el agente pasa los hashes al terminar (`finish --commit <sha>`, repetible) y se guardan en la tarea. El panel y el Historial los muestran y los copian. Deducirlos leyendo `git log` sería una decisión de producto aparte, porque hoy Konsora no ejecuta git.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora finish <ID> --summary … --commit <sha>` guarda los hashes en la tarea, validados como hexadecimales de 7 a 40 caracteres (tests en core y en la CLI)"
+        },
+        {
+          "id": "ac2",
+          "text": "El panel de tarea y el Historial muestran los commits de una tarea hecha y permiten copiarlos"
+        },
+        {
+          "id": "ac3",
+          "text": "Ningún código de Konsora ejecuta git"
+        },
+        {
+          "id": "ac4",
+          "text": "La skill indica al agente que pase sus commits al terminar"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
+    },
+    {
+      "id": "CORE-15",
+      "title": "Marcar en el cierre cómo se cumple cada criterio de aceptación",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzx",
+      "desc": "El resumen de `finish` es texto libre: para saber si un cierre cubre todos los criterios hay que leerlo entero. Permitir que el agente adjunte por criterio su evidencia (o que lo declare no cumplido con el motivo) y mostrarlo junto a cada criterio en el panel.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`finish` acepta una evidencia por id de criterio (CLI y MCP) y la guarda en la tarea; un id que no existe se rechaza (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "El panel de una tarea hecha muestra cada criterio con su evidencia o como «sin evidencia»"
+        },
+        {
+          "id": "ac3",
+          "text": "El Historial distingue los cierres con criterios sin evidencia"
+        },
+        {
+          "id": "ac4",
+          "text": "Terminar sin evidencias sigue siendo válido"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:36:38Z"
+    },
+    {
+      "id": "CORE-16",
+      "title": "Preguntas con opciones de respuesta",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzy",
+      "desc": "`ask` solo admite texto, y el humano contesta escribiendo. Muchas preguntas son una elección entre dos o tres caminos: que el agente pueda adjuntar opciones y el humano responda con un clic, pudiendo añadir un comentario.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora ask <ID> \"…\" --option A --option B` guarda las opciones en la nota de pregunta (tests en core, CLI y MCP)"
+        },
+        {
+          "id": "ac2",
+          "text": "El panel de tarea pinta las opciones como botones y, al pulsar una, se envía como respuesta"
+        },
+        {
+          "id": "ac3",
+          "text": "Sigue pudiéndose contestar con texto libre"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:36:46Z"
+    },
+    {
+      "id": "CORE-17",
+      "title": "Registrar la actividad del plan: quién cambió qué y cuándo",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzz",
+      "desc": "Base de la idea del roadmap «Historial de cambios del plan». Hoy solo queda rastro de la creación, de las notas y del último `updated_at`: una promoción, un inicio sin texto, una pausa, una edición o un borrado no dejan constancia de quién ni cuándo. Derivar o guardar un registro de eventos por tarea, acotado en tamaño.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada op que cambia una tarea deja un evento con el actor, la fecha y el tipo (crear, promover, empezar, pausar, terminar, reabrir, editar, eliminar), con tests en core"
+        },
+        {
+          "id": "ac2",
+          "text": "Una función de core devuelve la actividad del plan de la más reciente a la más antigua"
+        },
+        {
+          "id": "ac3",
+          "text": "El formato está documentado en esquema-tareas.md, con su migración, y el tamaño del registro está acotado"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:36:55Z"
+    },
+    {
+      "id": "CORE-18",
+      "title": "Archivar las tareas hechas antiguas",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzzx",
+      "desc": "Las tareas hechas se quedan en `tasks.json` para siempre con todas sus notas: el fichero, los diffs y el contexto que consumen los agentes al leerlo crecen sin límite (el tope es 8 MiB). Mover las hechas antiguas a un archivo aparte dentro de `.konsora/`, como acción explícita, sin romper las dependencias que apuntan a ellas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora archive --before <fecha>` mueve las tareas hechas anteriores a un fichero de archivo en `.konsora/` y el plan sigue pasando `konsora check` (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "Una dependencia sobre una tarea archivada cuenta como hecha y sus ids no se reutilizan"
+        },
+        {
+          "id": "ac3",
+          "text": "El Historial y `konsora show` siguen mostrando las tareas archivadas, marcadas como tales"
+        },
+        {
+          "id": "ac4",
+          "text": "Sin `--write` solo muestra lo que movería"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:37:06Z"
+    },
+    {
+      "id": "CORE-19",
+      "title": "Hitos: agrupar tareas en un objetivo con su progreso",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzzz",
+      "desc": "Este mismo repo se organiza por hitos (M11–M14) que solo existen en `roadmap.md`: el plan no sabe qué tareas forman un hito ni cuánto falta. Un hito sería un nombre y un criterio de hecho, con tareas asignadas y su progreso. A diferencia de los bloques retirados en M14, no tiene rama ni merge ni ninguna relación con git.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El plan admite hitos (id, nombre, criterio de hecho opcional) y una tarea puede pertenecer a uno, con validación, migración y tests en core"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora status` y la UI muestran por hito cuántas tareas tiene hechas del total"
+        },
+        {
+          "id": "ac3",
+          "text": "Tablero y grafo se pueden filtrar por hito"
+        },
+        {
+          "id": "ac4",
+          "text": "Ninguna operación de hitos toca git"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:37:19Z"
+    },
+    {
+      "id": "CORE-20",
+      "title": "Dividir una tarea en varias conservando sus dependencias",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzi",
+      "desc": "Cuando una tarea resulta demasiado grande hay que crear las nuevas, recolocar las dependencias a mano y borrar la original. Una operación que la sustituya por varias: las nuevas heredan sus dependencias y las tareas que dependían de ella pasan a depender de la última.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una op `split` sustituye una tarea que nadie ha empezado por dos o más, que heredan su grupo, sus etiquetas y sus dependencias (tests en core)"
+        },
+        {
+          "id": "ac2",
+          "text": "Las tareas que dependían de la original dependen después de las nuevas y el plan sigue sin ciclos"
+        },
+        {
+          "id": "ac3",
+          "text": "CLI y MCP la exponen, también en modo plan, y el panel de tarea ofrece la acción"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
+    },
+    {
+      "id": "CORE-21",
+      "title": "Limpiar los restos de etapas anteriores en textos, docs y datos",
+      "state": "todo",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzz",
+      "desc": "La auditoría encontró referencias a funciones retiradas. En la UI: `chat.intro` y `history.text` hablan de bloques, `templates.text` de dificultad, y quedan claves sin uso (`templates.difficulty`, `templates.criterion.check`, `templates.error.check`, `templates.error.difficulty`). En el MCP: la descripción de `status` menciona los bloques y sus ramas. En los docs: `arquitectura.md` §2 habla del git del merge y de la rama de un bloque, `esquema-tareas.md` §5 pone de ejemplo `approve BE-02` y dice que las notas se pueden editar (no hay op), `AGENTS.md` habla de aprobar y aceptar, y `CLAUDE.md` dice «esquema v4». En el daemon: `feedback_required` en `OP_STATUS`. En disco: `.konsora/runs/` con runs de M6–M9 y su `.konsora/.gitignore`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Ningún texto de la UI, del MCP ni de los docs vigentes menciona bloques, aprobación, dificultad o checks como algo actual, y el test de claves i18n no deja claves sin uso"
+        },
+        {
+          "id": "ac2",
+          "text": "`docs/arquitectura.md`, `docs/esquema-tareas.md`, `AGENTS.md` y `CLAUDE.md` describen el estado tras M14"
+        },
+        {
+          "id": "ac3",
+          "text": "`.konsora/runs/` y su `.gitignore` se eliminan solo con la confirmación del humano"
+        },
+        {
+          "id": "ac4",
+          "text": "`npm run check` pasa"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:37:32Z"
+    },
+    {
       "id": "CLI-01",
       "title": "Instalación en proyectos: CLI global e init con Claude Code",
       "state": "done",
@@ -455,6 +872,314 @@
       ]
     },
     {
+      "id": "CLI-03",
+      "title": "Actualizar la skill instalada cuando cambia el protocolo",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzv",
+      "desc": "`konsora init` y `konsora skill` nunca sobrescriben `SKILL.md`, así que un proyecto inicializado antes de M12 o M14 conserva una skill que habla de aprobación o de bloques, y el agente sigue un protocolo que ya no existe. Marcar la skill con su versión, avisar cuando la instalada es anterior y permitir actualizarla de forma explícita.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La skill instalada lleva una marca de versión y `konsora status` avisa con una pista cuando es anterior a la del checkout"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora skill --update` la sustituye solo si no se modificó a mano; si se modificó, lo dice y exige `--force` (tests en un repo temporal)"
+        },
+        {
+          "id": "ac3",
+          "text": "Sin `--update`, el comportamiento actual de no sobrescribir no cambia"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:37:52Z"
+    },
+    {
+      "id": "CLI-04",
+      "title": "Añadir konsora next: la siguiente tarea lista con todo su contexto",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzx",
+      "desc": "Para elegir trabajo el agente encadena `status`, `ready` y `show`. Un solo comando (y su herramienta MCP) que devuelva la primera tarea lista según `rank` con su descripción, criterios y notas, y opcionalmente la empiece.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora next` imprime la tarea lista de menor `rank` con el mismo detalle que `show`, y `--json` da la misma forma que `show --json`"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora next --start --as claude` además la deja en `doing`"
+        },
+        {
+          "id": "ac3",
+          "text": "Sin tareas listas explica por qué (todo bloqueado, esperando respuesta o plan vacío) y sale con código distinto de cero"
+        },
+        {
+          "id": "ac4",
+          "text": "El MCP expone `next` con el mismo resultado (test e2e por stdio)"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:38:01Z"
+    },
+    {
+      "id": "CLI-05",
+      "title": "Entregar al empezar una tarea los resúmenes de cierre de sus dependencias",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzy",
+      "desc": "El resumen con el que un agente cierra una tarea es el mejor contexto para quien hace la siguiente, pero hoy hay que ir a buscarlo con `show` dependencia a dependencia. Que `start` (CLI y MCP) devuelva, junto a la tarea, el resumen de cierre de cada dependencia directa.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La salida de `konsora start <ID>` incluye el id, el título y el resumen de cierre de cada dependencia directa hecha (test de la CLI)"
+        },
+        {
+          "id": "ac2",
+          "text": "La herramienta `start` del MCP devuelve lo mismo en su JSON"
+        },
+        {
+          "id": "ac3",
+          "text": "Una tarea sin dependencias no añade ninguna sección vacía"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:38:13Z"
+    },
+    {
+      "id": "CLI-06",
+      "title": "Añadir konsora log: el historial de cierres en la terminal y en el MCP",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzz",
+      "desc": "El Historial (`completionLog`) solo se ve en la web. Un agente que empieza sesión no puede preguntar qué se cerró últimamente sin listar todas las tareas hechas. Exponerlo en la CLI y como herramienta de lectura del MCP.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora log` lista las tareas hechas de la más reciente a la más antigua con fecha, quién la cerró y la primera línea del resumen"
+        },
+        {
+          "id": "ac2",
+          "text": "`--since <fecha>`, `--limit <n>` y `--json` funcionan, y el JSON coincide con `completionLog` de core"
+        },
+        {
+          "id": "ac3",
+          "text": "El MCP expone una herramienta de lectura equivalente, permitida también en modo plan"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:38:21Z"
+    },
+    {
+      "id": "CLI-07",
+      "title": "Filtrar konsora list por etiqueta y por texto",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzzi",
+      "desc": "`list` filtra por estado, grupo y derivados, pero no por etiqueta ni por texto, así que un agente no puede comprobar si algo ya está planificado sin leer el plan entero. Añadir `--label` y `--search` a la CLI y a la herramienta `list` del MCP.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora list --label bug` devuelve solo las tareas con esa etiqueta, y `--search <texto>` las que lo contienen en el título o la descripción, sin distinguir mayúsculas"
+        },
+        {
+          "id": "ac2",
+          "text": "Los filtros se combinan con los existentes y funcionan con `--json`"
+        },
+        {
+          "id": "ac3",
+          "text": "La herramienta `list` del MCP acepta los mismos filtros (test)"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:38:28Z"
+    },
+    {
+      "id": "CLI-08",
+      "title": "Instalar hooks de Claude Code: plan al abrir sesión y aviso al parar con tareas en curso",
+      "state": "proposed",
+      "group": "CLI",
+      "rank": "zzzzzzr",
+      "desc": "Hoy el agente solo sigue el protocolo si decide cargar la skill. Con hooks de Claude Code en el proyecto (opcionales en `konsora init`), cada sesión arrancaría viendo el estado del plan, y al terminar un turno con una tarea suya en `doing` recibiría el recordatorio de anotar, pausar o terminar. Hay que comprobar antes en la documentación oficial qué hooks y qué formato admite `.claude/settings.json`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora init --hooks` (o `konsora skill --hooks`) añade los hooks a `.claude/settings.json` sin tocar otras claves, y un fichero inválido no se sobrescribe (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "En una sesión real de Claude Code el estado del plan aparece al empezar (prueba manual)"
+        },
+        {
+          "id": "ac3",
+          "text": "Los hooks solo leen el plan: no escriben en tasks.json ni lanzan agentes"
+        },
+        {
+          "id": "ac4",
+          "text": "Sin la opción, `init` no escribe ningún hook"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
+    },
+    {
+      "id": "CLI-09",
+      "title": "Integrar otros agentes en init: Codex y AGENTS.md",
+      "state": "proposed",
+      "group": "CLI",
+      "rank": "zzzzzzx",
+      "desc": "Idea del roadmap («Otros agentes»). `init` solo integra Claude Code y `--print-config` solo conoce `claude`. Añadir la integración de Codex (instrucciones en `AGENTS.md` y su configuración del servidor MCP), tras verificar sus condiciones y formatos oficiales.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora init --agent codex` deja el protocolo en `AGENTS.md` sin borrar su contenido previo y registra el servidor MCP en la configuración de proyecto de Codex, sin escribir en HOME (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora mcp --print-config codex` imprime el snippet correspondiente"
+        },
+        {
+          "id": "ac3",
+          "text": "Una sesión real de Codex crea, empieza y termina una tarea, y queda firmada como `agent:codex` (prueba manual)"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
+    },
+    {
+      "id": "CLI-10",
+      "title": "Añadir konsora doctor: diagnosticar la instalación del proyecto",
+      "state": "proposed",
+      "group": "CLI",
+      "rank": "zzzzzzy",
+      "desc": "Cuando algo no funciona (el MCP no aparece, el panel de IA falla, el daemon es antiguo) hay que revisar varias piezas a mano. Un comando que compruebe todo lo que Konsora necesita y diga cómo arreglar cada cosa.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora doctor` comprueba la versión de Node, que el plan sea válido, la skill y su versión, la entrada de `.mcp.json`, que `claude` esté en el PATH, el estado y la versión del daemon y si hay un lock huérfano, con una línea por comprobación"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada fallo trae una pista accionable y el comando sale con código distinto de cero si hay alguno"
+        },
+        {
+          "id": "ac3",
+          "text": "No escribe nada y no filtra tokens ni rutas privadas fuera del proyecto"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
+    },
+    {
+      "id": "CLI-11",
+      "title": "Abrir una tarea en la UI desde la terminal",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzzzzzzzv",
+      "desc": "`konsora ui` abre la lista de proyectos o el proyecto actual, pero no una tarea concreta. Con `konsora ui <ID>` se abriría el tablero con el panel de esa tarea, y `konsora show <ID>` podría imprimir su enlace.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora ui <ID>` abre la UI del proyecto actual con el panel de esa tarea (test de la URL generada)"
+        },
+        {
+          "id": "ac2",
+          "text": "Un id que no existe da un error accionable y no abre nada"
+        },
+        {
+          "id": "ac3",
+          "text": "`--no-open` imprime la URL de la tarea"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:39:16Z"
+    },
+    {
+      "id": "CLI-12",
+      "title": "Exportar el plan y los cierres a Markdown",
+      "state": "todo",
+      "group": "CLI",
+      "rank": "zzzzzzzzzzzy",
+      "desc": "Para una descripción de PR, unas notas de versión o un resumen de la semana hoy hay que copiar resúmenes a mano. `konsora export` generaría Markdown con lo cerrado en un periodo (o con el plan pendiente), sin escribir nada salvo que se indique un fichero.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora export --done --since <fecha>` imprime en Markdown las tareas cerradas desde esa fecha, agrupadas por grupo, con su id, su título y su resumen"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora export --pending` imprime lo que queda por hacer en orden de dependencias"
+        },
+        {
+          "id": "ac3",
+          "text": "La salida es determinista (test con snapshot)"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:39:23Z"
+    },
+    {
       "id": "MCP-01",
       "title": "Sesión real de Claude Code con el MCP instalado por init",
       "state": "done",
@@ -495,6 +1220,36 @@
           "text": "Prueba real con claude 2.1.322 (`claude -p`, modelo sonnet) en un repo temporal recién inicializado con el konsora global. El servidor konsora se cargó desde el .mcp.json de init (source: project, connected) tras aprobarlo con enabledMcpjsonServers, y solo se permitieron las herramientas mcp__konsora__* (más Write y git add/commit en la 2.ª sesión). ac1: la sesión cargó la skill y llamó a propose; `konsora status` mostró TASK-01 en todo y ready. ac2: una segunda sesión llamó a show, start, note y finish por el MCP, e hizo commit solo de README.md; TASK-01 quedó en done con sus notas y el resumen de cierre. Los criterios se actualizaron antes a M12 (ya no hay proposed→aprobar→review). No hizo falta cambiar código."
         }
       ]
+    },
+    {
+      "id": "MCP-02",
+      "title": "Ofrecer prompts y recursos MCP: el plan como recurso y «trabaja la siguiente tarea»",
+      "state": "proposed",
+      "group": "MCP",
+      "rank": "zzzzzzv",
+      "desc": "El servidor MCP solo expone herramientas. Con prompts MCP, Claude Code ofrecería como comandos «trabaja la siguiente tarea lista», «planifica» o «retoma lo que está en curso»; con un recurso, el plan se podría adjuntar a la conversación con una mención.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El servidor declara al menos los prompts de trabajar la siguiente tarea y de retomar lo que está en curso, y un cliente MCP los lista y los obtiene (test por stdio)"
+        },
+        {
+          "id": "ac2",
+          "text": "El plan se expone como recurso de solo lectura con el mismo contenido que `status`"
+        },
+        {
+          "id": "ac3",
+          "text": "En Claude Code los prompts aparecen como comandos del servidor konsora (prueba manual)"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
     },
     {
       "id": "DMN-01",
@@ -666,6 +1421,96 @@
           "text": "Commit 5bdb111 en main. Decisión del humano: el agente puede leer el código. ac1: claude -p recibe --tools=Glob,Grep,Read,ToolSearch (PLAN_BUILTIN_TOOLS en core), --disallowedTools=Bash,Edit,NotebookEdit,Write (PLAN_DENIED_TOOLS) y --permission-mode default (test en chat.test.ts). ac2: la lectura queda permitida, y arquitectura.md (panel de IA y ADR 8) y la regla de CLAUDE.md describen exactamente lo que tiene. ac3: con claude real, a través del daemon, y con los ajustes del proyecto en defaultMode acceptEdits más allow de Write, Edit y Bash(touch:*): pedirle que cree NOTAS.md, directamente o con un subagente, no creó nada; leyó GUIDE.md y creó una tarea con batch. La fila del roadmap queda pendiente (ver nota)."
         }
       ]
+    },
+    {
+      "id": "DMN-05",
+      "title": "Conservar los chats del panel de IA entre reinicios del daemon",
+      "state": "todo",
+      "group": "DMN",
+      "rank": "zzzzzzzzzr",
+      "desc": "Los chats viven en memoria: `konsora ui --restart`, o una actualización del checkout que reinicia el daemon, borran la conversación de planificación a medias. Guardarlos en el directorio de datos del usuario (nunca en el proyecto) y reanudarlos con su sesión de Claude Code. Guardar el contenido del chat en disco es una decisión de producto que hay que confirmar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Tras reiniciar el daemon, el chat de un proyecto conserva sus mensajes y el siguiente turno continúa la misma sesión (test con el `claude` falso)"
+        },
+        {
+          "id": "ac2",
+          "text": "El fichero está en el directorio de datos con permisos 0600 y nunca dentro del proyecto"
+        },
+        {
+          "id": "ac3",
+          "text": "«Empezar de nuevo» lo borra del disco, y los logs siguen sin contener prompts"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:39:48Z"
+    },
+    {
+      "id": "DMN-06",
+      "title": "Elegir el modelo del panel de IA",
+      "state": "todo",
+      "group": "DMN",
+      "rank": "zzzzzzzzzv",
+      "desc": "`konsora plan` acepta `--model`, pero el panel de IA siempre usa el modelo por defecto de Claude Code. Permitir elegirlo en el panel, por proyecto.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El panel ofrece un selector de modelo y el turno siguiente se lanza con `--model <id>` (test con el `claude` falso que comprueba los argumentos)"
+        },
+        {
+          "id": "ac2",
+          "text": "Sin elegir nada, el comportamiento actual no cambia"
+        },
+        {
+          "id": "ac3",
+          "text": "La elección se recuerda por proyecto"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:39:55Z"
+    },
+    {
+      "id": "DMN-07",
+      "title": "Consultar y parar el daemon desde la CLI",
+      "state": "todo",
+      "group": "DMN",
+      "rank": "zzzzzzzzzzzx",
+      "desc": "El daemon se arranca con `konsora ui` y se reinicia con `--restart`, pero no hay forma de ver si está en marcha ni de pararlo sin buscar su PID en `daemon.json`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`konsora ui --status` dice si el daemon está en marcha, su versión, su URL sin el token y los proyectos vinculados"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora ui --stop` lo para y borra `daemon.json`; si no está en marcha lo dice y sale con 0"
+        },
+        {
+          "id": "ac3",
+          "text": "Tests con un daemon real en un directorio de datos temporal"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:06Z"
     },
     {
       "id": "UI-01",
@@ -1010,6 +1855,660 @@
           "text": "Panel de tarea con secciones plegables (commit 0a51840).\n\n- Orden por prioridad: resumen de cierre y acciones fijos arriba; después descripción, criterios, dependencias y notas.\n- Esas cuatro secciones son <details> nativos con título y recuento (p. ej. «Notas · 3»), así que también se pliegan con el teclado.\n- El estado abierto/cerrado de cada sección se guarda en localStorage (`konsora.panel.<sección>`) y vale para todas las tareas. Sin almacenamiento, se pliega igual pero no se recuerda.\n- Al editar, Dependencias (tiene el formulario) no se pliega.\n\nComprobado: tests en `task-panel.test.tsx` (orden, plegado por defecto, estado guardado, sin almacenamiento, sección con formulario); npm run check (46 ficheros, 599 tests); y en Chrome headless: plegar con clic y con Intro, el estado se mantiene al cambiar de tarea y al recargar, y Dependencias aparece sin plegar mientras se edita."
         }
       ]
+    },
+    {
+      "id": "UI-10",
+      "title": "Buscar y filtrar tareas en el tablero y el grafo",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzi",
+      "desc": "Hoy la UI no tiene búsqueda ni filtros: con decenas de tareas hay que recorrer las columnas a ojo. Añadir una barra con texto libre (id, título, descripción) y filtros por grupo, etiqueta y quién la creó o la cerró, compartida por el tablero y el grafo y guardada en la URL para poder enlazarla.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Escribir un texto deja en el tablero y en el grafo solo las tareas cuyo id, título o descripción lo contienen (test del modelo)"
+        },
+        {
+          "id": "ac2",
+          "text": "Se puede filtrar por grupo y por etiqueta, y el filtro sobrevive a una recarga porque va en la URL"
+        },
+        {
+          "id": "ac3",
+          "text": "Con un filtro activo se ve cuántas tareas quedan ocultas y un botón lo quita"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:12Z"
+    },
+    {
+      "id": "UI-11",
+      "title": "Mostrar las etiquetas en las tarjetas y en el panel de tarea",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzr",
+      "desc": "Las etiquetas se guardan y se editan (y las plantillas las añaden), pero solo se ven dentro del editor: ni la tarjeta ni el panel de tarea en modo lectura las pintan. Mostrarlas como chips en ambos sitios.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una tarea con etiquetas las muestra como chips en su tarjeta del tablero y en la cabecera de su panel (test de componente)"
+        },
+        {
+          "id": "ac2",
+          "text": "Una tarea sin etiquetas no deja hueco ni chip vacío"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:17Z"
+    },
+    {
+      "id": "UI-12",
+      "title": "Añadir notas humanas desde el panel de tarea",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzv",
+      "desc": "El núcleo ya permite al humano añadir notas (`note`, también en tareas hechas), pero la UI solo ofrece responder, reabrir, pasar a Por hacer y eliminar. Sin esto no hay forma de dejarle al agente una indicación en una tarea que no ha preguntado nada.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "En el panel de una tarea hay un formulario que añade una nota `note` firmada como `human` y aparece en la línea de tiempo sin recargar"
+        },
+        {
+          "id": "ac2",
+          "text": "`konsora show <ID>` muestra esa nota, de modo que el agente la lee al retomar la tarea"
+        },
+        {
+          "id": "ac3",
+          "text": "En modo solo lectura el formulario no aparece"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:28Z"
+    },
+    {
+      "id": "UI-13",
+      "title": "Bandeja de preguntas pendientes de todos los proyectos",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzz",
+      "desc": "Idea del roadmap («Responder preguntas en lote»). Una pregunta de un agente solo se ve entrando en su proyecto y abriendo la tarea. Una vista global con todas las tareas que esperan respuesta, en todos los proyectos vinculados, para contestarlas seguidas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El daemon expone las tareas `waiting` de todos los proyectos con su última pregunta (test del daemon)"
+        },
+        {
+          "id": "ac2",
+          "text": "La vista las lista por proyecto y permite responder cada una sin salir de ella; al responder desaparece de la lista"
+        },
+        {
+          "id": "ac3",
+          "text": "La navegación muestra cuántas preguntas hay pendientes"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:37Z"
+    },
+    {
+      "id": "UI-14",
+      "title": "Resumen de cada proyecto en la lista de proyectos",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzi",
+      "desc": "La lista de proyectos solo dice «N tareas». Mostrar por proyecto cuántas hay en curso, listas y esperando respuesta, y cuándo fue el último cierre, para saber de un vistazo dónde hay movimiento o dónde te necesitan.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "`GET /api/projects` devuelve por proyecto los recuentos por estado, las listas, las que esperan respuesta y la fecha del último cierre (test del daemon)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada fila de la lista muestra esos datos y destaca los proyectos con preguntas pendientes"
+        },
+        {
+          "id": "ac3",
+          "text": "Un plan inválido o ausente sigue mostrando su aviso actual"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:43Z"
+    },
+    {
+      "id": "UI-15",
+      "title": "Avisar en el navegador cuando un agente pregunta o termina una tarea",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzr",
+      "desc": "La UI se actualiza en vivo, pero si la pestaña está en segundo plano no te enteras de que un agente espera respuesta. Usar las notificaciones del navegador (con permiso explícito y un interruptor en Ajustes) y un contador en el título de la pestaña.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con los avisos activados y la pestaña en segundo plano, una pregunta nueva lanza una notificación que al pulsarla abre esa tarea (prueba manual en Chrome)"
+        },
+        {
+          "id": "ac2",
+          "text": "El título de la pestaña muestra el número de preguntas pendientes"
+        },
+        {
+          "id": "ac3",
+          "text": "Sin permiso concedido no se lanza nada y la UI lo explica; la preferencia se recuerda"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:40:58Z"
+    },
+    {
+      "id": "UI-16",
+      "title": "Ampliar el Historial a todos los cambios del plan",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "CORE-17"
+      ],
+      "rank": "zzzzzzzzi",
+      "desc": "Idea del roadmap. El Historial solo enseña cierres. Con el registro de actividad, mostrar también las tareas creadas, promovidas, empezadas, pausadas, reabiertas y eliminadas, con quién hizo cada cosa, y poder quedarse solo con los cierres.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El Historial muestra los eventos del plan agrupados por día, con el actor y el tipo de cambio"
+        },
+        {
+          "id": "ac2",
+          "text": "Un conmutador deja solo los cierres (la vista actual)"
+        },
+        {
+          "id": "ac3",
+          "text": "Cada evento enlaza a su tarea; el de una tarea eliminada muestra su id y su título sin enlace"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:05Z"
+    },
+    {
+      "id": "UI-17",
+      "title": "Filtrar el Historial y resumir cada periodo",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzr",
+      "desc": "El Historial es una lista continua sin filtros. Poder acotarlo por agente, grupo y texto, y ver en la cabecera de cada día cuántas tareas se cerraron, para repasar lo que ha hecho un agente en una sesión larga.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El Historial se puede filtrar por quién cerró, por grupo y por texto del título o del resumen (test del modelo)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada día muestra el número de cierres"
+        },
+        {
+          "id": "ac3",
+          "text": "Un botón copia los cierres visibles como lista Markdown"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:10Z"
+    },
+    {
+      "id": "UI-18",
+      "title": "Vista de actividad: ritmo de cierres y tiempo en curso",
+      "state": "todo",
+      "group": "UI",
+      "deps": [
+        "CORE-17"
+      ],
+      "rank": "zzzzzzzzv",
+      "desc": "No hay ninguna medida de cómo avanza el plan. Una vista pequeña con los cierres por día y por agente, el tiempo medio que pasa una tarea en curso y cuántas se reabren, sin estimaciones ni objetivos (siguen fuera de alcance).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La vista muestra los cierres por día de las últimas semanas, repartidos por agente"
+        },
+        {
+          "id": "ac2",
+          "text": "Muestra el tiempo medio entre empezar y terminar, y el número de tareas reabiertas"
+        },
+        {
+          "id": "ac3",
+          "text": "Los cálculos viven en core, con tests, y la vista se actualiza en vivo"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:18Z"
+    },
+    {
+      "id": "UI-19",
+      "title": "Acotar la columna Hecho del tablero",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzy",
+      "desc": "La columna Hecho muestra todas las tareas terminadas y solo crece: en este repo ya tiene todo el backlog. Dejar en el tablero las cerradas recientemente y remitir el resto al Historial, y permitir plegar columnas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Hecho muestra solo las tareas cerradas en los últimos días (umbral elegible) y un enlace «ver N más en el Historial»"
+        },
+        {
+          "id": "ac2",
+          "text": "Cualquier columna se puede plegar y la preferencia se recuerda"
+        },
+        {
+          "id": "ac3",
+          "text": "El grafo no cambia"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:23Z"
+    },
+    {
+      "id": "UI-20",
+      "title": "Afinar una tarea o una idea concreta con el panel de IA",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzx",
+      "desc": "El panel de IA solo arranca desde un objetivo en blanco. Desde el panel de una idea o de una tarea sin empezar, un botón «Afinar con IA» abriría el chat con esa tarea como contexto para concretar su descripción, sus criterios o dividirla. El modo plan ya permite editar tareas que nadie ha empezado.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El panel de una tarea `proposed` o `todo` ofrece «Afinar con IA», que abre el chat con el id y el contenido de esa tarea en el primer mensaje"
+        },
+        {
+          "id": "ac2",
+          "text": "El agente puede editarla con las herramientas del modo plan y el cambio se ve en el panel sin recargar (prueba manual con `claude` real)"
+        },
+        {
+          "id": "ac3",
+          "text": "El botón no aparece en tareas en curso ni hechas, ni en solo lectura"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:40Z"
+    },
+    {
+      "id": "UI-21",
+      "title": "Deshacer la última acción humana desde el aviso",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzy",
+      "desc": "Eliminar pide confirmación, pero después no hay vuelta atrás, y lo mismo pasa al reabrir o al pasar ideas a Por hacer en lote. Ofrecer «Deshacer» en el aviso que sigue a cada acción humana, apoyándose en la op `restore` que ya existe para revertir cambios externos.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Tras eliminar una tarea desde la UI, el aviso ofrece «Deshacer» y al pulsarlo la tarea vuelve con su id, sus notas y las dependencias que otras tenían sobre ella (test del daemon)"
+        },
+        {
+          "id": "ac2",
+          "text": "Funciona también para reabrir y pasar a Por hacer, y para las acciones en lote"
+        },
+        {
+          "id": "ac3",
+          "text": "Si la tarea cambió entre medias, deshacer se rechaza con un mensaje claro en lugar de pisar el cambio"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:48Z"
+    },
+    {
+      "id": "UI-22",
+      "title": "Mostrar el antes y el después de un cambio externo",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzz",
+      "desc": "Un cambio externo sin aprobar solo dice de qué tipo es («tarea terminada modificada fuera de Konsora»). El daemon ya guarda la versión anterior para revertir: enseñar qué campos cambiaron y sus valores antes de decidir entre confirmar y revertir.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada cambio externo muestra los campos que difieren entre la versión anterior y la actual, con ambos valores"
+        },
+        {
+          "id": "ac2",
+          "text": "En una tarea borrada se muestra el contenido que se perdería"
+        },
+        {
+          "id": "ac3",
+          "text": "El texto largo se recorta y se puede desplegar"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:41:57Z"
+    },
+    {
+      "id": "UI-23",
+      "title": "Editar dependencias desde el grafo",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzi",
+      "desc": "El grafo es de solo lectura: las dependencias se cambian escribiendo ids en el editor de la tarea. Permitir crear una dependencia arrastrando de un nodo a otro y quitarla seleccionando la arista, con las mismas reglas de core.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Arrastrar de un nodo a otro crea la dependencia con la op `depend`, y una que crearía un ciclo se rechaza explicando por qué"
+        },
+        {
+          "id": "ac2",
+          "text": "Una arista seleccionada se puede quitar con una acción visible y con el teclado"
+        },
+        {
+          "id": "ac3",
+          "text": "En solo lectura y en tareas hechas no se ofrece"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:05Z"
+    },
+    {
+      "id": "UI-24",
+      "title": "Grafo: ocultar lo hecho, resaltar la cadena de una tarea y agrupar por grupo",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzr",
+      "desc": "Con el plan entero, el grafo se llena de tareas hechas y cuesta ver qué queda. Añadir un conmutador para ocultarlas, resaltar al abrir una tarea todo lo que necesita y todo lo que desbloquea, y poder agrupar los nodos por grupo.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un conmutador oculta las tareas hechas y la disposición se recalcula con las restantes"
+        },
+        {
+          "id": "ac2",
+          "text": "Con una tarea abierta se resaltan sus dependencias y sus dependientes transitivos, y el resto se atenúa"
+        },
+        {
+          "id": "ac3",
+          "text": "Se puede agrupar por grupo, y las preferencias se recuerdan"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:12Z"
+    },
+    {
+      "id": "UI-25",
+      "title": "Elegir las dependencias con un buscador en lugar de escribir ids",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzv",
+      "desc": "Al crear o editar una tarea, las dependencias se escriben como ids («BE-01, BE-02»), lo que obliga a recordarlos. Sustituirlo por un selector que busca por id o por título y solo ofrece las tareas válidas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El campo de dependencias, al crear y al editar, sugiere tareas por id o por título mientras se escribe y se maneja con el teclado"
+        },
+        {
+          "id": "ac2",
+          "text": "No ofrece la propia tarea, las que ya son dependencia ni las que crearían un ciclo"
+        },
+        {
+          "id": "ac3",
+          "text": "Sigue aceptando un id pegado directamente"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:21Z"
+    },
+    {
+      "id": "UI-26",
+      "title": "Acciones en lote: mover de grupo y etiquetar la selección",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzx",
+      "desc": "La barra de selección solo ofrece pasar a Por hacer y eliminar. Añadir mover las tareas seleccionadas a otro grupo y añadirles o quitarles una etiqueta, que hoy exige editar tarea por tarea.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Con varias tareas seleccionadas se puede cambiar su grupo y añadir o quitar una etiqueta en una sola acción"
+        },
+        {
+          "id": "ac2",
+          "text": "Las tareas que rechacen el cambio quedan seleccionadas y se explica el motivo, como ya ocurre con las acciones actuales"
+        },
+        {
+          "id": "ac3",
+          "text": "No se ofrece en solo lectura"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:30Z"
+    },
+    {
+      "id": "UI-27",
+      "title": "Paleta de comandos y atajos de teclado",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzy",
+      "desc": "El grafo se navega con el teclado, pero el resto de la UI depende del ratón. Una paleta (Ctrl+K) para saltar a una tarea por id o título, cambiar de vista o de proyecto, crear una tarea o abrir el panel de IA, y atajos para lo más frecuente.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Ctrl+K abre una paleta que busca tareas por id o título y abre la elegida"
+        },
+        {
+          "id": "ac2",
+          "text": "Desde la paleta se cambia de vista y de proyecto, se crea una tarea y se abre el panel de IA"
+        },
+        {
+          "id": "ac3",
+          "text": "Los atajos no se disparan mientras se escribe en un campo, y hay una ayuda que los lista"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:36Z"
+    },
+    {
+      "id": "UI-28",
+      "title": "Copiar un encargo para el agente desde una tarea",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzz",
+      "desc": "Konsora no lanza agentes: para que uno trabaje una tarea concreta hay que escribírselo en la terminal. Un botón en el panel de tarea que copie al portapapeles un encargo listo para pegar («Trabaja la tarea UI-12 de Konsora siguiendo su skill»), y otro que copie solo el id.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El panel de una tarea lista o en curso ofrece copiar el encargo y copiar el id, con un aviso de confirmación"
+        },
+        {
+          "id": "ac2",
+          "text": "El texto del encargo sale de core, en inglés como el resto del canal de agentes, y tiene test"
+        },
+        {
+          "id": "ac3",
+          "text": "No se ejecuta nada: solo se escribe en el portapapeles"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:50Z"
+    },
+    {
+      "id": "UI-29",
+      "title": "Vista previa de Markdown al editar una descripción",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzi",
+      "desc": "La descripción admite Markdown, pero al crear o editar una tarea solo hay un área de texto: el resultado no se ve hasta guardar. Añadir una pestaña de vista previa con el mismo renderizador seguro que usa el panel.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El editor y la creación de tareas alternan entre escribir y ver la descripción renderizada con el componente Markdown existente"
+        },
+        {
+          "id": "ac2",
+          "text": "La vista previa no guarda nada ni pierde el borrador"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:42:55Z"
+    },
+    {
+      "id": "UI-30",
+      "title": "Selector de tema claro, oscuro o del sistema",
+      "state": "todo",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzr",
+      "desc": "El tema sigue al sistema operativo y solo se puede forzar con `?theme=` en la URL, pensado para capturas. Añadir un selector visible y recordar la elección.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La cabecera ofrece claro, oscuro y sistema, y la elección se aplica sin recargar"
+        },
+        {
+          "id": "ac2",
+          "text": "La preferencia se recuerda entre sesiones y la página no parpadea con el tema equivocado al cargar"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:43:03Z"
+    },
+    {
+      "id": "UI-31",
+      "title": "Prueba de humo automática de la UI en un navegador real",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzi",
+      "desc": "Los criterios de UI de cada hito se han verificado a mano en Chrome, y los tests de web son de modelo y de componente: nada comprueba que la UI compilada, servida por el daemon real, cargue y funcione de punta a punta. Una prueba de humo lo cubriría; añade una dependencia de desarrollo (Playwright o similar) que hay que justificar.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un comando arranca el daemon sobre un proyecto temporal, abre la UI en un navegador sin cabeza y comprueba que el tablero, el grafo y el Historial cargan"
+        },
+        {
+          "id": "ac2",
+          "text": "La prueba crea una tarea desde la UI y la ve aparecer en el tablero y en `konsora list`"
+        },
+        {
+          "id": "ac3",
+          "text": "Queda fuera de `npm run check` o es lo bastante rápida para entrar en él, y la dependencia nueva se justifica en el commit"
+        }
+      ],
+      "labels": [
+        "auditoria"
+      ],
+      "created": {
+        "at": "2026-11-12T21:31:45Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T21:31:45Z"
     }
   ]
 }
