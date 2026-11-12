@@ -312,6 +312,9 @@ export const es = {
   "selection.readonly": "No se puede cambiar nada mientras el plan es de solo lectura.",
   "selection.promote.done": "{n} ideas pasan a Por hacer.",
   "selection.delete.done": "{n} tareas eliminadas.",
+  "selection.block": "Bloque",
+  "selection.block.pick": "Mover a…",
+  "selection.block.confirm": "{warning} ¿Mover de todos modos a {name}?",
   "selection.error": "No se pudo cambiar {id}: {message}",
   "create.error.block": "Ese bloque ya no existe o ya está integrado.",
   "blocks.title": "Bloques",
@@ -359,6 +362,21 @@ export const es = {
   "blocks.delete": "Eliminar bloque",
   "blocks.delete.confirm": "¿Eliminar el bloque {name}? Sus tareas se quedan, sin bloque.",
   "blocks.deleted": "Bloque {name} eliminado.",
+  "blocks.add": "Añadir tareas",
+  "blocks.add.legend": "Tareas que puedes añadir a {name}",
+  "blocks.add.none": "No hay más tareas que se puedan añadir a este bloque.",
+  "blocks.add.in": "ahora en {name}",
+  "blocks.add.submit": "Añadir al bloque ({n})",
+  "blocks.add.warn.one":
+    "{ids} ya está empezada o hecha: sus commits pueden no estar en la rama {branch}.",
+  "blocks.add.warn.many":
+    "{ids} ya están empezadas o hechas: sus commits pueden no estar en la rama {branch}.",
+  "blocks.remove": "Quitar",
+  "blocks.remove.label": "Quitar {id} del bloque",
+  "blocks.moved": "Tareas añadidas a {name}: {ids}.",
+  "blocks.unset": "Tareas sin bloque: {ids}.",
+  "blocks.move.error.merged": "No se pudo mover {id}: su bloque o el de destino ya está integrado.",
+  "blocks.move.error.unknown": "No se pudo mover {id}: ese bloque ya no existe.",
 } as const;
 
 export type MessageKey = keyof typeof es;

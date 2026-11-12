@@ -10,6 +10,7 @@ import { type BoardTask, useGitInfo, useMergeBlock, useProjectOp } from "../api/
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, Panel, StateBadge, useToast } from "../ui/index.ts";
+import { addCandidates, moveErrorText, moveWarning, setBlockOp } from "./blocks-model.ts";
 import { opErrorText } from "./board-model.ts";
 
 const STATUS: Record<"open" | "ready" | "merged", MessageKey> = {
@@ -38,6 +39,118 @@ export function mergeErrorText(code: string, block: Block, message: string): str
     default:
       return t("blocks.merge.error.other", { message });
   }
+}
+
+/**
+ * Moves tasks into a block (or out of any, with null), one `set-block` each on the version
+ * shown. Tasks already there are skipped; refusals are explained one by one. Returns the ids
+ * core refused.
+ */
+export function useMoveToBlock(projectId: string) {
+  const op = useProjectOp(projectId);
+  const toast = useToast();
+  const run = async (tasks: readonly BoardTask[], block: Block | null): Promise<string[]> => {
+    const moved: string[] = [];
+    const refused: string[] = [];
+    for (const task of tasks) {
+      if ((task.block ?? null) === (block?.id ?? null)) continue;
+      try {
+        await op.mutateAsync(setBlockOp(task, block?.id ?? null));
+        moved.push(task.id);
+      } catch (error) {
+        if (error instanceof ApiError && error.unauthorized) return refused;
+        refused.push(task.id);
+        const code = error instanceof ApiError ? error.code : "error";
+        toast.show(moveErrorText(code, task.id, (error as Error).message), "error");
+      }
+    }
+    if (moved.length > 0)
+      toast.show(
+        block
+          ? t("blocks.moved", { name: block.name, ids: moved.join(", ") })
+          : t("blocks.unset", { ids: moved.join(", ") }),
+        "success",
+      );
+    return refused;
+  };
+  return { run, busy: op.isPending };
+}
+
+/** Picks existing tasks to add to a block, warning about work already started elsewhere. */
+function AddTasks({
+  projectId,
+  block,
+  doc,
+  tasks,
+}: {
+  projectId: string;
+  block: Block;
+  doc: TasksDocument;
+  tasks: readonly BoardTask[];
+}) {
+  const move = useMoveToBlock(projectId);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const candidates = addCandidates(tasks, doc, block.id);
+  const chosen = candidates.filter((task) => picked.has(task.id));
+  const warning = moveWarning(chosen, block);
+  const blockName = (id: string) => doc.blocks?.find((b) => b.id === id)?.name ?? id;
+  const toggle = (id: string) => {
+    const next = new Set(picked);
+    if (!next.delete(id)) next.add(id);
+    setPicked(next);
+  };
+  const submit = async () => {
+    const refused = await move.run(chosen, block);
+    setPicked(new Set(refused));
+  };
+  return (
+    <details className="b-blocks__add">
+      <summary className="b-blocks__add-toggle">{t("blocks.add")}</summary>
+      {candidates.length === 0 ? (
+        <p className="s-muted">{t("blocks.add.none")}</p>
+      ) : (
+        <fieldset className="b-blocks__pick">
+          <legend className="k-visually-hidden">
+            {t("blocks.add.legend", { name: block.name })}
+          </legend>
+          {candidates.map((task) => (
+            <label key={task.id} className="b-blocks__option">
+              <input
+                type="checkbox"
+                checked={picked.has(task.id)}
+                onChange={() => toggle(task.id)}
+              />
+              <span className="k-mono">{task.id}</span>
+              <span>{task.title}</span>
+              <StateBadge kind={task.state} />
+              {task.block && (
+                <span className="s-muted">
+                  {t("blocks.add.in", { name: blockName(task.block) })}
+                </span>
+              )}
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {warning && (
+        <p className="a-callout a-callout--warn" role="status">
+          <span className="a-callout__text">{warning}</span>
+        </p>
+      )}
+      {candidates.length > 0 && (
+        <div className="a-actions">
+          <Button
+            variant="secondary"
+            disabled={chosen.length === 0}
+            busy={move.busy}
+            onClick={() => void submit()}
+          >
+            {t("blocks.add.submit", { n: chosen.length })}
+          </Button>
+        </div>
+      )}
+    </details>
+  );
 }
 
 /** Creates a block: id, name, branch (default konsora/<id>) and the base it merges into. */
@@ -142,6 +255,8 @@ function BlockCard({
   onOpen: (id: string) => void;
 }) {
   const progress = blockProgress(doc, block.id);
+  const editable = !readOnly && !block.merged;
+  const out = useMoveToBlock(projectId);
   const merge = useMergeBlock(projectId);
   const remove = useProjectOp(projectId);
   const toast = useToast();
@@ -212,11 +327,24 @@ function BlockCard({
                 </button>{" "}
                 {task?.title}
                 {task && <StateBadge kind={task.state} />}
+                {editable && task && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="b-blocks__remove"
+                    aria-label={t("blocks.remove.label", { id })}
+                    busy={out.busy}
+                    onClick={() => void out.run([task], null)}
+                  >
+                    {t("blocks.remove")}
+                  </Button>
+                )}
               </li>
             );
           })}
         </ul>
       )}
+      {editable && <AddTasks projectId={projectId} block={block} doc={doc} tasks={tasks} />}
       {problem && (
         <div className="a-callout a-callout--warn" role="alert">
           <p className="a-callout__text">{problem.text}</p>
