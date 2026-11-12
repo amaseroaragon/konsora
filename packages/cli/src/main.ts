@@ -97,7 +97,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           io.stdout(
             `Created ${relative(io.cwd, tasksPath(target)) || tasksPath(target)} (project "${doc.project.name}", group ${opts.group}).\n` +
               (skill ? describeInstall(skill) : "") +
-              "Next: open the board with `konsora ui`, and ask Claude to plan with you (or use `konsora plan`); it proposes tasks for you to approve.\n",
+              "Next: open the board with `konsora ui`, and ask Claude to plan with you (or use `konsora plan`): its tasks go straight to the board, ready to work on.\n",
           );
         }
       },
