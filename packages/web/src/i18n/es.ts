@@ -298,9 +298,12 @@ export const es = {
   "action.delete": "Eliminar",
   "move.done.promote": "{id} pasa a Por hacer.",
   "move.done.delete": "{id} eliminada del plan.",
-  "delete.confirm": "¿Eliminar {id}? Se borrará del plan y su id no se reutilizará.",
+  "delete.confirm": "¿Eliminar {ids}? Se borrará del plan y su id no se reutilizará.",
   "delete.confirm.dependents":
-    "¿Eliminar {id}? Se borrará del plan, y {ids} dejarán de depender de ella.",
+    "¿Eliminar {ids}? Se borrará del plan y dejará de ser una dependencia de {deps}.",
+  "delete.confirm.many": "¿Eliminar {ids}? Se borrarán del plan y sus ids no se reutilizarán.",
+  "delete.confirm.many.dependents":
+    "¿Eliminar {ids}? Se borrarán del plan y dejarán de ser dependencias de {deps}.",
   "app.selection.promote": "Pasar a Por hacer",
   "app.selection.delete": "Eliminar",
   "selection.promote.ready": "Pasarán a Por hacer {n} ideas: {ids}.",

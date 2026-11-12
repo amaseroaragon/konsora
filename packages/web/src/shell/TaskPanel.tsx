@@ -56,7 +56,7 @@ function Actions({
   const run = (action: TaskAction, value?: string) => {
     if (
       action === "delete" &&
-      !confirmDelete(task.id, dependents, (question) => window.confirm(question))
+      !confirmDelete([task.id], dependents, (question) => window.confirm(question))
     )
       return;
     mutation.mutate(

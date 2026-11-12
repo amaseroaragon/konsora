@@ -100,11 +100,15 @@ describe("deleting and promoting from the panel", () => {
       asked.push(question);
       return false;
     };
-    expect(confirmDelete("BE-02", ["BE-04"], ask)).toBe(false);
-    expect(confirmDelete("BE-01", [], ask)).toBe(false);
+    expect(confirmDelete(["BE-02"], ["BE-04"], ask)).toBe(false);
+    expect(confirmDelete(["BE-01"], [], ask)).toBe(false);
+    expect(confirmDelete(["BE-01", "BE-03"], [], ask)).toBe(false);
+    expect(confirmDelete(["BE-01", "BE-02"], ["BE-04", "BE-05"], ask)).toBe(false);
     expect(asked).toEqual([
-      "¿Eliminar BE-02? Se borrará del plan, y BE-04 dejarán de depender de ella.",
+      "¿Eliminar BE-02? Se borrará del plan y dejará de ser una dependencia de BE-04.",
       "¿Eliminar BE-01? Se borrará del plan y su id no se reutilizará.",
+      "¿Eliminar BE-01, BE-03? Se borrarán del plan y sus ids no se reutilizarán.",
+      "¿Eliminar BE-01, BE-02? Se borrarán del plan y dejarán de ser dependencias de BE-04, BE-05.",
     ]);
   });
 

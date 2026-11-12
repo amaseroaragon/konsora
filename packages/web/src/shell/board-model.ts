@@ -50,17 +50,22 @@ export function refusalText(plan: MovePlan, id: string): string | null {
   }
 }
 
-/** Asks before deleting a task, naming the tasks that will lose it as a dependency. */
+/** Asks before deleting one or more tasks, naming the tasks that will lose them as a dependency. */
 export function confirmDelete(
-  id: string,
+  ids: readonly string[],
   dependents: readonly string[],
   ask: (question: string) => boolean,
 ): boolean {
-  return ask(
+  const many = ids.length > 1;
+  const key =
     dependents.length > 0
-      ? t("delete.confirm.dependents", { id, ids: dependents.join(", ") })
-      : t("delete.confirm", { id }),
-  );
+      ? many
+        ? "delete.confirm.many.dependents"
+        : "delete.confirm.dependents"
+      : many
+        ? "delete.confirm.many"
+        : "delete.confirm";
+  return ask(t(key, { ids: ids.join(", "), deps: dependents.join(", ") }));
 }
 
 /** Spanish text for an op the daemon refused after the drop (e.g. the file changed meanwhile). */

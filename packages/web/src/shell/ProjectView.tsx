@@ -137,8 +137,7 @@ export function ProjectView({
       const dependents = doc.tasks
         .filter((task) => task.deps?.some((dep) => ids.includes(dep)) && !ids.includes(task.id))
         .map((task) => task.id);
-      if (!confirmDelete(ids.join(", "), dependents, (question) => window.confirm(question)))
-        return;
+      if (!confirmDelete(ids, dependents, (question) => window.confirm(question))) return;
     }
     const refused: string[] = [];
     for (const id of ids) {
