@@ -65,6 +65,7 @@ export const es = {
   "templates.error.other": "No se pudieron guardar las plantillas: {message}",
   "detail.label": "Detalle de {id}",
   "detail.close": "Cerrar detalle",
+  "detail.desc": "Descripción",
   "detail.criteria": "Criterios de aceptación",
   "detail.deps": "Depende de",
   "detail.notes": "Notas",

@@ -13,6 +13,7 @@ import { askConfirm, Button, Field, StateBadge, useToast } from "../ui/index.ts"
 import { confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { PanelSection } from "./PanelSection.tsx";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
@@ -142,7 +143,11 @@ function Actions({
   );
 }
 
-/** Side panel for one task: what it is, its history, and what you can do with it now. */
+/**
+ * Side panel for one task: what it is, its history, and what you can do with it now. Read top to
+ * bottom by priority: closing summary, actions, then description, criteria, dependencies and notes,
+ * which fold (UI-09).
+ */
 export function TaskPanel({
   projectId,
   task,
@@ -173,6 +178,9 @@ export function TaskPanel({
   const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map(doc.tasks.map((x) => [x.id, x]));
+  const criteria = task.acceptance ?? [];
+  const deps = task.deps ?? [];
+  const notes = task.notes ?? [];
   // Once done, the agent's closing summary is what the human reads first.
   const summary =
     task.state === "done"
@@ -245,27 +253,36 @@ export function TaskPanel({
           />
         ) : (
           <>
-            {task.desc && <Markdown className="a-desc" text={task.desc} />}
-            {(task.acceptance ?? []).length > 0 && (
-              <table className="a-criteria">
-                <caption className="k-label">{t("detail.criteria")}</caption>
-                <tbody>
-                  {(task.acceptance ?? []).map((ac) => (
-                    <tr key={ac.id}>
-                      <td className="k-mono a-criteria__id">{ac.id}</td>
-                      <td>{ac.text}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {task.desc && (
+              <PanelSection section="desc" title={t("detail.desc")}>
+                <Markdown className="a-desc" text={task.desc} />
+              </PanelSection>
+            )}
+            {criteria.length > 0 && (
+              <PanelSection section="criteria" title={t("detail.criteria")} count={criteria.length}>
+                <table className="a-criteria">
+                  <tbody>
+                    {criteria.map((ac) => (
+                      <tr key={ac.id}>
+                        <td className="k-mono a-criteria__id">{ac.id}</td>
+                        <td>{ac.text}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </PanelSection>
             )}
           </>
         )}
-        {((task.deps ?? []).length > 0 || (editing && canEdit)) && (
-          <div>
-            <div className="k-label">{t("detail.deps")}</div>
+        {(deps.length > 0 || (editing && canEdit)) && (
+          <PanelSection
+            section="deps"
+            title={t("detail.deps")}
+            count={deps.length}
+            foldable={!(editing && canEdit)}
+          >
             <ul className="a-deps">
-              {(task.deps ?? []).map((id) => {
+              {deps.map((id) => {
                 const dep = index.get(id);
                 return (
                   <li key={id}>
@@ -279,13 +296,12 @@ export function TaskPanel({
               })}
             </ul>
             {editing && canEdit && <DependencyEditor projectId={projectId} task={task} doc={doc} />}
-          </div>
+          </PanelSection>
         )}
-        {(task.notes ?? []).length > 0 && (
-          <div>
-            <div className="k-label">{t("detail.notes")}</div>
+        {notes.length > 0 && (
+          <PanelSection section="notes" title={t("detail.notes")} count={notes.length}>
             <ol className="a-notes">
-              {(task.notes ?? []).map((note) => (
+              {notes.map((note) => (
                 <li key={note.id} className={`a-note a-note--${note.kind}`}>
                   <span className="k-mono a-note__at">{when(note.at)}</span>
                   <div className="a-note__body">
@@ -298,7 +314,7 @@ export function TaskPanel({
                 </li>
               ))}
             </ol>
-          </div>
+          </PanelSection>
         )}
       </div>
     </aside>

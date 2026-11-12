@@ -152,10 +152,6 @@
   border-collapse: collapse;
   font-size: var(--k-text-sm);
 }
-.a-criteria caption {
-  text-align: left;
-  padding-bottom: var(--k-space-3);
-}
 .a-criteria td {
   padding: var(--k-space-4) 0;
   border-top: 1px solid var(--k-line);

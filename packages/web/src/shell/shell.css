@@ -241,6 +241,48 @@
   gap: var(--k-space-4);
 }
 
+/* Foldable sections of the task panel (UI-09) */
+.b-fold__head {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-3);
+  width: fit-content;
+}
+.b-fold__title {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.b-fold__title::-webkit-details-marker {
+  display: none;
+}
+.b-fold__title::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-block: 4px solid transparent;
+  border-inline-start: 6px solid currentColor;
+  transition: transform 120ms ease-out;
+}
+.b-fold[open] > .b-fold__title::before {
+  transform: rotate(90deg);
+}
+.b-fold__title:hover {
+  color: var(--k-ink);
+}
+.b-fold__title:focus-visible {
+  outline: 2px solid var(--k-focus);
+  outline-offset: 2px;
+}
+.b-fold__body {
+  margin-top: var(--k-space-4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-fold__title::before {
+    transition: none;
+  }
+}
+
 /* Task panel, external changes and read-only mode (UI-03) */
 .b-layout {
   display: flex;
