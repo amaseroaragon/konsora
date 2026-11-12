@@ -113,6 +113,12 @@ describe("ChatManager (AI panel)", () => {
     const allowed = args.find((a) => a.startsWith("--allowedTools="));
     expect(allowed).toContain("mcp__konsora__propose");
     expect(allowed).not.toMatch(/start|note|finish|Bash|Edit|Write/);
+    // It may read the code, but never write: whatever the user's default mode or allow rules.
+    expect(args).toContain("--tools=Glob,Grep,Read,ToolSearch");
+    expect(args).toContain("--disallowedTools=Bash,Edit,NotebookEdit,Write");
+    expect(
+      args.slice(args.indexOf("--permission-mode"), args.indexOf("--permission-mode") + 2),
+    ).toEqual(["--permission-mode", "default"]);
     expect(args.some((a) => a.startsWith("--dangerously"))).toBe(false);
     expect(args).not.toContain("--resume");
 

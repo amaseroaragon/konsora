@@ -2,15 +2,18 @@
  * The AI panel's planning chats (one per project, in memory). Each message of the human runs
  * one turn of the user's own Claude Code in headless mode (`claude -p`, stream-json), with the
  * interview prompt from core on the first turn and `--resume` on the next ones. The agent gets
- * only Konsora's MCP server, in plan mode (KONSORA_PLAN=1): it reads the plan and can only
- * propose tasks or revise its proposals, which reach the board like any other change.
+ * only Konsora's MCP server, in plan mode (KONSORA_PLAN=1): it reads the plan and can only create,
+ * revise or delete tasks nobody started and set up blocks, which reach the board like any other
+ * change. Of Claude Code's own tools it only has those that read the code (PLAN_BUILTIN_TOOLS).
  *
  * Konsora uses the official CLI with the user's login, never an API key, and never passes a
- * permission-bypassing flag: tools outside the allowed list are simply refused in `-p` mode.
+ * permission-bypassing flag. It pins `--permission-mode default` and also denies the tools that
+ * write (PLAN_DENIED_TOOLS), so neither the user's default mode nor the project's allow rules let
+ * the panel change files.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { buildPlanPrompt, PLAN_TOOLS } from "@konsora/core";
+import { buildPlanPrompt, PLAN_BUILTIN_TOOLS, PLAN_DENIED_TOOLS, PLAN_TOOLS } from "@konsora/core";
 import { readTasks } from "@konsora/core/store";
 import { mcpCommand } from "./paths.ts";
 import type { Project } from "./registry.ts";
@@ -134,6 +137,11 @@ export class ChatManager {
       "--mcp-config",
       JSON.stringify({ mcpServers: { konsora: server } }),
       `--allowedTools=${PLAN_TOOLS.join(",")}`,
+      // Reading the code is fine; writing is not, whatever the user's default mode or allow rules.
+      `--tools=${PLAN_BUILTIN_TOOLS.join(",")}`,
+      `--disallowedTools=${PLAN_DENIED_TOOLS.join(",")}`,
+      "--permission-mode",
+      "default",
       ...(chat.session ? ["--resume", chat.session] : []),
     ];
     const child = spawn(this.#options.command ?? "claude", args, {

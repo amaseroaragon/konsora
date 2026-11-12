@@ -69,7 +69,7 @@ Los imports relativos llevan la extensión `.ts`, y solo se admite sintaxis TS b
 - **Un archivo de tareas inválido nunca se sobrescribe**: el proyecto pasa a solo lectura y se muestran los errores.
 - **Los cambios externos se respetan.** Escribe con operaciones semánticas, lock y escritura atómica, sin pisar los cambios de otros.
 - **Credenciales**: Konsora no lee, guarda ni transmite tokens ni claves. El panel de IA usa el CLI oficial de Claude Code con el login del usuario y nunca recurre a APIs de pago por su cuenta.
-- **No ejecuta agentes**: ni runs, ni worktrees, ni checks. El panel de IA solo planifica: su agente tiene únicamente el MCP de Konsora en modo plan y nunca flags `--dangerously-*`.
+- **No ejecuta agentes**: ni runs, ni worktrees, ni checks. El panel de IA solo planifica: su agente tiene el MCP de Konsora en modo plan y, de Claude Code, solo herramientas de lectura del código (nada que escriba, ejecute comandos o cree worktrees), y nunca flags `--dangerously-*`.
 - **Git**: Konsora solo hace el merge local de un bloque cuando el humano lo pulsa en la UI, sin tocar el árbol de trabajo si puede y sin dejar nada a medias. Nunca push, PR ni force.
 - El daemon escucha solo en loopback, con token y validación de Host y Origin.
 - Fuera de alcance: ejecutar u orquestar agentes, chat de propósito general, debates entre modelos, gestión de cuentas, nube y distribución pública. Ver los no-objetivos en `vision.md`.

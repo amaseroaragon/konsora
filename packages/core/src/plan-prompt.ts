@@ -38,6 +38,19 @@ export const PLAN_TOOLS: readonly string[] = [
   "set_block",
 ].map((tool) => `mcp__konsora__${tool}`);
 
+/**
+ * The only built-in Claude Code tools the AI panel's agent has (DMN-04, `--tools`): it may read
+ * the code, and ToolSearch loads Konsora's MCP tools when the CLI defers them. Nothing that
+ * writes, runs commands, makes worktrees or schedules work.
+ */
+export const PLAN_BUILTIN_TOOLS: readonly string[] = ["Glob", "Grep", "Read", "ToolSearch"];
+
+/**
+ * Tools denied on top of that, as a second guard: deny rules win over the project's allow rules
+ * and over the user's default permission mode.
+ */
+export const PLAN_DENIED_TOOLS: readonly string[] = ["Bash", "Edit", "NotebookEdit", "Write"];
+
 const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "done"];
 
 export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOptions = {}): string {
