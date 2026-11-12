@@ -2,7 +2,7 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "./projects.ts";
 
-export type ChatRole = "human" | "agent" | "tool" | "error";
+export type ChatRole = "human" | "agent" | "tool" | "error" | "stopped";
 export type ChatMessage = { id: number; role: ChatRole; text: string; at: string };
 export type Chat = { messages: ChatMessage[]; busy: boolean };
 

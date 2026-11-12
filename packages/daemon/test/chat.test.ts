@@ -26,6 +26,8 @@ const runs = fs.existsSync(process.env.FAKE_OUT) ? JSON.parse(fs.readFileSync(pr
 runs.push({ args: process.argv.slice(2), cwd: process.cwd() });
 fs.writeFileSync(process.env.FAKE_OUT, JSON.stringify(runs));
 if (process.env.FAKE_MODE === "hang") { setInterval(() => {}, 1000); return; }
+// Like the real CLI: it traps SIGTERM and exits with 143 instead of dying by the signal.
+if (process.env.FAKE_MODE === "trap") { process.on("SIGTERM", () => process.exit(143)); setInterval(() => {}, 1000); return; }
 const out = (e) => process.stdout.write(JSON.stringify(e) + "\\n");
 out({ type: "system", subtype: "init", session_id: "sess-1" });
 out({ type: "assistant", message: { content: [
@@ -138,9 +140,21 @@ describe("ChatManager (AI panel)", () => {
     await hanging.send(proj(), "Hi");
     await expect(hanging.send(proj(), "Again")).rejects.toMatchObject({ code: "busy" });
     hanging.stop("p1");
-    expect((await idle(hanging, "p1")).messages.at(-1)).toMatchObject({ text: "Stopped." });
+    expect((await idle(hanging, "p1")).messages.at(-1)).toMatchObject({
+      role: "stopped",
+      text: "Stopped.",
+    });
     hanging.reset("p1");
     expect(hanging.view("p1")).toEqual({ messages: [], busy: false });
+
+    // The real CLI exits with 143 on SIGTERM: still a stop, not "exited with code 143".
+    const trapping = manager("trap");
+    await trapping.send(proj(), "Hi");
+    await new Promise((resolve) => setTimeout(resolve, 300)); // let it install its handler
+    trapping.stop("p1");
+    const stopped = await idle(trapping, "p1");
+    expect(stopped.messages.at(-1)).toMatchObject({ role: "stopped", text: "Stopped." });
+    expect(stopped.messages.some((m) => m.role === "error")).toBe(false);
   });
 });
 

@@ -15,7 +15,8 @@ import { readTasks } from "@konsora/core/store";
 import { mcpCommand } from "./paths.ts";
 import type { Project } from "./registry.ts";
 
-export type ChatRole = "human" | "agent" | "tool" | "error";
+/** `stopped`: the human stopped the answer (its text is for logs; the UI shows its own). */
+export type ChatRole = "human" | "agent" | "tool" | "error" | "stopped";
 
 export type ChatMessage = { id: number; role: ChatRole; text: string; at: string };
 
@@ -63,6 +64,8 @@ function toolLine(name: string, input: unknown): string {
 
 export class ChatManager {
   readonly #chats = new Map<string, Chat>();
+  /** Processes the human stopped, so their exit reads as stopped, not as a failure. */
+  readonly #stopped = new WeakSet<ChildProcess>();
   readonly #options: ChatManagerOptions;
 
   constructor(options: ChatManagerOptions) {
@@ -173,10 +176,10 @@ export class ChatManager {
       }
     });
 
-    const finish = (message?: string) => {
+    const finish = (message?: string, role: ChatRole = "error") => {
       if (chat.child !== child) return;
       chat.child = undefined;
-      if (message && !failed) this.#add(project.id, "error", message);
+      if (message && (!failed || role === "stopped")) this.#add(project.id, role, message);
       this.#publish(project.id);
     };
     child.once("error", (error: NodeJS.ErrnoException) => {
@@ -188,7 +191,8 @@ export class ChatManager {
     });
     child.once("close", (code, signal) => {
       lines.close();
-      if (signal) finish("Stopped.");
+      // Claude Code traps SIGTERM and exits with 143, so a stop is not always a signal.
+      if (signal || this.#stopped.has(child)) finish("Stopped.", "stopped");
       else if (code !== 0)
         finish(
           `Claude Code exited with code ${code}${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
@@ -200,7 +204,11 @@ export class ChatManager {
 
   /** Stops the answer in progress, if any; the conversation is kept. */
   stop(project: string): ChatView {
-    this.#chats.get(project)?.child?.kill("SIGTERM");
+    const child = this.#chats.get(project)?.child;
+    if (child) {
+      this.#stopped.add(child);
+      child.kill("SIGTERM");
+    }
     return this.view(project);
   }
 

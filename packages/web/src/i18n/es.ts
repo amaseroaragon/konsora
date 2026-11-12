@@ -291,6 +291,7 @@ export const es = {
   "chat.input.hint": "Intro envía; Mayús+Intro añade una línea.",
   "chat.send": "Enviar",
   "chat.stop": "Detener",
+  "chat.stopped": "Respuesta detenida.",
   "chat.readonly": "No se puede planificar mientras el plan es de solo lectura.",
   "chat.error": "No se pudo enviar el mensaje: {message}",
   "app.view.blocks": "Bloques",

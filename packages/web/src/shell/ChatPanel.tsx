@@ -12,6 +12,12 @@ function Message({ message }: { message: ChatMessage }) {
         <span className="k-mono s-muted">↳ {message.text}</span>
       </li>
     );
+  if (message.role === "stopped")
+    return (
+      <li className="b-chat__msg b-chat__msg--tool">
+        <span className="k-mono s-muted">■ {t("chat.stopped")}</span>
+      </li>
+    );
   if (message.role === "error")
     return (
       <li className="b-chat__msg b-chat__msg--error a-callout a-callout--warn" role="alert">
@@ -28,7 +34,7 @@ function Message({ message }: { message: ChatMessage }) {
 
 /**
  * The AI panel: a planning chat with the user's own Claude Code. It interviews the human and
- * proposes tasks, which appear on the board as proposals to approve. It changes nothing else.
+ * creates the tasks, which appear on the board like any other write. It changes nothing else.
  */
 export function ChatPanel({
   projectId,

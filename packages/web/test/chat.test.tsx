@@ -51,6 +51,19 @@ describe("AI panel", () => {
     expect(html).toContain("Empezar de nuevo");
   });
 
+  it("shows a stopped answer as a quiet Spanish line, not as an error", () => {
+    const html = render({
+      busy: false,
+      messages: [
+        { id: 1, role: "human", text: "Planifica", at },
+        { id: 2, role: "stopped", text: "Stopped.", at },
+      ],
+    });
+    expect(html).toContain("Respuesta detenida.");
+    expect(html).not.toContain("Stopped.");
+    expect(html).not.toContain('role="alert"');
+  });
+
   it("cannot send on a read-only plan", () => {
     const html = render({ messages: [], busy: false }, true);
     expect(html).toContain("No se puede planificar mientras el plan es de solo lectura.");
