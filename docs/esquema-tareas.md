@@ -142,7 +142,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 
 | Operación | Quién | Condiciones y efectos |
 |---|---|---|
-| crear → `todo` | A, H | `propose` / `batch`. Con `state: "proposed"` (`--idea`), se crea como idea. |
+| crear → `todo` | A, H | `propose` / `batch`. Se crea como idea con `propose --idea` (`idea: true` en el MCP) o con `idea: true` en una tarea de `batch`. |
 | `proposed` → `todo` | A, H | `promote`. |
 | editar | A, H | Título, desc, criterios, etiquetas, deps, grupo (`edit`, `depend`, `undepend`). Un agente no cambia tareas `done`. |
 | borrar | A, H | `delete`. Un agente solo borra lo que nadie empezó (`proposed`, `todo`) y nunca una tarea de la que depende otra ya `done`; el humano, cualquiera salvo las de un bloque integrado. Las tareas que dependían de ella pierden esa dependencia y reciben una nota. El ID no se reutiliza. |

@@ -43,7 +43,7 @@ const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "done"];
 export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOptions = {}): string {
   const { project } = document;
   const parts: string[] = [
-    `You are helping the human plan work on the project "${project.name}", whose plan Konsora keeps in .konsora/tasks.json. This is a planning session: you interview the human and create the tasks of the plan. Tasks go straight to "todo" (no approval); use state "proposed" only for loose ideas the human has not committed to. Do not change any code and do not start any task.`,
+    `You are helping the human plan work on the project "${project.name}", whose plan Konsora keeps in .konsora/tasks.json. This is a planning session: you interview the human and create the tasks of the plan. Tasks go straight to "todo" (no approval); only loose ideas the human has not committed to go in as ideas ("proposed"), with idea: true on that task of the batch. Do not change any code and do not start any task.`,
   ];
 
   const goal = options.goal?.trim();

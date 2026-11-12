@@ -124,6 +124,10 @@ export const BatchSchema = z.strictObject({
           .optional()
           .describe("id of a project template the task starts from (see status)"),
         block: z.string().min(1).optional().describe("block id (existing or in blocks)"),
+        idea: z
+          .boolean()
+          .optional()
+          .describe("true creates it as an idea (proposed) instead of in todo"),
       }),
     )
     .min(1),
@@ -163,6 +167,7 @@ export function batchOp(value: unknown, base: string = DEFAULT_BASE_BRANCH): Op 
       ...(t.labels ? { labels: t.labels } : {}),
       ...(t.template ? { template: t.template.toLowerCase() } : {}),
       ...(t.block ? { block: t.block.toLowerCase() } : {}),
+      ...(t.idea ? { idea: true } : {}),
     })),
   };
 }
@@ -325,12 +330,12 @@ export function registerWriteCommands(
 
   withAgent(program.command("batch"))
     .description(
-      "create many tasks (in todo) and blocks at once from JSON, all-or-nothing; deps may name earlier titles",
+      "create many tasks (in todo, or as ideas with idea: true) and blocks at once from JSON, all-or-nothing; deps may name earlier titles",
     )
     .option("--file <path>", "read the JSON from a file instead of standard input")
     .addHelpText(
       "after",
-      '\nJSON: {"groups":[{"id":"API","name":"API"}],"blocks":[{"id":"cache","name":"Forecast cache"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"template":"<template id>","block":"cache"}]}\nA block without branch uses konsora/<id>; without base, the current git branch.',
+      '\nJSON: {"groups":[{"id":"API","name":"API"}],"blocks":[{"id":"cache","name":"Forecast cache"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"template":"<template id>","block":"cache"},{"title":"…","group":"API","idea":true}]}\nA task with "idea": true is created as an idea (proposed); the rest go to todo.\nA block without branch uses konsora/<id>; without base, the current git branch.',
     )
     .action(async (opts: { file?: string; as?: string; json?: boolean }) => {
       const text = await readText(

@@ -81,7 +81,8 @@ export type Op = Base &
         op: "batch";
         groups?: { id: string; name: string }[];
         blocks?: NewBlock[];
-        tasks: NewTask[];
+        /** `idea: true` creates that task as an idea (`proposed`) instead of in `todo`. */
+        tasks: (NewTask & { idea?: boolean })[];
       }
     | { op: "add-group"; id: string; name: string }
     /** An idea (`proposed`) becomes work to do. Anyone may do it: there is no approval. */
@@ -388,7 +389,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
             byTitle.get(ref) ??
             (index.has(ref) ? ref : fail("not_found", `Unknown dependency "${ref}" in batch`)),
         );
-        const task = createTask(spec, "todo", deps);
+        const task = createTask(spec, spec.idea ? "proposed" : "todo", deps);
         byTitle.set(spec.title.trim(), task.id);
       }
       break;

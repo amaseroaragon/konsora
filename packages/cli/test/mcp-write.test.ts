@@ -125,6 +125,7 @@ describe("konsora mcp: agent write tools", () => {
           deps: ["Deploy script"],
           labels: ["ops"],
         },
+        { title: "Metrics someday", group: "OPS", idea: true },
       ],
     };
     writeFileSync(batchFile, JSON.stringify(batch));
@@ -219,6 +220,10 @@ describe("konsora mcp: agent write tools", () => {
     expect(doc(viaMcp).blocks?.[0]).toMatchObject({ id: "cache", name: "Forecast cache" });
     const tasks = doc(viaMcp).tasks;
     expect(tasks.find((task) => task.id === "OPS-03")).toMatchObject({ labels: ["ops"] });
+    expect(tasks.find((task) => task.id === "OPS-04")).toMatchObject({
+      title: "Metrics someday",
+      state: "proposed",
+    });
     expect(tasks.find((task) => task.id === "OPS-02")).toMatchObject({
       desc: "Reproduce and fix.",
       acceptance: [

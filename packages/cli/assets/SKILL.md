@@ -58,6 +58,7 @@ JSON
 ```
 
 - `deps` take task ids or titles of **earlier** tasks in the same batch.
+- A task with `"idea": true` is created as an idea (`proposed`) instead of in `todo`: use it for loose ideas the human has not committed to.
 - A block in `blocks` takes `id` and `name`; `branch` defaults to `konsora/<id>` and `base` to the current git branch. Use a block when several dependent tasks should be merged together; a lone task needs none.
 - If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria and labels, and what you pass completes or replaces them.
 - Each task: an imperative title, a `desc` saying what it achieves, and acceptance criteria that can be verified.

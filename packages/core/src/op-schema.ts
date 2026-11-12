@@ -29,6 +29,9 @@ const NewTask = {
   block: z.string().min(1).max(31).optional(),
 };
 
+/** A task in a batch; `idea: true` creates it as an idea (`proposed`) instead of in `todo`. */
+const BatchTask = { ...NewTask, idea: z.boolean().optional() };
+
 const NewBlock = {
   id: BlockIdSchema,
   name: z.string().min(1).max(80),
@@ -48,7 +51,7 @@ export const OpSchema = z.discriminatedUnion("op", [
     expect,
     groups: z.array(GroupSchema).optional(),
     blocks: z.array(z.strictObject(NewBlock)).max(50).optional(),
-    tasks: z.array(z.strictObject(NewTask)).min(1).max(200),
+    tasks: z.array(z.strictObject(BatchTask)).min(1).max(200),
   }),
   z.strictObject({
     op: z.literal("add-group"),

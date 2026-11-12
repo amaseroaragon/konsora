@@ -98,7 +98,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     {
       title: "Create many tasks",
       description:
-        "Create several tasks (in todo) at once, all or nothing. deps may name task ids or the titles of earlier tasks in the same batch; new groups go in groups and new blocks in blocks (a block without base merges into the current git branch).",
+        "Create several tasks (in todo) at once, all or nothing; a task with idea: true is created as an idea (proposed) instead. deps may name task ids or the titles of earlier tasks in the same batch; new groups go in groups and new blocks in blocks (a block without base merges into the current git branch).",
       inputSchema: BatchSchema.shape,
       annotations: WRITE,
     },

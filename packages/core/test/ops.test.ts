@@ -254,6 +254,29 @@ describe("transitions", () => {
     expect(d.tasks).toHaveLength(1); // input untouched
   });
 
+  it("batch creates a task with idea: true as an idea and the rest in todo", () => {
+    const d = doc(task("BE-01", "done"));
+    const r = ok(
+      applyOp(
+        d,
+        {
+          op: "batch",
+          tasks: [
+            { title: "Now", group: "BE" },
+            { title: "Maybe later", group: "BE", idea: true, deps: ["Now"] },
+            { title: "Also now", group: "BE", idea: false },
+          ],
+        },
+        agent,
+      ),
+    );
+    expect(r.document.tasks.slice(1).map((t) => [t.title, t.state])).toEqual([
+      ["Now", "todo"],
+      ["Maybe later", "proposed"],
+      ["Also now", "todo"],
+    ]);
+  });
+
   it("notes get sequential ids and agents cannot write on done tasks", () => {
     const d = doc(task("BE-01", "doing"), task("BE-02", "done"));
     const once = ok(applyOp(d, { op: "note", task: "BE-01", text: "a" }, agent)).document;

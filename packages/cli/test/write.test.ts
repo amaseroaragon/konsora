@@ -146,6 +146,21 @@ describe("planning commands", () => {
     expect(task("FE-01")).toMatchObject({ state: "todo", deps: ["BE-06"] });
   });
 
+  it("batch creates tasks with idea: true as ideas, and its help says so", async () => {
+    const input = JSON.stringify({
+      tasks: [
+        { title: "Ship it", group: "BE" },
+        { title: "Someday", group: "BE", idea: true },
+      ],
+    });
+    expect((await run(["batch", "--as", "claude"], { stdin: input })).code).toBe(EXIT.ok);
+    expect(task("BE-06").state).toBe("todo");
+    expect(task("BE-07").state).toBe("proposed");
+    const help = await run(["batch", "--help"]);
+    expect(help.stdout).toContain('"idea":true');
+    expect(help.stdout).toContain("is created as an idea (proposed)");
+  });
+
   it.each([
     [
       "a dependency on a later title (would be a cycle)",
