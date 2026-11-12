@@ -9,7 +9,7 @@ import { type FormEvent, useState } from "react";
 import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
+import { askConfirm, Button, Field, StateBadge, useToast } from "../ui/index.ts";
 import { confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -53,12 +53,8 @@ function Actions({
   // Answering is always shown as a form: an open question is what needs the human.
   const [open, setOpen] = useState<TaskAction | null>(actions.includes("answer") ? "answer" : null);
   const [text, setText] = useState("");
-  const run = (action: TaskAction, value?: string) => {
-    if (
-      action === "delete" &&
-      !confirmDelete([task.id], dependents, (question) => window.confirm(question))
-    )
-      return;
+  const run = async (action: TaskAction, value?: string) => {
+    if (action === "delete" && !(await confirmDelete([task.id], dependents, askConfirm))) return;
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
       {
@@ -79,7 +75,7 @@ function Actions({
     event.preventDefault();
     if (!open) return;
     if (ACTION_TEXT[open] === "required" && !text.trim()) return;
-    run(open, text.trim());
+    void run(open, text.trim());
   };
   const question = [...(task.notes ?? [])].reverse().find((n) => n.kind === "question");
   const busy = (action: TaskAction) => mutation.isPending && mutation.variables?.action === action;
@@ -128,7 +124,7 @@ function Actions({
             key={action}
             variant={action === "delete" ? "danger" : index === 0 ? "primary" : "secondary"}
             busy={busy(action)}
-            onClick={() => run(action)}
+            onClick={() => void run(action)}
           >
             {t(LABEL[action])}
           </Button>

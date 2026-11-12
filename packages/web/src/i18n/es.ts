@@ -266,6 +266,9 @@ export const es = {
   "readonly.migrate":
     "El plan tiene un formato anterior de Konsora. Revisa la conversión con `konsora migrate` y aplícala con `konsora migrate --write` en la carpeta del proyecto.",
   "feedback.cancel": "Cancelar",
+  "confirm.title": "Confirmar acción",
+  "confirm.yes": "Confirmar",
+  "confirm.no": "Cancelar",
   "detail.summary": "Resumen de cierre",
   "create.open": "Nueva tarea",
   "create.title": "Nueva tarea",

@@ -8,7 +8,7 @@ import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
 import { confirmDelete } from "../src/shell/board-model.ts";
 import { TaskPanel } from "../src/shell/TaskPanel.tsx";
-import { ToastProvider } from "../src/ui/index.ts";
+import { type ConfirmOptions, ToastProvider } from "../src/ui/index.ts";
 
 const at = "2026-11-02T10:00:00Z";
 const task = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task => ({
@@ -84,16 +84,17 @@ describe("deleting and promoting from the panel", () => {
     expect(panel("BE-03")).toContain("Reabrir");
   });
 
-  it("asks before deleting, naming the tasks that lose the dependency", () => {
+  it("asks before deleting, naming the tasks that lose the dependency", async () => {
     const asked: string[] = [];
-    const ask = (question: string) => {
+    const ask = async (question: string, options?: ConfirmOptions) => {
       asked.push(question);
+      expect(options).toEqual({ yes: "Eliminar", danger: true });
       return false;
     };
-    expect(confirmDelete(["BE-02"], ["BE-04"], ask)).toBe(false);
-    expect(confirmDelete(["BE-01"], [], ask)).toBe(false);
-    expect(confirmDelete(["BE-01", "BE-03"], [], ask)).toBe(false);
-    expect(confirmDelete(["BE-01", "BE-02"], ["BE-04", "BE-05"], ask)).toBe(false);
+    expect(await confirmDelete(["BE-02"], ["BE-04"], ask)).toBe(false);
+    expect(await confirmDelete(["BE-01"], [], ask)).toBe(false);
+    expect(await confirmDelete(["BE-01", "BE-03"], [], ask)).toBe(false);
+    expect(await confirmDelete(["BE-01", "BE-02"], ["BE-04", "BE-05"], ask)).toBe(false);
     expect(asked).toEqual([
       "¿Eliminar BE-02? Se borrará del plan y dejará de ser una dependencia de BE-04.",
       "¿Eliminar BE-01? Se borrará del plan y su id no se reutilizará.",

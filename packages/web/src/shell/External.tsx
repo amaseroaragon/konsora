@@ -2,8 +2,8 @@ import type { ExternalFlag } from "../api/board.ts";
 import { useResolveExternal } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { t } from "../i18n/index.ts";
-import { Button, useToast } from "../ui/index.ts";
-import { externalText } from "./board-model.ts";
+import { askConfirm, Button, useToast } from "../ui/index.ts";
+import { confirmRevert, externalText } from "./board-model.ts";
 
 /** One unapproved external change with its confirm / revert buttons (hidden when read-only). */
 function ExternalRow({
@@ -19,9 +19,8 @@ function ExternalRow({
 }) {
   const resolve = useResolveExternal(projectId);
   const toast = useToast();
-  const run = (how: "confirm" | "revert") => {
-    if (how === "revert" && !window.confirm(t("external.revert.confirm", { id: flag.task })))
-      return;
+  const run = async (how: "confirm" | "revert") => {
+    if (how === "revert" && !(await confirmRevert(flag.task, askConfirm))) return;
     resolve.mutate(
       { task: flag.task, how },
       {
@@ -49,7 +48,7 @@ function ExternalRow({
           <Button
             size="sm"
             busy={resolve.isPending && resolve.variables?.how === "confirm"}
-            onClick={() => run("confirm")}
+            onClick={() => void run("confirm")}
           >
             {t("external.confirm")}
           </Button>
@@ -57,7 +56,7 @@ function ExternalRow({
             size="sm"
             variant="danger"
             busy={resolve.isPending && resolve.variables?.how === "revert"}
-            onClick={() => run("revert")}
+            onClick={() => void run("revert")}
           >
             {t("external.revert")}
           </Button>

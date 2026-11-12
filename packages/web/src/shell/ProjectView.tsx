@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type BoardOk, type LiveState, toDocument, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
+import { askConfirm, Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { Board } from "./Board.tsx";
 import { confirmDelete } from "./board-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
@@ -137,7 +137,7 @@ export function ProjectView({
       const dependents = doc.tasks
         .filter((task) => task.deps?.some((dep) => ids.includes(dep)) && !ids.includes(task.id))
         .map((task) => task.id);
-      if (!confirmDelete(ids, dependents, (question) => window.confirm(question))) return;
+      if (!(await confirmDelete(ids, dependents, askConfirm))) return;
     }
     const refused: string[] = [];
     for (const id of ids) {

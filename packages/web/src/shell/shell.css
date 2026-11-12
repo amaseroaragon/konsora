@@ -229,6 +229,9 @@
   background: var(--k-surface);
   border: 1px solid var(--k-line-strong);
 }
+.b-dialog > .k-panel__title {
+  margin-bottom: var(--k-space-5);
+}
 .b-dialog::backdrop {
   background: rgb(0 0 0 / 0.45);
 }

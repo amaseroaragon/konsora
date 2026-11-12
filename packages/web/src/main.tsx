@@ -13,7 +13,7 @@ import { bootstrapSession } from "./api/session.ts";
 import { useRoute } from "./shell/route.ts";
 import { WebApp } from "./shell/WebApp.tsx";
 import { applyTheme, initialThemeChoice } from "./theme/apply.ts";
-import { ToastProvider } from "./ui/index.ts";
+import { ConfirmHost, ToastProvider } from "./ui/index.ts";
 
 applyTheme(initialThemeChoice());
 
@@ -35,6 +35,7 @@ if (!root) throw new Error("Missing #root element");
 createRoot(root).render(
   <StrictMode>
     <ToastProvider>
+      <ConfirmHost />
       <Root />
     </ToastProvider>
   </StrictMode>,

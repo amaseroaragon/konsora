@@ -8,7 +8,7 @@ import {
   useUnlinkProject,
 } from "../api/projects.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { Button, Field, Panel, useToast } from "../ui/index.ts";
+import { askConfirm, Button, type ConfirmAsk, Field, Panel, useToast } from "../ui/index.ts";
 import { Rich } from "./Rich.tsx";
 import { projectHref } from "./route.ts";
 import { QueryError } from "./Shell.tsx";
@@ -33,11 +33,16 @@ export function linkErrorText(error: unknown): string {
   return key ? t(key) : t("error.generic", { message: (error as Error).message });
 }
 
+/** Unlinking forgets the project in Konsora (its folder is untouched), but only after a yes. */
+export function confirmUnlink(name: string, ask: ConfirmAsk): Promise<boolean> {
+  return ask(t("projects.unlink.confirm", { name }), { yes: t("projects.unlink"), danger: true });
+}
+
 function ProjectRow({ project }: { project: ProjectSummary }) {
   const unlink = useUnlinkProject();
   const toast = useToast();
-  const onUnlink = () => {
-    if (!window.confirm(t("projects.unlink.confirm", { name: project.name }))) return;
+  const onUnlink = async () => {
+    if (!(await confirmUnlink(project.name, askConfirm))) return;
     unlink.mutate(project.id, {
       onSuccess: () => toast.show(t("projects.unlinked", { name: project.name }), "success"),
       onError: (error) => toast.show(t("error.generic", { message: error.message }), "error"),
@@ -61,7 +66,7 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
         variant="ghost"
         busy={unlink.isPending}
         aria-label={t("projects.unlink.label", { name: project.name })}
-        onClick={onUnlink}
+        onClick={() => void onUnlink()}
       >
         {t("projects.unlink")}
       </Button>

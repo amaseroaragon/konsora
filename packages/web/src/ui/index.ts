@@ -1,4 +1,6 @@
 export { Button, type ButtonProps, type ButtonVariant } from "./Button.tsx";
+export { ConfirmHost } from "./ConfirmDialog.tsx";
+export { askConfirm, type ConfirmAsk, type ConfirmOptions } from "./confirm.ts";
 export { Field, type FieldProps } from "./Field.tsx";
 export { Matrix, type MatrixCellProps, type MatrixLane, type MatrixProps } from "./Matrix.tsx";
 export { Menu, type MenuOption, type MenuProps } from "./Menu.tsx";

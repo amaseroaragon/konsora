@@ -2,7 +2,7 @@
 import { type MovePlan, planMove, type TaskState, type TasksDocument } from "@konsora/core";
 import type { BoardOk, BoardTask, ExternalFlag } from "../api/board.ts";
 import { t } from "../i18n/index.ts";
-import { stateLabel, taskStates } from "../ui/index.ts";
+import { type ConfirmAsk, stateLabel, taskStates } from "../ui/index.ts";
 
 export const ALL_LANE = "*";
 
@@ -54,8 +54,8 @@ export function refusalText(plan: MovePlan, id: string): string | null {
 export function confirmDelete(
   ids: readonly string[],
   dependents: readonly string[],
-  ask: (question: string) => boolean,
-): boolean {
+  ask: ConfirmAsk,
+): Promise<boolean> {
   const many = ids.length > 1;
   const key =
     dependents.length > 0
@@ -65,7 +65,15 @@ export function confirmDelete(
       : many
         ? "delete.confirm.many"
         : "delete.confirm";
-  return ask(t(key, { ids: ids.join(", "), deps: dependents.join(", ") }));
+  return ask(t(key, { ids: ids.join(", "), deps: dependents.join(", ") }), {
+    yes: t("action.delete"),
+    danger: true,
+  });
+}
+
+/** Asks before reverting an external change: the task goes back to its previous version. */
+export function confirmRevert(id: string, ask: ConfirmAsk): Promise<boolean> {
+  return ask(t("external.revert.confirm", { id }), { yes: t("external.revert"), danger: true });
 }
 
 /** Spanish text for an op the daemon refused after the drop (e.g. the file changed meanwhile). */
