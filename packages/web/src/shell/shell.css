@@ -211,6 +211,24 @@
 .b-live--offline {
   color: var(--k-warn-ink);
 }
+.b-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-5);
+}
+.b-filter__text {
+  flex: 1 1 240px;
+  max-width: 420px;
+}
+.b-filter__choice {
+  flex: 0 1 auto;
+}
+.b-filter__hidden {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+  color: var(--k-ink-muted);
+}
 .b-drag {
   cursor: grab;
   touch-action: none;

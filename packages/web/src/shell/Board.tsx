@@ -168,12 +168,15 @@ export function Board({
   swimlanes,
   onOpen,
   selection,
+  visible,
   readOnly = false,
 }: {
   board: BoardOk;
   swimlanes: boolean;
   onOpen: (id: string) => void;
   selection: BoardSelection;
+  /** A filter is on: only these tasks are shown (the rules still see the whole plan). */
+  visible?: ReadonlySet<string> | undefined;
   /** The file is invalid: this is the last valid version, shown without drag or actions. */
   readOnly?: boolean;
 }) {
@@ -186,7 +189,7 @@ export function Board({
     useSensor(KeyboardSensor, { coordinateGetter: cellToCell }),
   );
   const targets = useMemo(() => (active ? dropTargets(doc, active.id) : null), [doc, active]);
-  const lanes = boardLanes(board, swimlanes);
+  const lanes = boardLanes(board, swimlanes, visible);
   const byId = useMemo(() => new Map(board.tasks.map((task) => [task.id, task])), [board.tasks]);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const stateOf = (over: Over | null) => over?.data.current?.state as TaskState | undefined;
@@ -264,7 +267,9 @@ export function Board({
           label={t("board.label", { name: board.project.name })}
           columns={taskStates.map((state) => ({
             state,
-            count: board.tasks.filter((task) => task.state === state).length,
+            count: board.tasks.filter(
+              (task) => task.state === state && (!visible || visible.has(task.id)),
+            ).length,
           }))}
           lanes={lanes.map((lane) => ({
             id: lane.id,

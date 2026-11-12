@@ -1,3 +1,4 @@
+import type { TaskFilter } from "@konsora/core";
 import { useEffect, useRef } from "react";
 import { type BoardOk, type Issue, useBoard, useBoardEvents } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
@@ -29,10 +30,13 @@ export function ProjectPage({
   id,
   view,
   task,
+  filter,
 }: {
   id: string;
   view: ProjectViewName;
   task: string | null;
+  /** The task filter of the board and the graph, from the URL. */
+  filter?: TaskFilter | undefined;
 }) {
   const board = useBoard(id);
   const live = useBoardEvents(id);
@@ -57,7 +61,7 @@ export function ProjectPage({
   }
   const data = board.data;
   if (data.status === "ok")
-    return <ProjectView board={data} live={live} view={view} openId={task} />;
+    return <ProjectView board={data} live={live} view={view} openId={task} filter={filter} />;
   if (data.status === "missing")
     return (
       <Panel title={data.project.name} actions={back}>
@@ -85,7 +89,9 @@ export function ProjectPage({
         )}
         {!last && <p className="s-text">{back}</p>}
       </section>
-      {last && <ProjectView board={last} live={live} view={view} openId={task} readOnly />}
+      {last && (
+        <ProjectView board={last} live={live} view={view} openId={task} filter={filter} readOnly />
+      )}
     </div>
   );
 }

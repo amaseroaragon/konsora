@@ -328,6 +328,19 @@ export const es = {
   "selection.promote.done": "{n} ideas pasan a Por hacer.",
   "selection.delete.done": "{n} tareas eliminadas.",
   "selection.error": "No se pudo cambiar {id}: {message}",
+  "filter.label": "Filtrar tareas",
+  "filter.text": "Buscar tareas",
+  "filter.text.placeholder": "Buscar por id, título o descripción",
+  "filter.group": "Grupo",
+  "filter.group.all": "Todos los grupos",
+  "filter.tag": "Etiqueta",
+  "filter.tag.all": "Todas las etiquetas",
+  "filter.by": "Creada o cerrada por",
+  "filter.by.all": "De cualquiera",
+  "filter.hidden.one": "{n} tarea oculta por el filtro",
+  "filter.hidden.many": "{n} tareas ocultas por el filtro",
+  "filter.clear": "Quitar filtro",
+  "filter.none": "Ninguna tarea coincide con el filtro.",
 } as const;
 
 export type MessageKey = keyof typeof es;

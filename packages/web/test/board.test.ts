@@ -97,6 +97,15 @@ describe("lanes", () => {
     ]);
   });
 
+  it("lays out only the tasks a filter leaves visible", () => {
+    const visible = new Set(["BE-02", "FE-01"]);
+    const lanes = boardLanes(board, true, visible);
+    expect(lanes.map((l) => l.id)).toEqual(["BE", "FE"]);
+    expect(lanes.flatMap((l) => l.cells.flat().map((x) => x.id))).toEqual(["BE-02", "FE-01"]);
+    expect(boardLanes(board, false, new Set(["BE-01"]))[0]?.cells.flat()).toHaveLength(1);
+    expect(boardLanes(board, true, new Set())).toEqual([]);
+  });
+
   it("a single lane without swimlanes", () => {
     const lanes = boardLanes(board, false);
     expect(lanes.map((l) => [l.id, l.name])).toEqual([[ALL_LANE, "Todas"]]);

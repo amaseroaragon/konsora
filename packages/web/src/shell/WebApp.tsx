@@ -33,7 +33,13 @@ export function WebApp({ token, route }: { token: string | null; route: Route })
       <QueryClientProvider client={setup.queries}>
         <Shell home={route.name === "projects"}>
           {route.name === "project" ? (
-            <ProjectPage key={route.id} id={route.id} view={route.view} task={route.task} />
+            <ProjectPage
+              key={route.id}
+              id={route.id}
+              view={route.view}
+              task={route.task}
+              filter={route.filter}
+            />
           ) : (
             <ProjectsPage />
           )}

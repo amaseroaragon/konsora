@@ -8,16 +8,24 @@ export const ALL_LANE = "*";
 
 export type Lane = { id: string; name: string; cells: BoardTask[][] };
 
-/** One lane per group that has tasks (in plan order), or a single lane with everything. */
-export function boardLanes(board: BoardOk, swimlanes: boolean): Lane[] {
+/**
+ * One lane per group that has tasks (in plan order), or a single lane with everything. With
+ * `visible` (a filter), only those tasks are laid out.
+ */
+export function boardLanes(
+  board: BoardOk,
+  swimlanes: boolean,
+  visible?: ReadonlySet<string>,
+): Lane[] {
+  const shown = visible ? board.tasks.filter((task) => visible.has(task.id)) : board.tasks;
   const cells = (tasks: BoardTask[]) =>
     taskStates.map((state) => tasks.filter((task) => task.state === state));
-  if (!swimlanes) return [{ id: ALL_LANE, name: t("board.lane.all"), cells: cells(board.tasks) }];
+  if (!swimlanes) return [{ id: ALL_LANE, name: t("board.lane.all"), cells: cells(shown) }];
   return board.plan.groups
     .map((group) => ({
       id: group.id,
       name: group.name,
-      cells: cells(board.tasks.filter((task) => task.group === group.id)),
+      cells: cells(shown.filter((task) => task.group === group.id)),
     }))
     .filter((lane) => lane.cells.some((cell) => cell.length > 0));
 }

@@ -1,4 +1,10 @@
-import { pendingSubgraph } from "@konsora/core";
+import {
+  filterFacets,
+  isFilterActive,
+  matchingIds,
+  pendingSubgraph,
+  type TaskFilter,
+} from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type BoardOk, type LiveState, toDocument, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
@@ -8,9 +14,16 @@ import { Board } from "./Board.tsx";
 import { confirmDelete } from "./board-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
+import { FilterBar } from "./FilterBar.tsx";
 import { Graph } from "./Graph.tsx";
 import { HistoryView } from "./HistoryView.tsx";
-import { navigate, type ProjectViewName, projectHref, projectViews } from "./route.ts";
+import {
+  navigate,
+  type ProjectViewName,
+  projectHref,
+  projectViews,
+  replaceRoute,
+} from "./route.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskCreator } from "./TaskCreator.tsx";
@@ -69,24 +82,40 @@ const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
 /**
  * A project's page around its two views: toolbar (view switch, live state, AI panel), external
  * changes, the board or the graph, and the side panel both share: the open task, or else the AI
- * panel. The view and the open task live in the URL.
+ * panel. The view, the open task and the task filter live in the URL.
  */
 export function ProjectView({
   board,
   live,
   view,
   openId,
+  filter: routeFilter,
   readOnly = false,
 }: {
   board: BoardOk;
   live: LiveState;
   view: ProjectViewName;
   openId: string | null;
+  /** The task filter of the board and the graph (UI-10); absent when nothing is filtered. */
+  filter?: TaskFilter | undefined;
   /** The file is invalid: this is the last valid version, shown without drag or actions. */
   readOnly?: boolean;
 }) {
   const projectId = board.project.id;
   const doc = useMemo(() => toDocument(board), [board]);
+  const filterKey = JSON.stringify(routeFilter ?? {});
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the serialized filter is its identity.
+  const filter = useMemo<TaskFilter>(() => routeFilter ?? {}, [filterKey]);
+  const filtering = isFilterActive(filter);
+  const visible = useMemo(
+    () => (filtering ? matchingIds(doc, filter) : undefined),
+    [doc, filter, filtering],
+  );
+  const facets = useMemo(() => filterFacets(doc), [doc]);
+  const shownTasks = useMemo(
+    () => (visible ? board.tasks.filter((task) => visible.has(task.id)) : board.tasks),
+    [board.tasks, visible],
+  );
   const [swimlanes, setSwimlanes] = useState(readLanesPref);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
@@ -123,10 +152,14 @@ export function ProjectView({
         projectHref(projectId, {
           view: next.view ?? view,
           task: next.task === undefined ? openId : next.task,
+          filter,
         }),
       ),
-    [projectId, view, openId],
+    [projectId, view, openId, filter],
   );
+  /** A filter change rewrites the URL in place: typing must not fill the browser history. */
+  const setFilter = (next: TaskFilter) =>
+    replaceRoute(projectHref(projectId, { view, task: openId, filter: next }));
   const open = useCallback((id: string) => go({ task: id }), [go]);
   const stateOf = (id: string) => board.tasks.find((task) => task.id === id)?.state;
   const promotable = readOnly ? [] : selectedIds.filter((id) => stateOf(id) === "proposed");
@@ -226,6 +259,15 @@ export function ProjectView({
         </a>
       </div>
       <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
+      {(view === "board" || view === "graph") && board.tasks.length > 0 && (
+        <FilterBar
+          filter={filter}
+          groups={board.plan.groups}
+          facets={facets}
+          hidden={board.tasks.length - shownTasks.length}
+          onChange={setFilter}
+        />
+      )}
       {view === "settings" ? (
         <div className="s-stack">
           <TemplateSettings
@@ -243,10 +285,12 @@ export function ProjectView({
               <HistoryView projectId={projectId} doc={doc} openId={opened ? opened.id : null} />
             ) : board.tasks.length === 0 ? (
               <p className="s-text s-muted">{t("board.empty")}</p>
+            ) : shownTasks.length === 0 ? (
+              <p className="s-text s-muted">{t("filter.none")}</p>
             ) : view === "graph" ? (
               <Graph
                 label={t("graph.label", { name: board.project.name })}
-                tasks={board.tasks}
+                tasks={shownTasks}
                 external={flagged}
                 openId={opened ? opened.id : null}
                 onOpen={open}
@@ -260,6 +304,7 @@ export function ProjectView({
                 swimlanes={swimlanes}
                 onOpen={open}
                 selection={{ selected, onToggle: toggle }}
+                visible={visible}
                 readOnly={readOnly}
               />
             )}

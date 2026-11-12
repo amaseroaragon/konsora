@@ -64,6 +64,17 @@ describe("routes", () => {
       "#/p/p-0123456789ab?view=nope&task=",
       { name: "project", id: "p-0123456789ab", view: "board", task: null },
     ],
+    [
+      "#/p/p-1?q=cache+age&group=BE&label=perf&by=agent%3Aclaude",
+      {
+        name: "project",
+        id: "p-1",
+        view: "board",
+        task: null,
+        filter: { text: "cache age", group: "BE", label: "perf", by: "agent:claude" },
+      },
+    ],
+    ["#/p/p-1?q=&label=", { name: "project", id: "p-1", view: "board", task: null }],
     ["#/muestrario", { name: "projects" }],
     ["#/maqueta", { name: "projects" }],
     ["#/whatever", { name: "projects" }],
@@ -75,6 +86,20 @@ describe("routes", () => {
     const href = projectHref("p-1", { view: "graph", task: "UI-05" });
     expect(href).toBe("#/p/p-1?view=graph&task=UI-05");
     expect(parseRoute(href)).toEqual({ name: "project", id: "p-1", view: "graph", task: "UI-05" });
+  });
+
+  it("keeps the task filter in the link, as typed", () => {
+    const filter = { text: "cache ", label: "perf" };
+    const href = projectHref("p-1", { view: "graph", filter });
+    expect(href).toBe("#/p/p-1?view=graph&q=cache+&label=perf");
+    expect(parseRoute(href)).toEqual({
+      name: "project",
+      id: "p-1",
+      view: "graph",
+      task: null,
+      filter,
+    });
+    expect(projectHref("p-1", { filter: {} })).toBe("#/p/p-1");
   });
 });
 
