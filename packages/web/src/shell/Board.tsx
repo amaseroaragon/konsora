@@ -144,7 +144,7 @@ function DraggableCard({
   task: BoardTask;
   external: boolean;
   disabled: boolean;
-  /** The card being dragged, if any: this one takes it when both are in the same column. */
+  /** The card being dragged, if it shares this card's cell: dropping it here reorders. */
   dragged: BoardTask | null;
   onOpen: () => void;
   selection: BoardSelection;
@@ -372,7 +372,7 @@ export function Board({
                   task={task}
                   external={flagged.has(task.id)}
                   disabled={readOnly}
-                  dragged={active}
+                  dragged={!swimlanes || active?.group === task.group ? active : null}
                   onOpen={() => onOpen(task.id)}
                   selection={selection}
                 />
