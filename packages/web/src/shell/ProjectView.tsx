@@ -10,6 +10,7 @@ import { confirmDelete } from "./board-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
+import { HistoryView } from "./HistoryView.tsx";
 import { navigate, type ProjectViewName, projectHref, projectViews } from "./route.ts";
 import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
@@ -63,6 +64,7 @@ const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
   board: "app.view.board",
   graph: "app.view.graph",
   blocks: "app.view.blocks",
+  history: "app.view.history",
   settings: "app.view.settings",
 };
 
@@ -247,6 +249,8 @@ export function ProjectView({
                 readOnly={readOnly}
                 onOpen={open}
               />
+            ) : view === "history" ? (
+              <HistoryView projectId={projectId} doc={doc} openId={opened ? opened.id : null} />
             ) : board.tasks.length === 0 ? (
               <p className="s-text s-muted">{t("board.empty")}</p>
             ) : view === "graph" ? (

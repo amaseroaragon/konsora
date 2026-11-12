@@ -294,6 +294,17 @@ export const es = {
   "chat.readonly": "No se puede planificar mientras el plan es de solo lectura.",
   "chat.error": "No se pudo enviar el mensaje: {message}",
   "app.view.blocks": "Bloques",
+  "app.view.history": "Historial",
+  "history.title": "Historial",
+  "history.text":
+    "Las tareas hechas y los bloques integrados, del más reciente al más antiguo. Pulsa una tarea para ver su detalle y su resumen de cierre.",
+  "history.empty":
+    "Todavía no hay tareas hechas. Aparecerán aquí, con su fecha y hora, en cuanto se terminen.",
+  "history.today": "Hoy",
+  "history.yesterday": "Ayer",
+  "history.by": "Terminada por {who}",
+  "history.no_summary": "Sin resumen de cierre",
+  "history.block.merged": "Bloque {name} integrado en {base}",
   "action.promote": "Pasar a Por hacer",
   "action.delete": "Eliminar",
   "move.done.promote": "{id} pasa a Por hacer.",
