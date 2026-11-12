@@ -2,6 +2,7 @@
 
 export * from "./graph.ts";
 export * from "./hash.ts";
+export * from "./history.ts";
 export * from "./json-schema.ts";
 export * from "./json-text.ts";
 export * from "./migrate.ts";
