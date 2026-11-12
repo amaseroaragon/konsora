@@ -956,7 +956,7 @@
     {
       "id": "UI-08",
       "title": "Diálogo propio en lugar de window.confirm",
-      "state": "proposed",
+      "state": "done",
       "group": "UI",
       "rank": "zzzy",
       "desc": "La UI pregunta con window.confirm (eliminar tareas, desvincular proyectos…), que bloquea la página y no sigue el diseño de Plano. Antes de M11 se hizo en la rama UI-41, que se borró al limpiar ramas: su código está en la etiqueta git `archive/ui-41-confirm-dialog` (45820e4), sobre la base de código de antes de M11, así que sirve de referencia, no para integrarlo tal cual.",
@@ -964,12 +964,28 @@
         "at": "2026-11-12T11:35:58Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T11:35:58Z"
+      "updated_at": "2026-11-12T21:24:19Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T21:18:21Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Portar el diálogo de UI-41 a la base actual: askConfirm + ConfirmHost en src/ui (dialog modal de Plano, Cancelar primero, Escape = no), botón de confirmar con el verbo de la acción y en rojo si es destructiva; sustituir los 4 window.confirm (eliminar en panel y selección, desvincular proyecto, revertir cambio externo) y añadir un test que impida volver a usar diálogos nativos."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T21:24:19Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Diálogo propio de Plano en lugar de window.confirm (commits 47c228a y 69f5204).\n\n- `askConfirm` + `ConfirmHost` en `packages/web/src/ui`: <dialog> modal (showModal), título «Confirmar acción», Cancelar primero y con el foco, botón de confirmar con el verbo de la acción (Eliminar, Desvincular, Revertir) y en rojo. Escape o cerrar = no; una pregunta nueva responde no a la anterior.\n- Sustituidos los 4 usos: eliminar desde el panel y desde la selección, desvincular proyecto y revertir cambio externo.\n- Un test recorre `packages/web/src` y falla si vuelve a aparecer window.confirm, alert o prompt.\n- Arreglado tras probar en Chrome: Escape en el diálogo también cerraba el panel de tarea; ya solo cierra el diálogo.\n\nComprobado: npm run check (46 ficheros, 599 tests) y en Chrome headless sobre un proyecto de prueba: diálogo modal con foco en Cancelar, Escape y Cancelar no borran, Eliminar borra la tarea, y el de desvincular se cancela con Escape."
+        }
+      ]
     },
     {
       "id": "UI-09",
       "title": "Panel de tarea con secciones plegables",
-      "state": "proposed",
+      "state": "done",
       "group": "UI",
       "rank": "zzzz",
       "desc": "Ordenar el panel de tarea por prioridad (resumen, acciones, descripción, criterios, dependencias, notas) con secciones que se pliegan y recuerdan su estado. Antes de M11 se hizo en la rama UI-39, que se borró al limpiar ramas: su código está en la etiqueta git `archive/ui-39-panel-sections` (7ef5c51), sobre la base de código de antes de M11, así que sirve de referencia, no para integrarlo tal cual.",
@@ -977,7 +993,23 @@
         "at": "2026-11-12T11:35:59Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T11:35:59Z"
+      "updated_at": "2026-11-12T21:24:19Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T21:20:20Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "El panel ya sigue el orden resumen → acciones → descripción → criterios → dependencias → notas; falta plegar. Plan: descripción, criterios, dependencias y notas como <details> nativos con su título (y recuento), cuyo estado abierto/cerrado se guarda por sección en localStorage y vale para todas las tareas; resumen y acciones siguen fijos arriba. Al editar, las secciones con editor no se pliegan. Tests del orden, del plegado guardado y de la edición."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T21:24:19Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Panel de tarea con secciones plegables (commit 0a51840).\n\n- Orden por prioridad: resumen de cierre y acciones fijos arriba; después descripción, criterios, dependencias y notas.\n- Esas cuatro secciones son <details> nativos con título y recuento (p. ej. «Notas · 3»), así que también se pliegan con el teclado.\n- El estado abierto/cerrado de cada sección se guarda en localStorage (`konsora.panel.<sección>`) y vale para todas las tareas. Sin almacenamiento, se pliega igual pero no se recuerda.\n- Al editar, Dependencias (tiene el formulario) no se pliega.\n\nComprobado: tests en `task-panel.test.tsx` (orden, plegado por defecto, estado guardado, sin almacenamiento, sección con formulario); npm run check (46 ficheros, 599 tests); y en Chrome headless: plegar con clic y con Intro, el estado se mantiene al cambiar de tarea y al recargar, y Dependencias aparece sin plegar mientras se edita."
+        }
+      ]
     }
   ]
 }
