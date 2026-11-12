@@ -1,8 +1,8 @@
-// Regenerates schema/tasks.v4.schema.json from packages/core/src/schema.ts. Run: npm run schema
+// Regenerates schema/tasks.v5.schema.json from packages/core/src/schema.ts. Run: npm run schema
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tasksJsonSchemaText } from "../src/json-schema.ts";
 
-const target = fileURLToPath(new URL("../../../schema/tasks.v4.schema.json", import.meta.url));
+const target = fileURLToPath(new URL("../../../schema/tasks.v5.schema.json", import.meta.url));
 writeFileSync(target, tasksJsonSchemaText());
 console.log(`wrote ${target}`);

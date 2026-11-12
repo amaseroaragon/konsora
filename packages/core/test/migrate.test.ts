@@ -174,7 +174,7 @@ describe("writeMigration", () => {
   });
 });
 
-describe("migrateV2 (konsora/2 → konsora/4)", () => {
+describe("migrateV2 (konsora/2 → konsora/5)", () => {
   const v2 = {
     $schema: "../schema/tasks.v2.schema.json",
     schema: "konsora/2",
@@ -218,8 +218,8 @@ describe("migrateV2 (konsora/2 → konsora/4)", () => {
     const result = migrateV2(v2, { at });
     if (!result.ok) throw new Error(result.message);
     const { document: doc, report } = result;
-    expect(doc.schema).toBe("konsora/4");
-    expect(doc.$schema).toBe("../schema/tasks.v4.schema.json");
+    expect(doc.schema).toBe("konsora/5");
+    expect(doc.$schema).toBe("../schema/tasks.v5.schema.json");
     expect(doc.tasks[0]?.state).toBe("done");
     expect(doc.project).toEqual({
       name: "P",
@@ -239,6 +239,7 @@ describe("migrateV2 (konsora/2 → konsora/4)", () => {
       tasks: 1,
       reviewNotes: 1,
       reviewToDone: ["BE-01"],
+      blocks: [],
       dropped: {
         "project.base_branch": 1,
         "project.defaults": 1,
@@ -261,11 +262,11 @@ describe("migrateV2 (konsora/2 → konsora/4)", () => {
 
   it("is deterministic and refuses anything that is not konsora/2", () => {
     expect(migrateV2(structuredClone(v2), { at })).toEqual(migrateV2(v2, { at }));
-    expect(migrateV2({ schema: "konsora/4" }, { at }).ok).toBe(false);
+    expect(migrateV2({ schema: "konsora/5" }, { at }).ok).toBe(false);
     expect(migrateV2(legacy, { at }).ok).toBe(false);
   });
 
-  it("writes the v4 plan with a v2 backup and no history file", async () => {
+  it("writes the v5 plan with a v2 backup and no history file", async () => {
     const root = mkdtempSync(join(tmpdir(), "konsora-mig-"));
     mkdirSync(join(root, ".konsora"));
     const original = JSON.stringify(v2);
@@ -281,7 +282,7 @@ describe("migrateV2 (konsora/2 → konsora/4)", () => {
   });
 });
 
-describe("migratePlan (konsora/3 → konsora/4)", () => {
+describe("migratePlan (konsora/3 and konsora/4 → konsora/5)", () => {
   const v3 = {
     schema: "konsora/3",
     project: { name: "P" },
@@ -336,7 +337,76 @@ describe("migratePlan (konsora/3 → konsora/4)", () => {
       dropped: { "tasks[].yolo": 1 },
       reviewNotes: 0,
       reviewToDone: ["BE-01"],
+      blocks: [],
     });
-    expect(migratePlan({ schema: "konsora/4" }, { at }).ok).toBe(false);
+    expect(migratePlan({ schema: "konsora/5" }, { at }).ok).toBe(false);
+  });
+
+  it("drops the blocks of a v4 plan and each task's block, and reports their branches", () => {
+    const v4 = {
+      $schema: "../schema/tasks.v4.schema.json",
+      schema: "konsora/4",
+      project: { name: "P" },
+      groups: [{ id: "BE", name: "Backend" }],
+      seq: { BE: 2 },
+      blocks: [
+        {
+          id: "cache",
+          name: "Cache",
+          branch: "konsora/cache",
+          base: "main",
+          created: { at, by: "human" },
+        },
+        {
+          id: "docs",
+          name: "Docs",
+          branch: "feat/docs",
+          base: "main",
+          created: { at, by: "human" },
+          merged: { at, by: "human", commit: "a".repeat(40), strategy: "squash" },
+        },
+      ],
+      tasks: [
+        {
+          id: "BE-01",
+          title: "A",
+          state: "todo",
+          group: "BE",
+          rank: "a",
+          block: "cache",
+          created: { at, by: "human" },
+          updated_at: at,
+        },
+        {
+          id: "BE-02",
+          title: "B",
+          state: "done",
+          group: "BE",
+          rank: "b",
+          block: "docs",
+          created: { at, by: "human" },
+          updated_at: at,
+        },
+      ],
+    };
+    const r = migratePlan(v4, { at });
+    if (!r.ok) throw new Error(r.message);
+    expect(r.document.schema).toBe("konsora/5");
+    expect(r.document.$schema).toBe("../schema/tasks.v5.schema.json");
+    expect(r.document).not.toHaveProperty("blocks");
+    for (const task of r.document.tasks) expect(task).not.toHaveProperty("block");
+    expect(r.document.tasks.map((t) => t.state)).toEqual(["todo", "done"]);
+    expect(r.report).toEqual({
+      from: "konsora/4",
+      tasks: 2,
+      dropped: { blocks: 1, "tasks[].block": 2 },
+      reviewNotes: 0,
+      reviewToDone: [],
+      blocks: [
+        { id: "cache", name: "Cache", branch: "konsora/cache", merged: false },
+        { id: "docs", name: "Docs", branch: "feat/docs", merged: true },
+      ],
+    });
+    expect(parseTasksFile(serializeDocument(r.document)).ok).toBe(true);
   });
 });

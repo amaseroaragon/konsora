@@ -2,7 +2,6 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   blockers,
-  blockProgress,
   dependentsOf,
   deriveFlags,
   indexTasks,
@@ -168,43 +167,6 @@ describe("topoOrder", () => {
         expect(topoOrder(scramble(d, seed)).order).toEqual(topoOrder(d).order);
       }),
     );
-  });
-});
-
-describe("blockProgress", () => {
-  const at = "2026-11-02T10:00:00Z";
-  const blocks = [
-    { id: "a", name: "A", branch: "konsora/a", base: "main", created: { at, by: "human" } },
-    { id: "b", name: "B", branch: "konsora/b", base: "main", created: { at, by: "human" } },
-    {
-      id: "m",
-      name: "M",
-      branch: "konsora/m",
-      base: "main",
-      created: { at, by: "human" },
-      merged: { at, by: "human", commit: "a".repeat(40), strategy: "squash" as const },
-    },
-  ];
-  const tasks = [
-    task("B-01", "done", [], { block: "a" }),
-    task("B-02", "doing", ["B-01"], { block: "a" }),
-    task("B-03", "done", [], { block: "b" }),
-    task("B-04", "done", [], { block: "m" }),
-  ];
-
-  it("is open until every task is done, then ready; merged once recorded", () => {
-    expect(blockProgress({ tasks, blocks }, "a")).toEqual({
-      tasks: ["B-01", "B-02"],
-      done: 1,
-      status: "open",
-    });
-    expect(blockProgress({ tasks, blocks }, "b").status).toBe("ready");
-    expect(blockProgress({ tasks, blocks }, "m").status).toBe("merged");
-    expect(blockProgress({ tasks, blocks: [...blocks] }, "zz")).toEqual({
-      tasks: [],
-      done: 0,
-      status: "open",
-    });
   });
 });
 

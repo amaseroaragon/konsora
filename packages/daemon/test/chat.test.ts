@@ -12,7 +12,7 @@ const port = 4871;
 const at = "2026-11-02T10:00:00Z";
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: { name: "Weather" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 0 },

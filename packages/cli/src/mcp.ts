@@ -26,13 +26,11 @@ const listFilter = {
 
 const GUIDE =
   "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
-  "show. Plan by creating tasks (propose, batch): they go straight to todo, no approval. Group " +
-  "dependent tasks that should land together in a block (add_block, set_block): they are " +
-  "worked on one git branch that the human merges when the last one is done. Work one task at " +
-  "a time: start it (on its block's branch, if it has one), add notes as you go, ask when " +
-  "blocked on a decision (then stop and wait), and finish with a summary of how you met each " +
-  "acceptance criterion. Humans reopen tasks, change finished work and merge blocks; there are " +
-  "no tools for that. Never edit .konsora/tasks.json by hand.";
+  "show. Plan by creating tasks (propose, batch): they go straight to todo, no approval. Work " +
+  "one task at a time: start it, add notes as you go, ask when blocked on a decision (then " +
+  "stop and wait), and finish with a summary of how you met each acceptance criterion. Humans " +
+  "reopen tasks and change finished work; there are no tools for that. Never edit " +
+  ".konsora/tasks.json by hand.";
 
 function instructions(env: NodeJS.ProcessEnv): string {
   if (!sessionScope(env).plan) return GUIDE;

@@ -16,29 +16,6 @@ function Entry({
   time: string;
   open: boolean;
 }) {
-  if (entry.kind === "block") {
-    return (
-      <a
-        className="b-history__entry b-history__entry--block"
-        href={projectHref(projectId, { view: "blocks" })}
-      >
-        <span className="b-history__time k-mono">{time}</span>
-        <span className="b-history__body">
-          <span className="b-history__head">
-            <span className="a-chip k-mono">{entry.id}</span>
-            <span className="b-history__title">
-              {t("history.block.merged", { name: entry.name, base: entry.base })}
-            </span>
-          </span>
-          <span className="b-history__meta k-mono">
-            {entry.commit.slice(0, 12)} ·{" "}
-            {t(entry.strategy === "squash" ? "blocks.merge.squash" : "blocks.merge.merge")} ·{" "}
-            {actorName(entry.by)}
-          </span>
-        </span>
-      </a>
-    );
-  }
   return (
     <a
       className={open ? "b-history__entry b-history__entry--open" : "b-history__entry"}
@@ -50,7 +27,6 @@ function Entry({
         <span className="b-history__head">
           <span className="b-history__id k-mono">{entry.id}</span>
           <span className="b-history__title">{entry.title}</span>
-          {entry.block && <span className="a-chip k-mono">{entry.block}</span>}
         </span>
         <span className="b-history__meta">
           {entry.by ? t("history.by", { who: actorName(entry.by) }) : t("history.no_summary")}
@@ -62,8 +38,8 @@ function Entry({
 }
 
 /**
- * The History view (UI-04): done tasks and merged blocks, newest first, by local day. A task
- * links to its panel in this view; a merged block, to the Blocks view.
+ * The History view (UI-04): done tasks, newest first, by local day. Each links to its panel in
+ * this view.
  */
 export function HistoryView({
   projectId,
@@ -90,12 +66,12 @@ export function HistoryView({
               <h3 className="b-history__date k-label">{day.label}</h3>
               <ol className="b-history__list">
                 {day.entries.map(({ entry, time }) => (
-                  <li key={`${entry.kind}:${entry.id}`}>
+                  <li key={entry.id}>
                     <Entry
                       projectId={projectId}
                       entry={entry}
                       time={time}
-                      open={entry.kind === "task" && entry.id === openId}
+                      open={entry.id === openId}
                     />
                   </li>
                 ))}

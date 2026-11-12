@@ -5,8 +5,8 @@ import {
   type TaskAction,
   type TasksDocument,
 } from "@konsora/core";
-import { type FormEvent, useId, useState } from "react";
-import { type BoardTask, type ExternalFlag, useProjectOp, useTaskAction } from "../api/board.ts";
+import { type FormEvent, useState } from "react";
+import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Field, StateBadge, useToast } from "../ui/index.ts";
@@ -146,73 +146,6 @@ function Actions({
   );
 }
 
-/** The task's block: shown, and changeable (or cleared) while neither the task nor the block is closed. */
-function BlockField({
-  projectId,
-  task,
-  doc,
-  readOnly,
-}: {
-  projectId: string;
-  task: BoardTask;
-  doc: TasksDocument;
-  readOnly: boolean;
-}) {
-  const id = useId();
-  const mutation = useProjectOp(projectId);
-  const toast = useToast();
-  const blocks = doc.blocks ?? [];
-  const current = blocks.find((b) => b.id === task.block);
-  if (blocks.length === 0 && !current) return null;
-  const locked = readOnly || current?.merged !== undefined;
-  const open = blocks.filter((b) => !b.merged);
-  return (
-    <div className="k-field">
-      <label htmlFor={id} className="k-field__label">
-        {t("blocks.field")}
-      </label>
-      {locked ? (
-        <p className="s-text">
-          {current ? `${current.name} · ${current.branch}` : t("blocks.none")}
-          {current?.merged && ` · ${t("blocks.status.merged")}`}
-        </p>
-      ) : (
-        <select
-          id={id}
-          className="k-field__control"
-          value={task.block ?? ""}
-          disabled={mutation.isPending}
-          onChange={(event) =>
-            mutation.mutate(
-              {
-                op: "set-block",
-                task: task.id,
-                block: event.target.value || null,
-                expect: { [task.id]: task.hash },
-              },
-              {
-                onSuccess: () => toast.show(t("blocks.set.done", { id: task.id }), "success"),
-                onError: (error) => {
-                  if (error instanceof ApiError && error.unauthorized) return;
-                  const code = error instanceof ApiError ? error.code : "error";
-                  toast.show(opErrorText(code, task.id, error.message), "error");
-                },
-              },
-            )
-          }
-        >
-          <option value="">{t("blocks.none")}</option>
-          {open.map((block) => (
-            <option key={block.id} value={block.id}>
-              {block.name} · {block.branch}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
-  );
-}
-
 /** Side panel for one task: what it is, its history, and what you can do with it now. */
 export function TaskPanel({
   projectId,
@@ -258,7 +191,6 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
-          {task.block && <span className="a-chip k-mono">{task.block}</span>}
           {canEdit && !editing && (
             <Button
               size="sm"
@@ -301,7 +233,6 @@ export function TaskPanel({
             dependents={dependentsOf(task.id, doc)}
           />
         )}
-        <BlockField projectId={projectId} task={task} doc={doc} readOnly={readOnly} />
         {onSelectWithDeps && (
           <div className="a-actions">
             <Button size="sm" variant="secondary" onClick={onSelectWithDeps}>

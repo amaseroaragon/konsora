@@ -4,16 +4,14 @@ import { type BoardOk, type LiveState, toDocument, useTaskAction } from "../api/
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
-import { BlocksView, useMoveToBlock } from "./BlocksView.tsx";
 import { Board } from "./Board.tsx";
-import { lockedInBlock, moveWarning, openBlocks } from "./blocks-model.ts";
 import { confirmDelete } from "./board-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { Graph } from "./Graph.tsx";
 import { HistoryView } from "./HistoryView.tsx";
 import { navigate, type ProjectViewName, projectHref, projectViews } from "./route.ts";
-import { NO_BLOCK, SelectionBar } from "./SelectionBar.tsx";
+import { SelectionBar } from "./SelectionBar.tsx";
 import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskCreator } from "./TaskCreator.tsx";
 import { TaskPanel } from "./TaskPanel.tsx";
@@ -64,7 +62,6 @@ const LIVE_KEYS: Record<LiveState, MessageKey> = {
 const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
   board: "app.view.board",
   graph: "app.view.graph",
-  blocks: "app.view.blocks",
   history: "app.view.history",
   settings: "app.view.settings",
 };
@@ -134,35 +131,6 @@ export function ProjectView({
   const stateOf = (id: string) => board.tasks.find((task) => task.id === id)?.state;
   const promotable = readOnly ? [] : selectedIds.filter((id) => stateOf(id) === "proposed");
   const deletable = readOnly ? [] : selectedIds;
-  const move = useMoveToBlock(projectId);
-  const movable = readOnly
-    ? []
-    : board.tasks.filter((task) => selected.has(task.id) && !lockedInBlock(task, doc));
-  const blockTargets =
-    movable.length === 0
-      ? []
-      : [
-          ...openBlocks(doc).map((block) => ({ value: block.id, label: block.name })),
-          ...(movable.some((task) => task.block !== undefined)
-            ? [{ value: NO_BLOCK, label: t("blocks.none") }]
-            : []),
-        ];
-  /** Moves the selected tasks that can move; the ones refused stay selected. */
-  const moveSelected = async (target: string) => {
-    const block =
-      target === NO_BLOCK ? null : (openBlocks(doc).find((b) => b.id === target) ?? null);
-    if (target !== NO_BLOCK && !block) return;
-    const warning = block ? moveWarning(movable, block) : null;
-    if (
-      warning &&
-      block &&
-      !window.confirm(t("selection.block.confirm", { warning, name: block.name }))
-    )
-      return;
-    const refused = await move.run(movable, block);
-    dispatchSelection({ type: "clear" });
-    if (refused.length > 0) dispatchSelection({ type: "add", ids: refused });
-  };
   /** Runs one action on each selected task in turn; the ones refused stay selected. */
   const runSelected = async (kind: "promote" | "delete", ids: readonly string[]) => {
     if (kind === "delete") {
@@ -271,15 +239,7 @@ export function ProjectView({
           <div
             className={view === "graph" ? "b-layout__main b-layout__main--graph" : "b-layout__main"}
           >
-            {view === "blocks" ? (
-              <BlocksView
-                projectId={projectId}
-                doc={doc}
-                tasks={board.tasks}
-                readOnly={readOnly}
-                onOpen={open}
-              />
-            ) : view === "history" ? (
+            {view === "history" ? (
               <HistoryView projectId={projectId} doc={doc} openId={opened ? opened.id : null} />
             ) : board.tasks.length === 0 ? (
               <p className="s-text s-muted">{t("board.empty")}</p>
@@ -343,9 +303,7 @@ export function ProjectView({
           promotable={promotable}
           deletable={deletable}
           readOnly={readOnly}
-          busy={action.isPending || move.busy}
-          blockTargets={blockTargets}
-          onMove={(target) => void moveSelected(target)}
+          busy={action.isPending}
           onPromote={(ids) => void runSelected("promote", ids)}
           onDelete={(ids) => void runSelected("delete", ids)}
           onClear={() => dispatchSelection({ type: "clear" })}

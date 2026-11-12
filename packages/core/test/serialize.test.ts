@@ -112,7 +112,7 @@ describe("serializeDocument", () => {
   it("orders tasks by group order then id number, deps naturally, labels alphabetically", () => {
     const doc = parse(
       JSON.stringify({
-        schema: "konsora/4",
+        schema: "konsora/5",
         project: { name: "P" },
         groups: [
           { id: "UI", name: "UI" },
@@ -194,7 +194,7 @@ describe("compareTaskIds", () => {
 
 function minimal(): TasksDocument {
   return {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: "P" },
     groups: [{ id: "BE", name: "BE" }],
     seq: { BE: 0 },
@@ -205,7 +205,7 @@ function minimal(): TasksDocument {
 describe("project.templates (CORE-10)", () => {
   it("keep their order and criteria order, with keys and labels in canonical order", () => {
     const text = serializeDocument({
-      schema: "konsora/4",
+      schema: "konsora/5",
       project: {
         templates: [
           {

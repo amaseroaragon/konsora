@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { completionLog } from "../src/history.ts";
-import type { Block, Note, Task, TaskState } from "../src/schema.ts";
+import type { Note, Task, TaskState } from "../src/schema.ts";
 
 const created = { at: "2026-11-01T09:00:00Z", by: "human" };
 function task(id: string, state: TaskState, extra: Partial<Task> = {}): Task {
@@ -22,17 +22,6 @@ const note = (id: string, kind: Note["kind"], at: string, text: string = kind): 
   kind,
   text,
 });
-const commit = "a".repeat(40);
-function block(id: string, merged?: Block["merged"]): Block {
-  return {
-    id,
-    name: `Block ${id}`,
-    branch: `konsora/${id}`,
-    base: "main",
-    created,
-    ...(merged ? { merged } : {}),
-  };
-}
 
 describe("completionLog", () => {
   it("dates a done task by its last summary note, else by updated_at", () => {
@@ -46,12 +35,11 @@ describe("completionLog", () => {
             note("n3", "summary", "2026-11-04T10:00:00Z", "final"),
           ],
         }),
-        task("T-02", "done", { updated_at: "2026-11-03T08:30:00Z", block: "b" }),
+        task("T-02", "done", { updated_at: "2026-11-03T08:30:00Z" }),
       ],
     });
     expect(log).toEqual([
       {
-        kind: "task",
         id: "T-01",
         title: "Title T-01",
         group: "T",
@@ -59,53 +47,22 @@ describe("completionLog", () => {
         by: "agent:claude",
         summary: "final",
       },
-      {
-        kind: "task",
-        id: "T-02",
-        title: "Title T-02",
-        group: "T",
-        block: "b",
-        at: "2026-11-03T08:30:00Z",
-      },
+      { id: "T-02", title: "Title T-02", group: "T", at: "2026-11-03T08:30:00Z" },
     ]);
   });
 
-  it("lists merged blocks with their commit, everything newest first", () => {
-    const merged = {
-      at: "2026-11-06T10:00:00Z",
-      by: "human",
-      commit,
-      strategy: "squash" as const,
-    };
+  it("lists everything newest first, same-second ties by the higher id as a number", () => {
+    const at = (when: string) => ({ notes: [note("n1", "summary", when)] });
     const log = completionLog({
       tasks: [
-        task("T-01", "done", { notes: [note("n1", "summary", "2026-11-06T10:00:00Z")] }),
-        task("T-02", "done", { notes: [note("n1", "summary", "2026-11-07T10:00:00Z")] }),
-        task("T-03", "done", { notes: [note("n1", "summary", "2026-11-02T10:00:00Z")] }),
-        task("T-04", "done", { notes: [note("n1", "summary", "2026-11-02T10:00:00Z")] }),
-        task("T-100", "done", { notes: [note("n1", "summary", "2026-11-02T10:00:00Z")] }),
+        task("T-01", "done", at("2026-11-06T10:00:00Z")),
+        task("T-02", "done", at("2026-11-07T10:00:00Z")),
+        task("T-03", "done", at("2026-11-02T10:00:00Z")),
+        task("T-04", "done", at("2026-11-02T10:00:00Z")),
+        task("T-100", "done", at("2026-11-02T10:00:00Z")),
       ],
-      blocks: [block("open"), block("docs", merged)],
     });
-    expect(log.map((entry) => `${entry.kind}:${entry.id}`)).toEqual([
-      "task:T-02",
-      "block:docs", // same second as T-01: the merge goes first
-      "task:T-01",
-      "task:T-100", // same second as T-04 and T-03: the higher id first, by number
-      "task:T-04",
-      "task:T-03",
-    ]);
-    expect(log[1]).toEqual({
-      kind: "block",
-      id: "docs",
-      name: "Block docs",
-      branch: "konsora/docs",
-      base: "main",
-      at: "2026-11-06T10:00:00Z",
-      by: "human",
-      commit,
-      strategy: "squash",
-    });
+    expect(log.map((entry) => entry.id)).toEqual(["T-02", "T-01", "T-100", "T-04", "T-03"]);
   });
 
   it("leaves out tasks that are not done", () => {

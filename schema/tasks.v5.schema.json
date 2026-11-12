@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://konsora.local/schema/tasks.v4.json",
-  "title": "Konsora tasks (konsora/4)",
+  "$id": "https://konsora.local/schema/tasks.v5.json",
+  "title": "Konsora tasks (konsora/5)",
   "description": "Structure of .konsora/tasks.json. Semantic rules (ids vs groups, seq, deps, cycles) are checked by Konsora, not by this schema. See docs/esquema-tareas.md.",
   "type": "object",
   "properties": {
@@ -10,7 +10,7 @@
     },
     "schema": {
       "type": "string",
-      "const": "konsora/4"
+      "const": "konsora/5"
     },
     "project": {
       "type": "object",
@@ -125,103 +125,6 @@
         "maximum": 9007199254740991
       }
     },
-    "blocks": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9-]{0,30}$"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          },
-          "branch": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "pattern": "^(?!.*\\.\\.)(?!.*\\/\\/)(?!.*@\\{)(?![/.-])[A-Za-z0-9._/-]+(?<![/.])(?<!\\.lock)$"
-          },
-          "base": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "pattern": "^(?!.*\\.\\.)(?!.*\\/\\/)(?!.*@\\{)(?![/.-])[A-Za-z0-9._/-]+(?<![/.])(?<!\\.lock)$"
-          },
-          "created": {
-            "type": "object",
-            "properties": {
-              "at": {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:Z))$"
-              },
-              "by": {
-                "type": "string",
-                "pattern": "^(human|konsora|agent:[a-z0-9][a-z0-9._-]{0,39})$"
-              }
-            },
-            "required": [
-              "at",
-              "by"
-            ],
-            "additionalProperties": false,
-            "patternProperties": {
-              "^x-": {}
-            }
-          },
-          "merged": {
-            "type": "object",
-            "properties": {
-              "at": {
-                "type": "string",
-                "format": "date-time",
-                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:Z))$"
-              },
-              "by": {
-                "type": "string",
-                "pattern": "^(human|konsora|agent:[a-z0-9][a-z0-9._-]{0,39})$"
-              },
-              "commit": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{40}$"
-              },
-              "strategy": {
-                "type": "string",
-                "enum": [
-                  "squash",
-                  "merge"
-                ]
-              }
-            },
-            "required": [
-              "at",
-              "by",
-              "commit",
-              "strategy"
-            ],
-            "additionalProperties": false,
-            "patternProperties": {
-              "^x-": {}
-            }
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "branch",
-          "base",
-          "created"
-        ],
-        "additionalProperties": false,
-        "patternProperties": {
-          "^x-": {}
-        }
-      }
-    },
     "tasks": {
       "type": "array",
       "items": {
@@ -295,10 +198,6 @@
               "type": "string",
               "pattern": "^[a-z0-9][a-z0-9-]{0,30}$"
             }
-          },
-          "block": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9-]{0,30}$"
           },
           "created": {
             "type": "object",

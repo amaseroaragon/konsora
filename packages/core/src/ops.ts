@@ -9,13 +9,11 @@
  * 3. the transition rules; and finally that the whole result still validates.
  * `applyOp` is pure: it never mutates its input.
  */
-import { blockProgress, indexTasks, isBlocked, isWaiting, transitiveDeps } from "./graph.ts";
+import { indexTasks, isBlocked, isWaiting, transitiveDeps } from "./graph.ts";
 import { contentHash } from "./hash.ts";
 import { rankAfterAll } from "./rank.ts";
 import type {
   Acceptance,
-  Block,
-  MergeStrategy,
   Note,
   NoteKind,
   SchemaIssue,
@@ -41,7 +39,7 @@ export type OpContext = {
   at: string;
   /**
    * An agent in a planning session (`konsora plan` or the UI's AI panel): it may only create,
-   * revise and delete tasks nobody started yet, and set up blocks; it starts nothing.
+   * revise and delete tasks nobody started yet; it starts nothing.
    */
   plan?: boolean;
 };
@@ -62,17 +60,7 @@ export type NewTask = {
    * template's, its criteria come after the template's and its labels join them.
    */
   template?: string;
-  /** A block id (existing, or created in the same batch). */
-  block?: string;
 };
-
-export type NewBlock = { id: string; name: string; branch?: string; base: string };
-
-/** A block's base when git cannot say (no repository, detached HEAD). */
-export const DEFAULT_BASE_BRANCH = "main";
-
-/** The branch a block uses when none is given. */
-export const defaultBranch = (id: string) => `konsora/${id}`;
 
 export type Op = Base &
   (
@@ -80,7 +68,6 @@ export type Op = Base &
     | {
         op: "batch";
         groups?: { id: string; name: string }[];
-        blocks?: NewBlock[];
         /** `idea: true` creates that task as an idea (`proposed`) instead of in `todo`. */
         tasks: (NewTask & { idea?: boolean })[];
       }
@@ -107,21 +94,6 @@ export type Op = Base &
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
     | { op: "set-templates"; templates: Template[] }
     | { op: "reopen"; task: string; text?: string }
-    | ({ op: "add-block" } & NewBlock)
-    | {
-        op: "edit-block";
-        block: string;
-        changes: Partial<Pick<Block, "name" | "branch" | "base">>;
-      }
-    /** The human removes a block that was not merged; its tasks stay, outside any block. */
-    | { op: "delete-block"; block: string }
-    /** Puts a task in a block, or takes it out with `block: null`. */
-    | { op: "set-block"; task: string; block: string | null }
-    /**
-     * Records that the human merged a ready block (the daemon did the git merge first). The block
-     * is closed from then on: no task joins, leaves or reopens in it.
-     */
-    | { op: "mark-merged"; block: string; commit: string; strategy: MergeStrategy }
     | { op: "restore"; task: string; version: Task }
   );
 
@@ -139,17 +111,12 @@ export type OpErrorCode =
   | "text_required"
   | "not_waiting"
   | "unknown_template"
-  | "unknown_block"
-  | "block_merged"
-  | "block_not_ready"
   | "invalid";
 
 export type OpError = {
   code: OpErrorCode;
   message: string;
   task?: string;
-  /** The block it is about, for block errors. */
-  block?: string;
   /** For `conflict`: the task as it is now, so the client can show it and retry. */
   current?: Task;
   /** For `invalid`: what the result would have broken. */
@@ -183,11 +150,6 @@ const ROLES: Record<OpName, readonly Role[]> = {
   finish: ["agent", "konsora"],
   "set-templates": ["human"],
   reopen: ["human"],
-  "add-block": ["human", "agent"],
-  "edit-block": ["human", "agent"],
-  "delete-block": ["human"],
-  "set-block": ["human", "agent"], // agents: unfinished tasks only
-  "mark-merged": ["human"],
   restore: ["human"],
 };
 
@@ -202,9 +164,6 @@ const PLAN_OPS: ReadonlySet<OpName> = new Set([
   "depend",
   "undepend",
   "promote",
-  "add-block",
-  "edit-block",
-  "set-block",
 ]);
 
 /** States nobody has started working on: what agents may delete and plan sessions may change. */
@@ -256,7 +215,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     if (!PLAN_OPS.has(op.op)) {
       fail(
         "out_of_scope",
-        `In a planning session you can only plan: create, revise and delete tasks nobody started, and set up blocks; ${op.op} is not available`,
+        `In a planning session you can only plan: create, revise and delete tasks nobody started; ${op.op} is not available`,
         "task" in op ? { task: op.task } : {},
       );
     }
@@ -303,32 +262,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     if (!value?.trim()) fail(code, `${op.op} requires ${what}`);
     return value as string;
   };
-  const getBlock = (id: string): Block =>
-    doc.blocks?.find((b) => b.id === id) ??
-    fail("unknown_block", `Block ${id} does not exist`, { block: id });
-  const openBlock = (id: string): Block => {
-    const block = getBlock(id);
-    if (block.merged)
-      fail("block_merged", `Block ${id} is already merged; it takes no more changes`, {
-        block: id,
-      });
-    return block;
-  };
-  const addBlock = (spec: NewBlock) => {
-    if (doc.blocks?.some((b) => b.id === spec.id))
-      fail("invalid", `Block ${spec.id} already exists`, { block: spec.id });
-    const block: Block = {
-      id: spec.id,
-      name: spec.name.trim(),
-      branch: spec.branch?.trim() || defaultBranch(spec.id),
-      base: spec.base.trim(),
-      created: { at: ctx.at, by: ctx.actor },
-    };
-    doc.blocks = [...(doc.blocks ?? []), block];
-  };
-  /** A task in a merged block is closed: it can neither leave it nor be reopened. */
-  const inMergedBlock = (task: Task) =>
-    task.block !== undefined && doc.blocks?.find((b) => b.id === task.block)?.merged !== undefined;
   const createTask = (spec: NewTask, state: TaskState, deps: string[]): Task => {
     if (!doc.groups.some((g) => g.id === spec.group))
       fail("not_found", `Group ${spec.group} does not exist`);
@@ -349,7 +282,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       updated_at: ctx.at,
     };
     if (deps.length) task.deps = deps;
-    if (spec.block) task.block = openBlock(spec.block).id;
     const desc = spec.desc?.trim() || template?.desc?.trim();
     if (desc) task.desc = desc;
     const criteria = [
@@ -380,7 +312,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
           doc.seq[group.id] = doc.seq[group.id] ?? 0;
         }
       }
-      for (const block of op.blocks ?? []) addBlock(block);
       // Deps may name an existing id or the title of an earlier task in the same batch.
       const byTitle = new Map<string, string>();
       for (const spec of op.tasks) {
@@ -437,11 +368,6 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
           },
         );
       }
-      if (inMergedBlock(task))
-        fail("block_merged", `${task.id} belongs to merged block ${task.block}; it stays`, {
-          task: task.id,
-          block: task.block as string,
-        });
       const doneDependent = doc.tasks.find((t) => t.state === "done" && t.deps?.includes(task.id));
       if (role !== "human" && doneDependent)
         fail(
@@ -545,66 +471,8 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
     case "reopen": {
       const task = get(op.task);
-      if (inMergedBlock(task))
-        fail(
-          "block_merged",
-          `${task.id} belongs to merged block ${task.block}; create a new task instead`,
-          {
-            task: task.id,
-            block: task.block as string,
-          },
-        );
       transition(task, ["done"], "todo");
       if (op.text?.trim()) addNote(task, "note", op.text);
-      break;
-    }
-    case "add-block": {
-      addBlock(op);
-      break;
-    }
-    case "edit-block": {
-      const block = openBlock(op.block);
-      const unknown = Object.keys(op.changes).filter(
-        (k) => !["name", "branch", "base"].includes(k),
-      );
-      if (unknown.length) fail("forbidden", `edit-block cannot change ${unknown.join(", ")}`);
-      if (op.changes.name !== undefined) block.name = op.changes.name.trim();
-      if (op.changes.branch !== undefined) block.branch = op.changes.branch.trim();
-      if (op.changes.base !== undefined) block.base = op.changes.base.trim();
-      break;
-    }
-    case "delete-block": {
-      openBlock(op.block);
-      doc.blocks = (doc.blocks ?? []).filter((b) => b.id !== op.block);
-      if (doc.blocks.length === 0) delete doc.blocks;
-      for (const task of doc.tasks.filter((t) => t.block === op.block)) {
-        delete task.block;
-        touch(task);
-      }
-      break;
-    }
-    case "set-block": {
-      const task = get(op.task);
-      if (role !== "human" && task.state === "done")
-        fail("forbidden", `${task.id} is done; only humans can move finished work`, {
-          task: task.id,
-        });
-      if (task.block !== undefined) openBlock(task.block);
-      if (op.block === null) delete task.block;
-      else task.block = openBlock(op.block).id;
-      touch(task);
-      break;
-    }
-    case "mark-merged": {
-      const block = openBlock(op.block);
-      const progress = blockProgress(input, block.id);
-      if (progress.status !== "ready")
-        fail(
-          "block_not_ready",
-          `Block ${block.id} is not ready to merge: ${progress.done} of ${progress.tasks.length} tasks done`,
-          { block: block.id },
-        );
-      block.merged = { at: ctx.at, by: ctx.actor, commit: op.commit, strategy: op.strategy };
       break;
     }
     case "restore": {

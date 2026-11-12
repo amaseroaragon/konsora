@@ -1,4 +1,4 @@
-/** fast-check generators for valid `konsora/4` documents, shared by core property tests. */
+/** fast-check generators for valid `konsora/5` documents, shared by core property tests. */
 import fc from "fast-check";
 import type { Note, Task, TasksDocument } from "../src/schema.ts";
 
@@ -58,7 +58,6 @@ const taskSpec = fc.record(
     desc: text(60),
     acceptance: fc.array(text(30), { maxLength: 3 }),
     labels: fc.uniqueArray(lowerString(1, 8), { maxLength: 3 }),
-    blockPick: fc.constantFrom(0, 1, 2),
     createdAt: timestamp,
     createdBy: actor,
     updatedAt: timestamp,
@@ -124,7 +123,6 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
         task.acceptance = spec.acceptance.map((t, j) => ({ id: `ac${j + 1}`, text: t }));
       }
       if (spec.labels?.length) task.labels = spec.labels;
-      if (spec.blockPick === 1) task.block = "cache";
       if (spec.notes?.length) {
         task.notes = spec.notes.map((body, j) => ({ id: `n${j + 1}`, ...body }) as Note);
       }
@@ -135,27 +133,14 @@ export const documentArb: fc.Arbitrary<TasksDocument> = fc
       if (earlier.length) (tasks[i] as Task).deps = earlier.map((d) => (tasks[d] as Task).id);
     });
     return {
-      ...(withSchemaRef ? { $schema: "../schema/tasks.v4.schema.json" } : {}),
-      schema: "konsora/4",
+      ...(withSchemaRef ? { $schema: "../schema/tasks.v5.schema.json" } : {}),
+      schema: "konsora/5",
       project: {
         name: "Generated",
         ...(templates.length ? { templates } : {}),
       },
       groups: groups.map((id) => ({ id, name: `Group ${id}` })),
       seq: Object.fromEntries(groups.map((g) => [g, (counters.get(g) ?? 0) + seqSlack])),
-      ...(tasks.some((t) => t.block)
-        ? {
-            blocks: [
-              {
-                id: "cache",
-                name: "Cache",
-                branch: "konsora/cache",
-                base: "main",
-                created: { at: "2026-01-01T00:00:00Z", by: "human" },
-              },
-            ],
-          }
-        : {}),
       tasks,
       ...extension,
     } as TasksDocument;

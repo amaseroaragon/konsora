@@ -64,7 +64,7 @@ function humanTransition(before: Task, after: Task): boolean {
   return !AGENT_REACH[before.state].includes(after.state);
 }
 
-const CONTENT = ["title", "desc", "acceptance", "labels", "group", "block"] as const;
+const CONTENT = ["title", "desc", "acceptance", "labels", "group"] as const;
 
 function notesRewritten(before: Task, after: Task): boolean {
   const old = before.notes ?? [];

@@ -2,7 +2,7 @@
  * Creating a task from the UI, as a pure model: the draft the form holds and the `propose` op it
  * turns into. The human creates approved work directly (`state: "todo"`), or a proposal.
  */
-import type { Block, Template } from "@konsora/core";
+import type { Template } from "@konsora/core";
 import { t } from "../i18n/index.ts";
 import { type DraftCriterion, parseLabels } from "./edit-model.ts";
 
@@ -17,8 +17,6 @@ export type CreateDraft = {
   deps: string;
   /** A template id, or empty for none. */
   template: string;
-  /** A block id, or empty for none. */
-  block: string;
   /** Approved work (`todo`) or a proposal to approve later. */
   state: "todo" | "proposed";
 };
@@ -32,12 +30,11 @@ export function emptyDraft(group: string): CreateDraft {
     labels: "",
     deps: "",
     template: "",
-    block: "",
     state: "todo",
   };
 }
 
-export type CreateField = "title" | "desc" | "group" | "acceptance" | "deps" | "template" | "block";
+export type CreateField = "title" | "desc" | "group" | "acceptance" | "deps" | "template";
 
 export type CreateOp = {
   op: "propose";
@@ -49,7 +46,6 @@ export type CreateOp = {
   labels?: string[];
   deps?: string[];
   template?: string;
-  block?: string;
 };
 
 /** Validates the draft (the mistakes people make first, in Spanish) and builds the op. */
@@ -59,7 +55,6 @@ export function createOp(
     groups: readonly { id: string }[];
     tasks: readonly { id: string }[];
     templates?: readonly Template[] | undefined;
-    blocks?: readonly Block[] | undefined;
   },
 ): { ok: true; op: CreateOp } | { ok: false; field: CreateField; message: string } {
   const title = draft.title.trim();
@@ -77,8 +72,6 @@ export function createOp(
   if (unknown) return { ok: false, field: "deps", message: t("create.error.dep", { id: unknown }) };
   if (draft.template && !ctx.templates?.some((template) => template.id === draft.template))
     return { ok: false, field: "template", message: t("create.error.template") };
-  if (draft.block && !ctx.blocks?.some((block) => block.id === draft.block && !block.merged))
-    return { ok: false, field: "block", message: t("create.error.block") };
   const desc = draft.desc.trim();
   const labels = parseLabels(draft.labels);
   return {
@@ -93,7 +86,6 @@ export function createOp(
       ...(labels.length > 0 ? { labels } : {}),
       ...(deps.length > 0 ? { deps } : {}),
       ...(draft.template ? { template: draft.template } : {}),
-      ...(draft.block ? { block: draft.block } : {}),
     },
   };
 }

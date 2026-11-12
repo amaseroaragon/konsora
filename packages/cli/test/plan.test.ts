@@ -13,7 +13,7 @@ import type { Io } from "../src/shared.ts";
 
 const at = "2026-11-08T10:00:00Z";
 const plan = (): TasksDocument => ({
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: {
     name: "Weather",
     templates: [{ id: "bug", name: "Bug fix" }],
@@ -174,7 +174,7 @@ describe("the MCP server in plan mode (CLI-05)", () => {
     await client.close();
   });
 
-  it("lets the agent read, create, revise and delete unstarted tasks, and set up blocks", async () => {
+  it("lets the agent read, create, revise and delete unstarted tasks", async () => {
     const { client, call } = await connect();
     expect((await call("status")).isError).toBe(false);
     expect((await call("show", { id: "BE-01" })).isError).toBe(false);
@@ -188,15 +188,12 @@ describe("the MCP server in plan mode (CLI-05)", () => {
     expect(batch.isError, batch.text).toBe(false);
     expect((await call("edit", { id: "BE-01", title: "Better" })).isError).toBe(false);
     expect((await call("delete", { id: "BE-04" })).isError).toBe(false);
-    const block = await call("add_block", { id: "cache", name: "Cache", base: "main" });
-    expect(block.isError, block.text).toBe(false);
-    expect((await call("set_block", { id: "BE-03", block: "cache" })).isError).toBe(false);
     expect((await call("promote", { id: "BE-02" })).isError).toBe(false);
     const doc = JSON.parse(file()) as TasksDocument;
-    expect(doc.tasks.map((t) => [t.id, t.state, t.block])).toEqual([
-      ["BE-01", "todo", undefined],
-      ["BE-02", "todo", undefined],
-      ["BE-03", "todo", "cache"],
+    expect(doc.tasks.map((t) => [t.id, t.state])).toEqual([
+      ["BE-01", "todo"],
+      ["BE-02", "todo"],
+      ["BE-03", "todo"],
     ]);
     await client.close();
   });

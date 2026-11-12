@@ -28,7 +28,7 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
   }) satisfies Task;
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: {
     name: "Weather",
     templates: [
@@ -184,19 +184,6 @@ describe("konsora mcp: agent write tools", () => {
       ["undepend", { id: "OPS-01", on: "FE-02" }, ["undepend", "OPS-01", "FE-02"]],
       ["delete", { id: "FE-02" }, ["delete", "FE-02"]],
       ["promote", { id: "FE-01" }, ["promote", "FE-01"]],
-      [
-        "add_block",
-        { id: "cache", name: "Cache", base: "main" },
-        ["add-block", "cache", "--name", "Cache", "--base", "main"],
-      ],
-      [
-        "edit_block",
-        { id: "cache", name: "Forecast cache" },
-        ["edit-block", "cache", "--name", "Forecast cache"],
-      ],
-      ["set_block", { id: "BE-04", block: "cache" }, ["set-block", "BE-04", "cache"]],
-      ["set_block", { id: "OPS-01", block: "cache" }, ["set-block", "OPS-01", "cache"]],
-      ["set_block", { id: "OPS-01", block: null }, ["set-block", "OPS-01", "none"]],
       ["start", { id: "BE-04", plan: "Plan" }, ["start", "BE-04", "-m", "Plan"]],
       ["note", { id: "BE-04", text: "Progress" }, ["note", "BE-04", "Progress"]],
       ["ask", { id: "BE-04", question: "Which TTL?" }, ["ask", "BE-04", "Which TTL?"]],
@@ -215,9 +202,7 @@ describe("konsora mcp: agent write tools", () => {
     }
     expect(doc(viaMcp).tasks.find((task) => task.id === "BE-04")).toMatchObject({
       state: "done",
-      block: "cache",
     });
-    expect(doc(viaMcp).blocks?.[0]).toMatchObject({ id: "cache", name: "Forecast cache" });
     const tasks = doc(viaMcp).tasks;
     expect(tasks.find((task) => task.id === "OPS-03")).toMatchObject({ labels: ["ops"] });
     expect(tasks.find((task) => task.id === "OPS-04")).toMatchObject({
@@ -332,7 +317,7 @@ describe("konsora mcp: agent write tools", () => {
     await close();
   });
 
-  it("tells the agent to stop after ask, and where to commit in a block", async () => {
+  it("tells the agent to stop after ask, and that a finished task is done", async () => {
     const dir = project();
     const { call, close } = await connect(dir);
     await call("start", { id: "BE-04" });
@@ -342,11 +327,6 @@ describe("konsora mcp: agent write tools", () => {
     expect((await call("finish", { id: "BE-04", summary: "S" })).text).toContain(
       "The task is done.",
     );
-    await call("add_block", { id: "cache", name: "Cache", base: "main" });
-    await call("set_block", { id: "BE-03", block: "cache" });
-    await call("set_block", { id: "BE-02", block: "cache" });
-    const started = await call("finish", { id: "BE-02", summary: "S" });
-    expect(started.text).toContain("work and commit on branch konsora/cache");
     await close();
   });
 });

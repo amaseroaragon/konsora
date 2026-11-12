@@ -27,7 +27,7 @@ let app: ReturnType<typeof createApp>;
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: "Weather" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 2 },

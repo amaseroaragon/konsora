@@ -20,7 +20,7 @@ const t = (id: string, state: Task["state"], deps: string[] = []): Task => ({
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: "P" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 5 },
@@ -284,37 +284,13 @@ describe("planning commands", () => {
     expect((await run(["delete", "BE-03"])).code).toBe(EXIT.ok);
   });
 
-  it("add-block, set-block and propose --block put tasks in a branch block; status shows it", async () => {
-    execFileSync("git", ["commit", "-q", "--allow-empty", "-m", "init"], {
-      cwd: dir,
-      env: {
-        ...process.env,
-        GIT_AUTHOR_NAME: "T",
-        GIT_AUTHOR_EMAIL: "t@x",
-        GIT_COMMITTER_NAME: "T",
-        GIT_COMMITTER_EMAIL: "t@x",
-      },
-    });
-    execFileSync("git", ["switch", "-q", "-c", "dev"], { cwd: dir });
-    const added = await run(["add-block", "Cache", "--name", "Forecast cache"]);
-    expect(added.stdout).toContain("Created block cache (branch konsora/cache → dev).");
-    expect((await run(["set-block", "BE-04", "cache"])).code).toBe(EXIT.ok);
-    expect((await run(["propose", "TTL", "--group", "BE", "--block", "cache"])).code).toBe(EXIT.ok);
-    expect(task("BE-04").block).toBe("cache");
-    expect(task("BE-06").block).toBe("cache");
-    expect((await run(["edit-block", "cache", "--base", "main"])).code).toBe(EXIT.ok);
-    const status = await run(["status"]);
-    expect(status.stdout).toContain(
-      "Blocks:\n  cache        Forecast cache  [konsora/cache → main · 0/2 done · open]",
+  it("has no block commands or options any more", async () => {
+    const help = await run(["--help"]);
+    expect(help.stdout).not.toMatch(/\bblocks?\b|merge/i);
+    expect((await run(["add-block", "cache", "--name", "Cache"])).code).not.toBe(EXIT.ok);
+    expect((await run(["propose", "TTL", "--group", "BE", "--block", "cache"])).code).not.toBe(
+      EXIT.ok,
     );
-    const started = await run(["start", "BE-04"]);
-    expect(started.stdout).toContain("work and commit on branch konsora/cache");
-    expect((await run(["set-block", "BE-04", "none"])).stdout).toBe(
-      "BE-04 is no longer in a block.\n",
-    );
-    const missing = await run(["set-block", "BE-04", "nope"]);
-    expect(missing.stderr).toContain("Block nope does not exist");
-    expect(missing.stderr).toContain("Hint: `konsora status` lists the blocks");
   });
 
   it("depend rejects cycles", async () => {

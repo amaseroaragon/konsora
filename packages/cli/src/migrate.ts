@@ -1,6 +1,7 @@
 /**
- * `konsora migrate`: v1 (schema_version 1), konsora/2 or konsora/3 → konsora/4. Dry-run unless
- * --write. From v2 it drops the run-only fields; from v2 and v3, review becomes done and YOLO goes.
+ * `konsora migrate`: v1 (schema_version 1), konsora/2, konsora/3 or konsora/4 → konsora/5.
+ * Dry-run unless --write. From v2 it drops the run-only fields; from v2 and v3, review becomes
+ * done and YOLO goes; from v2, v3 and v4, blocks go (their git branches are left alone).
  */
 import { readFile } from "node:fs/promises";
 import { basename, relative } from "node:path";
@@ -8,6 +9,7 @@ import {
   isV1,
   isV2,
   isV3,
+  isV4,
   migratePlan,
   migrateV1,
   parseJsonText,
@@ -18,6 +20,7 @@ import {
   BACKUP_V1_FILE,
   BACKUP_V2_FILE,
   BACKUP_V3_FILE,
+  BACKUP_V4_FILE,
   LEGACY_HISTORY_FILE,
   tasksPath,
   writeMigration,
@@ -41,7 +44,7 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
   program
     .command("migrate")
     .description(
-      `convert an older tasks.json (v1, konsora/2 or konsora/3) to ${SCHEMA_VERSION} — preview by default`,
+      `convert an older tasks.json (v1, konsora/2, konsora/3 or konsora/4) to ${SCHEMA_VERSION} — preview by default`,
     )
     .option("--write", "apply the migration (backs up the original first)")
     .option("--name <name>", "project name, for v1 plans (default: folder name)")
@@ -63,11 +66,11 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
         return;
       }
 
-      if (isV2(parsed.value) || isV3(parsed.value)) {
+      if (isV2(parsed.value) || isV3(parsed.value) || isV4(parsed.value)) {
         const result = migratePlan(parsed.value, { at: timestamp(io) });
         if (!result.ok) throw new CliError(result.message);
         const { report } = result;
-        const from = report.from === "konsora/2" ? "v2" : "v3";
+        const from = report.from === "konsora/2" ? "v2" : report.from === "konsora/3" ? "v3" : "v4";
         if (opts.write) {
           check(
             await writeMigration(root, {
@@ -102,11 +105,20 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
         if (report.reviewToDone.length)
           lines.push(
             "",
-            `In review → done (v4 has no review step): ${report.reviewToDone.join(", ")}`,
+            `In review → done (Konsora has no review step): ${report.reviewToDone.join(", ")}`,
+          );
+        if (report.blocks.length)
+          lines.push(
+            "",
+            "Blocks removed (Konsora no longer has blocks; their git branches stay as they are):",
+            ...report.blocks.map(
+              (b) =>
+                `  ${b.id.padEnd(16)} ${b.name}  [${b.branch}${b.merged ? ", merged" : ", not merged"}]`,
+            ),
           );
         lines.push(
           "",
-          `Backup of the original: ${sibling(from === "v2" ? BACKUP_V2_FILE : BACKUP_V3_FILE)}`,
+          `Backup of the original: ${sibling({ v2: BACKUP_V2_FILE, v3: BACKUP_V3_FILE, v4: BACKUP_V4_FILE }[from])}`,
           "",
           opts.write
             ? "Done. Review the result with `konsora status`."
@@ -118,7 +130,7 @@ export function registerMigrate(program: Command, io: Io, rootOption: () => stri
 
       if (!isV1(parsed.value))
         throw new CliError(
-          `${path} is neither ${SCHEMA_VERSION}, konsora/3, konsora/2 nor v1 (schema_version 1).`,
+          `${path} is neither ${SCHEMA_VERSION}, konsora/4, konsora/3, konsora/2 nor v1 (schema_version 1).`,
         );
       const result = migrateV1(parsed.value, {
         name: opts.name ?? basename(root),

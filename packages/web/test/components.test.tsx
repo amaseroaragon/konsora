@@ -71,12 +71,9 @@ describe("TaskCard", () => {
     expect(out).toMatch(/type="checkbox"[^>]*disabled/);
   });
 
-  it("marks ideas with who had them, and shows the block", () => {
+  it("marks ideas with who had them", () => {
     expect(html(<TaskCard id="A-03" state="proposed" title="x" proposedBy="claude" />)).toContain(
       "Idea de claude",
-    );
-    expect(html(<TaskCard id="A-04" state="todo" title="x" block="cache" />)).toContain(
-      '<div class="k-card__meta">cache</div>',
     );
   });
 });

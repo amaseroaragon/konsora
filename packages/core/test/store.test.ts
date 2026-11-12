@@ -31,7 +31,7 @@ const human = { actor: "human", at };
 
 function seed(): TasksDocument {
   return {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: "Fixture" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 1 },
@@ -108,7 +108,7 @@ describe("mutate", () => {
   });
 
   it("never overwrites an invalid file", async () => {
-    const broken = '{ "schema": "konsora/4", "tasks": [ ] , "oops": true }\n';
+    const broken = '{ "schema": "konsora/5", "tasks": [ ] , "oops": true }\n';
     writeFileSync(tasksPath(root), broken);
     const r = await mutate(root, { op: "propose", title: "x", group: "BE" }, agent);
     expect(r.ok ? null : r.error.code).toBe("invalid");

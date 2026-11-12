@@ -1,5 +1,5 @@
 /**
- * Pure derivations over a validated `konsora/4` document (docs/esquema-tareas.md §2, "Derivados").
+ * Pure derivations over a validated `konsora/5` document (docs/esquema-tareas.md §2, "Derivados").
  * Nothing here is stored in the file: `blocked`, `ready` and `waiting` are always computed.
  */
 import type { Task, TasksDocument } from "./schema.ts";
@@ -121,58 +121,6 @@ export function topoOrder(doc: Pick<TasksDocument, "tasks">): TopoResult {
     .map(([id]) => id)
     .sort(compareTaskIds);
   return { order, cyclic };
-}
-
-export type BlockStatus = "open" | "ready" | "merged";
-
-export type BlockProgress = {
-  /** Its tasks, in dependency order. */
-  tasks: string[];
-  done: number;
-  /**
-   * `merged` once the human merged it; `ready` when it has tasks and all are done (it can be
-   * merged); `open` otherwise.
-   */
-  status: BlockStatus;
-};
-
-/** How far a block is, from its tasks. Unknown blocks have no tasks and are `open`. */
-export function blockProgress(
-  doc: Pick<TasksDocument, "tasks" | "blocks">,
-  id: string,
-): BlockProgress {
-  const block = doc.blocks?.find((b) => b.id === id);
-  const members = new Set(doc.tasks.filter((t) => t.block === id).map((t) => t.id));
-  const tasks = topoOrder(doc).order.filter((taskId) => members.has(taskId));
-  const done = doc.tasks.filter((t) => t.block === id && t.state === "done").length;
-  const status: BlockStatus = block?.merged
-    ? "merged"
-    : tasks.length > 0 && done === tasks.length
-      ? "ready"
-      : "open";
-  return { tasks, done, status };
-}
-
-/**
- * The commit message of a block's merge: its name, the tasks it brings (dependency order) and a
- * `Konsora-Block` trailer. Deterministic, so the same block always yields the same message.
- */
-export function blockCommitMessage(
-  doc: Pick<TasksDocument, "tasks" | "blocks">,
-  id: string,
-): string {
-  const block = doc.blocks?.find((b) => b.id === id);
-  const index = indexTasks(doc);
-  const lines = blockProgress(doc, id).tasks.map(
-    (taskId) => `- ${taskId} ${index.get(taskId)?.title ?? ""}`,
-  );
-  return [
-    block?.name ?? id,
-    "",
-    ...(lines.length ? ["Tasks:", ...lines, ""] : []),
-    `Konsora-Block: ${id}`,
-    "",
-  ].join("\n");
 }
 
 /**

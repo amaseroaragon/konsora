@@ -54,7 +54,7 @@ describe("konsora migrate", () => {
     });
   });
 
-  it("--write backs up the original, saves history and writes a valid v3 plan", async () => {
+  it("--write backs up the original, saves history and writes a valid current plan", async () => {
     const r = await run(["migrate", "--write"]);
     expect(r.code).toBe(EXIT.ok);
     expect(r.stdout).toContain("Migrated .konsora/tasks.json");
@@ -70,7 +70,7 @@ describe("konsora migrate", () => {
       tasks: 29,
       byState: { done: 4, todo: 25 },
     });
-    expect((await run(["migrate"])).stdout).toBe("Already konsora/4; nothing to migrate.\n");
+    expect((await run(["migrate"])).stdout).toBe("Already konsora/5; nothing to migrate.\n");
   });
 
   it("refuses to overwrite an existing backup", async () => {
@@ -81,10 +81,10 @@ describe("konsora migrate", () => {
     expect(readFileSync(k("tasks.json"), "utf8")).toBe(legacy);
   });
 
-  it("rejects files that are neither v1, v2 nor v3", async () => {
+  it("rejects files that are neither v1, v2, v3 nor v4", async () => {
     writeFileSync(k("tasks.json"), JSON.stringify({ hello: "world" }));
     expect((await run(["migrate"])).stderr).toContain(
-      "neither konsora/4, konsora/3, konsora/2 nor v1",
+      "neither konsora/5, konsora/4, konsora/3, konsora/2 nor v1",
     );
   });
 
@@ -111,7 +111,7 @@ describe("konsora migrate", () => {
     writeFileSync(k("tasks.json"), v2);
     const preview = await run(["migrate"]);
     expect(preview.code).toBe(EXIT.ok);
-    expect(preview.stdout).toContain("konsora/2 → konsora/4, 1 tasks");
+    expect(preview.stdout).toContain("konsora/2 → konsora/5, 1 tasks");
     expect(preview.stdout).toMatch(/project\.checks +1/);
     expect(preview.stdout).toMatch(/tasks\[\]\.difficulty +1/);
     expect(readFileSync(k("tasks.json"), "utf8")).toBe(v2);
@@ -121,5 +121,49 @@ describe("konsora migrate", () => {
     const v3 = parseTasksFile(readFileSync(k("tasks.json"), "utf8"));
     expect(v3.ok && v3.document.project).toEqual({ name: "P" });
     expect(readdirSync(k()).sort()).toEqual(["tasks.json", "tasks.v2.json.bak"]);
+  });
+
+  it("migrates a konsora/4 plan with blocks: lists the blocks it removes and their branches", async () => {
+    const at = "2026-11-02T10:00:00Z";
+    const v4 = `${JSON.stringify({
+      schema: "konsora/4",
+      project: { name: "P" },
+      groups: [{ id: "BE", name: "Backend" }],
+      seq: { BE: 1 },
+      blocks: [
+        {
+          id: "cache",
+          name: "Cache",
+          branch: "konsora/cache",
+          base: "main",
+          created: { at, by: "human" },
+        },
+      ],
+      tasks: [
+        {
+          id: "BE-01",
+          title: "T",
+          state: "todo",
+          group: "BE",
+          rank: "a",
+          block: "cache",
+          created: { at, by: "human" },
+          updated_at: at,
+        },
+      ],
+    })}\n`;
+    writeFileSync(k("tasks.json"), v4);
+    const before = await run(["status"]);
+    expect(before.code).not.toBe(EXIT.ok);
+    expect(before.stderr).toContain("Hint: The plan is in an older format");
+    const preview = await run(["migrate"]);
+    expect(preview.stdout).toContain("konsora/4 → konsora/5, 1 tasks");
+    expect(preview.stdout).toContain("Blocks removed");
+    expect(preview.stdout).toMatch(/cache +Cache {2}\[konsora\/cache, not merged\]/);
+    expect((await run(["migrate", "--write"])).code).toBe(EXIT.ok);
+    expect(readFileSync(k("tasks.v4.json.bak"), "utf8")).toBe(v4);
+    const v5 = parseTasksFile(readFileSync(k("tasks.json"), "utf8"));
+    expect(v5.ok && v5.document.tasks[0]).not.toHaveProperty("block");
+    expect((await run(["status"])).code).toBe(EXIT.ok);
   });
 });

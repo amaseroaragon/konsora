@@ -25,12 +25,18 @@ Lo que sigue en pie de esa etapa: el núcleo (esquema, validación, serializador
 🔧 `completionLog` en `core`: tareas hechas (fechadas por su última nota `summary`, o por `updated_at`) y bloques integrados, de lo más reciente a lo más antiguo. Vista **Historial** en la web, agrupada por día local, con la hora, quién terminó cada tarea y la primera línea de su resumen, y enlace al panel de la tarea. Sustituye a la aprobación como forma de ver qué han cerrado los agentes.
 ✅ `npm run check` en verde. En `konsora ui`, una tarea terminada con `konsora finish` aparece en el Historial sin recargar, y al pulsarla se abre su panel con el resumen de cierre (prueba manual).
 
-## Después de M13 (cada idea requiere su propio alcance)
+## M14 — Fuera los bloques
+
+Los bloques de M12 (tareas en una rama de git que el humano integraba con un merge desde la UI) tenían sentido cuando Konsora lanzaba agentes. Como gestor y visualizador solo añadían ceremonia y una dependencia de git, así que se retiran. Konsora deja de ejecutar git: cada uno integra el código con su flujo de siempre.
+
+🔧 Esquema `konsora/5` sin `blocks` ni `task.block`, y `konsora migrate` v4→v5, que lista los bloques que quita con su rama (las ramas no se tocan). Fuera las ops `add-block`, `edit-block`, `delete-block`, `set-block` y `mark-merged`, sus comandos de la CLI y sus herramientas del MCP, el merge y las rutas de git del daemon (`git.ts`), y en la web la vista Bloques, el selector de bloque, el menú «Mover a…» y las entradas de merges del Historial. Un plan antiguo abre en solo lectura con la pista de `konsora migrate`. De paso, el agente del panel de IA puede leer el código (solo lectura, M13).
+✅ `npm run check` en verde. `konsora migrate --write` convierte el backlog v4 de este repo en v5. Ningún código de Konsora ejecuta git.
+
+## Después de M14 (cada idea requiere su propio alcance)
 
 | Idea | Valor |
 |---|---|
 | **Responder preguntas en lote** | Una vista de todas las tareas que esperan respuesta, en todos los proyectos. |
-| **Panel de IA con lectura del código** | Que el chat de planificación pueda leer el repo (solo lectura) para proponer tareas mejor ajustadas. |
 | **Enlaces a commits** | Asociar a cada tarea los commits que la mencionan y mostrarlos en su panel y en el Historial. |
-| **Historial de cambios del plan** | Ampliar el Historial (hoy solo cierres y merges) a todos los cambios del plan, con quién hizo qué. |
+| **Historial de cambios del plan** | Ampliar el Historial (hoy solo cierres) a todos los cambios del plan, con quién hizo qué. |
 | **Otros agentes** | Integración de `init` para Codex u otros CLI, cada una tras verificar sus condiciones oficiales. |

@@ -1,14 +1,10 @@
 import { useId } from "react";
 import { t } from "../i18n/index.ts";
-import { Button, Menu, type MenuOption } from "../ui/index.ts";
-
-/** The menu value that takes the selected tasks out of any block. */
-export const NO_BLOCK = "\u0000none";
+import { Button } from "../ui/index.ts";
 
 /**
- * How many tasks are selected, which ones, and what can be done with all of them: move them to
- * a block, promote the ideas to todo, or delete them (core still refuses what the human may not
- * do, task by task).
+ * How many tasks are selected, which ones, and what can be done with all of them: promote the
+ * ideas to todo, or delete them (core still refuses what the human may not do, task by task).
  */
 export function SelectionBar({
   ids,
@@ -19,8 +15,6 @@ export function SelectionBar({
   onPromote,
   onDelete,
   onClear,
-  blockTargets = [],
-  onMove,
 }: {
   ids: readonly string[];
   /** The selected ideas Promote would move to todo. */
@@ -32,9 +26,6 @@ export function SelectionBar({
   onPromote: (ids: readonly string[]) => void;
   onDelete: (ids: readonly string[]) => void;
   onClear: () => void;
-  /** Where the movable selected tasks can go: open blocks, and NO_BLOCK. Empty hides the menu. */
-  blockTargets?: readonly MenuOption[];
-  onMove?: (target: string) => void;
 }) {
   const hint = useId();
   return (
@@ -50,16 +41,6 @@ export function SelectionBar({
         </Button>
       </div>
       <div className="a-selection__controls">
-        {!readOnly && blockTargets.length > 0 && onMove && (
-          <Menu
-            caption={t("selection.block")}
-            value=""
-            options={[{ value: "", label: t("selection.block.pick") }, ...blockTargets]}
-            onChange={(value) => {
-              if (value) onMove(value);
-            }}
-          />
-        )}
         <p id={hint} className="b-selection__hint s-muted">
           {readOnly
             ? t("selection.readonly")

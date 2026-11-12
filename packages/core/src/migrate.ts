@@ -1,7 +1,8 @@
 /**
- * Migrations to `konsora/4` (docs/esquema-tareas.md §6): from the v0 format (`schema_version: 1`),
- * from `konsora/2` (whose run-only fields v3 dropped) and from `konsora/3` (whose `review` state
- * and YOLO v4 dropped). Pure: the CLI decides whether to write (dry-run by default).
+ * Migrations to `konsora/5` (docs/esquema-tareas.md §6): from the v0 format (`schema_version: 1`),
+ * from `konsora/2` (whose run-only fields v3 dropped), from `konsora/3` (whose `review` state and
+ * YOLO v4 dropped) and from `konsora/4` (whose blocks v5 dropped). Pure: the CLI decides whether
+ * to write (dry-run by default).
  */
 import { z } from "zod";
 import { rankAfterAll } from "./rank.ts";
@@ -157,7 +158,7 @@ export function migrateV1(value: unknown, options: MigrationOptions): MigrationR
     }
 
     if (task.status === "in_review")
-      note("Migrated from v1 as done: it was in review, and konsora/4 has no review step.");
+      note("Migrated from v1 as done: it was in review, and Konsora has no review step.");
     if (task.status === "in_progress")
       note("Migrated from v1 as todo: it was in_progress, but no v1 run survives the migration.");
     if (id !== task.id) note(`Migrated from v1 id ${task.id}.`);
@@ -186,7 +187,7 @@ export function migrateV1(value: unknown, options: MigrationOptions): MigrationR
 
   const groupIds = [...groups.keys()].sort();
   const document: TasksDocument = {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: options.name },
     groups: groupIds.map((id) => ({ id, name: id })),
     seq: Object.fromEntries(groupIds.map((id) => [id, groups.get(id) ?? 0])),
@@ -252,8 +253,19 @@ export function isV3(value: unknown): boolean {
   );
 }
 
+export function isV4(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { schema?: unknown }).schema === "konsora/4"
+  );
+}
+
+/** A block that `konsora/5` no longer has: its branch stays in git, untouched. */
+export type DroppedBlock = { id: string; name: string; branch: string; merged: boolean };
+
 export type PlanMigrationReport = {
-  from: "konsora/2" | "konsora/3";
+  from: "konsora/2" | "konsora/3" | "konsora/4";
   tasks: number;
   /** Each dropped field, as a JSON path pattern, with how many times it appeared. */
   dropped: Record<string, number>;
@@ -261,6 +273,8 @@ export type PlanMigrationReport = {
   reviewNotes: number;
   /** Tasks that were in review: v4 has no review, so they are done now (with a note). */
   reviewToDone: string[];
+  /** Blocks removed (v4 → v5), with their branches, which Konsora leaves alone. */
+  blocks: DroppedBlock[];
 };
 
 export type PlanMigrationResult =
@@ -341,13 +355,38 @@ function v3ToV4(doc: Obj, drop: Dropper, at: string): string[] {
   return moved;
 }
 
+/** `konsora/4` → `konsora/5`, in place: blocks go away, and each task's `block` with them. */
+function v4ToV5(doc: Obj, drop: Dropper): DroppedBlock[] {
+  doc.schema = "konsora/5";
+  if (typeof doc.$schema === "string") doc.$schema = doc.$schema.replace("tasks.v4.", "tasks.v5.");
+  const blocks = (Array.isArray(doc.blocks) ? doc.blocks : []).filter(isObj).map((block) => ({
+    id: String(block.id),
+    name: String(block.name ?? block.id),
+    branch: String(block.branch ?? `konsora/${String(block.id)}`),
+    merged: isObj(block.merged),
+  }));
+  drop(doc, "blocks", "blocks");
+  for (const task of Array.isArray(doc.tasks) ? doc.tasks : []) {
+    if (isObj(task)) drop(task, "block", "tasks[].block");
+  }
+  return blocks;
+}
+
 /**
- * `konsora/2` or `konsora/3` → `konsora/4`: drops what the newer formats no longer have and keeps
- * everything else. Deterministic: the same plan and `at` always yield the same result and report.
+ * `konsora/2`, `konsora/3` or `konsora/4` → `konsora/5`: drops what the newer formats no longer
+ * have and keeps everything else. Deterministic: the same plan and `at` always yield the same
+ * result and report.
  */
 export function migratePlan(value: unknown, options: { at: string }): PlanMigrationResult {
-  const from = isV2(value) ? "konsora/2" : isV3(value) ? "konsora/3" : undefined;
-  if (!from || !isObj(value)) return { ok: false, message: "Not a konsora/2 or konsora/3 plan" };
+  const from = isV2(value)
+    ? "konsora/2"
+    : isV3(value)
+      ? "konsora/3"
+      : isV4(value)
+        ? "konsora/4"
+        : undefined;
+  if (!from || !isObj(value))
+    return { ok: false, message: "Not a konsora/2, konsora/3 or konsora/4 plan" };
   const doc = structuredClone(value);
   const dropped: Record<string, number> = {};
   const drop: Dropper = (target, key, path) => {
@@ -356,7 +395,8 @@ export function migratePlan(value: unknown, options: { at: string }): PlanMigrat
     dropped[path] = (dropped[path] ?? 0) + 1;
   };
   const reviewNotes = from === "konsora/2" ? v2ToV3(doc, drop) : 0;
-  const reviewToDone = v3ToV4(doc, drop, options.at);
+  const reviewToDone = from === "konsora/4" ? [] : v3ToV4(doc, drop, options.at);
+  const blocks = v4ToV5(doc, drop);
   const valid = validateDocument(doc);
   if (!valid.ok)
     return {
@@ -367,11 +407,11 @@ export function migratePlan(value: unknown, options: { at: string }): PlanMigrat
   return {
     ok: true,
     document: valid.document,
-    report: { from, tasks, dropped, reviewNotes, reviewToDone },
+    report: { from, tasks, dropped, reviewNotes, reviewToDone, blocks },
   };
 }
 
-/** `konsora/2` → `konsora/4` (see `migratePlan`). */
+/** `konsora/2` → `konsora/5` (see `migratePlan`). */
 export function migrateV2(value: unknown, options: { at: string }): PlanMigrationResult {
   return isV2(value) ? migratePlan(value, options) : { ok: false, message: "Not a konsora/2 plan" };
 }

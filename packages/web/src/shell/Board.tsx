@@ -84,7 +84,6 @@ function Card({
       external={external}
       {...(onOpen ? { onOpen } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
-      {...(task.block ? { block: task.block } : {})}
       {...(selection
         ? {
             selected: selection.selected.has(task.id),

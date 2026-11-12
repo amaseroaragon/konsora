@@ -1,5 +1,5 @@
 /**
- * Semantic validation of a structurally valid `konsora/4` document (docs/esquema-tareas.md §3).
+ * Semantic validation of a structurally valid `konsora/5` document (docs/esquema-tareas.md §3).
  * Reports every problem it finds, each located by JSON Pointer, and never throws.
  */
 import { parseJsonText } from "./json-text.ts";
@@ -44,13 +44,6 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
     );
   });
 
-  const blockIds = new Set<string>();
-  doc.blocks?.forEach((block, j) => {
-    if (blockIds.has(block.id))
-      add(["blocks", j, "id"], "duplicate_block", `Block ${block.id} is defined twice`);
-    blockIds.add(block.id);
-  });
-
   const groups = new Set<string>();
   doc.groups.forEach((group, i) => {
     if (groups.has(group.id))
@@ -91,13 +84,6 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
       );
     } else {
       maxNumber.set(prefix, Math.max(maxNumber.get(prefix) ?? 0, taskNumber(task.id)));
-    }
-    if (task.block !== undefined && !blockIds.has(task.block)) {
-      add(
-        ["tasks", i, "block"],
-        "unknown_block",
-        `Task ${task.id} belongs to unknown block ${task.block}`,
-      );
     }
     checkUnique(task.deps, (j, dep) =>
       add(["tasks", i, "deps", j], "duplicate_dependency", `Task ${task.id} lists ${dep} twice`),

@@ -4,26 +4,18 @@
  *
  * The CLI always acts as an agent: `--as` / KONSORA_AGENT name it (`agent:<name>`), and "human"
  * or "konsora" are refused. Human actions (reopen, answer, changing finished work, deleting
- * started work, deleting or merging blocks) are deliberately absent: they happen in the UI.
+ * started work) are deliberately absent: they happen in the UI.
  */
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import {
-  DEFAULT_BASE_BRANCH,
-  type Op,
-  type OpContext,
-  type OpError,
-  type TasksDocument,
-  taskHash,
-} from "@konsora/core";
+import { type Op, type OpContext, type OpError, type TasksDocument, taskHash } from "@konsora/core";
 import { mutate } from "@konsora/core/store";
 import type { Command } from "commander";
 import { z } from "zod";
-import { branchHint, showText, views } from "./format.ts";
+import { showText, views } from "./format.ts";
 import { HINTS, opHint } from "./hints.ts";
 import {
   CliError,
-  defaultBase,
   EXIT,
   type Io,
   json,
@@ -94,21 +86,8 @@ const list = (value: string) =>
     .filter(Boolean);
 const collect = (value: string, previous: string[] = []) => [...previous, value];
 
-const BlockInput = z.strictObject({
-  id: z.string().min(1).describe("block id: lowercase letters, digits and dashes"),
-  name: z.string().min(1),
-  branch: z.string().min(1).optional().describe("git branch (default konsora/<id>)"),
-  base: z.string().min(1).optional().describe("branch it merges into (default: current branch)"),
-});
-
 export const BatchSchema = z.strictObject({
   groups: z.array(z.strictObject({ id: z.string(), name: z.string() })).optional(),
-  blocks: z
-    .array(BlockInput)
-    .optional()
-    .describe(
-      "blocks to create: dependent tasks worked on one branch, merged by the human at the end",
-    ),
   tasks: z
     .array(
       z.strictObject({
@@ -123,7 +102,6 @@ export const BatchSchema = z.strictObject({
           .min(1)
           .optional()
           .describe("id of a project template the task starts from (see status)"),
-        block: z.string().min(1).optional().describe("block id (existing or in blocks)"),
         idea: z
           .boolean()
           .optional()
@@ -133,8 +111,8 @@ export const BatchSchema = z.strictObject({
     .min(1),
 });
 
-/** Turns the batch JSON (CLI stdin/file or MCP argument) into a `batch` op; `base` fills blocks without one. */
-export function batchOp(value: unknown, base: string = DEFAULT_BASE_BRANCH): Op {
+/** Turns the batch JSON (CLI stdin/file or MCP argument) into a `batch` op. */
+export function batchOp(value: unknown): Op {
   const parsed = BatchSchema.safeParse(value);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
@@ -148,16 +126,6 @@ export function batchOp(value: unknown, base: string = DEFAULT_BASE_BRANCH): Op 
   return {
     op: "batch",
     ...(batch.groups ? { groups: batch.groups } : {}),
-    ...(batch.blocks
-      ? {
-          blocks: batch.blocks.map((b) => ({
-            id: b.id.toLowerCase(),
-            name: b.name,
-            base: b.base ?? base,
-            ...(b.branch ? { branch: b.branch } : {}),
-          })),
-        }
-      : {}),
     tasks: batch.tasks.map((t) => ({
       title: t.title,
       group: t.group,
@@ -166,7 +134,6 @@ export function batchOp(value: unknown, base: string = DEFAULT_BASE_BRANCH): Op 
       ...(t.deps ? { deps: t.deps } : {}),
       ...(t.labels ? { labels: t.labels } : {}),
       ...(t.template ? { template: t.template.toLowerCase() } : {}),
-      ...(t.block ? { block: t.block.toLowerCase() } : {}),
       ...(t.idea ? { idea: true } : {}),
     })),
   };
@@ -288,13 +255,11 @@ export function registerWriteCommands(
       "--template <id>",
       "start from a project template (see `konsora status`); explicit values complete or replace it",
     )
-    .option("--block <id>", "put it in a block (see `konsora status`)")
     .option("--idea", "create it as an idea (proposed) instead of todo")
     .action(
       async (
         title: string,
         opts: {
-          block?: string;
           idea?: boolean;
           group: string;
           desc?: string;
@@ -316,7 +281,6 @@ export function registerWriteCommands(
             ...(opts.deps ? { deps: opts.deps.map((d) => d.toUpperCase()) } : {}),
             ...(opts.labels ? { labels: opts.labels } : {}),
             ...(opts.template ? { template: opts.template.toLowerCase() } : {}),
-            ...(opts.block ? { block: opts.block.toLowerCase() } : {}),
             ...(opts.idea ? { state: "proposed" as const } : {}),
           },
           opts,
@@ -330,12 +294,12 @@ export function registerWriteCommands(
 
   withAgent(program.command("batch"))
     .description(
-      "create many tasks (in todo, or as ideas with idea: true) and blocks at once from JSON, all-or-nothing; deps may name earlier titles",
+      "create many tasks (in todo, or as ideas with idea: true) at once from JSON, all-or-nothing; deps may name earlier titles",
     )
     .option("--file <path>", "read the JSON from a file instead of standard input")
     .addHelpText(
       "after",
-      '\nJSON: {"groups":[{"id":"API","name":"API"}],"blocks":[{"id":"cache","name":"Forecast cache"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"template":"<template id>","block":"cache"},{"title":"…","group":"API","idea":true}]}\nA task with "idea": true is created as an idea (proposed); the rest go to todo.\nA block without branch uses konsora/<id>; without base, the current git branch.',
+      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"template":"<template id>"},{"title":"…","group":"API","idea":true}]}\nA task with "idea": true is created as an idea (proposed); the rest go to todo.',
     )
     .action(async (opts: { file?: string; as?: string; json?: boolean }) => {
       const text = await readText(
@@ -355,7 +319,7 @@ export function registerWriteCommands(
         );
       }
       await apply(
-        batchOp(value, defaultBase(locate(io, rootOption()))),
+        batchOp(value),
         opts,
         (doc, created) =>
           `Created ${created.length} task(s):\n${created
@@ -415,74 +379,6 @@ export function registerWriteCommands(
       );
     });
 
-  withAgent(program.command("add-block"))
-    .description("create a block: dependent tasks worked on one git branch, merged at the end")
-    .argument("<id>", "block id: lowercase letters, digits and dashes")
-    .requiredOption("--name <name>", "what the block delivers")
-    .option("--branch <branch>", "git branch (default konsora/<id>)")
-    .option("--base <branch>", "branch it merges into (default: the current branch)")
-    .action(
-      async (
-        id: string,
-        opts: { name: string; branch?: string; base?: string; as?: string; json?: boolean },
-      ) => {
-        const base = opts.base ?? defaultBase(locate(io, rootOption()));
-        await apply(
-          {
-            op: "add-block",
-            id: id.toLowerCase(),
-            name: opts.name,
-            base,
-            ...(opts.branch ? { branch: opts.branch } : {}),
-          },
-          opts,
-          (doc) => {
-            const block = doc.blocks?.find((b) => b.id === id.toLowerCase());
-            return `Created block ${id.toLowerCase()} (branch ${block?.branch} → ${block?.base}).\nAdd tasks with \`konsora set-block <task> ${id.toLowerCase()}\` or \`propose --block\`.\n`;
-          },
-        );
-      },
-    );
-
-  withAgent(program.command("edit-block"))
-    .description("rename a block or change its branch or base (until it is merged)")
-    .argument("<id>")
-    .option("--name <name>")
-    .option("--branch <branch>")
-    .option("--base <branch>")
-    .action(
-      async (
-        id: string,
-        opts: { name?: string; branch?: string; base?: string; as?: string; json?: boolean },
-      ) => {
-        const changes = {
-          ...(opts.name ? { name: opts.name } : {}),
-          ...(opts.branch ? { branch: opts.branch } : {}),
-          ...(opts.base ? { base: opts.base } : {}),
-        };
-        if (Object.keys(changes).length === 0)
-          throw new CliError("Nothing to change.", "Pass --name, --branch or --base.", EXIT.usage);
-        await apply(
-          { op: "edit-block", block: id.toLowerCase(), changes },
-          opts,
-          () => `Updated block ${id.toLowerCase()}.\n`,
-        );
-      },
-    );
-
-  withAgent(program.command("set-block"))
-    .description("put a task in a block, or take it out with `none`")
-    .argument("<task>")
-    .argument("<block>", "block id, or none")
-    .action(async (task: string, block: string, opts: { as?: string; json?: boolean }) => {
-      const target = block.toLowerCase() === "none" ? null : block.toLowerCase();
-      await apply({ op: "set-block", task: task.toUpperCase(), block: target }, opts, () =>
-        target
-          ? `${task.toUpperCase()} is now in block ${target}.\n`
-          : `${task.toUpperCase()} is no longer in a block.\n`,
-      );
-    });
-
   withAgent(program.command("depend"))
     .description("make <id> depend on <on> (rejected if it would create a cycle)")
     .argument("<id>")
@@ -518,10 +414,8 @@ export function registerWriteCommands(
       await apply(
         { op: "start", task: id.toUpperCase(), ...(plan ? { text: plan } : {}) },
         opts,
-        (doc) => {
-          const hint = branchHint(doc, id.toUpperCase());
-          return `Started ${id.toUpperCase()} (doing).\n${hint ? `${hint}\n` : ""}\n${showText(doc, views(doc).find((t) => t.id === id.toUpperCase()) as never)}`;
-        },
+        (doc) =>
+          `Started ${id.toUpperCase()} (doing).\n\n${showText(doc, views(doc).find((t) => t.id === id.toUpperCase()) as never)}`,
       );
     });
 
@@ -605,10 +499,11 @@ export function registerWriteCommands(
           },
           "summary (--summary)",
         );
-        await apply({ op: "finish", task: id.toUpperCase(), summary }, opts, (doc) => {
-          const hint = branchHint(doc, id.toUpperCase());
-          return `Finished ${id.toUpperCase()}: done.\n${hint ? `Make sure your work is committed on that branch. ${hint}\n` : ""}`;
-        });
+        await apply(
+          { op: "finish", task: id.toUpperCase(), summary },
+          opts,
+          () => `Finished ${id.toUpperCase()}: done.\n`,
+        );
       },
     );
 }

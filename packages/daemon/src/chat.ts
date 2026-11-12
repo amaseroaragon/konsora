@@ -3,8 +3,8 @@
  * one turn of the user's own Claude Code in headless mode (`claude -p`, stream-json), with the
  * interview prompt from core on the first turn and `--resume` on the next ones. The agent gets
  * only Konsora's MCP server, in plan mode (KONSORA_PLAN=1): it reads the plan and can only create,
- * revise or delete tasks nobody started and set up blocks, which reach the board like any other
- * change. Of Claude Code's own tools it only has those that read the code (PLAN_BUILTIN_TOOLS).
+ * revise or delete tasks nobody started, which reach the board like any other change. Of Claude
+ * Code's own tools it only has those that read the code (PLAN_BUILTIN_TOOLS).
  *
  * Konsora uses the official CLI with the user's login, never an API key, and never passes a
  * permission-bypassing flag. It pins `--permission-mode default` and also denies the tools that

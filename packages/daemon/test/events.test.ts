@@ -18,7 +18,7 @@ const t = (id: string, state: Task["state"], title = `Title ${id}`): Task => ({
   updated_at: at,
 });
 const doc = (...tasks: Task[]): TasksDocument => ({
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 9 },

@@ -398,6 +398,7 @@ export async function initTasks(root: string, doc: TasksDocument): Promise<InitR
 export const BACKUP_V1_FILE = "tasks.v1.json.bak";
 export const BACKUP_V2_FILE = "tasks.v2.json.bak";
 export const BACKUP_V3_FILE = "tasks.v3.json.bak";
+export const BACKUP_V4_FILE = "tasks.v4.json.bak";
 export const LEGACY_HISTORY_FILE = join("legacy", "v1-history.json");
 
 /**
@@ -412,7 +413,7 @@ export async function writeMigration(
     | {
         expectedText: string;
         text: string;
-        from: "v2" | "v3";
+        from: "v2" | "v3" | "v4";
       },
   options: StoreOptions = {},
 ): Promise<{ ok: true; backup: string; history?: string } | { ok: false; error: StoreError }> {
@@ -443,7 +444,12 @@ export async function writeMigration(
         await handle.close();
       }
     };
-    const backupFile = { v1: BACKUP_V1_FILE, v2: BACKUP_V2_FILE, v3: BACKUP_V3_FILE }[input.from];
+    const backupFile = {
+      v1: BACKUP_V1_FILE,
+      v2: BACKUP_V2_FILE,
+      v3: BACKUP_V3_FILE,
+      v4: BACKUP_V4_FILE,
+    }[input.from];
     const backup = join(dir, backupFile);
     await exclusive(backup, current);
     if (input.from !== "v1") {

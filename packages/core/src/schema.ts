@@ -1,8 +1,8 @@
 /**
- * Structural schema of `.konsora/tasks.json`, format `konsora/4` (docs/esquema-tareas.md §1).
+ * Structural schema of `.konsora/tasks.json`, format `konsora/5` (docs/esquema-tareas.md §1).
  *
  * This is the single source of truth: types are inferred from it and
- * `schema/tasks.v4.schema.json` is generated from it (`npm run schema`).
+ * `schema/tasks.v5.schema.json` is generated from it (`npm run schema`).
  * Semantic rules (ids vs groups, seq, deps existence, cycles…) live in CORE-02.
  */
 import { z } from "zod";
@@ -25,7 +25,7 @@ function strict<T extends z.ZodRawShape>(shape: T) {
     });
 }
 
-export const SCHEMA_VERSION = "konsora/4";
+export const SCHEMA_VERSION = "konsora/5";
 
 export const GroupIdSchema = z
   .string()
@@ -81,38 +81,6 @@ export const ProjectSchema = strict({
   templates: z.array(TemplateSchema).max(100).optional(),
 });
 
-export const BlockIdSchema = z
-  .string()
-  .regex(slug, "Block id must be a lowercase slug (letters, digits and dashes, from a letter)");
-
-/** A git branch name as Konsora accepts it: a conservative subset of `git check-ref-format`. */
-export const BranchSchema = z
-  .string()
-  .min(1)
-  .max(200)
-  .regex(
-    /^(?!.*\.\.)(?!.*\/\/)(?!.*@\{)(?![/.-])[A-Za-z0-9._/-]+(?<![/.])(?<!\.lock)$/,
-    "Branch must be a valid git branch name (letters, digits, . _ - /)",
-  );
-
-/**
- * A block (M12): tasks that are worked on together in one git branch. When all its tasks are
- * done, the human merges the branch into `base` from the UI; `merged` records it.
- */
-export const BlockSchema = strict({
-  id: BlockIdSchema,
-  name: z.string().min(1).max(80),
-  branch: BranchSchema,
-  base: BranchSchema,
-  created: strict({ at: TimestampSchema, by: ActorSchema }),
-  merged: strict({
-    at: TimestampSchema,
-    by: ActorSchema,
-    commit: z.string().regex(/^[0-9a-f]{40}$/, "Commit must be a full 40-character hash"),
-    strategy: z.enum(["squash", "merge"]),
-  }).optional(),
-});
-
 export const GroupSchema = strict({
   id: GroupIdSchema,
   name: z.string().min(1).max(60),
@@ -148,8 +116,6 @@ export const TaskSchema = strict({
   desc: z.string().max(32_768).optional(),
   acceptance: z.array(AcceptanceSchema).optional(),
   labels: z.array(LabelSchema).optional(),
-  /** The block whose branch this task is worked on. */
-  block: BlockIdSchema.optional(),
   created: strict({ at: TimestampSchema, by: ActorSchema }),
   updated_at: TimestampSchema,
   notes: z.array(NoteSchema).optional(),
@@ -161,7 +127,6 @@ export const DocumentSchema = strict({
   project: ProjectSchema,
   groups: z.array(GroupSchema).min(1),
   seq: z.record(GroupIdSchema, z.int().min(0)),
-  blocks: z.array(BlockSchema).optional(),
   tasks: z.array(TaskSchema),
 });
 
@@ -169,8 +134,6 @@ export type TaskState = z.infer<typeof TaskStateSchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type Group = z.infer<typeof GroupSchema>;
-export type Block = z.infer<typeof BlockSchema>;
-export type MergeStrategy = NonNullable<Block["merged"]>["strategy"];
 export type Acceptance = z.infer<typeof AcceptanceSchema>;
 export type NoteKind = z.infer<typeof NoteKindSchema>;
 export type Note = z.infer<typeof NoteSchema>;

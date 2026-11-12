@@ -35,7 +35,7 @@ const t = (
 
 function plan(): TasksDocument {
   return {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: "Weather" },
     groups: [
       { id: "BE", name: "Backend" },
@@ -91,7 +91,7 @@ describe("init", () => {
     expect(r.stdout).toContain('Created .konsora/tasks.json (project "Weather", group BE)');
     const doc = JSON.parse(readFileSync(join(dir, ".konsora", "tasks.json"), "utf8"));
     expect(doc).toEqual({
-      schema: "konsora/4",
+      schema: "konsora/5",
       project: { name: "Weather" },
       groups: [{ id: "BE", name: "Backend" }],
       seq: { BE: 0 },
@@ -169,7 +169,6 @@ describe("read commands", () => {
       blocked: ["BE-03"],
       waiting: ["BE-04"],
       proposed: ["FE-01"],
-      blocks: [],
     });
   });
 

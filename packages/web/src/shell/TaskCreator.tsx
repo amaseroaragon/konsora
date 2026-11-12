@@ -28,9 +28,7 @@ export function TaskCreator({
   const mutation = useProjectOp(projectId);
   const toast = useToast();
   const templateId = useId();
-  const blockId = useId();
   const templates = doc.project.templates ?? [];
-  const blocks = (doc.blocks ?? []).filter((block) => !block.merged);
   const set = <K extends keyof CreateDraft>(key: K, value: CreateDraft[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
     setError(null);
@@ -43,7 +41,6 @@ export function TaskCreator({
       groups: doc.groups,
       tasks: doc.tasks,
       templates,
-      blocks: doc.blocks,
     });
     if (!result.ok) {
       setError({ field: result.field, text: result.message });
@@ -111,28 +108,6 @@ export function TaskCreator({
             {fieldError("template") && (
               <span className="k-field__error">{fieldError("template")}</span>
             )}
-          </div>
-        )}
-        {blocks.length > 0 && (
-          <div className="k-field">
-            <label htmlFor={blockId} className="k-field__label">
-              {t("blocks.field")}
-            </label>
-            <select
-              id={blockId}
-              className="k-field__control"
-              value={draft.block}
-              aria-invalid={fieldError("block") ? true : undefined}
-              onChange={(e) => set("block", e.target.value)}
-            >
-              <option value="">{t("blocks.none")}</option>
-              {blocks.map((block) => (
-                <option key={block.id} value={block.id}>
-                  {block.name} · {block.branch}
-                </option>
-              ))}
-            </select>
-            {fieldError("block") && <span className="k-field__error">{fieldError("block")}</span>}
           </div>
         )}
         <Field

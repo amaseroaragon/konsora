@@ -36,7 +36,7 @@ const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial
   }) satisfies Task;
 
 const plan = (): TasksDocument => ({
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: { name: "Weather" },
   groups: [
     { id: "BE", name: "Backend" },

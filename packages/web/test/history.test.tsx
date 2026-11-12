@@ -27,31 +27,15 @@ const task = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task
   ...extra,
 });
 const doc: TasksDocument = {
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: { name: "P" },
   groups: [{ id: "BE", name: "Backend" }],
   seq: { BE: 5 },
-  blocks: [
-    {
-      id: "cache",
-      name: "Caché",
-      branch: "konsora/cache",
-      base: "main",
-      created,
-      merged: {
-        at: "2026-11-12T09:30:00Z",
-        by: "human",
-        commit: "0123456789abcdef0123456789abcdef01234567",
-        strategy: "squash",
-      },
-    },
-  ],
   tasks: [
     task("BE-01", "done", summary("2026-11-10T08:15:00Z", "Primera **hecha**")),
     // 23:30 UTC on the 11th is 00:30 on the 12th in Madrid: it belongs to "today".
-    task("BE-02", "done", { block: "cache", ...summary("2026-11-11T23:30:00Z", "Con caché") }),
+    task("BE-02", "done", summary("2026-11-11T23:30:00Z", "Con caché")),
     task("BE-03", "done", {
-      block: "cache",
       ...summary("2026-11-11T10:05:00Z", "## Resumen\n\n- Añadido `LRU` y [docs](https://x.y)"),
     }),
     task("BE-04", "doing"),
@@ -95,12 +79,10 @@ describe("history model", () => {
       ["2026-11-11", "Ayer"],
       ["2026-11-10", "martes, 10 de noviembre de 2026"],
     ]);
-    expect(
-      days.map((day) => day.entries.map(({ entry, time }) => `${time} ${entry.kind}:${entry.id}`)),
-    ).toEqual([
-      ["10:30 block:cache", "09:00 task:BE-05", "00:30 task:BE-02"],
-      ["11:05 task:BE-03"],
-      ["09:15 task:BE-01"],
+    expect(days.map((day) => day.entries.map(({ entry, time }) => `${time} ${entry.id}`))).toEqual([
+      ["09:00 BE-05", "00:30 BE-02"],
+      ["11:05 BE-03"],
+      ["09:15 BE-01"],
     ]);
   });
 
@@ -122,14 +104,12 @@ describe("History view", () => {
     expect(html).toContain("Terminada por claude");
     expect(html).toContain("Primera hecha");
     expect(html).toContain("Sin resumen de cierre");
-    expect(html).toContain("Bloque Caché integrado en main");
-    expect(html).toContain("0123456789ab");
     expect(html).not.toContain("BE-04");
     const order = ["BE-05", "BE-02", "BE-03", "BE-01"].map((id) => html.indexOf(`>${id}<`));
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
-  it("links each task to its panel in the History view and a block to Blocks (ac2)", () => {
+  it("links each task to its panel in the History view (ac2)", () => {
     const html = wrap(<HistoryView projectId="p-1" doc={doc} openId="BE-03" now={now} />);
     const href = projectHref("p-1", { view: "history", task: "BE-03" });
     expect(html).toContain(`href="${href.replace("&", "&amp;")}"`);
@@ -139,7 +119,6 @@ describe("History view", () => {
       view: "history",
       task: "BE-03",
     });
-    expect(html).toContain(`href="${projectHref("p-1", { view: "blocks" })}"`);
     expect(html).toMatch(/b-history__entry--open"[^>]*aria-current="true"/);
   });
 
@@ -154,7 +133,7 @@ describe("History view", () => {
   });
 
   it("explains an empty history in Spanish (ac3)", () => {
-    const empty = { ...doc, blocks: [], tasks: [task("BE-01", "todo")] };
+    const empty = { ...doc, tasks: [task("BE-01", "todo")] };
     const html = wrap(<HistoryView projectId="p-1" doc={empty} openId={null} />);
     expect(html).toContain("Todavía no hay tareas hechas.");
     expect(html).not.toContain("b-history__day");

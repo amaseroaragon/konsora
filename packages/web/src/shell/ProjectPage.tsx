@@ -73,6 +73,11 @@ export function ProjectPage({
         <p className="a-callout__text">
           <b>{t("readonly.title")}</b> {last ? t("readonly.text") : t("project.invalid.text")}
         </p>
+        {data.issues.some((issue) => issue.path === "/schema") && (
+          <p className="s-text">
+            <Rich text={t("readonly.migrate")} />
+          </p>
+        )}
         {data.issues.length > 0 ? (
           <IssueList issues={data.issues} />
         ) : (

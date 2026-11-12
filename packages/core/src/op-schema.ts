@@ -6,8 +6,6 @@ import { z } from "zod";
 import type { Op } from "./ops.ts";
 import {
   AcceptanceSchema,
-  BlockIdSchema,
-  BranchSchema,
   GroupSchema,
   TaskIdSchema,
   TaskSchema,
@@ -26,18 +24,10 @@ const NewTask = {
   deps: z.array(z.string().min(1).max(120)).optional(),
   labels: z.array(z.string()).optional(),
   template: z.string().min(1).max(31).optional(),
-  block: z.string().min(1).max(31).optional(),
 };
 
 /** A task in a batch; `idea: true` creates it as an idea (`proposed`) instead of in `todo`. */
 const BatchTask = { ...NewTask, idea: z.boolean().optional() };
-
-const NewBlock = {
-  id: BlockIdSchema,
-  name: z.string().min(1).max(80),
-  branch: BranchSchema.optional(),
-  base: BranchSchema,
-};
 
 export const OpSchema = z.discriminatedUnion("op", [
   z.strictObject({
@@ -50,7 +40,6 @@ export const OpSchema = z.discriminatedUnion("op", [
     op: z.literal("batch"),
     expect,
     groups: z.array(GroupSchema).optional(),
-    blocks: z.array(z.strictObject(NewBlock)).max(50).optional(),
     tasks: z.array(z.strictObject(BatchTask)).min(1).max(200),
   }),
   z.strictObject({
@@ -88,26 +77,6 @@ export const OpSchema = z.discriminatedUnion("op", [
     templates: z.array(TemplateSchema).max(100),
   }),
   z.strictObject({ op: z.literal("reopen"), expect, task: id, text: text.optional() }),
-  z.strictObject({ op: z.literal("add-block"), expect, ...NewBlock }),
-  z.strictObject({
-    op: z.literal("edit-block"),
-    expect,
-    block: BlockIdSchema,
-    changes: z.strictObject({
-      name: z.string().min(1).max(80).optional(),
-      branch: BranchSchema.optional(),
-      base: BranchSchema.optional(),
-    }),
-  }),
-  z.strictObject({ op: z.literal("delete-block"), expect, block: BlockIdSchema }),
-  z.strictObject({ op: z.literal("set-block"), expect, task: id, block: BlockIdSchema.nullable() }),
-  z.strictObject({
-    op: z.literal("mark-merged"),
-    expect,
-    block: BlockIdSchema,
-    commit: z.string().regex(/^[0-9a-f]{40}$/),
-    strategy: z.enum(["squash", "merge"]),
-  }),
   z.strictObject({ op: z.literal("restore"), expect, task: id, version: TaskSchema }),
 ]);
 

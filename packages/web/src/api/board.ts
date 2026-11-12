@@ -23,7 +23,7 @@ export type BoardOk = {
   project: ProjectInfo;
   hash: string;
   external: ExternalFlag[];
-  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq" | "blocks">;
+  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq">;
   tasks: BoardTask[];
 };
 export type BoardUnavailable = {
@@ -234,34 +234,5 @@ export function useProjectOp(projectId: string) {
     mutationFn: (op: Record<string, unknown>) =>
       api.post(`/projects/${encodeURIComponent(projectId)}/ops`, op),
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
-  });
-}
-
-/** The project's git branch and local branches, for a block's base. */
-export type GitInfo = { branch: string | null; branches: string[] };
-
-export function useGitInfo(projectId: string, enabled = true) {
-  const api = useApi();
-  return useQuery({
-    queryKey: ["git", projectId],
-    queryFn: () => api.get<GitInfo>(`/projects/${encodeURIComponent(projectId)}/git`),
-    enabled,
-  });
-}
-
-/** The human merges a ready block into its base (squash or merge commit), locally. */
-export function useMergeBlock(projectId: string) {
-  const api = useApi();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ block, strategy }: { block: string; strategy: "squash" | "merge" }) =>
-      api.post<{ ok: true; commit: string }>(
-        `/projects/${encodeURIComponent(projectId)}/blocks/${encodeURIComponent(block)}/merge`,
-        { strategy },
-      ),
-    onSettled: () => {
-      client.invalidateQueries({ queryKey: boardKey(projectId) });
-      client.invalidateQueries({ queryKey: ["git", projectId] });
-    },
   });
 }

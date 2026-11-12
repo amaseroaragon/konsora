@@ -4,7 +4,7 @@ import { createOp, emptyDraft } from "../src/shell/create-model.ts";
 
 const at = "2026-11-11T10:00:00Z";
 const plan: TasksDocument = {
-  schema: "konsora/4",
+  schema: "konsora/5",
   project: {
     name: "Demo",
     templates: [{ id: "bug", name: "Bug", acceptance: [{ text: "Un test lo reproduce" }] }],

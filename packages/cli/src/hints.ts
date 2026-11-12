@@ -11,8 +11,8 @@ export type Channel = keyof Hint;
 /** Hints for the refusals of core's semantic ops. */
 export const OP_HINTS: Partial<Record<OpError["code"], Hint>> = {
   forbidden: {
-    cli: "Agents create, start, note, ask and finish tasks, and edit or delete unfinished ones; humans reopen, change finished work and merge blocks in the Konsora UI.",
-    mcp: "Agents create, start, note, ask and finish tasks, and edit or delete unfinished ones; humans reopen, change finished work and merge blocks in the Konsora UI.",
+    cli: "Agents create, start, note, ask and finish tasks, and edit or delete unfinished ones; humans reopen and change finished work in the Konsora UI.",
+    mcp: "Agents create, start, note, ask and finish tasks, and edit or delete unfinished ones; humans reopen and change finished work in the Konsora UI.",
   },
   blocked: {
     cli: "Pick another task with `konsora ready`, or wait until its dependencies are done.",
@@ -27,16 +27,8 @@ export const OP_HINTS: Partial<Record<OpError["code"], Hint>> = {
     mcp: "Pass summary with what you did and how it meets the acceptance criteria.",
   },
   out_of_scope: {
-    cli: "In a planning session you may only create tasks, revise or delete tasks nobody started, and set up blocks.",
-    mcp: "In a planning session you may only create tasks, revise or delete tasks nobody started, and set up blocks.",
-  },
-  unknown_block: {
-    cli: "`konsora status` lists the blocks; create one with `konsora add-block`.",
-    mcp: "The status tool lists the blocks (blocks); create one with the add_block tool.",
-  },
-  block_merged: {
-    cli: "That block is merged and closed; create a new task (and block) for further work.",
-    mcp: "That block is merged and closed; create a new task (and block) for further work.",
+    cli: "In a planning session you may only create tasks, and revise or delete tasks nobody started.",
+    mcp: "In a planning session you may only create tasks, and revise or delete tasks nobody started.",
   },
   not_found: {
     cli: "Use `konsora list` to see task ids and `konsora status` for groups.",
@@ -58,6 +50,10 @@ export const HINTS = {
     cli: "Run `konsora init` in your project folder.",
     mcp: "Ask the human to initialize Konsora in the project folder.",
   },
+  oldSchema: {
+    cli: "The plan is in an older format: preview the conversion with `konsora migrate`, then apply it with `konsora migrate --write`.",
+    mcp: "The plan is in an older format; ask the human to convert it (Konsora's migrate command) before going on.",
+  },
   invalidPlan: {
     cli: "Fix the file (see `konsora check`); Konsora never overwrites an invalid plan.",
     mcp: "Fix the file (the check tool lists every problem); Konsora never overwrites an invalid plan.",
@@ -75,12 +71,12 @@ export const HINTS = {
     mcp: "The batch tool's input schema describes the format.",
   },
   nothingToChange: {
-    cli: "Pass --title, --desc, --criterion, --labels or --group (blocks: `konsora set-block`).",
+    cli: "Pass --title, --desc, --criterion, --labels or --group.",
     mcp: "Pass title, desc, acceptance, labels or group.",
   },
   notAgent: {
-    cli: "Human actions (reopen, answer, merge blocks) happen in the Konsora UI.",
-    mcp: "Human actions (reopen, answer, merge blocks) happen in the Konsora UI; set KONSORA_AGENT to the agent's name.",
+    cli: "Human actions (reopen, answer) happen in the Konsora UI.",
+    mcp: "Human actions (reopen, answer) happen in the Konsora UI; set KONSORA_AGENT to the agent's name.",
   },
   agentName: {
     cli: "Use lowercase letters, digits, dots, dashes or underscores, e.g. --as claude.",

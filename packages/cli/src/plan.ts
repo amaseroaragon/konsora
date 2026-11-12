@@ -2,8 +2,8 @@
  * `konsora plan` (CLI-05): planning by interview. It opens an interactive session of the user's
  * own Claude Code in the terminal, not a chat of Konsora's, with the
  * interview prompt from core and only Konsora's MCP server, in plan mode (KONSORA_PLAN=1): the
- * agent reads the plan and the code and can only create, revise or delete unstarted tasks and
- * set up blocks; it starts nothing.
+ * agent reads the plan and the code and can only create, revise or delete unstarted tasks; it
+ * starts nothing.
  *
  * Konsora passes no permission-bypassing flag (never `--dangerously-*`): the agent asks the
  * user for whatever its own permission settings require.
@@ -67,7 +67,7 @@ export function registerPlan(program: Command, io: Io, rootOption: () => string 
       const { root, doc } = await load(io, rootOption());
       const prompt = buildPlanPrompt(doc, goal ? { goal } : {});
       io.stderr(
-        "Starting a planning session with Claude Code. It can only plan: create, revise or delete unstarted tasks and set up blocks.\n",
+        "Starting a planning session with Claude Code. It can only plan: create, revise or delete unstarted tasks.\n",
       );
       const code = await runInteractive(io, root, planCommand(root, prompt, opts.model));
       if (code !== 0)

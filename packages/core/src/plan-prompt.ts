@@ -16,7 +16,7 @@ export type PlanPromptOptions = {
 
 /**
  * Konsora's MCP tools a planning session may call without asking: reads, plus proposing and
- * revising or deleting tasks nobody started, and setting up blocks. Core's ops still refuse
+ * revising or deleting tasks nobody started. Core's ops still refuse
  * anything else (`ctx.plan`).
  */
 export const PLAN_TOOLS: readonly string[] = [
@@ -33,9 +33,6 @@ export const PLAN_TOOLS: readonly string[] = [
   "depend",
   "undepend",
   "promote",
-  "add_block",
-  "edit_block",
-  "set_block",
 ].map((tool) => `mcp__konsora__${tool}`);
 
 /**
@@ -85,7 +82,6 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
         '- Acceptance criteria that can be verified: a command that passes or an observable result, never a judgement such as "works well". Each task should be small enough for one agent run.',
         "- deps on the tasks it needs (ids of existing tasks, or titles of earlier tasks in the same batch).",
         "- A group from the plan's groups; a new one only if none fits, declared in the batch's groups.",
-        "- A block when several dependent tasks should land together: they are worked on one git branch and the human merges it when the last one is done. Declare it in the batch's blocks ({id, name}; the branch defaults to konsora/<id> and the base to the current branch) and set block: <id> on each of its tasks. Standalone tasks need no block.",
         "- A template when one fits (template: <id>): the task takes its description, criteria and labels, and what you pass completes or replaces them.",
       ].join("\n"),
     ),
@@ -109,7 +105,7 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
       "Rules",
       [
         "- Read and change the plan only with Konsora's tools; never edit .konsora/tasks.json.",
-        "- In this session you may only plan: create tasks (propose, batch), revise or delete tasks nobody started (edit, delete, depend, undepend, promote) and set up blocks (add_block, edit_block, set_block). Konsora refuses anything else.",
+        "- In this session you may only plan: create tasks (propose, batch), revise or delete tasks nobody started (edit, delete, depend, undepend, promote). Konsora refuses anything else.",
         "- If something is unclear, ask the human instead of guessing.",
       ].join("\n"),
     ),

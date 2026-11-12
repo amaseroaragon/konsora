@@ -1,4 +1,4 @@
-# Esquema de tareas v4 (`konsora/4`)
+# Esquema de tareas v5 (`konsora/5`)
 
 La implementación de referencia es `packages/core`. Este documento la describe; si discrepan, manda el código y se corrige el documento.
 
@@ -8,14 +8,14 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | **Integración con Claude Code**: skill y servidor MCP | `.claude/skills/konsora/SKILL.md`, `.mcp.json` | Sí, si quieres compartirla. |
 | **Procedencia y estado local**: aprobaciones humanas registradas, instantáneas para detectar cambios externos, registro de proyectos | `$XDG_DATA_HOME/konsora/` (`~/.local/share/konsora/`) | No. Fuera de cualquier repo. |
 
-`konsora/4` (M12) parte de `konsora/3`, que ya había quitado los campos de ejecución de `konsora/2` (agentes, checks, setup, revisor, dificultad, runs). Además quita la aprobación y la revisión: las tareas nacen en `todo` y `finish` las da por hechas. Añade los **bloques**: tareas dependientes que se trabajan en una misma rama de git y que el humano integra con un merge cuando terminan todas. Ver §6 para migrar.
+`konsora/5` (M14) es `konsora/4` sin los **bloques** (`blocks` y `task.block`), que agrupaban tareas en una rama de git con merge desde la UI. `konsora/4` (M12) había quitado la aprobación y la revisión de `konsora/3`: las tareas nacen en `todo` y `finish` las da por hechas. Y `konsora/3` había quitado los campos de ejecución de `konsora/2` (agentes, checks, setup, revisor, dificultad, runs). Ver §6 para migrar.
 
 ## 1. Documento
 
 ```json
 {
-  "$schema": "https://konsora.local/schema/tasks.v4.json",
-  "schema": "konsora/4",
+  "$schema": "https://konsora.local/schema/tasks.v5.json",
+  "schema": "konsora/5",
   "project": {
     "name": "Weather app",
     "templates": [
@@ -27,15 +27,6 @@ La implementación de referencia es `packages/core`. Este documento la describe;
     { "id": "FE", "name": "Frontend" }
   ],
   "seq": { "BE": 2, "FE": 0 },
-  "blocks": [
-    {
-      "id": "cache",
-      "name": "Forecast cache",
-      "branch": "konsora/cache",
-      "base": "main",
-      "created": { "at": "2026-11-02T10:04:00Z", "by": "agent:claude" }
-    }
-  ],
   "tasks": [
     {
       "id": "BE-01",
@@ -59,7 +50,6 @@ La implementación de referencia es `packages/core`. Este documento la describe;
         { "id": "ac2", "text": "Cache entries expire after 10 min" }
       ],
       "labels": ["perf"],
-      "block": "cache",
       "created": { "at": "2026-11-02T10:05:00Z", "by": "agent:claude" },
       "updated_at": "2026-11-02T13:10:00Z",
       "notes": [
@@ -78,11 +68,10 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | Campo | Tipo | Oblig. | Notas |
 |---|---|---|---|
 | `$schema` | string | no | Solo para autocompletado en editores. Se ignora al validar. |
-| `schema` | `"konsora/4"` | sí | Versión del formato. Un valor desconocido u otra versión → solo lectura, con el error mostrado (`konsora migrate` convierte las antiguas). |
+| `schema` | `"konsora/5"` | sí | Versión del formato. Un valor desconocido u otra versión → solo lectura, con el error mostrado (`konsora migrate` convierte las antiguas). |
 | `project` | objeto | sí | Ver abajo. |
 | `groups` | `Group[]` | sí (≥1) | `konsora init` crea un grupo por defecto. |
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
-| `blocks` | `Block[]` | no | Ver abajo. Se omite cuando está vacío. |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
 **`project`**: `name` (1–80) y `templates` (opcional, `Template[]` con ids únicos): las plantillas de tarea. Solo las define el humano, con `set-templates`, que las sustituye todas (`[]` las quita); un agente recibe `forbidden`.
@@ -90,8 +79,6 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 **`Template`**: `id` (slug en minúsculas, único), `name` (1–60), `desc` (opcional), `acceptance` (opcional, `{text}[]`, sin id) y `labels` (opcional). Al proponer con una plantilla (`template` en `propose` y en cada tarea de `batch`; `--template <id>` en la CLI), la tarea toma sus valores y lo que se pasa explícitamente los completa o sustituye: la `desc` propia sustituye a la de la plantilla, los criterios son los de la plantilla y después los propios, numerados `ac1…`, y las etiquetas se unen. Una plantilla inexistente da `unknown_template`. `konsora status` (y la herramienta `status` del MCP, en `project.templates`) las lista.
 
 **`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60).
-
-**`Block`**: `id` (slug en minúsculas, único), `name` (1–80), `branch` (la rama de git en la que se trabajan sus tareas; por defecto `konsora/<id>`), `base` (la rama en la que se integra; por defecto, la rama actual al crearlo, o `main` si git no la da), `created` (`{at, by}`) y `merged` (opcional, `{at, by, commit, strategy}`: lo registra Konsora cuando el humano hace el merge; `strategy` es `squash` o `merge`). Un bloque está **abierto** mientras alguna de sus tareas no está `done`, **listo** cuando tiene tareas y todas están `done`, e **integrado** cuando tiene `merged` (`blockProgress`). Un bloque integrado está cerrado: ninguna tarea entra, sale, se reabre ni se borra en él.
 
 **`Task`**
 
@@ -106,7 +93,6 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `desc` | markdown ≤ 32 KB | no | Qué se consigue y por qué. |
 | `acceptance` | `Acceptance[]` | no | Criterios de "hecho"; ver abajo. |
 | `labels` | `string[]` | no | `^[a-z0-9][a-z0-9-]{0,30}$`, ordenados. |
-| `block` | id de bloque | no | El bloque en cuya rama se trabaja. |
 | `created` | `{at, by}` | sí | |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
@@ -145,16 +131,14 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 | crear → `todo` | A, H | `propose` / `batch`. Se crea como idea con `propose --idea` (`idea: true` en el MCP) o con `idea: true` en una tarea de `batch`. |
 | `proposed` → `todo` | A, H | `promote`. |
 | editar | A, H | Título, desc, criterios, etiquetas, deps, grupo (`edit`, `depend`, `undepend`). Un agente no cambia tareas `done`. |
-| borrar | A, H | `delete`. Un agente solo borra lo que nadie empezó (`proposed`, `todo`) y nunca una tarea de la que depende otra ya `done`; el humano, cualquiera salvo las de un bloque integrado. Las tareas que dependían de ella pierden esa dependencia y reciben una nota. El ID no se reutiliza. |
+| borrar | A, H | `delete`. Un agente solo borra lo que nadie empezó (`proposed`, `todo`) y nunca una tarea de la que depende otra ya `done`; el humano, cualquiera. Las tareas que dependían de ella pierden esa dependencia y reciben una nota. El ID no se reutiliza. |
 | `todo` → `doing` | A | `start`. Rechazado si está `blocked`. |
 | `doing` → `todo` | A, H | `pause`, opcionalmente con una nota. |
 | `doing` → `done` | A | `finish` con `summary`. |
-| `done` → `todo` | **H** | `reopen`. No en un bloque integrado. |
+| `done` → `todo` | **H** | `reopen`. |
 | añadir `deps` | A, H | No en tareas `done`. Rechazado si crea un ciclo. |
-| bloques | A, H | `add-block {id, name, branch?, base}`, `edit-block` (nombre, rama, base) y `set-block {task, block \| null}` mientras el bloque no esté integrado; un agente no mueve tareas `done`. `delete-block` es del humano: las tareas se quedan, sin bloque. |
-| `mark-merged` | **H** | Solo con el bloque listo (todas sus tareas `done`). Lo aplica el daemon justo después de hacer el merge (`arquitectura.md` §5); fuera de él no tiene sentido. |
 
-**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `depend`, `undepend`, `promote`, `delete`) y preparar bloques (`add-block`, `edit-block`, `set-block`). Todo lo demás da `out_of_scope`.
+**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `depend`, `undepend`, `promote`, `delete`). Todo lo demás da `out_of_scope`.
 
 **Derivados**
 
@@ -162,14 +146,14 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 - `waiting` = la última nota `question` no tiene un `answer` posterior.
 - `ready` = `todo` y no `blocked`.
 
-**Ramas**: Konsora no ejecuta git por los agentes. Cuando un agente empieza una tarea de un bloque, la CLI y el MCP le indican la rama del bloque (créala desde `base` si no existe, haz commit ahí y deja fuera `.konsora/tasks.json`). El merge lo pide el humano en la UI.
+**Git**: Konsora no ejecuta git. Las ramas, los commits y los merges del código los hace cada uno con su flujo de siempre; el plan se versiona con el código como cualquier otro fichero.
 
 ## 3. Validación
 
 Hay dos niveles, ambos en `packages/core` y compartidos por la CLI, el MCP, el daemon y la UI:
 
-1. **Estructural**: un esquema zod es la fuente de verdad, y de él se genera `schema/tasks.v4.schema.json` para editores y agentes que editen el archivo a mano. Los campos desconocidos se rechazan en la raíz y en las tareas, salvo bajo una clave `x-*`, que se conserva sin interpretarse.
-2. **Semántica**: IDs únicos con prefijo igual a `group`; `seq[g]` ≥ al mayor número usado; grupos existentes; deps existentes, sin ciclos (Kahn, iterativo); IDs de notas, criterios, plantillas y bloques únicos; el `block` de cada tarea existe; claves JSON duplicadas rechazadas; tamaño ≤ 8 MiB.
+1. **Estructural**: un esquema zod es la fuente de verdad, y de él se genera `schema/tasks.v5.schema.json` para editores y agentes que editen el archivo a mano. Los campos desconocidos se rechazan en la raíz y en las tareas, salvo bajo una clave `x-*`, que se conserva sin interpretarse.
+2. **Semántica**: IDs únicos con prefijo igual a `group`; `seq[g]` ≥ al mayor número usado; grupos existentes; deps existentes, sin ciclos (Kahn, iterativo); IDs de notas, criterios y plantillas únicos; claves JSON duplicadas rechazadas; tamaño ≤ 8 MiB.
 
 Los errores se devuelven como `{path: JSON Pointer, code, message}`. Un archivo inválido **no se sobrescribe nunca**: Konsora pasa ese proyecto a solo lectura y muestra los errores hasta que se corrija.
 
@@ -178,10 +162,10 @@ Los errores se devuelven como `{path: JSON Pointer, code, message}`. Un archivo 
 Para conseguir diffs mínimos y escrituras byte-idénticas entre la CLI, el MCP y el daemon:
 
 - Las claves van en el orden de este documento. Detrás van las claves de extensión `x-*`, en orden alfabético.
-- Los campos opcionales vacíos se omiten (`deps: []`, `desc: ""`, `notes: []`, `blocks: []`…).
+- Los campos opcionales vacíos se omiten (`deps: []`, `desc: ""`, `notes: []`…).
 - Indentación de 2 espacios, LF, UTF-8 sin BOM, salto de línea final.
 - Las tareas se ordenan en el array según el orden de `groups` y, dentro de cada grupo, por número de ID (orden natural: `BE-99` va antes que `BE-100`). Así, añadir una tarea es un *hunk* aislado. Las claves de `seq` siguen el orden de `groups`.
-- `deps` va en orden natural de ID y `labels`, alfabéticamente. Las notas, los criterios, los grupos, los bloques y las plantillas conservan su orden, porque ese orden tiene significado.
+- `deps` va en orden natural de ID y `labels`, alfabéticamente. Las notas, los criterios, los grupos y las plantillas conservan su orden, porque ese orden tiene significado.
 - `parse(serialize(doc))` es idéntico a `doc`, y `serialize(parse(bytes))` es idéntico a `bytes` cuando `bytes` ya es canónico. Ambas propiedades se prueban con fast-check.
 
 ## 5. Concurrencia y cambios externos
@@ -208,13 +192,15 @@ Límite honesto: un proceso con los permisos del usuario puede escribir cualquie
 
 Con `konsora migrate` (acción explícita; nunca automática al abrir). Por defecto solo muestra el resumen; `--write` guarda primero una copia del original y después escribe.
 
-**`konsora/3` → `konsora/4`**: las tareas en `review` pasan a `done` con una nota de Konsora ("Migrated from review to done…"), se quita `yolo` y las propuestas (`proposed`) se quedan como ideas. La copia es `tasks.v3.json.bak`.
+**`konsora/4` → `konsora/5`**: se quitan `blocks` y el `block` de cada tarea; el resto queda igual. El resumen lista los bloques quitados con su rama y si estaban integrados: Konsora no toca esas ramas, que siguen en git. La copia es `tasks.v4.json.bak`.
 
-**`konsora/2` → `konsora/4`**: primero se descartan los campos de ejecución y después se aplica lo anterior. La copia es `tasks.v2.json.bak`.
+**`konsora/3` → `konsora/5`**: las tareas en `review` pasan a `done` con una nota de Konsora ("Migrated from review to done…"), se quita `yolo` y las propuestas (`proposed`) se quedan como ideas (lo que hacía la migración a `konsora/4`). La copia es `tasks.v3.json.bak`.
 
-| v2 | v4 |
+**`konsora/2` → `konsora/5`**: primero se descartan los campos de ejecución y después se aplica lo anterior. La copia es `tasks.v2.json.bak`.
+
+| v2 | v5 |
 |---|---|
-| `schema: "konsora/2"` | `schema: "konsora/4"` (y `$schema` apunta a `tasks.v4`) |
+| `schema: "konsora/2"` | `schema: "konsora/5"` (y `$schema` apunta a `tasks.v5`) |
 | `project.base_branch`, `defaults`, `recommended`, `setup`, `checks`, `check_retries`, `reviewer` | Se descartan |
 | `tasks[].agent`, `tasks[].difficulty`, `templates[].difficulty`, `tasks[].yolo` | Se descartan |
 | `acceptance[].check` (en tareas y plantillas) | Se descarta; el texto del criterio se conserva |
@@ -224,11 +210,11 @@ Con `konsora migrate` (acción explícita; nunca automática al abrir). Por defe
 
 El resumen lista cuántas veces aparecía cada campo descartado y qué tareas pasaron de `review` a `done`.
 
-**v1 (`schema_version: 1`, el v0) → `konsora/4`**:
+**v1 (`schema_version: 1`, el v0) → `konsora/5`**:
 
-| v1 | v4 |
+| v1 | v5 |
 |---|---|
-| `schema_version: 1` | `schema: "konsora/4"` |
+| `schema_version: 1` | `schema: "konsora/5"` |
 | `proposal / pending / in_progress / in_review / done` | `proposed / todo / todo + nota / done + nota / done` |
 | `id` (p. ej. `K-031`) | Se conserva si cumple `GRUPO-NN`, con un grupo creado a partir del prefijo; si no lo cumple, se renumera y el ID antiguo queda en una nota |
 | `acceptance_criteria` (texto) | Un elemento `acceptance` por línea de viñeta o por párrafo |

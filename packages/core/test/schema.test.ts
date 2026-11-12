@@ -9,7 +9,7 @@ const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 
 function valid(): TasksDocument {
   return {
-    schema: "konsora/4",
+    schema: "konsora/5",
     project: { name: "Demo" },
     groups: [{ id: "BE", name: "Backend" }],
     seq: { BE: 1 },
@@ -148,8 +148,8 @@ describe("toPointer", () => {
 });
 
 describe("JSON Schema", () => {
-  it("committed schema/tasks.v4.schema.json is up to date (run `npm run schema`)", () => {
-    expect(read("schema/tasks.v4.schema.json")).toBe(tasksJsonSchemaText());
+  it("committed schema/tasks.v5.schema.json is up to date (run `npm run schema`)", () => {
+    expect(read("schema/tasks.v5.schema.json")).toBe(tasksJsonSchemaText());
   });
 
   it("only allows x-* extension keys on every object", () => {
