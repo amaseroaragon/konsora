@@ -1,5 +1,5 @@
 import { Fragment, useMemo } from "react";
-import { type Block, type Inline, parseMarkdown } from "./md-parse.ts";
+import { type Align, type Block, type Inline, parseMarkdown } from "./md-parse.ts";
 
 function Inlines({ nodes }: { nodes: readonly Inline[] }) {
   return <>{nodes.map(inline)}</>;
@@ -36,6 +36,9 @@ function inline(node: Inline) {
 
 /** Markdown h1 is a level below the panel's own title (h2), and so on down to h6. */
 const HEADING_TAG = { 1: "h3", 2: "h4", 3: "h5", 4: "h6", 5: "h6", 6: "h6" } as const;
+
+/** Alignment goes in a class, never in an inline style. */
+const alignClass = (align: Align) => (align ? `md-${align}` : undefined);
 
 function Blocks({ blocks }: { blocks: readonly Block[] }) {
   return <>{blocks.map(block)}</>;
@@ -86,6 +89,36 @@ function block(block: Block) {
       );
     case "rule":
       return <hr key={block.k} />;
+    case "table":
+      return (
+        <div key={block.k} className="md-table">
+          <table>
+            <thead>
+              <tr>
+                {block.head.map((cell, column) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: columns of a parsed text never reorder.
+                  <th key={column} className={alignClass(block.align[column] ?? null)}>
+                    <Inlines nodes={cell} />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: rows of a parsed text never reorder.
+                <tr key={index}>
+                  {row.map((cell, column) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: columns of a parsed text never reorder.
+                    <td key={column} className={alignClass(block.align[column] ?? null)}>
+                      <Inlines nodes={cell} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
   }
 }
 

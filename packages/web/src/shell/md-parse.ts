@@ -21,7 +21,10 @@ export type Block =
   | { k: number; type: "list"; ordered: boolean; start: number; items: Block[][] }
   | { k: number; type: "code"; lang: string; text: string }
   | { k: number; type: "quote"; children: Block[] }
-  | { k: number; type: "rule" };
+  | { k: number; type: "rule" }
+  | { k: number; type: "table"; align: Align[]; head: Inline[][]; rows: Inline[][][] };
+
+export type Align = "left" | "center" | "right" | null;
 
 const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 /** Nesting of lists and quotes beyond this is kept as text, so no input can recurse unbounded. */
@@ -49,7 +52,55 @@ const RULE = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 const QUOTE = /^ {0,3}> ?/;
 const ITEM = /^( {0,3})([-*+]|\d{1,9}[.)])([ \t]+|$)/;
 
+const DELIMITER_CELL = /^:?-+:?$/;
+
 const blank = (line: string) => line.trim() === "";
+
+/** A table row's cells: split on unescaped pipes, without the outer ones (GFM). */
+function cells(line: string): string[] {
+  let text = line.trim();
+  if (text.startsWith("|")) text = text.slice(1);
+  if (text.endsWith("|") && !text.endsWith("\\|")) text = text.slice(0, -1);
+  const out: string[] = [];
+  let cell = "";
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i] as string;
+    if (char === "\\" && text[i + 1] === "|") {
+      cell += "\\|"; // parseInline turns the escape into a plain pipe
+      i++;
+    } else if (char === "|") {
+      out.push(cell.trim());
+      cell = "";
+    } else cell += char;
+  }
+  out.push(cell.trim());
+  return out;
+}
+
+/** The alignments of a GFM delimiter row (`| :-- | :-: | --: |`), or null if it is not one. */
+function delimiter(line: string): Align[] | null {
+  if (!line.includes("-") || !line.includes("|")) return null;
+  const row = cells(line);
+  if (!row.every((cell) => DELIMITER_CELL.test(cell))) return null;
+  return row.map((cell) =>
+    cell.startsWith(":") && cell.endsWith(":")
+      ? "center"
+      : cell.endsWith(":")
+        ? "right"
+        : cell.startsWith(":")
+          ? "left"
+          : null,
+  );
+}
+
+/** A header row followed by a delimiter row with the same number of cells starts a table. */
+function tableAt(lines: string[], i: number): Align[] | null {
+  const head = lines[i];
+  const next = lines[i + 1];
+  if (head === undefined || next === undefined || !head.includes("|")) return null;
+  const align = delimiter(next);
+  return align && align.length === cells(head).length ? align : null;
+}
 const indentOf = (line: string) => line.length - line.trimStart().length;
 
 function startsBlock(line: string): boolean {
@@ -112,10 +163,34 @@ function parseBlocks(lines: string[], depth: number): Block[] {
       i = next;
       continue;
     }
-    // Paragraph: until a blank line or the start of another block.
+    const align = tableAt(lines, i);
+    if (align) {
+      const width = align.length;
+      const row = (source: string) => {
+        const parsed = cells(source).slice(0, width);
+        while (parsed.length < width) parsed.push("");
+        return parsed.map((cell) => parseInline(cell));
+      };
+      const head = row(line);
+      const rows: Inline[][][] = [];
+      i += 2;
+      // Rows go on until a blank line or the start of another block.
+      while (i < lines.length && !blank(lines[i] as string) && !startsBlock(lines[i] as string)) {
+        rows.push(row(lines[i] as string));
+        i++;
+      }
+      blocks.push({ k: key(), type: "table", align, head, rows });
+      continue;
+    }
+    // Paragraph: until a blank line, the start of another block or a table.
     const text: string[] = [line.trim()];
     i++;
-    while (i < lines.length && !blank(lines[i] as string) && !startsBlock(lines[i] as string)) {
+    while (
+      i < lines.length &&
+      !blank(lines[i] as string) &&
+      !startsBlock(lines[i] as string) &&
+      !tableAt(lines, i)
+    ) {
       text.push((lines[i] as string).trim());
       i++;
     }

@@ -311,6 +311,35 @@
 .md ol {
   padding-left: var(--k-space-9);
 }
+/* Tables (UI-06): scroll sideways inside the text when they do not fit */
+.md .md-table {
+  margin: 0 0 var(--k-space-6);
+  max-width: 100%;
+  overflow-x: auto;
+}
+.md table {
+  border-collapse: collapse;
+  font-size: var(--k-text-sm);
+  overflow-wrap: normal;
+}
+.md .md-table tr > th,
+.md .md-table tr > td {
+  padding: var(--k-space-3) var(--k-space-5);
+  border: 1px solid var(--k-line);
+  text-align: left;
+  vertical-align: top;
+}
+.md .md-table tr > th {
+  background: var(--k-surface-sunken);
+  font-weight: var(--k-weight-semibold);
+  white-space: nowrap;
+}
+.md .md-table tr > .md-center {
+  text-align: center;
+}
+.md .md-table tr > .md-right {
+  text-align: right;
+}
 .md li + li {
   margin-top: var(--k-space-2);
 }

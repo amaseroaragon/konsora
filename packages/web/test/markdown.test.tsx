@@ -120,3 +120,53 @@ describe("markdown formatting (ac3)", () => {
     );
   });
 });
+
+describe("markdown tables (UI-06)", () => {
+  const text = (s: string) => [{ type: "text", text: s }];
+
+  it("parses a GFM table with its header, rows and column alignment (ac1)", () => {
+    const blocks = parseMarkdown(
+      "Tareas creadas:\n| Id | Título | Horas |\n|:---|:------:|---:|\n| `UI-01` | **Crear** | 2 |\n| UI-02 | a \\| b |\n\nFin.",
+    );
+    expect(blocks.map((b) => b.type)).toEqual(["paragraph", "table", "paragraph"]);
+    expect(shape(blocks[1])).toEqual({
+      type: "table",
+      align: ["left", "center", "right"],
+      head: [text("Id"), text("Título"), text("Horas")],
+      rows: [
+        [
+          [{ type: "code", text: "UI-01" }],
+          [{ type: "strong", children: text("Crear") }],
+          text("2"),
+        ],
+        [text("UI-02"), text("a | b"), []], // a short row is padded, the escaped pipe kept
+      ],
+    });
+  });
+
+  it("drops extra cells and keeps a table without outer pipes", () => {
+    const [table] = parseMarkdown("a | b\n--- | ---\n1 | 2 | 3");
+    expect(shape(table)).toMatchObject({
+      align: [null, null],
+      rows: [[text("1"), text("2")]],
+    });
+  });
+
+  it("leaves lines with pipes that are not a table as a paragraph (ac2)", () => {
+    for (const source of [
+      "a | b\nc | d", // no delimiter row
+      "| a | b |\n| --- |", // delimiter with another number of cells
+      "uno | dos\n---", // a rule, not a delimiter
+      "| a | b |\n| -x- | --- |",
+    ])
+      expect(parseMarkdown(source)[0]?.type, source).not.toBe("table");
+  });
+
+  it("renders the table with alignment classes, never inline styles, and cells as text", () => {
+    const out = html("| A | B |\n|:-:|--:|\n| <b>x</b> | [ok](https://x.y) |");
+    expect(out).toContain('<div class="md-table"><table><thead><tr><th class="md-center">A</th>');
+    expect(out).toContain('<td class="md-right"><a href="https://x.y/"');
+    expect(out).toContain("&lt;b&gt;x&lt;/b&gt;");
+    expect(out).not.toContain("style=");
+  });
+});
