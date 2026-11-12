@@ -29,6 +29,11 @@ export function ConfirmDialog({ asked }: { asked: OpenConfirm }) {
       className="b-dialog"
       aria-labelledby={titleId}
       aria-describedby={textId}
+      onKeyDown={(event) => {
+        // Escape answers this dialog only: it must not also reach the page's shortcuts (closing
+        // the task panel). Stopping it does not stop the browser's cancel, which is its default.
+        if (event.key === "Escape") event.stopPropagation();
+      }}
       onCancel={(event) => {
         // Escape: the host unmounts the dialog, which closes it.
         event.preventDefault();
