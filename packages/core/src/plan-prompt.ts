@@ -34,6 +34,7 @@ export const PLAN_TOOLS: readonly string[] = [
   "depend",
   "undepend",
   "promote",
+  "demote",
 ].map((tool) => `mcp__konsora__${tool}`);
 
 /**
@@ -106,7 +107,7 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
       "Rules",
       [
         "- Read and change the plan only with Konsora's tools; never edit .konsora/tasks.json.",
-        "- In this session you may only plan: create tasks (propose, batch), revise, reorder or delete tasks nobody started (edit, move, delete, depend, undepend, promote). Konsora refuses anything else.",
+        "- In this session you may only plan: create tasks (propose, batch), revise, reorder or delete tasks nobody started (edit, move, delete, depend, undepend, promote, demote). Konsora refuses anything else.",
         "- If something is unclear, ask the human instead of guessing.",
       ].join("\n"),
     ),

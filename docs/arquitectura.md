@@ -95,7 +95,7 @@ La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salid
 
 | Lectura | Escritura (agente) |
 |---|---|
-| `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` / `move` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `start`, `pause`, `note`, `ask`, `finish --summary` |
+| `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` / `move` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `demote`, `start`, `pause`, `note`, `ask`, `finish --summary` |
 
 Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las acciones humanas **no** están en la CLI ni en el MCP.
 

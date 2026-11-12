@@ -42,12 +42,12 @@ type Snapshot = { taken_at: string; hash: string; document: TasksDocument };
 
 /**
  * Where an agent's own ops can take a task, possibly in several steps seen at once (promote,
- * start, pause; `done` only by finishing, checked separately). Done work never moves.
+ * demote, start, pause; `done` only by finishing, checked separately). Done work never moves.
  */
 const AGENT_REACH: Record<Task["state"], readonly Task["state"][]> = {
   proposed: ["todo", "doing"],
-  todo: ["doing"],
-  doing: ["todo"],
+  todo: ["doing", "proposed"],
+  doing: ["todo", "proposed"],
   done: [],
 };
 

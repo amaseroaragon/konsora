@@ -315,8 +315,10 @@ export const es = {
   "history.by": "Terminada por {who}",
   "history.no_summary": "Sin resumen de cierre",
   "action.promote": "Pasar a Por hacer",
+  "action.demote": "Devolver a Ideas",
   "action.delete": "Eliminar",
   "move.done.promote": "{id} pasa a Por hacer.",
+  "move.done.demote": "{id} vuelve a Ideas.",
   "move.done.delete": "{id} eliminada del plan.",
   "delete.confirm": "¿Eliminar {ids}? Se borrará del plan y su id no se reutilizará.",
   "delete.confirm.dependents":

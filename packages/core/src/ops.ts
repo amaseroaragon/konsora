@@ -74,6 +74,8 @@ export type Op = Base &
     | { op: "add-group"; id: string; name: string }
     /** An idea (`proposed`) becomes work to do. Anyone may do it: there is no approval. */
     | { op: "promote"; task: string }
+    /** The way back: a `todo` task nobody started becomes an idea (`proposed`) again. */
+    | { op: "demote"; task: string }
     | {
         op: "edit";
         task: string;
@@ -143,6 +145,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   batch: ["human", "agent"],
   "add-group": ["human", "agent"],
   promote: ["human", "agent"],
+  demote: ["human", "agent"],
   edit: ["human", "agent"], // agents: unfinished tasks only (checked below)
   move: ["human", "agent"], // agents: unfinished tasks only
   delete: ["human", "agent"], // agents: tasks nobody started only
@@ -171,6 +174,7 @@ const PLAN_OPS: ReadonlySet<OpName> = new Set([
   "depend",
   "undepend",
   "promote",
+  "demote",
 ]);
 
 /** States nobody has started working on: what agents may delete and plan sessions may change. */
@@ -340,6 +344,9 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
     case "promote":
       transition(get(op.task), ["proposed"], "todo");
+      break;
+    case "demote":
+      transition(get(op.task), ["todo"], "proposed");
       break;
     case "edit": {
       const task = get(op.task);

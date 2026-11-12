@@ -323,6 +323,19 @@ describe("planning commands", () => {
     );
   });
 
+  it("demote sends a todo task back to the ideas; promote undoes it (CORE-12)", async () => {
+    expect((await run(["demote", "be-04"])).stdout).toBe("Demoted BE-04 to an idea.\n");
+    expect(task("BE-04").state).toBe("proposed");
+    expect((await run(["promote", "BE-04"])).code).toBe(EXIT.ok);
+    expect(task("BE-04").state).toBe("todo");
+    const doing = await run(["demote", "BE-02"]);
+    expect(doing.code).toBe(EXIT.failure);
+    expect(doing.stderr).toContain("BE-02 is doing; demote needs todo");
+    expect((await run(["demote", "BE-01"])).code).toBe(EXIT.failure);
+    const planning = await run(["demote", "BE-03", "--json"], { env: { KONSORA_PLAN: "1" } });
+    expect(planning.json().tasks[0]).toMatchObject({ id: "BE-03", state: "proposed" });
+  });
+
   it("has no block commands or options any more", async () => {
     const help = await run(["--help"]);
     expect(help.stdout).not.toMatch(/\bblocks?\b|merge/i);

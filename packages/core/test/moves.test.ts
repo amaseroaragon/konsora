@@ -41,6 +41,7 @@ const doc: TasksDocument = {
 describe("planMove (human)", () => {
   it.each([
     ["BE-05", "todo", "promote"],
+    ["BE-04", "proposed", "demote"],
     ["BE-01", "todo", "reopen"],
     ["BE-06", "todo", "pause"],
   ] as const)("%s → %s is %s", (id, to, op) => {
@@ -121,7 +122,7 @@ describe("availableActions", () => {
     ["BE-05", ["promote", "delete"]],
     ["BE-02", ["delete"]],
     ["BE-01", ["reopen", "delete"]],
-    ["BE-04", ["delete"]],
+    ["BE-04", ["demote", "delete"]],
     ["BE-06", ["delete"]],
   ] as const)("human on %s", (id, actions) => {
     expect(availableActions(doc, id)).toEqual(actions);
@@ -131,9 +132,9 @@ describe("availableActions", () => {
     expect(availableActions(withQuestion, "BE-06")).toEqual(["answer", "delete"]);
   });
 
-  it("offers agents only promoting ideas and deleting what nobody started", () => {
+  it("offers agents only promoting, demoting and deleting what nobody started", () => {
     expect(availableActions(withQuestion, "BE-05", "agent:claude")).toEqual(["promote", "delete"]);
-    expect(availableActions(withQuestion, "BE-04", "agent:claude")).toEqual(["delete"]);
+    expect(availableActions(withQuestion, "BE-04", "agent:claude")).toEqual(["demote", "delete"]);
     for (const id of ["BE-01", "BE-02", "BE-06"])
       expect(availableActions(withQuestion, id, "agent:claude")).toEqual([]);
   });

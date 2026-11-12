@@ -18,6 +18,7 @@ import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   promote: "action.promote",
+  demote: "action.demote",
   answer: "action.answer",
   reopen: "action.reopen",
   delete: "action.delete",
@@ -28,6 +29,7 @@ const TEXT_LABEL: Partial<Record<TaskAction, MessageKey>> = {
 };
 const DONE: Record<TaskAction, MessageKey> = {
   promote: "move.done.promote",
+  demote: "move.done.demote",
   answer: "move.done.answer",
   reopen: "move.done.reopen",
   delete: "move.done.delete",
@@ -123,7 +125,13 @@ function Actions({
         ACTION_TEXT[action] === "none" ? (
           <Button
             key={action}
-            variant={action === "delete" ? "danger" : index === 0 ? "primary" : "secondary"}
+            variant={
+              action === "delete"
+                ? "danger"
+                : index === 0 && action !== "demote"
+                  ? "primary"
+                  : "secondary"
+            }
             busy={busy(action)}
             onClick={() => void run(action)}
           >

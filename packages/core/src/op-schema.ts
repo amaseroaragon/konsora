@@ -49,6 +49,7 @@ export const OpSchema = z.discriminatedUnion("op", [
     name: z.string().min(1).max(60),
   }),
   z.strictObject({ op: z.literal("promote"), expect, task: id }),
+  z.strictObject({ op: z.literal("demote"), expect, task: id }),
   z.strictObject({
     op: z.literal("edit"),
     expect,

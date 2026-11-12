@@ -118,8 +118,8 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 ```
             promote (A,H)          start (A)            finish (A)
  proposed ─────────────▶ todo ─────────────▶ doing ─────────────▶ done
- (idea)                   ▲  ▲                 │                     │
-                          │  └──── pause ──────┘                     │
+ (idea)   ◀─────────────  ▲  ▲                 │                     │
+            demote (A,H)  │  └──── pause ──────┘                     │
                           └─────────────────── reopen (H) ───────────┘
  delete (A: proposed/todo; H: cualquiera) → borrada
 ```
@@ -130,6 +130,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 |---|---|---|
 | crear → `todo` | A, H | `propose` / `batch`. Se crea como idea con `propose --idea` (`idea: true` en el MCP) o con `idea: true` en una tarea de `batch`. |
 | `proposed` → `todo` | A, H | `promote`. |
+| `todo` → `proposed` | A, H | `demote`: una tarea que nadie ha empezado vuelve a ser una idea. Rechazado en `doing` y `done`. |
 | editar | A, H | Título, desc, criterios, etiquetas, deps, grupo (`edit`, `depend`, `undepend`). Un agente no cambia tareas `done`. |
 | reordenar | A, H | `move`: justo antes o después de otra tarea, o la primera de todas. Solo cambia el `rank` de esa tarea. Un agente no reordena tareas `done`. |
 | borrar | A, H | `delete`. Un agente solo borra lo que nadie empezó (`proposed`, `todo`) y nunca una tarea de la que depende otra ya `done`; el humano, cualquiera. Las tareas que dependían de ella pierden esa dependencia y reciben una nota. El ID no se reutiliza. |
@@ -139,7 +140,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 | `done` → `todo` | **H** | `reopen`. |
 | añadir `deps` | A, H | No en tareas `done`. Rechazado si crea un ciclo. |
 
-**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, reordenar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `move`, `depend`, `undepend`, `promote`, `delete`). Todo lo demás da `out_of_scope`.
+**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, reordenar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `move`, `depend`, `undepend`, `promote`, `demote`, `delete`). Todo lo demás da `out_of_scope`.
 
 **Derivados**
 

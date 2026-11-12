@@ -163,7 +163,7 @@ describe("drops", () => {
     expect(allowed("FE-01")).toEqual(["todo"]);
     expect(allowed("BE-02")).toEqual(["todo"]);
     expect(allowed("BE-01")).toEqual(["todo"]);
-    expect(allowed("BE-03")).toEqual([]);
+    expect(allowed("BE-03")).toEqual(["proposed"]);
     expect(allowed("FE-02")).toEqual(["todo"]);
   });
 

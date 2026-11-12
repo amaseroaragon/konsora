@@ -179,6 +179,29 @@ describe("transitions", () => {
     );
   });
 
+  it("demote takes a todo task nobody started back to an idea (CORE-12)", () => {
+    const d = doc(
+      task("BE-01", "todo"),
+      task("BE-02", "doing"),
+      task("BE-03", "done"),
+      task("BE-04", "proposed"),
+      task("BE-05", "todo", ["BE-01"]),
+    );
+    for (const ctx of [human, agent, { ...agent, plan: true }])
+      expect(state(applyOp(d, { op: "demote", task: "BE-01" }, ctx), "BE-01")).toBe("proposed");
+    for (const id of ["BE-02", "BE-03", "BE-04"]) {
+      expect(err(applyOp(d, { op: "demote", task: id }, human))).toBe("invalid_transition");
+      expect(err(applyOp(d, { op: "demote", task: id }, agent))).toBe("invalid_transition");
+    }
+    // A task that depends on it stays in todo, now blocked by an idea; promoting undoes it.
+    const demoted = ok(applyOp(d, { op: "demote", task: "BE-01" }, agent));
+    expect(demoted.changed).toEqual(["BE-01"]);
+    expect(err(applyOp(demoted.document, { op: "start", task: "BE-05" }, agent))).toBe("blocked");
+    expect(state(applyOp(demoted.document, { op: "promote", task: "BE-01" }, agent), "BE-01")).toBe(
+      "todo",
+    );
+  });
+
   it("ask needs doing; answer needs an open question", () => {
     const d = doc(task("BE-01", "doing"));
     const asked = ok(applyOp(d, { op: "ask", task: "BE-01", text: "Which DB?" }, agent)).document;

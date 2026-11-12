@@ -10,7 +10,7 @@ import type { TaskState, TasksDocument } from "./schema.ts";
 /** The op behind each state change; any pair not listed has no single op. */
 const EDGES: Partial<Record<TaskState, Partial<Record<TaskState, OpName>>>> = {
   proposed: { todo: "promote" },
-  todo: { doing: "start" },
+  todo: { doing: "start", proposed: "demote" },
   doing: { todo: "pause", done: "finish" },
   done: { todo: "reopen" },
 };
@@ -104,12 +104,13 @@ export function planMove(
 }
 
 /** Actions offered as buttons on a task (UI-03), in display order. */
-export const TASK_ACTIONS = ["promote", "answer", "reopen", "delete"] as const;
+export const TASK_ACTIONS = ["promote", "answer", "reopen", "demote", "delete"] as const;
 export type TaskAction = (typeof TASK_ACTIONS)[number];
 
 /** Text each action asks for: required, optional or none. */
 export const ACTION_TEXT: Record<TaskAction, "required" | "optional" | "none"> = {
   promote: "none",
+  demote: "none",
   answer: "required",
   reopen: "optional",
   delete: "none",

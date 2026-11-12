@@ -425,6 +425,17 @@ export function registerWriteCommands(
       );
     });
 
+  withAgent(program.command("demote"))
+    .description("turn a todo task nobody started back into an idea (proposed)")
+    .argument("<id>")
+    .action(async (id: string, opts: { as?: string; json?: boolean }) => {
+      await apply(
+        { op: "demote", task: id.toUpperCase() },
+        opts,
+        () => `Demoted ${id.toUpperCase()} to an idea.\n`,
+      );
+    });
+
   withAgent(program.command("depend"))
     .description("make <id> depend on <on> (rejected if it would create a cycle)")
     .argument("<id>")

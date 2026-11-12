@@ -160,6 +160,17 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     (args) => apply(() => ({ op: "promote", task: args.id.toUpperCase() })),
   );
 
+  server.registerTool(
+    "demote",
+    {
+      title: "Demote a task to an idea",
+      description: "Turn a todo task nobody started back into an idea (proposed).",
+      inputSchema: { id },
+      annotations: WRITE,
+    },
+    (args) => apply(() => ({ op: "demote", task: args.id.toUpperCase() })),
+  );
+
   for (const name of ["depend", "undepend"] as const) {
     server.registerTool(
       name,

@@ -298,6 +298,17 @@ describe("konsora mcp: agent write tools", () => {
     await close();
   });
 
+  it("demote turns a todo task back into an idea, also in a planning session (CORE-12)", async () => {
+    const dir = project();
+    const { call, close } = await connect(dir, { env: { KONSORA_PLAN: "1" } });
+    const demoted = await call("demote", { id: "be-04" });
+    expect(demoted.isError).toBe(false);
+    expect(demoted.json().tasks[0]).toMatchObject({ id: "BE-04", state: "proposed" });
+    expect((await call("demote", { id: "BE-02" })).text).toContain("Error (out_of_scope)");
+    expect((await call("demote", { id: "FE-01" })).text).toContain("Error (invalid_transition)");
+    await close();
+  });
+
   it("never lets a client impersonate a human or Konsora", () => {
     expect(mcpActor({}, "Human")).toBe("agent:unknown");
     expect(mcpActor({}, "konsora")).toBe("agent:unknown");

@@ -356,6 +356,29 @@ describe("daemon ops and oversight over HTTP", () => {
     expect((await call(`/projects/${id}/ops`, { op: "move", task: "BE-01" })).status).toBe(422);
   });
 
+  it("demoting to an idea is one op from the UI or an agent, and never an external change (CORE-12)", async () => {
+    await board(); // baseline
+    const task = (await board()).body.tasks.find((x: any) => x.id === "BE-03");
+    const r = await call(`/projects/${id}/ops`, {
+      op: "demote",
+      task: "BE-03",
+      expect: { "BE-03": task.hash },
+    });
+    expect(r.status).toBe(200);
+    expect(read().tasks.find((x) => x.id === "BE-03")?.state).toBe("proposed");
+    expect((await call(`/projects/${id}/ops`, { op: "demote", task: "BE-02" })).status).toBe(409);
+    // An agent promotes it and demotes it again through the store: still nothing to approve.
+    for (const op of ["promote", "demote"] as const)
+      expect((await mutate(root, { op, task: "BE-03" }, { actor: "agent:claude", at })).ok).toBe(
+        true,
+      );
+    expect((await board()).body.external).toEqual([]);
+    expect(kinds(doc(t("BE-01", "doing")), doc(t("BE-01", "proposed")))).toEqual([]);
+    expect(kinds(doc(t("BE-01", "done")), doc(t("BE-01", "proposed")))).toEqual([
+      "BE-01:transition",
+    ]);
+  });
+
   it("a stale expect hash is refused as a conflict and changes nothing", async () => {
     await board();
     const before = readFileSync(file(), "utf8");

@@ -220,6 +220,7 @@ function DropCell({
 
 const DONE_KEYS: Record<string, MessageKey> = {
   promote: "move.done.promote",
+  demote: "move.done.demote",
   reopen: "move.done.reopen",
   pause: "move.done.pause",
 };
