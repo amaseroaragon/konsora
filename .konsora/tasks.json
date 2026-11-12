@@ -435,7 +435,7 @@
     {
       "id": "CORE-11",
       "title": "Reordenar tareas dentro de su columna",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzz",
       "desc": "`rank` decide el orden y cuál es la siguiente tarea lista, pero nadie puede cambiarlo: la web no tiene arrastre vertical y `konsora edit` no expone `rank` (solo la op `edit` de core lo admite). Permitir priorizar arrastrando en el tablero y con un comando.",
@@ -460,12 +460,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:35:24Z"
+      "updated_at": "2026-11-12T22:06:27Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T22:00:19Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Op move en core (antes/después de otra tarea o al principio), konsora move y herramienta MCP, ready por rank y arrastre vertical en el tablero con las columnas ordenadas por rank."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T22:06:27Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Op `move` en core, `konsora move` y herramienta MCP, `ready` por rank y arrastre vertical en el tablero (commits feat(core) y fix(web) de CORE-11).\n\n- ac1: las columnas del tablero van en orden de `rank` y soltar una tarjeta sobre otra de su celda la coloca antes o después (op `move`), con ratón y con teclado. Solo cambia el `rank` de esa tarea (tests en core, incluido uno de propiedades, y en el daemon). Probado en Chrome real sobre un proyecto de prueba: el orden cambia, tasks.json solo cambia el rank de la tarea movida y se conserva al recargar.\n- ac2: `konsora move <ID> --before <ID> | --after <ID> | --top` y la herramienta MCP `move` (tests en write.test.ts y mcp-write.test.ts); un agente no reordena tareas hechas y vale en modo plan.\n- ac3: `konsora ready`, la sección «Ready to start» de `status` y la herramienta `ready` del MCP salen en orden de rank (test de la CLI y comprobación manual tras arrastrar en la UI).\n\nDocs y skill actualizados. `npm run check`: 48 ficheros, 628 tests en verde."
+        }
+      ]
     },
     {
       "id": "CORE-12",
       "title": "Devolver una tarea de Por hacer a Ideas",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzi",
       "desc": "`promote` lleva una idea a `todo`, pero no hay camino de vuelta: si algo se pasó a Por hacer antes de tiempo solo queda borrarlo o dejar que un agente lo empiece. Añadir la operación inversa para tareas que nadie ha empezado.",
@@ -490,7 +506,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:35:34Z"
+      "updated_at": "2026-11-12T22:09:15Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T22:06:28Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Op demote (todo → proposed) en core, CLI, MCP y modo plan; arrastre de Por hacer a Ideas y acción en el panel; el daemon no la marca como cambio externo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T22:09:15Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Op `demote` (todo → proposed) en core, CLI, MCP, daemon y web (commit feat(core) de CORE-12).\n\n- ac1: `demote` lleva una tarea `todo` a `proposed` y se rechaza en `doing`, `done` y `proposed` con `invalid_transition` (tests en ops.test.ts y moves.test.ts).\n- ac2: el tablero admite arrastrar de Por hacer a Ideas y el panel de una tarea `todo` ofrece «Devolver a Ideas» (tests en task-actions.test.tsx y board.test.ts). Probado en Chrome sin cabeza sobre un proyecto de prueba: el arrastre y el botón dejan la tarea en Ideas y `konsora list --state proposed` la muestra.\n- ac3: `konsora demote <ID>` y la herramienta MCP `demote`, también en modo plan (tests en write.test.ts y mcp-write.test.ts; en modo plan se rechaza sobre tareas empezadas). El daemon no lo marca como cambio externo, ni desde la UI ni hecho por un agente (test en oversight.test.ts).\n\nDocs (esquema-tareas.md, arquitectura.md) y skill actualizados. `npm run check`: 49 ficheros, 635 tests en verde."
+        }
+      ]
     },
     {
       "id": "CORE-13",
@@ -1859,7 +1891,7 @@
     {
       "id": "UI-10",
       "title": "Buscar y filtrar tareas en el tablero y el grafo",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzi",
       "desc": "Hoy la UI no tiene búsqueda ni filtros: con decenas de tareas hay que recorrer las columnas a ojo. Añadir una barra con texto libre (id, título, descripción) y filtros por grupo, etiqueta y quién la creó o la cerró, compartida por el tablero y el grafo y guardada en la URL para poder enlazarla.",
@@ -1884,7 +1916,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:12Z"
+      "updated_at": "2026-11-12T21:59:27Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T21:56:09Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Filtro (texto, grupo, etiqueta, actor) en core, en la URL del proyecto y en una barra compartida por el tablero y el grafo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T21:59:27Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Barra de filtro compartida por el tablero y el grafo (commit de feat(web) UI-10).\n\n- ac1: `taskMatches` en core deja solo las tareas cuyo id, título o descripción contienen el texto (todas las palabras, sin distinguir mayúsculas); tests en `packages/core/test/filter.test.ts` y, sobre el tablero renderizado, en `packages/web/test/filter.test.tsx`. El grafo recibe las mismas tareas filtradas.\n- ac2: filtros por grupo y por etiqueta (y por quién creó o cerró la tarea). El filtro va en la ruta (`?q=&group=&label=&by=`), con tests de ida y vuelta en `shell.test.ts`, así que sobrevive a una recarga.\n- ac3: con un filtro activo la barra dice «N tareas ocultas por el filtro» y ofrece «Quitar filtro» (test).\n\n`npm run check`: 48 ficheros, 615 tests en verde. Pendiente de la comprobación en navegador real que haré al final de la tanda."
+        }
+      ]
     },
     {
       "id": "UI-11",
