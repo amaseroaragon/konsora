@@ -30,7 +30,7 @@
     "CLI": 2,
     "MCP": 1,
     "DMN": 4,
-    "UI": 7
+    "UI": 9
   },
   "tasks": [
     {
@@ -952,6 +952,32 @@
           "text": "Commit en main. ac1: un bloque sin integrar tiene «Añadir tareas», una lista de casillas con las tareas que no están en él ni en un bloque integrado (también las de otro bloque abierto, con «ahora en X»), y las añade de una vez con un set-block por tarea (tests de addCandidates, setBlockOp y del render). ac2: cada tarea de un bloque sin integrar tiene «Quitar» (set-block a null); un bloque integrado o el modo solo lectura no ofrecen ninguna de las dos acciones (test). ac3: la barra de selección tiene el menú «Mover a…» con los bloques abiertos y «Sin bloque» (este, solo si alguna tarea tiene bloque); los rechazos se explican en español con moveErrorText y siguen seleccionados (test). ac4: meter tareas en curso o hechas avisa de que sus commits pueden no estar en la rama del bloque, en la tarjeta y en una confirmación desde la selección (test y prueba). ac5: en konsora ui (Chrome headless, daemon aislado) se añadieron TASK-12 y TASK-13 a «API pública» desde su tarjeta, se quitó TASK-13 y se movieron TASK-14 y TASK-15 desde la selección; con TASK-12 en curso, la confirmación avisó antes de moverla. npm run check: 591 tests en verde."
         }
       ]
+    },
+    {
+      "id": "UI-08",
+      "title": "Diálogo propio en lugar de window.confirm",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzy",
+      "desc": "La UI pregunta con window.confirm (eliminar tareas, desvincular proyectos…), que bloquea la página y no sigue el diseño de Plano. Antes de M11 se hizo en la rama UI-41, que se borró al limpiar ramas: su código está en la etiqueta git `archive/ui-41-confirm-dialog` (45820e4), sobre la base de código de antes de M11, así que sirve de referencia, no para integrarlo tal cual.",
+      "created": {
+        "at": "2026-11-12T11:35:58Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T11:35:58Z"
+    },
+    {
+      "id": "UI-09",
+      "title": "Panel de tarea con secciones plegables",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzz",
+      "desc": "Ordenar el panel de tarea por prioridad (resumen, acciones, descripción, criterios, dependencias, notas) con secciones que se pliegan y recuerdan su estado. Antes de M11 se hizo en la rama UI-39, que se borró al limpiar ramas: su código está en la etiqueta git `archive/ui-39-panel-sections` (7ef5c51), sobre la base de código de antes de M11, así que sirve de referencia, no para integrarlo tal cual.",
+      "created": {
+        "at": "2026-11-12T11:35:59Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T11:35:59Z"
     }
   ]
 }
