@@ -12,6 +12,14 @@ export function indexTasks(doc: Pick<TasksDocument, "tasks">): TaskIndex {
 }
 
 /**
+ * Priority order: lowest `rank` first, then natural id. It is the order of a board column and of
+ * the tasks `konsora ready` offers.
+ */
+export function compareByRank(a: Pick<Task, "id" | "rank">, b: Pick<Task, "id" | "rank">): number {
+  return a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : compareTaskIds(a.id, b.id);
+}
+
+/**
  * Dependencies that keep a `todo` task blocked. Only `done` unblocks. A missing dependency counts as unmet. Tasks in other states have no blockers.
  */
 export function blockers(task: Task, index: TaskIndex): string[] {
@@ -99,11 +107,11 @@ export function topoOrder(doc: Pick<TasksDocument, "tasks">): TopoResult {
     indegree.set(task.id, deps.length);
     for (const dep of deps) push(dependents, dep, task.id);
   }
-  const before = (a: string, b: string) => {
-    const ra = index.get(a)?.rank ?? "";
-    const rb = index.get(b)?.rank ?? "";
-    return ra < rb ? -1 : ra > rb ? 1 : compareTaskIds(a, b);
-  };
+  const before = (a: string, b: string) =>
+    compareByRank(
+      { id: a, rank: index.get(a)?.rank ?? "" },
+      { id: b, rank: index.get(b)?.rank ?? "" },
+    );
   const available = [...indegree].filter(([, n]) => n === 0).map(([id]) => id);
   const order: string[] = [];
   while (available.length > 0) {

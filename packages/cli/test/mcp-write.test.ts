@@ -278,6 +278,26 @@ describe("konsora mcp: agent write tools", () => {
     ]);
   });
 
+  it("move reorders a task with the same rules as the CLI (CORE-11)", async () => {
+    const dir = project();
+    const { call, close } = await connect(dir);
+    await call("propose", { title: "Five", group: "BE" });
+    const ready = async () => (await call("ready")).json().map((x: { id: string }) => x.id);
+    expect(await ready()).toEqual(["BE-04", "BE-05"]);
+    const moved = await call("move", { id: "be-05", before: "BE-04" });
+    expect(moved.isError).toBe(false);
+    expect(moved.json().changed).toEqual(["BE-05"]);
+    expect(await ready()).toEqual(["BE-05", "BE-04"]);
+    expect((await call("move", { id: "BE-04", top: true })).json().changed).toEqual(["BE-04"]);
+    expect(await ready()).toEqual(["BE-04", "BE-05"]);
+    const none = await call("move", { id: "BE-04" });
+    expect(none.text).toBe(
+      "Error: Say where to move it, once.\nHint: Pass exactly one of before, after or top.",
+    );
+    expect((await call("move", { id: "BE-01", top: true })).text).toContain("Error (forbidden)");
+    await close();
+  });
+
   it("never lets a client impersonate a human or Konsora", () => {
     expect(mcpActor({}, "Human")).toBe("agent:unknown");
     expect(mcpActor({}, "konsora")).toBe("agent:unknown");

@@ -288,6 +288,132 @@ describe("transitions", () => {
   });
 });
 
+describe("move (CORE-11)", () => {
+  const d = doc(
+    task("BE-01", "todo", [], { rank: "c" }),
+    task("BE-02", "todo", [], { rank: "i" }),
+    task("BE-03", "todo", [], { rank: "r" }),
+    task("BE-04", "done", [], { rank: "x" }),
+  );
+  const order = (r: OpResult) =>
+    [...ok(r).document.tasks].sort((a, b) => (a.rank < b.rank ? -1 : 1)).map((t) => t.id);
+
+  it("places a task right before or after another one, or first of all", () => {
+    expect(order(applyOp(d, { op: "move", task: "BE-03", before: "BE-01" }, agent))).toEqual([
+      "BE-03",
+      "BE-01",
+      "BE-02",
+      "BE-04",
+    ]);
+    expect(order(applyOp(d, { op: "move", task: "BE-03", before: "BE-02" }, human))).toEqual([
+      "BE-01",
+      "BE-03",
+      "BE-02",
+      "BE-04",
+    ]);
+    expect(order(applyOp(d, { op: "move", task: "BE-01", after: "BE-02" }, agent))).toEqual([
+      "BE-02",
+      "BE-01",
+      "BE-03",
+      "BE-04",
+    ]);
+    expect(order(applyOp(d, { op: "move", task: "BE-01", after: "BE-04" }, agent))).toEqual([
+      "BE-02",
+      "BE-03",
+      "BE-04",
+      "BE-01",
+    ]);
+    expect(order(applyOp(d, { op: "move", task: "BE-03", top: true }, agent))).toEqual([
+      "BE-03",
+      "BE-01",
+      "BE-02",
+      "BE-04",
+    ]);
+  });
+
+  it("changes only the rank of the moved task", () => {
+    const r = ok(applyOp(d, { op: "move", task: "BE-03", before: "BE-02" }, agent));
+    expect(r.changed).toEqual(["BE-03"]);
+    for (const id of ["BE-01", "BE-02", "BE-04"])
+      expect(r.document.tasks.find((t) => t.id === id)).toEqual(d.tasks.find((t) => t.id === id));
+    const moved = r.document.tasks.find((t) => t.id === "BE-03") as Task;
+    expect({ ...moved, rank: "r" }).toEqual(d.tasks[2]);
+  });
+
+  it("is a no-op when the task is already there", () => {
+    for (const op of [
+      { op: "move", task: "BE-01", before: "BE-02" },
+      { op: "move", task: "BE-02", after: "BE-01" },
+      { op: "move", task: "BE-01", top: true },
+    ] as Op[]) {
+      const r = ok(applyOp(d, op, agent));
+      expect(r.changed).toEqual([]);
+      expect(r.document).toEqual(d);
+    }
+  });
+
+  it("needs exactly one placement, another task as anchor, and an existing one", () => {
+    expect(err(applyOp(d, { op: "move", task: "BE-01" }, agent))).toBe("invalid");
+    expect(err(applyOp(d, { op: "move", task: "BE-01", before: "BE-02", top: true }, agent))).toBe(
+      "invalid",
+    );
+    expect(err(applyOp(d, { op: "move", task: "BE-01", before: "BE-01" }, agent))).toBe("invalid");
+    expect(err(applyOp(d, { op: "move", task: "BE-01", after: "BE-99" }, agent))).toBe("not_found");
+  });
+
+  it("agents cannot reorder finished work; humans can", () => {
+    expect(err(applyOp(d, { op: "move", task: "BE-04", top: true }, agent))).toBe("forbidden");
+    expect(order(applyOp(d, { op: "move", task: "BE-04", top: true }, human))[0]).toBe("BE-04");
+  });
+
+  it("with tied ranks it still lands on the asked side of the anchor", () => {
+    const tied = doc(
+      task("BE-01", "todo", [], { rank: "i" }),
+      task("BE-02", "todo", [], { rank: "i" }),
+      task("BE-03", "todo", [], { rank: "r" }),
+    );
+    const r = ok(applyOp(tied, { op: "move", task: "BE-03", before: "BE-02" }, agent));
+    const rank = (id: string) => r.document.tasks.find((t) => t.id === id)?.rank as string;
+    expect(rank("BE-03") < rank("BE-02")).toBe(true);
+    expect(validateDocument(r.document).ok).toBe(true);
+  });
+
+  it("any sequence of moves keeps the plan valid and the other ranks untouched", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            task: fc.constantFrom("BE-01", "BE-02", "BE-03", "BE-04"),
+            anchor: fc.constantFrom("BE-01", "BE-02", "BE-03", "BE-04"),
+            how: fc.constantFrom("before", "after", "top"),
+          }),
+          { maxLength: 30 },
+        ),
+        (moves) => {
+          let current = d;
+          for (const { task: id, anchor, how } of moves) {
+            if (how !== "top" && anchor === id) continue;
+            const op: Op =
+              how === "top"
+                ? { op: "move", task: id, top: true }
+                : how === "before"
+                  ? { op: "move", task: id, before: anchor }
+                  : { op: "move", task: id, after: anchor };
+            const r = ok(applyOp(current, op, human));
+            expect(validateDocument(r.document).ok).toBe(true);
+            const sorted = [...r.document.tasks].sort((a, b) => (a.rank < b.rank ? -1 : 1));
+            const ids = sorted.map((t) => t.id);
+            if (how === "top") expect(ids[0]).toBe(id);
+            else if (how === "before") expect(ids.indexOf(id)).toBe(ids.indexOf(anchor) - 1);
+            else expect(ids.indexOf(id)).toBe(ids.indexOf(anchor) + 1);
+            current = r.document;
+          }
+        },
+      ),
+    );
+  });
+});
+
 describe("preconditions (per-task hashes)", () => {
   const base = doc(task("BE-01", "proposed"), task("BE-02", "todo"));
 

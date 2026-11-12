@@ -4,7 +4,7 @@
  */
 import type { TaskState, TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError } from "@konsora/core/store";
-import { STATES, type TaskView, views } from "./format.ts";
+import { readyViews, STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
 import { CliError, EXIT } from "./shared.ts";
 
@@ -18,7 +18,7 @@ export function statusData(doc: TasksDocument) {
     groups: doc.groups,
     tasks: list.length,
     byState,
-    ready: list.filter((t) => t.ready).map((t) => t.id),
+    ready: readyViews(list).map((t) => t.id),
     blocked: list.filter((t) => t.blocked).map((t) => t.id),
     waiting: list.filter((t) => t.waiting).map((t) => t.id),
     proposed: list.filter((t) => t.state === "proposed").map((t) => t.id),
@@ -52,7 +52,7 @@ export function listData(
       EXIT.usage,
     );
   }
-  return views(doc).filter(
+  const list = views(doc).filter(
     (t) =>
       preset(t) &&
       (!filter.state || t.state === filter.state) &&
@@ -61,6 +61,8 @@ export function listData(
       (!filter.blocked || t.blocked) &&
       (!filter.waiting || t.waiting),
   );
+  // What is ready comes in priority order (rank), so the first one is the next to take.
+  return preset === LIST_PRESETS.ready || filter.ready ? readyViews(list) : list;
 }
 
 export function showData(doc: TasksDocument, id: string): TaskView {

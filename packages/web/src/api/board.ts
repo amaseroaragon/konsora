@@ -1,5 +1,12 @@
 /** A project's board over the daemon: the plan with derived flags, live events and moves. */
-import type { Op, Task, TaskAction, TaskFlags, TasksDocument } from "@konsora/core";
+import {
+  applyOp,
+  type Op,
+  type Task,
+  type TaskAction,
+  type TaskFlags,
+  type TasksDocument,
+} from "@konsora/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyChatMessage } from "./chat.ts";
@@ -88,6 +95,56 @@ export function useMoveTask(projectId: string) {
       return { before };
     },
     onError: (_error, _move, context) => {
+      if (context?.before) client.setQueryData(key, context.before);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: key }),
+  });
+}
+
+/** A card dragged within its column: the task goes right before or after another one. */
+export type ReorderInput = { task: BoardTask } & ({ before: string } | { after: string });
+
+/** No `expect`: only the rank changes, so it applies whatever else happened to the task. */
+export function reorderBody(input: ReorderInput): Extract<Op, { op: "move" }> {
+  return {
+    op: "move",
+    task: input.task.id,
+    ...("before" in input ? { before: input.before } : { after: input.after }),
+  };
+}
+
+/** Reorders optimistically with core's own rule, then lets the daemon have the last word. */
+export function useReorderTask(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  const key = boardKey(projectId);
+  return useMutation({
+    mutationFn: (input: ReorderInput) =>
+      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, reorderBody(input)),
+    onMutate: async (input) => {
+      await client.cancelQueries({ queryKey: key });
+      const before = client.getQueryData<Board>(key);
+      if (before?.status === "ok") {
+        const result = applyOp(toDocument(before), reorderBody(input), {
+          actor: "human",
+          at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+        });
+        const rank = result.ok
+          ? result.document.tasks.find((task) => task.id === input.task.id)?.rank
+          : undefined;
+        if (rank !== undefined) {
+          const next: BoardOk = {
+            ...before,
+            tasks: before.tasks.map(
+              (task): BoardTask => (task.id === input.task.id ? { ...task, rank } : task),
+            ),
+          };
+          client.setQueryData<Board>(key, next);
+        }
+      }
+      return { before };
+    },
+    onError: (_error, _input, context) => {
       if (context?.before) client.setQueryData(key, context.before);
     },
     onSettled: () => client.invalidateQueries({ queryKey: key }),

@@ -1,5 +1,6 @@
 /** Plain-text renderers for the CLI. English, no colors, stable column layout. */
 import {
+  compareByRank,
   dependentsOf,
   deriveFlags,
   indexTasks,
@@ -23,6 +24,11 @@ export function views(doc: TasksDocument): TaskView[] {
     const task = index.get(id) as Task;
     return { ...task, ...(flags.get(id) as TaskFlags) };
   });
+}
+
+/** The tasks an agent can start now, in priority order (`rank`): the first is the next to take. */
+export function readyViews(list: readonly TaskView[]): TaskView[] {
+  return list.filter((t) => t.ready).sort(compareByRank);
 }
 
 function flagText(view: TaskView): string {
@@ -63,10 +69,7 @@ export function statusText(doc: TasksDocument, file: string): string {
       "Doing",
       list.filter((t) => t.state === "doing"),
     ),
-    section(
-      "Ready to start",
-      list.filter((t) => t.ready),
-    ),
+    section("Ready to start", readyViews(list)),
     section(
       "Ideas (proposed; anyone can promote them to todo)",
       list.filter((t) => t.state === "proposed"),

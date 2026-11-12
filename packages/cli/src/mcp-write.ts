@@ -14,7 +14,7 @@ import { z } from "zod";
 import { opHint } from "./hints.ts";
 import { failure, guarded, ok } from "./mcp-result.ts";
 import type { Io } from "./shared.ts";
-import { agentActor, BatchSchema, batchOp, editOp, runOp, writeJson } from "./write.ts";
+import { agentActor, BatchSchema, batchOp, editOp, moveOp, runOp, writeJson } from "./write.ts";
 
 /** The agent for attribution: KONSORA_AGENT, else the first word of the MCP client's name. */
 export function mcpActor(env: NodeJS.ProcessEnv, clientName: string | undefined): string {
@@ -118,6 +118,23 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       annotations: WRITE,
     },
     ({ id: task, ...changes }) => apply(() => editOp(task, changes)),
+  );
+
+  server.registerTool(
+    "move",
+    {
+      title: "Reorder a task",
+      description:
+        "Reorder a task that is not done: right before or after another task, or first of all (exactly one of before, after, top). The ready tool lists tasks in this order.",
+      inputSchema: {
+        id,
+        before: z.string().min(1).optional().describe("place it right before this task id"),
+        after: z.string().min(1).optional().describe("place it right after this task id"),
+        top: z.boolean().optional().describe("place it first of all"),
+      },
+      annotations: WRITE,
+    },
+    ({ id: task, ...place }) => apply(() => moveOp(task, place)),
   );
 
   server.registerTool(

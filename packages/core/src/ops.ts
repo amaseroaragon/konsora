@@ -9,9 +9,9 @@
  * 3. the transition rules; and finally that the whole result still validates.
  * `applyOp` is pure: it never mutates its input.
  */
-import { indexTasks, isBlocked, isWaiting, transitiveDeps } from "./graph.ts";
+import { compareByRank, indexTasks, isBlocked, isWaiting, transitiveDeps } from "./graph.ts";
 import { contentHash } from "./hash.ts";
-import { rankAfterAll } from "./rank.ts";
+import { rankAfterAll, rankBetween } from "./rank.ts";
 import type {
   Acceptance,
   Note,
@@ -81,6 +81,11 @@ export type Op = Base &
           acceptance?: Acceptance[];
         };
       }
+    /**
+     * Reorders a task: right before or after another one, or first of all (exactly one of the
+     * three). Only its own `rank` changes.
+     */
+    | { op: "move"; task: string; before?: string; after?: string; top?: boolean }
     /** Removes a task; tasks that depended on it lose that dependency (with a note). */
     | { op: "delete"; task: string }
     | { op: "depend"; task: string; on: string }
@@ -139,6 +144,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   "add-group": ["human", "agent"],
   promote: ["human", "agent"],
   edit: ["human", "agent"], // agents: unfinished tasks only (checked below)
+  move: ["human", "agent"], // agents: unfinished tasks only
   delete: ["human", "agent"], // agents: tasks nobody started only
   depend: ["human", "agent"],
   undepend: ["human", "agent"], // agents: unfinished tasks only
@@ -160,6 +166,7 @@ const PLAN_OPS: ReadonlySet<OpName> = new Set([
   "propose",
   "batch",
   "edit",
+  "move",
   "delete",
   "depend",
   "undepend",
@@ -354,6 +361,52 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       if (unknown.length)
         fail("forbidden", `edit cannot change ${unknown.join(", ")}`, { task: task.id });
       if (task.desc === "") delete task.desc;
+      touch(task);
+      break;
+    }
+    case "move": {
+      const task = get(op.task);
+      if (role !== "human" && task.state === "done") {
+        fail("forbidden", `${task.id} is done; only humans can change finished work`, {
+          task: task.id,
+        });
+      }
+      const places = [op.before, op.after, op.top ? "top" : undefined].filter(
+        (place) => place !== undefined,
+      );
+      if (places.length !== 1)
+        fail("invalid", "move needs exactly one of before, after or top", { task: task.id });
+      const anchorId = op.before ?? op.after;
+      if (anchorId === task.id)
+        fail("invalid", `${task.id} cannot be placed next to itself`, { task: task.id });
+      const others = doc.tasks.filter((t) => t.id !== task.id).sort(compareByRank);
+      // The new rank goes strictly between `lower` and `upper` (either may be open).
+      let lower: string | undefined;
+      let upper: string | undefined;
+      if (anchorId === undefined) upper = others[0]?.rank;
+      else {
+        const anchor = get(anchorId);
+        if (op.before !== undefined) {
+          upper = anchor.rank;
+          lower = others.findLast((t) => t.rank < anchor.rank)?.rank;
+        } else {
+          lower = anchor.rank;
+          upper = others.find((t) => t.rank > anchor.rank)?.rank;
+        }
+      }
+      const inPlace =
+        (lower === undefined || task.rank > lower) && (upper === undefined || task.rank < upper);
+      // Already there (next to the anchor, or the first of all): nothing changes.
+      if (inPlace) break;
+      try {
+        task.rank = rankBetween(lower, upper);
+      } catch {
+        fail(
+          "invalid",
+          `No rank fits ${op.top ? "before every task" : `next to ${anchorId}`}; move another task first`,
+          { task: task.id },
+        );
+      }
       touch(task);
       break;
     }

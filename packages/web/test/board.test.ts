@@ -5,6 +5,7 @@ import {
   type BoardOk,
   moveBody,
   reconnectDelay,
+  reorderBody,
   toDocument,
 } from "../src/api/board.ts";
 import {
@@ -14,6 +15,7 @@ import {
   externalText,
   opErrorText,
   refusalText,
+  reorderOnto,
 } from "../src/shell/board-model.ts";
 
 const at = "2026-11-02T10:00:00Z";
@@ -104,6 +106,47 @@ describe("lanes", () => {
     expect(lanes.flatMap((l) => l.cells.flat().map((x) => x.id))).toEqual(["BE-02", "FE-01"]);
     expect(boardLanes(board, false, new Set(["BE-01"]))[0]?.cells.flat()).toHaveLength(1);
     expect(boardLanes(board, true, new Set())).toEqual([]);
+  });
+
+  it("orders each cell by rank, then by id (CORE-11)", () => {
+    const ranked = boardOf({
+      ...doc,
+      tasks: [
+        t("BE-01", "todo", { rank: "r" }),
+        t("BE-02", "todo", { rank: "c" }),
+        t("BE-03", "todo", { rank: "c" }),
+        t("FE-01", "todo", { rank: "a" }),
+      ],
+    });
+    expect(boardLanes(ranked, false)[0]?.cells[1]?.map((x) => x.id)).toEqual([
+      "FE-01",
+      "BE-02",
+      "BE-03",
+      "BE-01",
+    ]);
+    expect(boardLanes(ranked, true)[0]?.cells[1]?.map((x) => x.id)).toEqual([
+      "BE-02",
+      "BE-03",
+      "BE-01",
+    ]);
+  });
+
+  it("a card dropped on another goes past it, from the side it came from (CORE-11)", () => {
+    const low = { id: "BE-01", rank: "c" };
+    const high = { id: "BE-02", rank: "r" };
+    expect(reorderOnto(low, high)).toEqual({ after: "BE-02" });
+    expect(reorderOnto(high, low)).toEqual({ before: "BE-01" });
+    const task = board.tasks.find((x) => x.id === "BE-03") as BoardOk["tasks"][number];
+    expect(reorderBody({ task, before: "BE-02" })).toEqual({
+      op: "move",
+      task: "BE-03",
+      before: "BE-02",
+    });
+    expect(reorderBody({ task, after: "FE-02" })).toEqual({
+      op: "move",
+      task: "BE-03",
+      after: "FE-02",
+    });
   });
 
   it("a single lane without swimlanes", () => {

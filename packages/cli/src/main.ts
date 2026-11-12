@@ -145,7 +145,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   listCommand("list", "list tasks in dependency order", LIST_PRESETS.list);
   listCommand(
     "ready",
-    "tasks an agent can start now (todo with every dependency done)",
+    "tasks an agent can start now (todo with every dependency done), in priority order",
     LIST_PRESETS.ready,
   );
   listCommand("blocked", "todo tasks waiting on unfinished dependencies", LIST_PRESETS.blocked);

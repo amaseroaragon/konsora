@@ -11,7 +11,7 @@ Run each `konsora` command on its own, not chained with `&&`, `;` or pipes: perm
 
 ## MCP tools
 
-If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `delete`, `promote`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
+If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `move`, `delete`, `promote`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
 
 In a planning session (`konsora plan` or the AI panel of the Konsora UI; the server's instructions say so), interview the human, then create the tasks with `batch`; you may only create, revise or delete tasks nobody started, and nothing is started.
 
@@ -55,6 +55,7 @@ JSON
 - Keep each task small enough for one working session; split bigger work into tasks with `deps`.
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`.
 - One task: `konsora propose "<title>" --group BE --criterion "<check>" --deps BE-01`. An idea for later: `konsora propose "<title>" --group BE --idea`.
+- Priority is the order of the tasks: `konsora ready` lists what to take first. Reorder with `konsora move <ID> --before <ID>`, `--after <ID>` or `--top`.
 
 ## When a command fails
 

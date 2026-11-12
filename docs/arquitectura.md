@@ -95,7 +95,7 @@ La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salid
 
 | Lectura | Escritura (agente) |
 |---|---|
-| `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `start`, `pause`, `note`, `ask`, `finish --summary` |
+| `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` / `move` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `start`, `pause`, `note`, `ask`, `finish --summary` |
 
 Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las acciones humanas **no** están en la CLI ni en el MCP.
 
@@ -106,7 +106,7 @@ Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las a
 ## 7. UI
 
 - **Proyectos**: lista de proyectos vinculados con el estado de su plan.
-- **Tablero**: columnas por estado (Ideas, Por hacer, En curso, Hecho), *swimlanes* opcionales por grupo y arrastrar y soltar con validación de transición. Lo prohibido no se puede soltar y explica por qué. Indicadores de `blocked`, `waiting` y "cambio externo sin aprobar".
+- **Tablero**: columnas por estado (Ideas, Por hacer, En curso, Hecho), *swimlanes* opcionales por grupo y arrastrar y soltar con validación de transición. Lo prohibido no se puede soltar y explica por qué. Cada columna va en orden de `rank`, y soltar una tarjeta sobre otra de su misma columna la reordena (op `move`), también con el teclado. Indicadores de `blocked`, `waiting` y "cambio externo sin aprobar".
 - **Grafo**: dependencias como DAG con disposición ELK en capas (en un worker), coloreado por estado y navegable con teclado. Seleccionar un nodo con sus dependencias selecciona ese subgrafo.
 - **Filtro**: una barra compartida por el tablero y el grafo con texto libre (id, título y descripción), grupo, etiqueta y quién creó o cerró la tarea. La regla está en `core` (`taskMatches`), y el filtro va en la URL (`?q=…&group=…&label=…&by=…`), así que sobrevive a una recarga y se puede enlazar. Solo acota lo que se ve: muestra cuántas tareas oculta y un botón lo quita.
 - **Selección**: compartida entre tablero y grafo; la barra ofrece **Pasar a Por hacer** las ideas seleccionadas y **Eliminar** (con confirmación).

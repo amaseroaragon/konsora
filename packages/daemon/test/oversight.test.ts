@@ -325,6 +325,37 @@ describe("daemon ops and oversight over HTTP", () => {
     expect(readFileSync(file(), "utf8")).toBe(before);
   });
 
+  it("a reorder (as the board sends it) changes one rank, survives a reload and is not flagged (CORE-11)", async () => {
+    writeByHand(
+      doc(
+        t("BE-01", "todo", { rank: "c" }),
+        t("BE-02", "todo", { rank: "i" }),
+        t("BE-03", "done", { rank: "x" }),
+      ),
+    );
+    await board(); // baseline
+    const r = await call(`/projects/${id}/ops`, { op: "move", task: "BE-02", before: "BE-01" });
+    expect(r.status).toBe(200);
+    expect(r.body.changed).toEqual(["BE-02"]);
+    const ranks = Object.fromEntries(read().tasks.map((x) => [x.id, x.rank]));
+    expect(ranks["BE-01"]).toBe("c");
+    expect((ranks["BE-02"] as string) < "c").toBe(true);
+    // An agent reorders through the store too, and neither write is an external change.
+    const agent = await mutate(
+      root,
+      { op: "move", task: "BE-01", top: true },
+      { actor: "agent:claude", at },
+    );
+    expect(agent.ok).toBe(true);
+    const again = await board();
+    expect(again.body.external).toEqual([]);
+    const order = [...again.body.tasks]
+      .sort((a: any, b: any) => (a.rank < b.rank ? -1 : 1))
+      .map((x: any) => x.id);
+    expect(order.slice(0, 2)).toEqual(["BE-01", "BE-02"]);
+    expect((await call(`/projects/${id}/ops`, { op: "move", task: "BE-01" })).status).toBe(422);
+  });
+
   it("a stale expect hash is refused as a conflict and changes nothing", async () => {
     await board();
     const before = readFileSync(file(), "utf8");

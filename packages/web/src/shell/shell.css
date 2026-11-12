@@ -233,6 +233,12 @@
   cursor: grab;
   touch-action: none;
 }
+.b-drag--before {
+  box-shadow: 0 -3px 0 var(--k-accent);
+}
+.b-drag--after {
+  box-shadow: 0 3px 0 var(--k-accent);
+}
 .b-drag:focus-visible {
   outline: 2px solid var(--k-focus);
   outline-offset: 2px;

@@ -1,5 +1,11 @@
 /** Board view model: lanes, drop targets and the Spanish reason for each refused move. */
-import { type MovePlan, planMove, type TaskState, type TasksDocument } from "@konsora/core";
+import {
+  compareByRank,
+  type MovePlan,
+  planMove,
+  type TaskState,
+  type TasksDocument,
+} from "@konsora/core";
 import type { BoardOk, BoardTask, ExternalFlag } from "../api/board.ts";
 import { t } from "../i18n/index.ts";
 import { type ConfirmAsk, stateLabel, taskStates } from "../ui/index.ts";
@@ -9,15 +15,18 @@ export const ALL_LANE = "*";
 export type Lane = { id: string; name: string; cells: BoardTask[][] };
 
 /**
- * One lane per group that has tasks (in plan order), or a single lane with everything. With
- * `visible` (a filter), only those tasks are laid out.
+ * One lane per group that has tasks (in plan order), or a single lane with everything. Each cell
+ * is in priority order (`rank`), the order dragging a card up or down changes. With `visible` (a
+ * filter), only those tasks are laid out.
  */
 export function boardLanes(
   board: BoardOk,
   swimlanes: boolean,
   visible?: ReadonlySet<string>,
 ): Lane[] {
-  const shown = visible ? board.tasks.filter((task) => visible.has(task.id)) : board.tasks;
+  const shown = (
+    visible ? board.tasks.filter((task) => visible.has(task.id)) : [...board.tasks]
+  ).sort(compareByRank);
   const cells = (tasks: BoardTask[]) =>
     taskStates.map((state) => tasks.filter((task) => task.state === state));
   if (!swimlanes) return [{ id: ALL_LANE, name: t("board.lane.all"), cells: cells(shown) }];
@@ -28,6 +37,16 @@ export function boardLanes(
       cells: cells(shown.filter((task) => task.group === group.id)),
     }))
     .filter((lane) => lane.cells.some((cell) => cell.length > 0));
+}
+
+/** Where a card dropped on another one of its column goes: past it, in the direction it came from. */
+export type Reorder = { before: string } | { after: string };
+
+export function reorderOnto(
+  task: Pick<BoardTask, "id" | "rank">,
+  target: Pick<BoardTask, "id" | "rank">,
+): Reorder {
+  return compareByRank(task, target) < 0 ? { after: target.id } : { before: target.id };
 }
 
 /** Where a task may be dropped, decided by core for every column. */

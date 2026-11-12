@@ -1,5 +1,6 @@
 import {
   type Announcements,
+  type CollisionDetection,
   DndContext,
   type DragEndEvent,
   DragOverlay,
@@ -8,6 +9,8 @@ import {
   KeyboardSensor,
   type Over,
   PointerSensor,
+  pointerWithin,
+  rectIntersection,
   useDraggable,
   useDroppable,
   useSensor,
@@ -15,7 +18,13 @@ import {
 } from "@dnd-kit/core";
 import { type MovePlan, planMove, type TaskState } from "@konsora/core";
 import { useMemo, useState } from "react";
-import { type BoardOk, type BoardTask, toDocument, useMoveTask } from "../api/board.ts";
+import {
+  type BoardOk,
+  type BoardTask,
+  toDocument,
+  useMoveTask,
+  useReorderTask,
+} from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { cx } from "../ui/cx.ts";
@@ -27,10 +36,35 @@ import {
   taskStates,
   useToast,
 } from "../ui/index.ts";
-import { boardLanes, dropTargets, opErrorText, refusalText } from "./board-model.ts";
+import {
+  boardLanes,
+  dropTargets,
+  opErrorText,
+  type Reorder,
+  refusalText,
+  reorderOnto,
+} from "./board-model.ts";
 import { isSelectable } from "./selection.ts";
 
-/** Keyboard dragging jumps from cell to cell in the arrow's direction instead of by pixels. */
+/** What a droppable stands for: a cell of a state, or a card of the dragged task's own column. */
+type DropData = { state: TaskState; card?: string };
+const CARD = "card:";
+
+/**
+ * A card under the pointer (or under the dragged card, with the keyboard) wins over its cell:
+ * dropping on it reorders. Only cards of the dragged task's column are droppable.
+ */
+export const cardsFirst: CollisionDetection = (args) => {
+  const pointer = pointerWithin(args);
+  const hits = pointer.length > 0 ? pointer : rectIntersection(args);
+  const card = hits.find((hit) => String(hit.id).startsWith(CARD));
+  return card ? [card] : hits;
+};
+
+/**
+ * Keyboard dragging jumps from cell to cell in the arrow's direction instead of by pixels, and
+ * from card to card within the task's own column, where a drop reorders.
+ */
 export const cellToCell: KeyboardCoordinateGetter = (event, { context, currentCoordinates }) => {
   const step = (
     { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] } as Record<
@@ -43,10 +77,14 @@ export const cellToCell: KeyboardCoordinateGetter = (event, { context, currentCo
   event.preventDefault();
   const cx0 = from.left + from.width / 2;
   const cy0 = from.top + from.height / 2;
+  const own = (context.active?.data.current as DropData | undefined)?.state;
   let best: { score: number; dx: number; dy: number } | undefined;
   for (const container of context.droppableContainers.getEnabled()) {
     const rect = container.rect.current;
     if (!rect) continue;
+    // In its own column the task goes onto the other cards; the cell itself changes nothing.
+    const target = container.data.current as DropData | undefined;
+    if (own && target?.state === own && !target.card) continue;
     const dx = rect.left + rect.width / 2 - cx0;
     const dy = rect.top + rect.height / 2 - cy0;
     const along = dx * step[0] + dy * step[1];
@@ -99,26 +137,50 @@ function DraggableCard({
   task,
   external,
   disabled,
+  dragged,
   onOpen,
   selection,
 }: {
   task: BoardTask;
   external: boolean;
   disabled: boolean;
+  /** The card being dragged, if any: this one takes it when both are in the same column. */
+  dragged: BoardTask | null;
   onOpen: () => void;
   selection: BoardSelection;
 }) {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: task.id,
     disabled,
+    data: { state: task.state } satisfies DropData,
     attributes: { roleDescription: t("board.draggable") },
   });
+  // Done work keeps its own order (by closing date), so nothing is reordered there.
+  const takes =
+    dragged !== null &&
+    dragged.id !== task.id &&
+    dragged.state === task.state &&
+    task.state !== "done";
+  const drop = useDroppable({
+    id: `${CARD}${task.id}`,
+    data: { state: task.state, card: task.id } satisfies DropData,
+    disabled: disabled || !takes,
+  });
+  const side =
+    takes && drop.isOver && dragged
+      ? "before" in reorderOnto(dragged, task)
+        ? "before"
+        : "after"
+      : null;
   if (disabled)
     return <Card task={task} external={external} onOpen={onOpen} selection={selection} />;
   return (
     // biome-ignore lint/a11y/useSemanticElements: a <button> cannot contain the card's <article>/<h3>.
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        drop.setNodeRef(node);
+      }}
       {...attributes}
       // dnd-kit's attributes already set these; restated so the linter sees them.
       role="button"
@@ -129,7 +191,7 @@ function DraggableCard({
         if (event.target === event.currentTarget) listeners?.onKeyDown?.(event);
       }}
       aria-label={`${t("board.drag", { id: task.id })}: ${task.title}`}
-      className={cx("b-drag", isDragging && "b-drag--source")}
+      className={cx("b-drag", isDragging && "b-drag--source", side && `b-drag--${side}`)}
     >
       <Card task={task} external={external} onOpen={onOpen} selection={selection} />
     </div>
@@ -183,6 +245,7 @@ export function Board({
   const doc = useMemo(() => toDocument(board), [board]);
   const [active, setActive] = useState<BoardTask | null>(null);
   const move = useMoveTask(board.project.id);
+  const reorder = useReorderTask(board.project.id);
   const toast = useToast();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -192,7 +255,20 @@ export function Board({
   const lanes = boardLanes(board, swimlanes, visible);
   const byId = useMemo(() => new Map(board.tasks.map((task) => [task.id, task])), [board.tasks]);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
-  const stateOf = (over: Over | null) => over?.data.current?.state as TaskState | undefined;
+  const dropOf = (over: Over | null) => over?.data.current as DropData | undefined;
+  const stateOf = (over: Over | null) => dropOf(over)?.state;
+  /** The reorder a drop on `over` means: only onto another card of the task's own column. */
+  const reorderOf = (id: string, over: Over | null): (Reorder & { other: string }) | null => {
+    const task = byId.get(id);
+    const other = byId.get(dropOf(over)?.card ?? "");
+    if (!task || !other || other.id === task.id || other.state !== task.state) return null;
+    return { ...reorderOnto(task, other), other: other.id };
+  };
+  const onRefused = (task: BoardTask) => (error: Error) => {
+    if (error instanceof ApiError && error.unauthorized) return;
+    const code = error instanceof ApiError ? error.code : "error";
+    toast.show(opErrorText(code, task.id, error.message), "error");
+  };
 
   const commit = (task: BoardTask, plan: MovePlan & { ok: true }) =>
     move.mutate(
@@ -201,11 +277,7 @@ export function Board({
         onSuccess: () => {
           toast.show(t(DONE_KEYS[plan.op] ?? "move.done.other", { id: task.id }), "success");
         },
-        onError: (error) => {
-          if (error instanceof ApiError && error.unauthorized) return;
-          const code = error instanceof ApiError ? error.code : "error";
-          toast.show(opErrorText(code, task.id, error.message), "error");
-        },
+        onError: onRefused(task),
       },
     );
 
@@ -216,6 +288,12 @@ export function Board({
     const task = byId.get(String(dragged.id));
     const to = stateOf(over);
     if (!task || !to) return;
+    const place = reorderOf(task.id, over);
+    if (place) {
+      const { other: _other, ...where } = place;
+      reorder.mutate({ task, ...where }, { onError: onRefused(task) });
+      return;
+    }
     const plan = planMove(doc, task.id, to);
     if (!plan.ok) {
       const text = refusalText(plan, task.id);
@@ -230,6 +308,12 @@ export function Board({
     onDragOver: ({ active: a, over }) => {
       const to = stateOf(over);
       if (!to) return t("board.dnd.none", { id: String(a.id) });
+      const place = reorderOf(String(a.id), over);
+      if (place)
+        return t("before" in place ? "board.dnd.over.before" : "board.dnd.over.after", {
+          id: String(a.id),
+          other: place.other,
+        });
       const ok = planMove(doc, String(a.id), to).ok;
       return t(ok ? "board.dnd.over.ok" : "board.dnd.over.no", {
         id: String(a.id),
@@ -238,6 +322,12 @@ export function Board({
     },
     onDragEnd: ({ active: a, over }) => {
       const to = stateOf(over);
+      const place = reorderOf(String(a.id), over);
+      if (place)
+        return t("before" in place ? "board.dnd.end.before" : "board.dnd.end.after", {
+          id: String(a.id),
+          other: place.other,
+        });
       return to
         ? t("board.dnd.end", { id: String(a.id), state: stateLabel(to) })
         : t("board.dnd.cancel", { id: String(a.id) });
@@ -254,6 +344,7 @@ export function Board({
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={cardsFirst}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={() => setActive(null)}
@@ -281,6 +372,7 @@ export function Board({
                   task={task}
                   external={flagged.has(task.id)}
                   disabled={readOnly}
+                  dragged={active}
                   onOpen={() => onOpen(task.id)}
                   selection={selection}
                 />

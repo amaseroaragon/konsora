@@ -74,6 +74,10 @@ export const HINTS = {
     cli: "Pass --title, --desc, --criterion, --labels or --group.",
     mcp: "Pass title, desc, acceptance, labels or group.",
   },
+  movePlace: {
+    cli: "Pass exactly one of --before <id>, --after <id> or --top.",
+    mcp: "Pass exactly one of before, after or top.",
+  },
   notAgent: {
     cli: "Human actions (reopen, answer) happen in the Konsora UI.",
     mcp: "Human actions (reopen, answer) happen in the Konsora UI; set KONSORA_AGENT to the agent's name.",

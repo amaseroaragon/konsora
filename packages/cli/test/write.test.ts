@@ -284,6 +284,45 @@ describe("planning commands", () => {
     expect((await run(["delete", "BE-03"])).code).toBe(EXIT.ok);
   });
 
+  it("move reorders a task and `ready` follows the new order (CORE-11)", async () => {
+    await run(["propose", "Six", "--group", "BE"]);
+    await run(["propose", "Seven", "--group", "BE"]);
+    const ready = async () =>
+      (await run(["ready", "--json"])).json().map((x: { id: string }) => x.id);
+    expect(await ready()).toEqual(["BE-04", "BE-06", "BE-07"]);
+
+    expect((await run(["move", "be-07", "--top"])).stdout).toBe("Moved BE-07 to the top.\n");
+    expect(await ready()).toEqual(["BE-07", "BE-04", "BE-06"]);
+    const before = bytes();
+    expect((await run(["move", "BE-04", "--after", "be-06"])).stdout).toBe(
+      "Moved BE-04 after BE-06.\n",
+    );
+    expect(await ready()).toEqual(["BE-07", "BE-06", "BE-04"]);
+    // Only the moved task changed: its rank and its date.
+    const changed = before.split("\n").filter((line, i) => line !== bytes().split("\n")[i]);
+    expect(changed.map((line) => line.trim().split(":")[0])).toEqual(['"rank"', '"updated_at"']);
+    expect((await run(["move", "BE-06", "--before", "BE-07", "--json"])).json().changed).toEqual([
+      "BE-06",
+    ]);
+    expect(await ready()).toEqual(["BE-06", "BE-07", "BE-04"]);
+    expect((await run(["status"])).stdout).toMatch(
+      /Ready to start:\n\s+BE-06 .*\n\s+BE-07 .*\n\s+BE-04 /,
+    );
+
+    const none = await run(["move", "BE-04"]);
+    expect(none.code).toBe(EXIT.usage);
+    expect(none.stderr).toContain(
+      "Hint: Pass exactly one of --before <id>, --after <id> or --top.",
+    );
+    expect((await run(["move", "BE-04", "--top", "--after", "BE-06"])).code).toBe(EXIT.usage);
+    const done = await run(["move", "BE-01", "--top"]);
+    expect(done.code).toBe(EXIT.failure);
+    expect(done.stderr).toContain("only humans can change finished work");
+    expect((await run(["move", "BE-04", "--before", "BE-99"])).stderr).toContain(
+      "Task BE-99 does not exist",
+    );
+  });
+
   it("has no block commands or options any more", async () => {
     const help = await run(["--help"]);
     expect(help.stdout).not.toMatch(/\bblocks?\b|merge/i);

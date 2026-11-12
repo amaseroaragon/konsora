@@ -163,6 +163,34 @@ export function editOp(id: string, input: EditInput): Op {
   return { op: "edit", task: id.toUpperCase(), changes };
 }
 
+export type MoveInput = {
+  before?: string | undefined;
+  after?: string | undefined;
+  top?: boolean | undefined;
+};
+
+/** Builds a `move` op: exactly one of before, after or top. */
+export function moveOp(id: string, input: MoveInput): Extract<Op, { op: "move" }> {
+  const given = [input.before, input.after, input.top ? "top" : undefined].filter(
+    (place) => place !== undefined,
+  );
+  if (given.length !== 1)
+    throw new CliError("Say where to move it, once.", HINTS.movePlace, EXIT.usage);
+  return {
+    op: "move",
+    task: id.toUpperCase(),
+    ...(input.before ? { before: input.before.toUpperCase() } : {}),
+    ...(input.after ? { after: input.after.toUpperCase() } : {}),
+    ...(input.top ? { top: true } : {}),
+  };
+}
+
+export function describeMove(op: Extract<Op, { op: "move" }>): string {
+  if (op.before) return `before ${op.before}`;
+  if (op.after) return `after ${op.after}`;
+  return "to the top";
+}
+
 export type WriteOutcome =
   | { ok: true; document: TasksDocument; created: string[]; changed: string[] }
   | { ok: false; error: OpError };
@@ -354,6 +382,24 @@ export function registerWriteCommands(
           opts,
           () => `Updated ${id.toUpperCase()}.\n`,
         );
+      },
+    );
+
+  withAgent(program.command("move"))
+    .description(
+      "reorder a task that is not done: before or after another one, or first of all (the order is what `konsora ready` follows)",
+    )
+    .argument("<id>")
+    .option("--before <id>", "place it right before this task")
+    .option("--after <id>", "place it right after this task")
+    .option("--top", "place it first of all")
+    .action(
+      async (
+        id: string,
+        opts: { before?: string; after?: string; top?: boolean; as?: string; json?: boolean },
+      ) => {
+        const op = moveOp(id, opts);
+        await apply(op, opts, () => `Moved ${id.toUpperCase()} ${describeMove(op)}.\n`);
       },
     );
 
