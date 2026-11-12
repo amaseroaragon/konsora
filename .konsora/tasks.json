@@ -1,5 +1,5 @@
 {
-  "schema": "konsora/4",
+  "schema": "konsora/5",
   "project": {
     "name": "Konsora"
   },
@@ -26,11 +26,11 @@
     }
   ],
   "seq": {
-    "CORE": 4,
+    "CORE": 8,
     "CLI": 2,
     "MCP": 1,
-    "DMN": 2,
-    "UI": 3
+    "DMN": 4,
+    "UI": 7
   },
   "tasks": [
     {
@@ -188,15 +188,197 @@
       ]
     },
     {
+      "id": "CORE-05",
+      "title": "Historial de tareas hechas en core",
+      "state": "done",
+      "group": "CORE",
+      "rank": "zzi",
+      "desc": "Función pura `completionLog(doc)` en core que devuelve el historial: una entrada por tarea en done (id, título, grupo, bloque, quién la terminó, resumen y fecha de cierre) y una por bloque integrado (id, nombre, commit, forma del merge y fecha), de la más reciente a la más antigua. La fecha de cierre de una tarea es la de su última nota summary y, sin ella, su updated_at. Sustituye a la aprobación como forma de ver qué han cerrado los agentes.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una tarea hecha toma como fecha la de su última nota summary y, sin ella, su updated_at (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Los bloques integrados aparecen con su commit y todas las entradas salen de la más reciente a la más antigua (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Las tareas que no están en done no aparecen (test)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:25:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:28:58Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:28:03Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir completionLog(doc) en packages/core/src/graph.ts (o un módulo history.ts), exportarlo y cubrir los criterios con tests."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:28:58Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "completionLog(doc) en packages/core/src/history.ts, exportado desde @konsora/core (commit 92a6152 en konsora/historial). ac1: test \"dates a done task by its last summary note, else by updated_at\" (usa la última nota summary aunque haya otra anterior y una nota normal después; sin summary usa updated_at y no incluye by ni summary). ac2: test \"lists merged blocks with their commit, everything newest first\" (bloque con commit, forma, rama y base; a igual segundo el merge va antes que la tarea; los bloques sin merge no salen). ac3: test \"leaves out tasks that are not done\" (proposed, todo y doing con summary quedan fuera). npm run check: 581 tests en verde."
+        }
+      ]
+    },
+    {
+      "id": "CORE-06",
+      "title": "Documentar el Historial y actualizar el estado del proyecto",
+      "state": "done",
+      "group": "CORE",
+      "deps": [
+        "UI-04"
+      ],
+      "rank": "zzv",
+      "desc": "Añadir el Historial a arquitectura.md (vistas de la web) y a roadmap.md, y actualizar «Estado actual» de CLAUDE.md: las pruebas manuales de M11/M12 ya están hechas salvo la del panel de IA, y existe la vista Historial.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "arquitectura.md y roadmap.md describen el Historial y de dónde sale la fecha de cierre"
+        },
+        {
+          "id": "ac2",
+          "text": "El «Estado actual» de CLAUDE.md refleja las pruebas manuales hechas y lo que queda"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:25:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:35:11Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:34:46Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir el Historial a arquitectura.md (web) y roadmap.md, y actualizar el Estado actual de CLAUDE.md."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:35:11Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 43eb580 en konsora/historial. ac1: arquitectura.md describe la vista Historial (?view=history), su origen (completionLog) y de dónde sale la fecha de cierre (última nota summary o updated_at; merged para los bloques). roadmap.md añade el hito M13 con su criterio de hecho y reformula dos ideas que han quedado desfasadas. ac2: el «Estado actual» de CLAUDE.md dice que M11, M12 y M13 están implementados y que las pruebas manuales están hechas salvo una conversación real del panel de IA (DMN-03), y menciona completionLog y la vista Historial."
+        }
+      ]
+    },
+    {
+      "id": "CORE-07",
+      "title": "Crear ideas desde batch",
+      "state": "done",
+      "group": "CORE",
+      "rank": "zzy",
+      "desc": "El prompt de planificación pide crear las ideas con estado «proposed», pero `batch` no acepta ese campo: hoy solo se crean con `propose` e `idea: true`. Permitir `idea: true` en cada tarea de `batch` (CLI, MCP y modo plan) y que el prompt lo describa así.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Un batch con una tarea `idea: true` la crea en proposed y deja el resto en todo (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "El prompt de planificación y `konsora batch --help` nombran `idea: true` (snapshot y test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La tool batch del MCP acepta `idea` en sus tareas (test)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:25:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:39:23Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:37:43Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir idea?: boolean a las tareas de batch (op-schema, ops), en la CLI (ayuda) y en la tool batch del MCP; corregir el prompt de planificación."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:39:23Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit dd02183 en main. Las tareas de batch aceptan idea: true (op de core, JSON de la CLI y tool batch del MCP, que comparten BatchSchema). ac1: test de core \"batch creates a task with idea: true as an idea and the rest in todo\" (idea:false y sin campo van a todo) y test de CLI con konsora batch. ac2: el prompt de planificación nombra idea: true (snapshot actualizado) y `konsora batch --help` lo documenta (test de la ayuda). ac3: la prueba de paridad CLI/MCP incluye una tarea con idea: true y comprueba que en el MCP queda en proposed. También se actualizaron la skill (las dos copias) y esquema-tareas.md. npm run check: 579 tests en verde."
+        }
+      ]
+    },
+    {
+      "id": "CORE-08",
+      "title": "Retirar los bloques",
+      "state": "done",
+      "group": "CORE",
+      "rank": "zzzx",
+      "desc": "Decisión del humano: los bloques (tareas en una rama y merge desde la UI) tenían sentido cuando Konsora lanzaba agentes, pero ya no. Se retiran de core (esquema konsora/5 sin blocks ni task.block, con migración v4→v5), CLI, MCP, daemon (merge y git), web (vista Bloques, selector, menú, Historial) y docs. Konsora deja de tocar git.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "El esquema konsora/5 no tiene blocks ni task.block, y konsora migrate --write convierte un v4 con bloques (informa de los bloques y ramas que quita)"
+        },
+        {
+          "id": "ac2",
+          "text": "No queda ningún comando, tool MCP, ruta del daemon ni vista de la web de bloques, y el daemon no ejecuta git"
+        },
+        {
+          "id": "ac3",
+          "text": "npm run check en verde y docs, skill y CLAUDE.md sin bloques"
+        },
+        {
+          "id": "ac4",
+          "text": "El backlog del repo está migrado a konsora/5 y todo (incluido el bloque historial) está en main"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T11:12:34Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T11:25:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T11:12:34Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Merge de konsora/historial en main primero (su Historial también usa bloques), después retirar los bloques en todos los paquetes con esquema konsora/5."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T11:18:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Core, CLI y MCP ya sin bloques; esquema konsora/5 con migración v4→v5 y pista de `konsora migrate` para planes antiguos. Backlog del repo migrado con `konsora migrate --write`."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-12T11:25:44Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 783de51 en main, después del merge a mano de konsora/historial (4025443). ac1: konsora/5 sin blocks ni task.block; konsora migrate --write convierte un v4 con bloques y lista los que quita con su rama y si estaban integrados (tests de core y CLI; el backlog de este repo se migró así). ac2: sin comandos, opciones ni tools MCP de bloques (test que lo comprueba), sin rutas de merge ni git en el daemon (git.ts borrado) y sin vista Bloques, selector ni menú «Mover a…» en la web; ningún código de Konsora ejecuta git. ac3: npm run check con 582 tests en verde; docs, skill (las dos copias) y CLAUDE.md sin bloques, con el hito M14 en el roadmap. ac4: todo está en main y la rama konsora/historial se borró tras el merge. Extra: un plan antiguo abre en solo lectura con la pista de konsora migrate en la CLI y en la UI (probado en Chrome headless)."
+        }
+      ]
+    },
+    {
       "id": "CLI-01",
       "title": "Instalación en proyectos: CLI global e init con Claude Code",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "deps": [
         "CORE-02"
       ],
       "rank": "v",
-      "desc": "`npm run install:global` enlaza el comando `konsora`. `konsora init` crea el plan v3, la skill `.claude/skills/konsora/SKILL.md` y la entrada `konsora` en `.mcp.json` (`--no-claude` lo evita), sin tocar `~/.claude` ni otras entradas de `.mcp.json`.",
+      "desc": "`npm run install:global` enlaza el comando `konsora`. `konsora init` crea el plan v4, la skill `.claude/skills/konsora/SKILL.md` y la entrada `konsora` en `.mcp.json` (`--no-claude` lo evita), sin tocar `~/.claude` ni otras entradas de `.mcp.json`.",
       "acceptance": [
         {
           "id": "ac1",
@@ -215,7 +397,23 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T10:36:38Z"
+      "updated_at": "2026-11-12T10:16:22Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:15:25Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "ac1 y ac2 ya están cubiertos por tests (mcp-config.test.ts, cli.test.ts). Hago la prueba manual de ac3 con npm run install:global y un init real en un repo temporal; actualizo la descripción (v3 → v4)."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:16:22Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: cubierto por mcp-config.test.ts (\"init writes the skill and .mcp.json in the project, never HOME\") y cli.test.ts; además, un konsora init real en un repo temporal dejó solo .konsora/tasks.json (konsora/4), la skill y .mcp.json con `konsora mcp`. ac2: cubierto por mcp-config.test.ts (conserva otros servidores y no sobrescribe un .mcp.json inválido). ac3: npm run install:global enlaza el binario en el prefijo de nvm y `konsora --version` da 0.0.0 desde el PATH. De paso se corrigió el texto de init y de konsora plan, que aún hablaba de aprobar propuestas (commit 62deca9). npm run check: 577 tests en verde."
+        }
+      ]
     },
     {
       "id": "CLI-02",
@@ -259,7 +457,7 @@
     {
       "id": "MCP-01",
       "title": "Sesión real de Claude Code con el MCP instalado por init",
-      "state": "todo",
+      "state": "done",
       "group": "MCP",
       "deps": [
         "CLI-01"
@@ -269,18 +467,34 @@
       "acceptance": [
         {
           "id": "ac1",
-          "text": "La sesión propone una tarea con el MCP y `konsora status` la muestra como proposed"
+          "text": "La sesión crea una tarea con el MCP y `konsora status` la muestra en todo (Por hacer)"
         },
         {
           "id": "ac2",
-          "text": "Tras aprobarla en la UI, la sesión la empieza, anota y termina, y llega a review con su resumen"
+          "text": "La sesión la empieza, anota y termina con el MCP, y la tarea queda en done con su resumen de cierre"
         }
       ],
       "created": {
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T10:36:39Z"
+      "updated_at": "2026-11-12T10:17:26Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:16:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Prueba con `claude -p` real en un repo temporal recién inicializado con konsora init: el servidor se carga desde .mcp.json (aprobado con enabledMcpjsonServers en .claude/settings.local.json, como haría el humano) y solo se permiten las herramientas mcp__konsora__*."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:17:26Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Prueba real con claude 2.1.322 (`claude -p`, modelo sonnet) en un repo temporal recién inicializado con el konsora global. El servidor konsora se cargó desde el .mcp.json de init (source: project, connected) tras aprobarlo con enabledMcpjsonServers, y solo se permitieron las herramientas mcp__konsora__* (más Write y git add/commit en la 2.ª sesión). ac1: la sesión cargó la skill y llamó a propose; `konsora status` mostró TASK-01 en todo y ready. ac2: una segunda sesión llamó a show, start, note y finish por el MCP, e hizo commit solo de README.md; TASK-01 quedó en done con sus notas y el resumen de cierre. Los criterios se actualizaron antes a M12 (ya no hay proposed→aprobar→review). No hizo falta cambiar código."
+        }
+      ]
     },
     {
       "id": "DMN-01",
@@ -361,9 +575,102 @@
       ]
     },
     {
+      "id": "DMN-03",
+      "title": "Prueba manual del panel de IA con claude real",
+      "state": "done",
+      "group": "DMN",
+      "rank": "zzz",
+      "desc": "El panel de IA solo tiene tests con un `claude` simulado. Probarlo en `konsora ui` con el `claude` real y el login del usuario.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una conversación en el panel crea tareas con batch y aparecen en el tablero sin recargar (prueba manual)"
+        },
+        {
+          "id": "ac2",
+          "text": "El panel muestra las herramientas usadas y deja detener una respuesta en curso (prueba manual)"
+        },
+        {
+          "id": "ac3",
+          "text": "En un proyecto en solo lectura el panel no deja enviar (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:25:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:43:14Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:39:31Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Prueba en Chrome headless contra el daemon aislado (proyecto temporal uiproj): conversación real con claude -p que crea tareas con batch, herramientas visibles, Detener, y solo lectura con un tasks.json inválido."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:43:14Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Prueba con claude 2.1.322 real en Chrome headless contra un daemon aislado (proyecto temporal). ac1: un mensaje en el panel creó con un solo batch TASK-12, TASK-13 (que depende de la anterior) y la idea TASK-14 con idea: true; las tres aparecieron en el tablero sin recargar. ac2: el panel muestra las herramientas usadas (ToolSearch, list, Bash, «batch (3 tasks)») y «Detener» corta la respuesta sin crear nada. Se corrigió un fallo: claude sale con 143 ante SIGTERM y se mostraba «Claude Code exited with code 143» como error; ahora sale «■ Respuesta detenida.» (commit 4873e92, con un test que falla sin la corrección). ac3: con el tasks.json inválido el proyecto pasa a solo lectura y el panel desactiva el mensaje y «Enviar» con su aviso; al restaurar el fichero vuelve a funcionar. Hallazgos para otras tareas: el agente del panel ejecuta Bash de lectura (ls; cat README.md), que Claude Code aprueba sin preguntar, así que la doc que dice que las herramientas fuera de la lista se rechazan es inexacta; y el Markdown del panel no pinta tablas."
+        }
+      ]
+    },
+    {
+      "id": "DMN-04",
+      "title": "Fijar los permisos del agente del panel de IA",
+      "state": "done",
+      "group": "DMN",
+      "rank": "zzzi",
+      "desc": "En la prueba real (DMN-03), el agente del panel ejecutó `ls; cat README.md` con Bash: Claude Code aprueba sin preguntar las herramientas de lectura (Read, Glob, Grep y Bash de solo lectura) aunque no estén en --allowedTools. Escribir no puede, pero solo porque el modo de permisos por defecto lo impide: si el usuario tiene `acceptEdits` o `bypassPermissions` como modo por defecto, el panel podría editar ficheros. El daemon debe fijar el modo de permisos y negar expresamente las herramientas de escritura, y la doc (arquitectura.md, CLAUDE.md) debe decir qué puede leer el agente. Pendiente de decidir: permitir la lectura del código (lo que ya pide el prompt de planificación) o dejar al agente solo con el MCP.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Los argumentos de claude -p fijan el modo de permisos y niegan Write, Edit y NotebookEdit (test de chat.test.ts)"
+        },
+        {
+          "id": "ac2",
+          "text": "La lectura del código queda permitida o negada según la decisión, y la doc lo describe con exactitud"
+        },
+        {
+          "id": "ac3",
+          "text": "Con `claude` real y `defaultMode: acceptEdits` en los ajustes del proyecto, pedirle al panel que cree un fichero no crea nada (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:43:30Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:59:40Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:52:57Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Decisión del humano: el agente del panel puede leer el código. Fijar --permission-mode default y negar Write, Edit, NotebookEdit y Bash (lo que permitan los ajustes del proyecto no debe abrir la escritura); lista en core junto a PLAN_TOOLS; actualizar doc y prompt."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:59:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Tras el Merge del bloque historial, quitar de roadmap.md la idea «Panel de IA con lectura del código», que ya está hecha. No se toca ahora porque la fila está pegada a otras que cambia ese bloque y daría conflicto."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-12T10:59:40Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 5bdb111 en main. Decisión del humano: el agente puede leer el código. ac1: claude -p recibe --tools=Glob,Grep,Read,ToolSearch (PLAN_BUILTIN_TOOLS en core), --disallowedTools=Bash,Edit,NotebookEdit,Write (PLAN_DENIED_TOOLS) y --permission-mode default (test en chat.test.ts). ac2: la lectura queda permitida, y arquitectura.md (panel de IA y ADR 8) y la regla de CLAUDE.md describen exactamente lo que tiene. ac3: con claude real, a través del daemon, y con los ajustes del proyecto en defaultMode acceptEdits más allow de Write, Edit y Bash(touch:*): pedirle que cree NOTAS.md, directamente o con un subagente, no creó nada; leyó GUIDE.md y creó una tarea con batch. La fila del roadmap queda pendiente (ver nota)."
+        }
+      ]
+    },
+    {
       "id": "UI-01",
       "title": "UI de gestor: crear tareas, acciones en lote y panel de IA",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-01"
@@ -388,31 +695,28 @@
         "at": "2026-11-11T09:46:52Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T10:36:55Z"
-    },
-    {
-      "id": "UI-02",
-      "title": "Tarea de prueba del panel de IA",
-      "state": "todo",
-      "group": "UI",
-      "rank": "zr",
-      "desc": "Tarea ficticia para comprobar el flujo de propuesta y aprobación desde el panel de IA. No requiere trabajo y se eliminará después.",
-      "acceptance": [
+      "updated_at": "2026-11-12T10:21:35Z",
+      "notes": [
         {
-          "id": "ac1",
-          "text": "La tarea aparece en el tablero de `konsora ui` como propuesta."
+          "id": "n1",
+          "at": "2026-11-12T10:18:57Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "ac1 y ac2 ya tienen tests. Prueba manual de ac3 con Chrome real (headless, controlado por DevTools) contra un daemon aislado sobre un proyecto temporal: tablero, grafo, crear, editar, pasar a Por hacer y eliminar."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:21:35Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1 y ac2: cubiertos por los tests de la web (577 tests en verde). ac3: prueba en Chrome real (headless, controlado por DevTools) contra un daemon aislado (XDG en el scratchpad) con un proyecto temporal. El tablero y el grafo cargaron (el grafo con la arista TASK-01 → TASK-02). Se creó TASK-05 desde «Nueva tarea» (llegó a todo en el fichero y se abrió su panel), se editó el título de TASK-03 con «Guardar cambios», la idea TASK-04 pasó a Por hacer desde su panel, y se eliminaron TASK-05 desde el panel y TASK-03 y TASK-04 en lote desde la barra de selección (cada paso comprobado con konsora list). Las confirmaciones nativas se interceptaron para leer su texto. Se corrigió el singular de la confirmación en lote (commit c2caf37). No se probó una conversación real del panel de IA."
         }
-      ],
-      "created": {
-        "at": "2026-11-11T10:00:10Z",
-        "by": "agent:claude"
-      },
-      "updated_at": "2026-11-11T10:00:34Z"
+      ]
     },
     {
       "id": "UI-03",
       "title": "UI: eliminar, pasar a Por hacer y vista de bloques con Merge",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "deps": [
         "DMN-02"
@@ -437,7 +741,7 @@
         "at": "2026-11-11T10:35:10Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-11T10:36:44Z",
+      "updated_at": "2026-11-12T10:22:15Z",
       "notes": [
         {
           "id": "n1",
@@ -445,6 +749,207 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Implementado y con tests de componentes (panel, selección y vista Bloques). El merge se ha probado de punta a punta contra el daemon real por la API. Falta la prueba manual en el navegador (ac3); por eso sigue en Por hacer."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:21:41Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "ac1 y ac2 tienen tests. ac3: Merge en Chrome headless real contra un daemon aislado, con un proyecto temporal cuyo bloque docs tiene dos tareas hechas y dos commits en konsora/docs."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-12T10:22:15Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1 y ac2: cubiertos por los tests de componentes (577 en verde); además, en el navegador el panel de una idea ofrece «Pasar a Por hacer» y «Eliminar», y el de una tarea en Por hacer solo «Eliminar». ac3: en Chrome real (headless, por DevTools) contra un daemon aislado con un proyecto temporal, la vista Bloques mostró docs «Listo para merge, 2 de 2 hechas». «Hacer merge en main» (squash) pidió confirmación («¿Hacer merge de konsora/docs en main? Es local: no se hace push.») y dejó un solo commit 9ec45f1 «Documentación» en main, con las tareas y Konsora-Block: docs, sin tocar el árbol de trabajo. El bloque pasó a «Integrado». Extra: un bloque con conflicto en README.md se rechazó con «konsora/conf choca con main: no se ha cambiado nada…», con el fichero listado y main intacto. Pendiente de estilo: la vista Bloques se ve poco pulida (lista con viñeta, la etiqueta pegada al estado y espaciados desiguales en «Nuevo bloque»)."
+        }
+      ]
+    },
+    {
+      "id": "UI-04",
+      "title": "Vista Historial en la web",
+      "state": "done",
+      "group": "UI",
+      "deps": [
+        "CORE-05"
+      ],
+      "rank": "zzr",
+      "desc": "Nueva pestaña «Historial» junto a Tablero, Grafo y Bloques que muestra `completionLog`: entradas agrupadas por día con la hora local, id, título, quién la terminó y la primera línea del resumen, y los merges de bloques. Pulsar una tarea abre su panel con el detalle y el resumen de cierre; pulsar un bloque lleva a la vista Bloques. Se actualiza en vivo con el tablero y pasa por i18n.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "La vista lista las tareas hechas agrupadas por día con su hora, de la más reciente a la más antigua (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Pulsar una entrada abre el panel de esa tarea con su resumen de cierre (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "Sin tareas hechas muestra un estado vacío en español (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "En konsora ui, terminar una tarea con la CLI la hace aparecer en el Historial sin recargar (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:25:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:34:41Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:29:04Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Nueva vista \"history\" en ProjectView (pestaña Historial) con HistoryView.tsx sobre completionLog; entradas por día con hora local; clic abre el panel de la tarea; bloques llevan a la vista Bloques; i18n y tests."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:34:41Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Pestaña «Historial» (HistoryView.tsx e history-model.ts) sobre completionLog, en konsora/historial (commits cd48756 y 245aeac). ac1: tests \"groups the log by local day…\" (Hoy, Ayer y fecha completa, hora HH:MM local; un cierre a las 23:30 UTC cae en el día siguiente en Madrid) y \"lists entries with time, who finished them…\". ac2: tests de enlaces (cada tarea apunta a ?view=history&task=ID, que parseRoute entiende; el bloque, a Bloques) y de ProjectView en la vista history con el panel y su resumen de cierre. ac3: test del estado vacío en español. ac4: en Chrome headless contra un daemon aislado, `konsora finish` con la vista abierta añadió TASK-09 arriba del todo sin recargar, y pulsarla abrió su panel con el resumen. De paso, los cierres en el mismo segundo salen ahora con el id más alto primero, comparado como número. npm run check: 588 tests en verde."
+        }
+      ]
+    },
+    {
+      "id": "UI-05",
+      "title": "Pulir el estilo de la vista Bloques",
+      "state": "done",
+      "group": "UI",
+      "rank": "zzx",
+      "desc": "La vista Bloques funciona pero se ve poco pulida: los bloques salen como lista con viñetas, la etiqueta del bloque va pegada al estado («DOCSListo para merge») y el formulario «Nuevo bloque» tiene espaciados desiguales. Llevarla al sistema de diseño Plano, como el resto de vistas.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Cada bloque se muestra como una tarjeta de Plano, sin viñetas, con la etiqueta y el estado separados"
+        },
+        {
+          "id": "ac2",
+          "text": "El formulario «Nuevo bloque» tiene el mismo espaciado entre todos sus campos"
+        },
+        {
+          "id": "ac3",
+          "text": "Los tests de la vista Bloques siguen en verde y una captura en konsora ui muestra el resultado (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:25:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T10:37:37Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T10:36:10Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Las clases b-blocks__* no tienen CSS. Añadir estilos de Plano (tarjetas sin viñetas, cabecera con etiqueta y estado separados) y ordenar el formulario Nuevo bloque. En main, con el CSS lejos del final de shell.css para no chocar con el bloque historial."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T10:37:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit en main: las clases b-blocks__* no tenían CSS y ahora tienen una sección propia en shell.css (antes de «Project settings», para no chocar con el bloque historial). ac1: cada bloque es una tarjeta de Plano sin viñetas, con borde izquierdo según el estado (abierto, listo o integrado) y la etiqueta del id separada del estado, que va como etiqueta coloreada. ac2: el formulario «Nuevo bloque» usa una rejilla de dos columnas con el mismo espaciado entre todos los campos (una sola columna por debajo de 720 px). ac3: los tests siguen en verde (577) y una captura en Chrome headless contra un daemon aislado muestra los tres estados y el formulario. «Eliminar bloque» pasa a la variante danger, como «Eliminar» en el panel de tarea, para que quede alineado con el borde."
+        }
+      ]
+    },
+    {
+      "id": "UI-06",
+      "title": "Pintar tablas Markdown en el panel de IA y en los resúmenes",
+      "state": "done",
+      "group": "UI",
+      "rank": "zzzr",
+      "desc": "Claude responde a menudo con tablas Markdown (en DMN-03 listó las tareas creadas en una), pero el renderizador propio (md-parse.ts) no las soporta y se ven como texto con barras. Añadir tablas GFM simples (cabecera, separador y alineación) al parser y al componente Markdown, con estilo de Plano y desplazamiento horizontal si no caben.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "parseMarkdown convierte una tabla GFM en un bloque de tabla con su cabecera, sus filas y la alineación de cada columna (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Una línea con barras que no es una tabla sigue siendo un párrafo (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "En konsora ui, una respuesta del panel con una tabla se ve como tabla (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:43:30Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T11:02:31Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T11:00:22Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir tablas GFM a md-parse.ts (bloque table con cabecera, filas y alineación) y a Markdown.tsx, con estilo de Plano y scroll horizontal."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T11:02:31Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit en main. ac1: parseMarkdown convierte una tabla GFM en un bloque table con cabecera, filas y alineación por columna (test \"parses a GFM table…\"; también cubre la tabla que corta un párrafo, el código y la negrita en celdas, las filas cortas rellenadas y la barra escapada), además de las tablas sin barras exteriores y con celdas de sobra. ac2: las líneas con barras sin fila separadora, con otro número de celdas o con una regla se quedan como párrafo (test). Al renderizar no hay estilos en línea y el HTML de una celda sale como texto (test). ac3: en konsora ui, con claude real, el panel respondió con una tabla y se ve como tabla, con la columna Estado alineada a la derecha (captura en Chrome headless). npm run check: 584 tests en verde."
+        }
+      ]
+    },
+    {
+      "id": "UI-07",
+      "title": "Añadir y quitar tareas existentes de un bloque desde la UI",
+      "state": "done",
+      "group": "UI",
+      "rank": "zzzv",
+      "desc": "Hoy una tarea existente solo cambia de bloque desde el selector «Bloque» de su panel, una a una (o con `set-block` en la CLI y el MCP). Desde la vista Bloques, cada bloque sin integrar debe permitir añadir varias tareas existentes a la vez y quitar cada una con un botón. La barra de selección debe ofrecer «Mover a bloque…» para las tareas seleccionadas. Las reglas ya están en core (set-block): no se tocan los bloques integrados, y los agentes no mueven tareas hechas. Si se mete en el bloque una tarea en curso o hecha, la UI avisa de que sus commits pueden no estar en la rama del bloque.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "En la vista Bloques, un bloque sin integrar permite elegir varias tareas existentes que no estén en un bloque integrado y añadirlas con un solo gesto; cada tarea se envía como un set-block (test)"
+        },
+        {
+          "id": "ac2",
+          "text": "Cada tarea de un bloque sin integrar tiene «Quitar del bloque», que envía set-block con block null; un bloque integrado no ofrece ninguna de las dos acciones (test)"
+        },
+        {
+          "id": "ac3",
+          "text": "La barra de selección ofrece «Mover a bloque…» con los bloques sin integrar y «Sin bloque», y explica en español las tareas que core rechace (test)"
+        },
+        {
+          "id": "ac4",
+          "text": "Añadir una tarea en curso o hecha muestra un aviso de que sus commits pueden no estar en la rama del bloque (test)"
+        },
+        {
+          "id": "ac5",
+          "text": "En konsora ui se añaden dos tareas a un bloque desde su tarjeta, se quita una y se mueve otra desde la selección (prueba manual)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-12T10:59:53Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-12T11:06:27Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-12T11:02:36Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "BlockCard: «Añadir tareas» (lista de casillas con las tareas elegibles) y «Quitar del bloque» por tarea; SelectionBar: «Mover a bloque…»; aviso para tareas en curso o hechas. Lógica de elegibilidad pura en un modelo con tests."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-12T11:06:27Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit en main. ac1: un bloque sin integrar tiene «Añadir tareas», una lista de casillas con las tareas que no están en él ni en un bloque integrado (también las de otro bloque abierto, con «ahora en X»), y las añade de una vez con un set-block por tarea (tests de addCandidates, setBlockOp y del render). ac2: cada tarea de un bloque sin integrar tiene «Quitar» (set-block a null); un bloque integrado o el modo solo lectura no ofrecen ninguna de las dos acciones (test). ac3: la barra de selección tiene el menú «Mover a…» con los bloques abiertos y «Sin bloque» (este, solo si alguna tarea tiene bloque); los rechazos se explican en español con moveErrorText y siguen seleccionados (test). ac4: meter tareas en curso o hechas avisa de que sus commits pueden no estar en la rama del bloque, en la tarjeta y en una confirmación desde la selección (test y prueba). ac5: en konsora ui (Chrome headless, daemon aislado) se añadieron TASK-12 y TASK-13 a «API pública» desde su tarjeta, se quitó TASK-13 y se movieron TASK-14 y TASK-15 desde la selección; con TASK-12 en curso, la confirmación avisó antes de moverla. npm run check: 591 tests en verde."
         }
       ]
     }
