@@ -355,6 +355,62 @@
   justify-content: space-between;
   gap: var(--k-space-4);
 }
+/* What an external change did (UI-22): field by field, before and now. */
+.b-external__diff {
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: var(--k-text-xs);
+}
+.b-external__diff th,
+.b-external__diff td {
+  padding: var(--k-space-3) var(--k-space-4);
+  border-top: 1px solid var(--k-line);
+  text-align: left;
+  vertical-align: top;
+}
+.b-external__diff thead th {
+  border-top: 0;
+  color: var(--k-ink-muted);
+  font-weight: var(--k-weight-medium);
+}
+.b-external__diff tbody th {
+  width: 7rem;
+  white-space: nowrap;
+}
+.b-external__before {
+  color: var(--k-ink-muted);
+}
+.b-external__value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.b-external__clip summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.b-external__clip[open] summary {
+  margin-bottom: var(--k-space-2);
+  color: var(--k-ink-muted);
+}
+.b-external__caption {
+  margin: 0 0 var(--k-space-3);
+  font-weight: var(--k-weight-medium);
+}
+.b-external__lost {
+  margin: 0;
+}
+.b-external__field {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: var(--k-space-4);
+  padding: var(--k-space-3) 0;
+  border-top: 1px solid var(--k-line);
+}
+.b-external__field dd {
+  margin: 0;
+}
 .b-readonly {
   border-left: 3px solid var(--k-danger);
 }

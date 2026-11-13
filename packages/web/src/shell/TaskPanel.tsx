@@ -302,6 +302,7 @@ export function TaskPanel({
         <ExternalChanges
           projectId={projectId}
           flags={external}
+          tasks={doc.tasks}
           readOnly={readOnly}
           showTask={false}
         />

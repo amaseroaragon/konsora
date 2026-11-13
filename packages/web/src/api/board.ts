@@ -21,6 +21,8 @@ export type ExternalFlag = {
   message: string;
   from?: string;
   to?: string;
+  /** The task before the change (null if it was created outside): what «Revertir» restores. */
+  previous?: Task | null;
   detected_at: string;
 };
 type ProjectInfo = Omit<ProjectSummary, "plan">;

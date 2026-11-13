@@ -431,7 +431,12 @@ export function ProjectView({
           {t("project.back")}
         </a>
       </div>
-      <ExternalChanges projectId={projectId} flags={board.external} readOnly={readOnly} />
+      <ExternalChanges
+        projectId={projectId}
+        flags={board.external}
+        tasks={doc.tasks}
+        readOnly={readOnly}
+      />
       {(view === "board" || view === "graph") && board.tasks.length > 0 && (
         <FilterBar
           filter={filter}
