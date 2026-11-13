@@ -2,6 +2,7 @@ import type { Difficulty } from "@konsora/core";
 import { t } from "../i18n/index.ts";
 import { cx } from "./cx.ts";
 import { DifficultyMark } from "./DifficultyMark.tsx";
+import { Labels } from "./Labels.tsx";
 import { StateBadge, type TaskState } from "./StateBadge.tsx";
 
 export type TaskCardProps = {
@@ -15,6 +16,8 @@ export type TaskCardProps = {
   external?: boolean;
   proposedBy?: string;
   difficulty?: Difficulty | undefined;
+  /** The task's labels, shown as chips under the title. */
+  labels?: readonly string[] | undefined;
   selected?: boolean;
   /** Whether the checkbox can be ticked; defaults to ready tasks only. */
   selectable?: boolean;
@@ -32,6 +35,7 @@ export function TaskCard({
   external = false,
   proposedBy,
   difficulty,
+  labels = [],
   selected = false,
   selectable,
   onSelectedChange,
@@ -88,6 +92,7 @@ export function TaskCard({
           title
         )}
       </h3>
+      <Labels labels={labels} className="k-card__labels" />
     </article>
   );
 }

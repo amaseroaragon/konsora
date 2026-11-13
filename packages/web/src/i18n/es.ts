@@ -9,6 +9,7 @@ export const es = {
   "state.ready": "Lista",
   "state.external": "Cambio externo",
   "card.select": "Seleccionar {id}",
+  "labels.label": "Etiquetas",
   "card.blockedBy": "Bloqueada por {ids}",
   "card.proposedBy": "Idea de {actor}",
   "card.open": "Abrir {id}",

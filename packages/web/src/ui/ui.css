@@ -178,6 +178,23 @@ a {
   border-color: var(--k-danger);
 }
 
+/* ── Labels ─────────────────────────────────────────────── */
+.k-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.k-labels__chip {
+  padding: 0 var(--k-space-2);
+  border: 1px solid var(--k-line);
+  color: var(--k-ink-muted);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+}
+
 /* ── Task card ──────────────────────────────────────────── */
 .k-card {
   position: relative;

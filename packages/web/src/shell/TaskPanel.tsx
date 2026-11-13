@@ -10,7 +10,15 @@ import { type FormEvent, useState } from "react";
 import { type BoardTask, type ExternalFlag, useAddNote, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { askConfirm, Button, DifficultyMark, Field, StateBadge, useToast } from "../ui/index.ts";
+import {
+  askConfirm,
+  Button,
+  DifficultyMark,
+  Field,
+  Labels,
+  StateBadge,
+  useToast,
+} from "../ui/index.ts";
 import { choiceAnswer, confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -300,6 +308,7 @@ export function TaskPanel({
           </Button>
         </div>
         <h2 className="a-detail__title">{task.title}</h2>
+        <Labels labels={task.labels} className="a-detail__labels" />
       </div>
       <div className="a-detail__body a-stack">
         {archived && <p className="s-text s-muted">{t("detail.archived.text")}</p>}

@@ -127,6 +127,7 @@ function Card({
       waiting={task.waiting}
       external={external}
       difficulty={task.difficulty}
+      labels={task.labels}
       {...(onOpen ? { onOpen } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
       {...(selection

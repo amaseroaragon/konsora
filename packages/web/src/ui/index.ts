@@ -3,6 +3,7 @@ export { ConfirmHost } from "./ConfirmDialog.tsx";
 export { askConfirm, type ConfirmAsk, type ConfirmOptions } from "./confirm.ts";
 export { DifficultyMark, difficultyLabel } from "./DifficultyMark.tsx";
 export { Field, type FieldProps } from "./Field.tsx";
+export { Labels } from "./Labels.tsx";
 export { Matrix, type MatrixCellProps, type MatrixLane, type MatrixProps } from "./Matrix.tsx";
 export { Menu, type MenuOption, type MenuProps } from "./Menu.tsx";
 export { Panel, type PanelProps } from "./Panel.tsx";
