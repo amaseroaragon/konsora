@@ -36,7 +36,7 @@
 }
 
 .a-board .k-matrix {
-  min-width: 1040px;
+  min-width: var(--k-matrix-min, 1040px);
 }
 
 /* Selection bar */

@@ -1,6 +1,7 @@
 /** Board view model: lanes, drop targets and the Spanish reason for each refused move. */
 import {
   compareByRank,
+  completionLog,
   type MovePlan,
   planMove,
   type TaskState,
@@ -12,31 +13,65 @@ import { type ConfirmAsk, stateLabel, taskStates } from "../ui/index.ts";
 
 export const ALL_LANE = "*";
 
-export type Lane = { id: string; name: string; cells: BoardTask[][] };
+export type Lane = {
+  id: string;
+  name: string;
+  cells: BoardTask[][];
+  /** Done tasks of this lane left out of the board (closed too long ago); the History has them. */
+  hiddenDone: number;
+};
 
 /**
  * One lane per group that has tasks (in plan order), or a single lane with everything. Each cell
  * is in priority order (`rank`), the order dragging a card up or down changes. With `visible` (a
- * filter), only those tasks are laid out.
+ * filter), only those tasks are laid out; `hiddenDone` (see `oldDone`) leave the Done column.
  */
 export function boardLanes(
   board: BoardOk,
   swimlanes: boolean,
   visible?: ReadonlySet<string>,
+  hiddenDone: ReadonlySet<string> = new Set(),
 ): Lane[] {
-  const shown = (
+  const all = (
     visible ? board.tasks.filter((task) => visible.has(task.id)) : [...board.tasks]
   ).sort(compareByRank);
-  const cells = (tasks: BoardTask[]) =>
-    taskStates.map((state) => tasks.filter((task) => task.state === state));
-  if (!swimlanes) return [{ id: ALL_LANE, name: t("board.lane.all"), cells: cells(shown) }];
+  const lane = (id: string, name: string, tasks: BoardTask[]): Lane => {
+    const shown = tasks.filter((task) => !hiddenDone.has(task.id));
+    return {
+      id,
+      name,
+      cells: taskStates.map((state) => shown.filter((task) => task.state === state)),
+      hiddenDone: tasks.length - shown.length,
+    };
+  };
+  if (!swimlanes) return [lane(ALL_LANE, t("board.lane.all"), all)];
   return board.plan.groups
-    .map((group) => ({
-      id: group.id,
-      name: group.name,
-      cells: cells(shown.filter((task) => task.group === group.id)),
-    }))
-    .filter((lane) => lane.cells.some((cell) => cell.length > 0));
+    .map((group) =>
+      lane(
+        group.id,
+        group.name,
+        all.filter((task) => task.group === group.id),
+      ),
+    )
+    .filter((l) => l.hiddenDone > 0 || l.cells.some((cell) => cell.length > 0));
+}
+
+/** How many days of done work the board keeps in sight (UI-19); 0 keeps all of it. */
+export const DONE_WINDOWS = [7, 14, 30, 0] as const;
+export type DoneWindow = (typeof DONE_WINDOWS)[number];
+export const DEFAULT_DONE_WINDOW: DoneWindow = 14;
+
+/** Done tasks closed more than `days` days before `now`: they leave the board for the History. */
+export function oldDone(doc: Pick<TasksDocument, "tasks">, days: number, now: Date): Set<string> {
+  if (days <= 0) return new Set();
+  const cutoff = new Date(now.getTime() - days * 86_400_000)
+    .toISOString()
+    .replace(/\.\d{3}Z$/, "Z");
+  return new Set(
+    completionLog(doc)
+      .filter((entry) => entry.at < cutoff)
+      .map((entry) => entry.id),
+  );
 }
 
 /** Where a card dropped on another one of its column goes: past it, in the direction it came from. */
@@ -136,4 +171,50 @@ export function externalText(flag: ExternalFlag): string {
 export function choiceAnswer(option: string, comment: string): string {
   const extra = comment.trim();
   return extra ? `${option}\n\n${extra}` : option;
+}
+
+const COLLAPSED_KEY = "konsora.board.collapsed";
+const DONE_WINDOW_KEY = "konsora.board.doneDays";
+
+/** The folded columns (UI-19), remembered in this browser; unknown values are ignored. */
+export function readCollapsed(): Set<TaskState> {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(COLLAPSED_KEY) ?? "[]") as unknown;
+    return new Set(
+      Array.isArray(raw)
+        ? raw.filter((s): s is TaskState => (taskStates as readonly unknown[]).includes(s))
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function writeCollapsed(states: ReadonlySet<TaskState>) {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...states]));
+  } catch {
+    // Not persisted; folding still works for this page.
+  }
+}
+
+/** The Done window (UI-19), remembered in this browser. */
+export function readDoneWindow(): DoneWindow {
+  try {
+    const raw = window.localStorage.getItem(DONE_WINDOW_KEY);
+    const value = Number(raw);
+    return raw !== null && (DONE_WINDOWS as readonly number[]).includes(value)
+      ? (value as DoneWindow)
+      : DEFAULT_DONE_WINDOW;
+  } catch {
+    return DEFAULT_DONE_WINDOW;
+  }
+}
+
+export function writeDoneWindow(days: DoneWindow) {
+  try {
+    window.localStorage.setItem(DONE_WINDOW_KEY, String(days));
+  } catch {
+    // Not persisted; the choice still works for this page.
+  }
 }

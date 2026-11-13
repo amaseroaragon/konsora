@@ -17,7 +17,13 @@ import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
 import { Board } from "./Board.tsx";
-import { confirmDelete } from "./board-model.ts";
+import {
+  confirmDelete,
+  DONE_WINDOWS,
+  type DoneWindow,
+  readDoneWindow,
+  writeDoneWindow,
+} from "./board-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
 import { FilterBar } from "./FilterBar.tsx";
@@ -123,6 +129,7 @@ export function ProjectView({
     [board.tasks, visible],
   );
   const [swimlanes, setSwimlanes] = useState(readLanesPref);
+  const [doneDays, setDoneDays] = useState<DoneWindow>(readDoneWindow);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const openedLive = openId ? board.tasks.find((task) => task.id === openId) : undefined;
   // An archived task (CORE-18) opens from the History, read-only.
@@ -243,6 +250,21 @@ export function ProjectView({
             ]}
           />
         )}
+        {view === "board" && (
+          <Segmented
+            label={t("board.done.window")}
+            value={String(doneDays)}
+            onChange={(value) => {
+              const days = Number(value) as DoneWindow;
+              setDoneDays(days);
+              writeDoneWindow(days);
+            }}
+            options={DONE_WINDOWS.map((days) => ({
+              value: String(days),
+              label: days === 0 ? t("board.done.all") : t("board.done.days", { n: days }),
+            }))}
+          />
+        )}
         {!readOnly && (
           <Button
             size="sm"
@@ -321,6 +343,7 @@ export function ProjectView({
                 selection={{ selected, onToggle: toggle }}
                 visible={visible}
                 readOnly={readOnly}
+                doneDays={doneDays}
               />
             )}
           </div>

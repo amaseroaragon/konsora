@@ -276,6 +276,38 @@ a {
   font-size: var(--k-text-label);
   color: var(--k-ink-muted);
 }
+.k-matrix__fold {
+  padding: 0 var(--k-space-2);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--k-ink-muted);
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.k-matrix__fold:hover {
+  border-color: var(--k-line);
+  color: var(--k-ink);
+}
+.k-matrix__fold:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+/* A folded column: a narrow strip with its mark, count and the button, its name read sideways. */
+.k-matrix__head--collapsed {
+  flex-direction: column;
+  gap: var(--k-space-3);
+  padding: var(--k-space-5) var(--k-space-2);
+}
+.k-matrix__head--collapsed .k-matrix__count {
+  margin-left: 0;
+}
+.k-matrix__head--collapsed .k-matrix__name {
+  writing-mode: vertical-rl;
+}
+.k-matrix__cell--collapsed {
+  padding: 0;
+}
 .k-matrix__lane {
   padding: var(--k-space-6);
   background: var(--k-surface);

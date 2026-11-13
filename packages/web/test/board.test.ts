@@ -11,11 +11,17 @@ import {
 import {
   ALL_LANE,
   boardLanes,
+  DEFAULT_DONE_WINDOW,
   dropTargets,
   externalText,
+  oldDone,
   opErrorText,
+  readCollapsed,
+  readDoneWindow,
   refusalText,
   reorderOnto,
+  writeCollapsed,
+  writeDoneWindow,
 } from "../src/shell/board-model.ts";
 
 const at = "2026-11-02T10:00:00Z";
@@ -231,5 +237,69 @@ describe("external changes", () => {
       "Tarea terminada modificada fuera de Konsora.",
     );
     expect(externalText(flag({ kind: "future_kind" }))).toBe("english");
+  });
+});
+
+describe("the Done column keeps recent work (UI-19)", () => {
+  const closed = (id: string, when: string): Task =>
+    t(id, "done", {
+      updated_at: when,
+      notes: [{ id: "n1", at: when, by: "agent:claude", kind: "summary", text: "ok" }],
+    });
+  const plan: TasksDocument = {
+    ...doc,
+    tasks: [
+      closed("BE-01", "2026-11-12T09:00:00Z"),
+      closed("BE-02", "2026-10-01T09:00:00Z"),
+      closed("FE-01", "2026-10-20T09:00:00Z"),
+      t("FE-02", "todo"),
+    ],
+  };
+  const now = new Date("2026-11-13T10:00:00Z");
+
+  it("leaves out the done tasks closed before the window; 0 keeps all", () => {
+    expect([...oldDone(plan, 7, now)].sort()).toEqual(["BE-02", "FE-01"]);
+    expect([...oldDone(plan, 30, now)]).toEqual(["BE-02"]);
+    expect(oldDone(plan, 0, now).size).toBe(0);
+  });
+
+  it("each lane counts what it left out, and keeps showing when only that is left", () => {
+    const hidden = oldDone(plan, 7, now);
+    const lanes = boardLanes(boardOf(plan), true, undefined, hidden);
+    expect(lanes.map((l) => [l.id, l.hiddenDone, l.cells[3]?.map((x) => x.id)])).toEqual([
+      ["BE", 1, ["BE-01"]],
+      ["FE", 1, []],
+    ]);
+    const single = boardLanes(boardOf(plan), false, undefined, hidden);
+    expect(single[0]?.hiddenDone).toBe(2);
+  });
+});
+
+describe("folded columns and the Done window are remembered (UI-19)", () => {
+  const storage = new Map<string, string>();
+  const fake = {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => void storage.set(key, value),
+  };
+  it("round-trips through localStorage and ignores junk", () => {
+    const global = globalThis as { window?: unknown };
+    const before = global.window;
+    global.window = { localStorage: fake };
+    try {
+      expect(readCollapsed().size).toBe(0);
+      expect(readDoneWindow()).toBe(DEFAULT_DONE_WINDOW);
+      writeCollapsed(new Set(["done", "proposed"]));
+      writeDoneWindow(30);
+      expect([...readCollapsed()].sort()).toEqual(["done", "proposed"]);
+      expect(readDoneWindow()).toBe(30);
+      storage.set("konsora.board.collapsed", '["done","nope"]');
+      storage.set("konsora.board.doneDays", "5");
+      expect([...readCollapsed()]).toEqual(["done"]);
+      expect(readDoneWindow()).toBe(DEFAULT_DONE_WINDOW);
+      storage.set("konsora.board.collapsed", "{");
+      expect(readCollapsed().size).toBe(0);
+    } finally {
+      global.window = before;
+    }
   });
 });

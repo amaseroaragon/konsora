@@ -38,12 +38,17 @@ import {
 } from "../ui/index.ts";
 import {
   boardLanes,
+  DEFAULT_DONE_WINDOW,
   dropTargets,
+  oldDone,
   opErrorText,
   type Reorder,
+  readCollapsed,
   refusalText,
   reorderOnto,
+  writeCollapsed,
 } from "./board-model.ts";
+import { projectHref } from "./route.ts";
 import { isSelectable } from "./selection.ts";
 
 /** What a droppable stands for: a cell of a state, or a card of the dragged task's own column. */
@@ -233,6 +238,8 @@ export function Board({
   selection,
   visible,
   readOnly = false,
+  doneDays = DEFAULT_DONE_WINDOW,
+  now,
 }: {
   board: BoardOk;
   swimlanes: boolean;
@@ -242,6 +249,13 @@ export function Board({
   visible?: ReadonlySet<string> | undefined;
   /** The file is invalid: this is the last valid version, shown without drag or actions. */
   readOnly?: boolean;
+  /**
+   * Days of done work the Done column keeps (UI-19; 0 keeps all); older ones are left to the
+   * History. Ignored while a filter is on, so a search finds them.
+   */
+  doneDays?: number;
+  /** For tests: the instant `doneDays` counts back from. */
+  now?: Date;
 }) {
   const doc = useMemo(() => toDocument(board), [board]);
   const [active, setActive] = useState<BoardTask | null>(null);
@@ -253,7 +267,20 @@ export function Board({
     useSensor(KeyboardSensor, { coordinateGetter: cellToCell }),
   );
   const targets = useMemo(() => (active ? dropTargets(doc, active.id) : null), [doc, active]);
-  const lanes = boardLanes(board, swimlanes, visible);
+  const hidden = useMemo(
+    () => (visible ? new Set<string>() : oldDone(doc, doneDays, now ?? new Date())),
+    [doc, doneDays, visible, now],
+  );
+  const lanes = boardLanes(board, swimlanes, visible, hidden);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<TaskState>>(readCollapsed);
+  const toggleColumn = (state: TaskState) => {
+    const next = new Set(collapsed);
+    if (next.has(state)) next.delete(state);
+    else next.add(state);
+    setCollapsed(next);
+    writeCollapsed(next);
+  };
+  const historyHref = projectHref(board.project.id, { view: "history" });
   const byId = useMemo(() => new Map(board.tasks.map((task) => [task.id, task])), [board.tasks]);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const dropOf = (over: Over | null) => over?.data.current as DropData | undefined;
@@ -357,17 +384,17 @@ export function Board({
       <div className="a-board">
         <Matrix
           label={t("board.label", { name: board.project.name })}
-          columns={taskStates.map((state) => ({
+          columns={taskStates.map((state, index) => ({
             state,
-            count: board.tasks.filter(
-              (task) => task.state === state && (!visible || visible.has(task.id)),
-            ).length,
+            count: lanes.reduce((sum, lane) => sum + (lane.cells[index]?.length ?? 0), 0),
+            collapsed: collapsed.has(state),
+            onToggle: () => toggleColumn(state),
           }))}
           lanes={lanes.map((lane) => ({
             id: lane.id,
             name: lane.name,
-            cells: lane.cells.map((cell) =>
-              cell.map((task) => (
+            cells: lane.cells.map((cell, index) => {
+              const cards = cell.map((task) => (
                 <DraggableCard
                   key={task.id}
                   task={task}
@@ -377,8 +404,15 @@ export function Board({
                   onOpen={() => onOpen(task.id)}
                   selection={selection}
                 />
-              )),
-            ),
+              ));
+              if (taskStates[index] !== "done" || lane.hiddenDone === 0) return cards;
+              return [
+                ...cards,
+                <a key="more" className="b-done-more" href={historyHref}>
+                  {t("board.done.more", { n: lane.hiddenDone })}
+                </a>,
+              ];
+            }),
           }))}
           renderCell={(props) => <DropCell {...props} verdict={verdict(props.state)} />}
         />

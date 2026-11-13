@@ -739,6 +739,19 @@
   display: flex;
   flex-direction: column;
 }
+/* The Done column's way to what it leaves out (UI-19). */
+.b-done-more {
+  padding: var(--k-space-3) var(--k-space-4);
+  border: 1px dashed var(--k-line);
+  color: var(--k-ink-muted);
+  font-size: var(--k-text-xs);
+  text-align: center;
+  text-decoration: none;
+}
+.b-done-more:hover {
+  border-color: var(--k-done);
+  color: var(--k-ink);
+}
 .b-history__entry {
   display: grid;
   grid-template-columns: 3.5rem minmax(0, 1fr);
