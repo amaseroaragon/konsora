@@ -495,6 +495,30 @@
 .b-selection__hint + .a-selection__run {
   margin-left: 0;
 }
+/* Bulk edits of the selection (UI-26): group and label, on a row of their own. */
+.b-selection__bulk {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--k-space-4) var(--k-space-10);
+  padding: var(--k-space-4) var(--k-space-8);
+  border-top: 1px solid var(--k-line);
+}
+.b-selection__group,
+.b-selection__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--k-space-4);
+}
+.b-selection__group .k-field__control {
+  width: auto;
+  max-width: 16rem;
+}
+.b-selection__label .k-field {
+  width: 12rem;
+}
 /* Leave room for the sticky selection bar so it never covers the graph or its controls. */
 .b-board--selecting .g-graph {
   height: max(420px, calc(100vh - 300px));

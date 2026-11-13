@@ -11,6 +11,7 @@ import {
   type BoardOk,
   type LiveState,
   toDocument,
+  useEditTask,
   useTaskAction,
 } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
@@ -24,8 +25,10 @@ import {
   readDoneWindow,
   writeDoneWindow,
 } from "./board-model.ts";
+import { applyBulk, type BulkChange } from "./bulk-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
+import { editErrorText } from "./edit-model.ts";
 import { FilterBar } from "./FilterBar.tsx";
 import { Graph } from "./Graph.tsx";
 import { HistoryView } from "./HistoryView.tsx";
@@ -209,6 +212,48 @@ export function ProjectView({
     dispatchSelection({ type: "clear" });
     if (refused.length > 0) dispatchSelection({ type: "add", ids: refused });
   };
+  const edit = useEditTask(projectId);
+  /**
+   * Applies one bulk change to each selected task, as one `edit` conditioned on the version shown
+   * (UI-26). Tasks that already had it are skipped; the ones refused stay selected, with the reason.
+   */
+  const runBulk = async (change: BulkChange) => {
+    const { changed, refused } = await applyBulk(
+      board.tasks,
+      selectedIds,
+      change,
+      (id, hash, changes) => edit.mutateAsync({ op: "edit", task: id, hash, changes }),
+    );
+    if (refused.some(({ error }) => error instanceof ApiError && error.unauthorized)) return;
+    for (const { id, error } of refused)
+      toast.show(
+        error instanceof ApiError
+          ? editErrorText(
+              {
+                code: error.code,
+                message: error.message,
+                ...(error.details.issues ? { issues: error.details.issues } : {}),
+              },
+              { id },
+            )
+          : String(error),
+        "error",
+      );
+    const n = changed.length;
+    if (n > 0)
+      toast.show(
+        change.kind === "group"
+          ? t("bulk.group.done", { n, group: change.group })
+          : t(change.kind === "label-add" ? "bulk.label.added" : "bulk.label.removed", {
+              n,
+              label: change.label,
+            }),
+        "success",
+      );
+    else if (refused.length === 0) toast.show(t("bulk.none"), "info");
+    dispatchSelection({ type: "clear" });
+    if (refused.length > 0) dispatchSelection({ type: "add", ids: refused.map((r) => r.id) });
+  };
   useEffect(() => {
     if (!openId) return;
     const onKey = (event: KeyboardEvent) => {
@@ -388,7 +433,10 @@ export function ProjectView({
           promotable={promotable}
           deletable={deletable}
           readOnly={readOnly}
-          busy={action.isPending}
+          busy={action.isPending || edit.isPending}
+          groups={board.plan.groups}
+          labels={facets.labels}
+          onBulk={(change) => void runBulk(change)}
           onPromote={(ids) => void runSelected("promote", ids)}
           onDelete={(ids) => void runSelected("delete", ids)}
           onClear={() => dispatchSelection({ type: "clear" })}

@@ -64,7 +64,9 @@ const slug = /^[a-z][a-z0-9-]{0,30}$/;
 export const DifficultySchema = z.enum(["low", "medium", "high"]);
 export const DIFFICULTIES = DifficultySchema.options;
 
-const LabelSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug");
+export const LabelSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug");
 
 /** A template's acceptance criterion: like a task's, without the id (the task numbers them). */
 export const TemplateCriterionSchema = strict({
