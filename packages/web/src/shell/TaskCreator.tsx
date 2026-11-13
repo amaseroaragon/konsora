@@ -6,7 +6,7 @@ import { t } from "../i18n/index.ts";
 import { Button, Field, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { type CreateDraft, type CreateField, createOp, emptyDraft } from "./create-model.ts";
-import { Criteria, GroupSelect } from "./TaskEditor.tsx";
+import { Criteria, DifficultySelect, GroupSelect } from "./TaskEditor.tsx";
 
 /**
  * Side panel to create a task as the human: approved work in "Por hacer" by default, or a
@@ -136,6 +136,7 @@ export function TaskCreator({
           value={draft.labels}
           onChange={(e) => set("labels", e.target.value)}
         />
+        <DifficultySelect value={draft.difficulty} onChange={(value) => set("difficulty", value)} />
         <Field
           mono
           label={t("create.deps")}

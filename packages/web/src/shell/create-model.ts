@@ -2,7 +2,7 @@
  * Creating a task from the UI, as a pure model: the draft the form holds and the `propose` op it
  * turns into. The human creates approved work directly (`state: "todo"`), or a proposal.
  */
-import type { Template } from "@konsora/core";
+import type { Difficulty, Template } from "@konsora/core";
 import { t } from "../i18n/index.ts";
 import { type DraftCriterion, parseLabels } from "./edit-model.ts";
 
@@ -19,6 +19,8 @@ export type CreateDraft = {
   template: string;
   /** Approved work (`todo`) or a proposal to approve later. */
   state: "todo" | "proposed";
+  /** A level, or empty for none (CORE-22). */
+  difficulty: Difficulty | "";
 };
 
 export function emptyDraft(group: string): CreateDraft {
@@ -31,6 +33,7 @@ export function emptyDraft(group: string): CreateDraft {
     deps: "",
     template: "",
     state: "todo",
+    difficulty: "",
   };
 }
 
@@ -46,6 +49,7 @@ export type CreateOp = {
   labels?: string[];
   deps?: string[];
   template?: string;
+  difficulty?: Difficulty;
 };
 
 /** Validates the draft (the mistakes people make first, in Spanish) and builds the op. */
@@ -86,6 +90,7 @@ export function createOp(
       ...(labels.length > 0 ? { labels } : {}),
       ...(deps.length > 0 ? { deps } : {}),
       ...(draft.template ? { template: draft.template } : {}),
+      ...(draft.difficulty ? { difficulty: draft.difficulty } : {}),
     },
   };
 }

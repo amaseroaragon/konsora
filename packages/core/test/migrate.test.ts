@@ -227,7 +227,7 @@ describe("migrateV2 (konsora/2 → konsora/5)", () => {
       "x-editor": 1,
     });
     expect(doc.tasks[0]).not.toHaveProperty("agent");
-    expect(doc.tasks[0]).not.toHaveProperty("difficulty");
+    expect(doc.tasks[0]?.difficulty).toBe("high"); // back in CORE-22
     expect(doc.tasks[0]?.acceptance).toEqual([{ id: "ac1", text: "Works" }]);
     expect(doc.tasks[0]?.notes?.map((n) => [n.kind, n.text])).toEqual([
       ["summary", "Done"],
@@ -250,7 +250,6 @@ describe("migrateV2 (konsora/2 → konsora/5)", () => {
         "project.reviewer": 1,
         "project.templates[].difficulty": 1,
         "project.templates[].acceptance[].check": 1,
-        "tasks[].difficulty": 1,
         "tasks[].agent": 1,
         "tasks[].acceptance[].check": 1,
         "tasks[].notes[].run": 1,

@@ -1,14 +1,15 @@
-import type { TasksDocument } from "@konsora/core";
+import { DIFFICULTIES, type Difficulty, type TasksDocument } from "@konsora/core";
 import { type FormEvent, useId, useState } from "react";
 import { type BoardTask, useEditTask } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { Button, Field, useToast } from "../ui/index.ts";
+import { Button, difficultyLabel, Field, useToast } from "../ui/index.ts";
 import {
   changesFrom,
   type Draft,
   type DraftField,
   dependencyProblem,
+  difficultyFrom,
   draftFrom,
   editErrorText,
   rebaseDraft,
@@ -20,6 +21,7 @@ const FIELD_NAME: Record<DraftField, MessageKey> = {
   labels: "edit.field.name.labels",
   group: "edit.field.name.group",
   acceptance: "edit.field.name.acceptance",
+  difficulty: "edit.field.name.difficulty",
 };
 
 const errorText = (error: unknown, ctx: { id: string; on?: string }) =>
@@ -41,6 +43,11 @@ function ChangedOutside({ base, current }: { base: Draft; current: Draft }) {
   if (base.desc !== current.desc) rows.push(["desc", current.desc]);
   if (base.labels !== current.labels) rows.push(["labels", current.labels]);
   if (base.group !== current.group) rows.push(["group", current.group]);
+  if (base.difficulty !== current.difficulty)
+    rows.push([
+      "difficulty",
+      current.difficulty ? difficultyLabel(current.difficulty) : t("difficulty.none"),
+    ]);
   if (JSON.stringify(base.acceptance) !== JSON.stringify(current.acceptance))
     rows.push(["acceptance", current.acceptance.map((ac) => ac.text).join(" · ")]);
   if (rows.length === 0) return <p className="a-callout__text">{t("edit.changed.none")}</p>;
@@ -196,6 +203,7 @@ export function TaskEditor({
         error={fieldError("group")}
         onChange={(value) => set("group", value)}
       />
+      <DifficultySelect value={draft.difficulty} onChange={(value) => set("difficulty", value)} />
       {error && !error.field && (
         <p className="k-field__error" role="alert">
           {error.text}
@@ -295,6 +303,37 @@ export function GroupSelect({
         ))}
       </select>
       {error && <span className="k-field__error">{error}</span>}
+    </div>
+  );
+}
+
+/** The task's difficulty (CORE-22): a level, or none. */
+export function DifficultySelect({
+  value,
+  onChange,
+}: {
+  value: Difficulty | "";
+  onChange: (value: Difficulty | "") => void;
+}) {
+  const id = useId();
+  return (
+    <div className="k-field">
+      <label htmlFor={id} className="k-field__label">
+        {t("edit.field.difficulty")}
+      </label>
+      <select
+        id={id}
+        className="k-field__control"
+        value={value}
+        onChange={(e) => onChange(difficultyFrom(e.target.value))}
+      >
+        <option value="">{t("difficulty.none")}</option>
+        {DIFFICULTIES.map((level) => (
+          <option key={level} value={level}>
+            {difficultyLabel(level)}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

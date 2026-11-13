@@ -248,6 +248,43 @@ a {
   outline-offset: 2px;
 }
 
+/* ── Difficulty (CORE-22): one to three bars ───────────── */
+.k-difficulty {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}
+.k-difficulty__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 10px;
+}
+.k-difficulty__bar {
+  width: 3px;
+  border: 1px solid var(--k-line-strong);
+}
+.k-difficulty__bar:nth-child(1) {
+  height: 5px;
+}
+.k-difficulty__bar:nth-child(2) {
+  height: 7px;
+}
+.k-difficulty__bar:nth-child(3) {
+  height: 10px;
+}
+.k-difficulty__bar--on {
+  background: var(--k-ink-muted);
+  border-color: var(--k-ink-muted);
+}
+.k-difficulty--high .k-difficulty__bar--on {
+  background: var(--k-ink);
+  border-color: var(--k-ink);
+}
+
 /* ── Matrix (group × state) ─────────────────────────────── */
 .k-matrix {
   display: grid;

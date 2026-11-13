@@ -1,7 +1,7 @@
 import { type FilterFacets, isFilterActive, type TaskFilter } from "@konsora/core";
 import { useId } from "react";
 import { t } from "../i18n/index.ts";
-import { Button, Field } from "../ui/index.ts";
+import { Button, difficultyLabel, Field } from "../ui/index.ts";
 
 /** An actor as people read it: «tú» for the human, the bare name for an agent. */
 const actorLabel = (actor: string) =>
@@ -111,6 +111,18 @@ export function FilterBar({
           value={filter.by ?? ""}
           options={facets.actors.map((actor) => ({ value: actor, label: actorLabel(actor) }))}
           onChange={(value) => set("by", value)}
+        />
+      )}
+      {(facets.difficulties.length > 1 || filter.difficulty) && (
+        <Choice
+          label={t("filter.difficulty")}
+          all={t("filter.difficulty.all")}
+          value={filter.difficulty ?? ""}
+          options={facets.difficulties.map((level) => ({
+            value: level,
+            label: level === "none" ? t("difficulty.none") : difficultyLabel(level),
+          }))}
+          onChange={(value) => set("difficulty", value)}
         />
       )}
       {active && (

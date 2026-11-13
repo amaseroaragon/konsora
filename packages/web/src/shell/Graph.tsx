@@ -30,7 +30,7 @@ import {
 import type { BoardTask } from "../api/board.ts";
 import { t } from "../i18n/index.ts";
 import { cx } from "../ui/cx.ts";
-import { StateBadge, stateLabel } from "../ui/index.ts";
+import { DifficultyMark, StateBadge, stateLabel } from "../ui/index.ts";
 import {
   elkInput,
   graphEdges,
@@ -159,6 +159,7 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
       >
         <span className="g-node__head">
           <span className="g-node__id">{task.id}</span>
+          {task.difficulty && <DifficultyMark difficulty={task.difficulty} />}
           <span className="g-node__state">{stateLabel(tone)}</span>
         </span>
         <span className="g-node__title">{task.title}</span>

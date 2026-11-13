@@ -5,7 +5,7 @@
  * or invalid plan is a tool error and never stops the server. Starting the server and the read
  * tools write nothing; the agent write tools (mcp-write.ts) go through core's semantic ops.
  */
-import { TaskStateSchema } from "@konsora/core";
+import { DIFFICULTIES, TaskStateSchema } from "@konsora/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -22,6 +22,10 @@ const listFilter = {
   ready: z.boolean().optional().describe("only tasks ready to start"),
   blocked: z.boolean().optional().describe("only todo tasks blocked by unfinished dependencies"),
   waiting: z.boolean().optional().describe("only tasks waiting for an answer from the human"),
+  difficulty: z
+    .enum([...DIFFICULTIES, "none"])
+    .optional()
+    .describe("only tasks of this difficulty (none: without one)"),
 };
 
 const GUIDE =

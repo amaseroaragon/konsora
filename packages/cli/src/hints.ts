@@ -71,8 +71,8 @@ export const HINTS = {
     mcp: "The batch tool's input schema describes the format.",
   },
   nothingToChange: {
-    cli: "Pass --title, --desc, --criterion, --labels or --group.",
-    mcp: "Pass title, desc, acceptance, labels or group.",
+    cli: "Pass --title, --desc, --criterion, --labels, --group or --difficulty.",
+    mcp: "Pass title, desc, acceptance, labels, group or difficulty.",
   },
   movePlace: {
     cli: "Pass exactly one of --before <id>, --after <id> or --top.",

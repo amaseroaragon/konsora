@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { rankAfterAll } from "./rank.ts";
 import type { Acceptance, Note, Task, TaskState, TasksDocument } from "./schema.ts";
-import { GroupIdSchema, TaskIdSchema } from "./schema.ts";
+import { DIFFICULTIES, GroupIdSchema, TaskIdSchema } from "./schema.ts";
 import { validateDocument } from "./semantics.ts";
 import { compareTaskIds } from "./serialize.ts";
 
@@ -307,7 +307,9 @@ function v2ToV3(doc: Obj, drop: Dropper): number {
   }
   for (const task of Array.isArray(doc.tasks) ? doc.tasks : []) {
     if (!isObj(task)) continue;
-    drop(task, "difficulty", "tasks[].difficulty");
+    // Difficulty is back (CORE-22): a valid one is kept; anything else goes.
+    if (!(DIFFICULTIES as readonly unknown[]).includes(task.difficulty))
+      drop(task, "difficulty", "tasks[].difficulty");
     drop(task, "agent", "tasks[].agent");
     for (const criterion of Array.isArray(task.acceptance) ? task.acceptance : []) {
       if (isObj(criterion)) drop(criterion, "check", "tasks[].acceptance[].check");

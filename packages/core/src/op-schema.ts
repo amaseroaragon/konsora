@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Op } from "./ops.ts";
 import {
   AcceptanceSchema,
+  DifficultySchema,
   GroupSchema,
   QuestionOptionSchema,
   TaskIdSchema,
@@ -24,6 +25,7 @@ const NewTask = {
   acceptance: z.array(z.string().min(1).max(500)).optional(),
   deps: z.array(z.string().min(1).max(120)).optional(),
   labels: z.array(z.string()).optional(),
+  difficulty: DifficultySchema.optional(),
   template: z.string().min(1).max(31).optional(),
 };
 
@@ -62,6 +64,8 @@ export const OpSchema = z.discriminatedUnion("op", [
       labels: z.array(z.string()).optional(),
       group: z.string().optional(),
       rank: z.string().optional(),
+      // null removes it (JSON has no undefined).
+      difficulty: DifficultySchema.nullable().optional(),
     }),
   }),
   z.strictObject({

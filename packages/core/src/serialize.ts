@@ -32,6 +32,7 @@ const ORDER = {
     "desc",
     "acceptance",
     "labels",
+    "difficulty",
     "created",
     "updated_at",
     "notes",

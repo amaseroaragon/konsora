@@ -3,7 +3,7 @@
  * text, group, label and who created or closed the task. Pure and derived: a filter never changes
  * the plan.
  */
-import type { Task, TasksDocument } from "./schema.ts";
+import { DIFFICULTIES, type Difficulty, type Task, type TasksDocument } from "./schema.ts";
 
 export type TaskFilter = {
   /** Words that must all appear in the id, the title or the description (case-insensitive). */
@@ -12,9 +12,11 @@ export type TaskFilter = {
   label?: string;
   /** An actor (`human`, `agent:<name>`): who created the task or wrote its closing summary. */
   by?: string;
+  /** `low`, `medium` or `high`; `none` matches the tasks without one (CORE-22). */
+  difficulty?: string;
 };
 
-const FILTER_KEYS = ["text", "group", "label", "by"] as const;
+const FILTER_KEYS = ["text", "group", "label", "by", "difficulty"] as const;
 
 /** The filter without empty values; `{}` when nothing narrows the plan. */
 export function cleanFilter(filter: TaskFilter): TaskFilter {
@@ -38,8 +40,9 @@ function actorsOf(task: Task): string[] {
 
 /** Whether `task` passes every part of `filter` (an empty filter passes everything). */
 export function taskMatches(task: Task, filter: TaskFilter): boolean {
-  const { text, group, label, by } = cleanFilter(filter);
+  const { text, group, label, by, difficulty } = cleanFilter(filter);
   if (group && task.group !== group) return false;
+  if (difficulty && (task.difficulty ?? "none") !== difficulty) return false;
   if (label && !task.labels?.includes(label)) return false;
   if (by && !actorsOf(task).includes(by)) return false;
   if (text) {
@@ -56,15 +59,26 @@ export function matchingIds(doc: Pick<TasksDocument, "tasks">, filter: TaskFilte
   return new Set(doc.tasks.filter((task) => taskMatches(task, filter)).map((task) => task.id));
 }
 
-export type FilterFacets = { labels: string[]; actors: string[] };
+export type FilterFacets = {
+  labels: string[];
+  actors: string[];
+  /** The difficulties in use, easiest first, then `none` if some task has none. */
+  difficulties: (Difficulty | "none")[];
+};
 
-/** What the plan can be filtered by: its labels and its actors, sorted. */
+/** What the plan can be filtered by: its labels, actors and difficulties. */
 export function filterFacets(doc: Pick<TasksDocument, "tasks">): FilterFacets {
   const labels = new Set<string>();
   const actors = new Set<string>();
+  const difficulties = new Set<Difficulty | "none">();
   for (const task of doc.tasks) {
     for (const label of task.labels ?? []) labels.add(label);
     for (const actor of actorsOf(task)) actors.add(actor);
+    difficulties.add(task.difficulty ?? "none");
   }
-  return { labels: [...labels].sort(), actors: [...actors].sort() };
+  return {
+    labels: [...labels].sort(),
+    actors: [...actors].sort(),
+    difficulties: [...DIFFICULTIES, "none" as const].filter((d) => difficulties.has(d)),
+  };
 }

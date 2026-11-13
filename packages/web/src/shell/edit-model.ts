@@ -5,6 +5,8 @@
  */
 import {
   type Acceptance,
+  DIFFICULTIES,
+  type Difficulty,
   indexTasks,
   type Task,
   type TasksDocument,
@@ -20,6 +22,8 @@ export type Draft = {
   labels: string;
   group: string;
   acceptance: DraftCriterion[];
+  /** A level, or empty for none (CORE-22). */
+  difficulty: Difficulty | "";
 };
 export type DraftField = keyof Draft;
 export const draftFields: readonly DraftField[] = [
@@ -28,9 +32,18 @@ export const draftFields: readonly DraftField[] = [
   "labels",
   "group",
   "acceptance",
+  "difficulty",
 ];
 
-type Editable = Pick<Task, "id" | "title" | "desc" | "labels" | "group" | "acceptance">;
+type Editable = Pick<
+  Task,
+  "id" | "title" | "desc" | "labels" | "group" | "acceptance" | "difficulty"
+>;
+
+/** A select's value as a difficulty: a level, or empty for none. */
+export function difficultyFrom(value: string): Difficulty | "" {
+  return (DIFFICULTIES as readonly string[]).includes(value) ? (value as Difficulty) : "";
+}
 
 export function draftFrom(task: Editable): Draft {
   return {
@@ -39,6 +52,7 @@ export function draftFrom(task: Editable): Draft {
     labels: (task.labels ?? []).join(", "),
     group: task.group,
     acceptance: (task.acceptance ?? []).map((ac) => ({ id: ac.id, text: ac.text })),
+    difficulty: task.difficulty ?? "",
   };
 }
 
@@ -79,6 +93,8 @@ export function criteriaFrom(rows: readonly DraftCriterion[]): Acceptance[] {
 
 export type EditChanges = Partial<Pick<Task, "title" | "desc" | "labels" | "group">> & {
   acceptance?: Acceptance[];
+  /** `null` removes it. */
+  difficulty?: Difficulty | null;
 };
 
 export type DraftCheck =
@@ -110,6 +126,7 @@ export function changesFrom(
   if (touched.has("labels")) changes.labels = parseLabels(draft.labels);
   if (touched.has("group")) changes.group = draft.group;
   if (touched.has("acceptance")) changes.acceptance = criteriaFrom(draft.acceptance);
+  if (touched.has("difficulty")) changes.difficulty = draft.difficulty || null;
   // A field typed back to what it was is not a change.
   const stored: Required<EditChanges> = {
     title: base.title,
@@ -117,6 +134,7 @@ export function changesFrom(
     labels: base.labels ?? [],
     group: base.group,
     acceptance: base.acceptance ?? [],
+    difficulty: base.difficulty ?? null,
   };
   for (const key of Object.keys(changes) as (keyof EditChanges)[])
     if (same(changes[key], stored[key])) delete changes[key];

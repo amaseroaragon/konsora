@@ -125,6 +125,7 @@ function Card({
       blockedBy={task.state === "todo" ? task.blockers : []}
       waiting={task.waiting}
       external={external}
+      difficulty={task.difficulty}
       {...(onOpen ? { onOpen } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
       {...(selection

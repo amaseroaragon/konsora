@@ -21,6 +21,7 @@ import { contentHash } from "./hash.ts";
 import { rankAfterAll, rankBetween } from "./rank.ts";
 import type {
   Acceptance,
+  Difficulty,
   Note,
   NoteKind,
   SchemaIssue,
@@ -62,6 +63,7 @@ export type NewTask = {
   acceptance?: string[];
   deps?: string[];
   labels?: string[];
+  difficulty?: Difficulty;
   /**
    * A template of `project.templates` the task starts from: its own desc replaces the
    * template's, its criteria come after the template's and its labels join them.
@@ -88,6 +90,8 @@ export type Op = Base &
         task: string;
         changes: Partial<Pick<Task, "title" | "desc" | "labels" | "group" | "rank">> & {
           acceptance?: Acceptance[];
+          /** `null` removes it. */
+          difficulty?: Difficulty | null;
         };
       }
     /**
@@ -170,7 +174,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   restore: ["human"],
 };
 
-const EDITABLE = ["title", "desc", "acceptance", "labels", "group", "rank"] as const;
+const EDITABLE = ["title", "desc", "acceptance", "labels", "group", "rank", "difficulty"] as const;
 
 /** All an agent in a planning session may do. */
 const PLAN_OPS: ReadonlySet<OpName> = new Set([
@@ -312,6 +316,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       task.acceptance = criteria.map((c, i) => ({ id: `ac${i + 1}`, ...structuredClone(c) }));
     const labels = [...new Set([...(template?.labels ?? []), ...(spec.labels ?? [])])];
     if (labels.length) task.labels = labels;
+    if (spec.difficulty) task.difficulty = spec.difficulty;
     doc.tasks.push(task);
     index.set(task.id, task);
     created.push(task.id);

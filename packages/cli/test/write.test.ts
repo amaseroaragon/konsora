@@ -413,6 +413,40 @@ describe("work commands", () => {
     expect(shown).toContain("Usa la caché existente");
   });
 
+  it("difficulty: propose, edit (none removes it), show, list and the --difficulty filter (CORE-22)", async () => {
+    const created = await run([
+      "propose",
+      "Rated",
+      "--group",
+      "BE",
+      "--difficulty",
+      "High",
+      "--as",
+      "claude",
+      "--json",
+    ]);
+    const id = created.json().created[0] as string;
+    expect(task(id).difficulty).toBe("high");
+    expect((await run(["show", id])).stdout).toContain("difficulty: high");
+    expect((await run(["list"])).stdout).toMatch(new RegExp(`${id}\\s+todo\\s+high\\s+Rated`));
+    expect(
+      (await run(["ready", "--difficulty", "high", "--json"])).json().map((t: Task) => t.id),
+    ).toEqual([id]);
+    expect(
+      (await run(["list", "--difficulty", "none", "--json"])).json().map((t: Task) => t.id),
+    ).not.toContain(id);
+    await run(["edit", id, "--difficulty", "low", "--as", "claude"]);
+    expect(task(id).difficulty).toBe("low");
+    await run(["edit", id, "--difficulty", "none", "--as", "claude"]);
+    expect(task(id).difficulty).toBeUndefined();
+    const bad = await run(["propose", "X", "--group", "BE", "--difficulty", "huge"]);
+    expect(bad.code).toBe(EXIT.usage);
+    expect(bad.stderr).toContain('Invalid difficulty "huge"');
+    expect((await run(["edit", "BE-01", "--difficulty", "low", "--as", "claude"])).code).toBe(
+      EXIT.failure,
+    ); // BE-01 is done
+  });
+
   it("pause returns a task to todo; text may only come from one source", async () => {
     await run(["start", "BE-04"]);
     expect((await run(["pause", "BE-04", "-m", "Need input"])).stdout).toBe(

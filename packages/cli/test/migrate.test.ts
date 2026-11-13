@@ -113,13 +113,14 @@ describe("konsora migrate", () => {
     expect(preview.code).toBe(EXIT.ok);
     expect(preview.stdout).toContain("konsora/2 → konsora/5, 1 tasks");
     expect(preview.stdout).toMatch(/project\.checks +1/);
-    expect(preview.stdout).toMatch(/tasks\[\]\.difficulty +1/);
+    expect(preview.stdout).not.toMatch(/tasks\[\]\.difficulty/); // kept (CORE-22)
     expect(readFileSync(k("tasks.json"), "utf8")).toBe(v2);
     const r = await run(["migrate", "--write"]);
     expect(r.code).toBe(EXIT.ok);
     expect(readFileSync(k("tasks.v2.json.bak"), "utf8")).toBe(v2);
     const v3 = parseTasksFile(readFileSync(k("tasks.json"), "utf8"));
     expect(v3.ok && v3.document.project).toEqual({ name: "P" });
+    expect(v3.ok && v3.document.tasks[0]?.difficulty).toBe("low");
     expect(readdirSync(k()).sort()).toEqual(["tasks.json", "tasks.v2.json.bak"]);
   });
 

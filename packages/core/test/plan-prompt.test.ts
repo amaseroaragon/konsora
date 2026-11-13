@@ -42,6 +42,12 @@ describe("buildPlanPrompt", () => {
     expect(prompt).toContain("single batch call");
   });
 
+  it("asks to estimate each task's difficulty with the low/medium/high criterion (CORE-22)", () => {
+    expect(buildPlanPrompt(doc)).toContain(
+      "A difficulty: low (mechanical, a few files), medium (a feature within one area) or high (cross-cutting, design decisions or risky).",
+    );
+  });
+
   it("starts from the human's goal when given, and says when there are no templates", () => {
     const plain = { ...doc, project: { name: "P" } };
     const prompt = buildPlanPrompt(plain, { goal: "  Add a forecast cache.  " });

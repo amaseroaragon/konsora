@@ -49,9 +49,9 @@ export function taskTable(list: readonly TaskView[]): string {
   const idWidth = Math.max(2, ...list.map((t) => t.id.length));
   const rows = list.map((t) => {
     const flags = flagText(t);
-    return `${t.id.padEnd(idWidth)}  ${t.state.padEnd(8)}  ${t.title}${flags ? `  [${flags}]` : ""}`;
+    return `${t.id.padEnd(idWidth)}  ${t.state.padEnd(8)}  ${(t.difficulty ?? "-").padEnd(6)}  ${t.title}${flags ? `  [${flags}]` : ""}`;
   });
-  return `${"ID".padEnd(idWidth)}  ${"STATE".padEnd(8)}  TITLE\n${rows.join("\n")}\n`;
+  return `${"ID".padEnd(idWidth)}  ${"STATE".padEnd(8)}  ${"DIFF".padEnd(6)}  TITLE\n${rows.join("\n")}\n`;
 }
 
 export function statusText(doc: TasksDocument, file: string): string {
@@ -114,6 +114,7 @@ export function showText(doc: TasksDocument, view: TaskView): string {
   const dependents = dependentsOf(view.id, doc);
   if (dependents.length) lines.push(`dependents: ${dependents.join(", ")}`);
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
+  if (view.difficulty) lines.push(`difficulty: ${view.difficulty}`);
   lines.push(`created: ${view.created.at} by ${view.created.by} · updated: ${view.updated_at}`);
   if (view.desc) lines.push("", view.desc);
   if (view.acceptance?.length) {

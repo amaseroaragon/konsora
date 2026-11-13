@@ -31,6 +31,8 @@ export type ListFilter = {
   ready?: boolean | undefined;
   blocked?: boolean | undefined;
   waiting?: boolean | undefined;
+  /** `low`, `medium`, `high`, or `none` for the tasks without one. */
+  difficulty?: string | undefined;
 };
 
 /** The presets behind `list`, `ready` and `blocked`. */
@@ -59,7 +61,8 @@ export function listData(
       (!filter.group || t.group === filter.group) &&
       (!filter.ready || t.ready) &&
       (!filter.blocked || t.blocked) &&
-      (!filter.waiting || t.waiting),
+      (!filter.waiting || t.waiting) &&
+      (!filter.difficulty || (t.difficulty ?? "none") === filter.difficulty),
   );
   // What is ready comes in priority order (rank), so the first one is the next to take.
   return preset === LIST_PRESETS.ready || filter.ready ? readyViews(list) : list;

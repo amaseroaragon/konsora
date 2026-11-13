@@ -10,7 +10,7 @@ import { type FormEvent, useState } from "react";
 import { type BoardTask, type ExternalFlag, useAddNote, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { askConfirm, Button, Field, StateBadge, useToast } from "../ui/index.ts";
+import { askConfirm, Button, DifficultyMark, Field, StateBadge, useToast } from "../ui/index.ts";
 import { choiceAnswer, confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -278,6 +278,7 @@ export function TaskPanel({
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
           {archived && <span className="a-chip">{t("detail.archived")}</span>}
+          {task.difficulty && <DifficultyMark difficulty={task.difficulty} text />}
           {canEdit && !editing && (
             <Button
               size="sm"

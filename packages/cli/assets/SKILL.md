@@ -42,7 +42,7 @@ Create several tasks at once (all-or-nothing; they go straight to `todo`):
 konsora batch --as claude <<'JSON'
 {"tasks": [
   {"title": "Add forecast cache", "group": "BE", "desc": "What it achieves and why.",
-   "acceptance": ["A repeated request within 10 min does not hit upstream"]},
+   "acceptance": ["A repeated request within 10 min does not hit upstream"], "difficulty": "medium"},
   {"title": "Show cache age in the UI", "group": "FE", "deps": ["Add forecast cache"]}
 ]}
 JSON
@@ -51,7 +51,7 @@ JSON
 - `deps` take task ids or titles of **earlier** tasks in the same batch.
 - A task with `"idea": true` is created as an idea (`proposed`) instead of in `todo`: use it for loose ideas the human has not committed to.
 - If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria and labels, and what you pass completes or replaces them.
-- Each task: an imperative title, a `desc` saying what it achieves, and acceptance criteria that can be verified.
+- Each task: an imperative title, a `desc` saying what it achieves, acceptance criteria that can be verified, and a `difficulty` you estimate: `low` (mechanical, a few files), `medium` (a feature within one area) or `high` (cross-cutting, design decisions or risky). `--difficulty` in `propose` and `edit`.
 - Keep each task small enough for one working session; split bigger work into tasks with `deps`.
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`.
 - One task: `konsora propose "<title>" --group BE --criterion "<check>" --deps BE-01`. An idea for later: `konsora propose "<title>" --group BE --idea`.

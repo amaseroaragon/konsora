@@ -1,5 +1,7 @@
+import type { Difficulty } from "@konsora/core";
 import { t } from "../i18n/index.ts";
 import { cx } from "./cx.ts";
+import { DifficultyMark } from "./DifficultyMark.tsx";
 import { StateBadge, type TaskState } from "./StateBadge.tsx";
 
 export type TaskCardProps = {
@@ -12,6 +14,7 @@ export type TaskCardProps = {
   /** An unapproved change made outside Konsora is pending on this task. */
   external?: boolean;
   proposedBy?: string;
+  difficulty?: Difficulty | undefined;
   selected?: boolean;
   /** Whether the checkbox can be ticked; defaults to ready tasks only. */
   selectable?: boolean;
@@ -28,6 +31,7 @@ export function TaskCard({
   waiting = false,
   external = false,
   proposedBy,
+  difficulty,
   selected = false,
   selectable,
   onSelectedChange,
@@ -49,6 +53,7 @@ export function TaskCard({
     >
       <div className="k-card__head">
         <span className="k-card__id">{id}</span>
+        {difficulty && <DifficultyMark difficulty={difficulty} />}
         {blocked && (
           <StateBadge kind="blocked" label={t("card.blockedBy", { ids: blockedBy.join(", ") })} />
         )}

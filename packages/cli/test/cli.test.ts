@@ -181,8 +181,8 @@ describe("read commands", () => {
       .map((l) => l.split(" ")[0]);
     expect(ids.indexOf("BE-01")).toBeLessThan(ids.indexOf("BE-02"));
     expect(ids.indexOf("BE-02")).toBeLessThan(ids.indexOf("BE-03"));
-    expect(r.stdout).toContain("BE-03  todo      Title BE-03  [blocked by BE-02]");
-    expect(r.stdout).toContain("BE-04  todo      Title BE-04  [ready; waiting for answer]");
+    expect(r.stdout).toContain("BE-03  todo      -       Title BE-03  [blocked by BE-02]");
+    expect(r.stdout).toContain("BE-04  todo      -       Title BE-04  [ready; waiting for answer]");
   });
 
   it("list filters combine; --json returns tasks with derived flags", async () => {
@@ -201,7 +201,7 @@ describe("read commands", () => {
   it("ready and blocked are presets", async () => {
     expect((await run(["ready", "--json"])).json().map((x: Task) => x.id)).toEqual(["BE-04"]);
     expect((await run(["blocked"])).stdout).toContain(
-      "BE-03  todo      Title BE-03  [blocked by BE-02]",
+      "BE-03  todo      -       Title BE-03  [blocked by BE-02]",
     );
     expect((await run(["ready", "--group", "FE"])).stdout).toBe("No tasks match.\n");
   });

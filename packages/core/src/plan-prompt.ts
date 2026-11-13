@@ -82,6 +82,7 @@ export function buildPlanPrompt(document: TasksDocument, options: PlanPromptOpti
       [
         "- An imperative title and a desc that says what the task achieves and why.",
         '- Acceptance criteria that can be verified: a command that passes or an observable result, never a judgement such as "works well". Each task should be small enough for one agent run.',
+        "- A difficulty: low (mechanical, a few files), medium (a feature within one area) or high (cross-cutting, design decisions or risky).",
         "- deps on the tasks it needs (ids of existing tasks, or titles of earlier tasks in the same batch).",
         "- A group from the plan's groups; a new one only if none fits, declared in the batch's groups.",
         "- A template when one fits (template: <id>): the task takes its description, criteria and labels, and what you pass completes or replaces them.",

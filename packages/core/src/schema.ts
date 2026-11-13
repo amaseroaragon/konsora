@@ -57,6 +57,13 @@ export const TaskStateSchema = z.enum(["proposed", "todo", "doing", "done"]);
 
 const slug = /^[a-z][a-z0-9-]{0,30}$/;
 
+/**
+ * How hard a task is expected to be (CORE-22): low = mechanical, a few files; medium = a feature
+ * within one area; high = cross-cutting, design decisions or risky. Agents estimate it.
+ */
+export const DifficultySchema = z.enum(["low", "medium", "high"]);
+export const DIFFICULTIES = DifficultySchema.options;
+
 const LabelSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Label must be a lowercase slug");
 
 /** A template's acceptance criterion: like a task's, without the id (the task numbers them). */
@@ -123,6 +130,7 @@ export const TaskSchema = strict({
   desc: z.string().max(32_768).optional(),
   acceptance: z.array(AcceptanceSchema).optional(),
   labels: z.array(LabelSchema).optional(),
+  difficulty: DifficultySchema.optional(),
   created: strict({ at: TimestampSchema, by: ActorSchema }),
   updated_at: TimestampSchema,
   notes: z.array(NoteSchema).optional(),
@@ -151,6 +159,7 @@ export const ArchiveSchema = strict({
 });
 
 export type TaskState = z.infer<typeof TaskStateSchema>;
+export type Difficulty = z.infer<typeof DifficultySchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type Group = z.infer<typeof GroupSchema>;

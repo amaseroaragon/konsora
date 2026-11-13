@@ -73,6 +73,24 @@ describe("task filters", () => {
     expect(filterFacets({ tasks })).toEqual({
       labels: ["perf", "ui"],
       actors: ["agent:claude", "agent:codex", "human"],
+      difficulties: ["none"],
     });
+  });
+});
+
+describe("difficulty filter (CORE-22)", () => {
+  const rated = [
+    task("BE-01", "todo", { difficulty: "high" }),
+    task("BE-02", "todo", { difficulty: "low" }),
+    task("BE-03", "todo"),
+  ];
+  it("matches a level, or none for the tasks without one", () => {
+    const of = (difficulty: string) => [...matchingIds({ tasks: rated }, { difficulty })];
+    expect(of("low")).toEqual(["BE-02"]);
+    expect(of("none")).toEqual(["BE-03"]);
+    expect(isFilterActive({ difficulty: " " })).toBe(false);
+  });
+  it("offers the levels in use, easiest first, then none", () => {
+    expect(filterFacets({ tasks: rated }).difficulties).toEqual(["low", "high", "none"]);
   });
 });

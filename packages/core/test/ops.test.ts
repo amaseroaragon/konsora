@@ -248,6 +248,40 @@ describe("transitions", () => {
     }
   });
 
+  it("difficulty: set when created, changed or removed with edit; agents not on done work (CORE-22)", () => {
+    const d = doc(task("BE-01", "todo"), task("BE-02", "done"));
+    const created = ok(
+      applyOp(d, { op: "propose", title: "New", group: "BE", difficulty: "medium" }, agent),
+    );
+    const id = created.created[0] as string;
+    expect(created.document.tasks.find((t) => t.id === id)?.difficulty).toBe("medium");
+    const batch = ok(
+      applyOp(d, { op: "batch", tasks: [{ title: "A", group: "BE", difficulty: "high" }] }, agent),
+    );
+    expect(batch.document.tasks.at(-1)?.difficulty).toBe("high");
+    const edited = ok(
+      applyOp(d, { op: "edit", task: "BE-01", changes: { difficulty: "low" } }, agent),
+    ).document;
+    expect(edited.tasks[0]?.difficulty).toBe("low");
+    const removed = ok(
+      applyOp(edited, { op: "edit", task: "BE-01", changes: { difficulty: null } }, agent),
+    ).document;
+    expect(removed.tasks[0]).not.toHaveProperty("difficulty");
+    expect(
+      err(applyOp(d, { op: "edit", task: "BE-02", changes: { difficulty: "low" } }, agent)),
+    ).toBe("forbidden");
+    expect(
+      ok(applyOp(d, { op: "edit", task: "BE-02", changes: { difficulty: "low" } }, human)).document
+        .tasks[1]?.difficulty,
+    ).toBe("low");
+    // Canonical place: right after labels; an unknown level makes the plan invalid.
+    const text = serializeDocument(edited);
+    expect(parseTasksFile(text).ok).toBe(true);
+    const bad = structuredClone(edited) as unknown as { tasks: { difficulty: string }[] };
+    (bad.tasks[0] as { difficulty: string }).difficulty = "extreme";
+    expect(validateDocument(bad).ok).toBe(false);
+  });
+
   it("only a question may carry options", () => {
     const d = doc(task("BE-01", "doing"));
     const noted = ok(applyOp(d, { op: "note", task: "BE-01", text: "x" }, agent)).document;

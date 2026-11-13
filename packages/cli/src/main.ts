@@ -16,7 +16,7 @@ import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./re
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
 import { registerUi } from "./ui.ts";
-import { registerWriteCommands } from "./write.ts";
+import { parseDifficulty, registerWriteCommands } from "./write.ts";
 
 export { EXIT, type Io } from "./shared.ts";
 
@@ -126,6 +126,11 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
       .option("--ready", "only tasks ready to start")
       .option("--blocked", "only blocked tasks")
       .option("--waiting", "only tasks waiting for an answer")
+      .option(
+        "--difficulty <level>",
+        "only tasks of this difficulty: low, medium, high, or none",
+        (value: string) => parseDifficulty(value, true),
+      )
       .option("--json", "machine-readable output")
       .action(
         async (opts: {
@@ -134,6 +139,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           ready?: boolean;
           blocked?: boolean;
           waiting?: boolean;
+          difficulty?: string;
           json?: boolean;
         }) => {
           const { doc } = await load(io, root());

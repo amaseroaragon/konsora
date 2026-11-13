@@ -94,6 +94,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `desc` | markdown ≤ 32 KB | no | Qué se consigue y por qué. |
 | `acceptance` | `Acceptance[]` | no | Criterios de "hecho"; ver abajo. |
 | `labels` | `string[]` | no | `^[a-z0-9][a-z0-9-]{0,30}$`, ordenados. |
+| `difficulty` | `low \| medium \| high` | no | Dificultad estimada: *low* = mecánica, pocos ficheros; *medium* = una funcionalidad dentro de un área; *high* = transversal, con decisiones de diseño o con riesgo. La estima el agente al crear (`--difficulty`, `difficulty` en `batch` y en el MCP) y se cambia con `edit` (`none` / `null` la quita). Se ve en el tablero, el grafo, el panel y `konsora show`/`list`, y se puede filtrar por ella. |
 | `created` | `{at, by}` | sí | |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
@@ -205,7 +206,8 @@ Con `konsora migrate` (acción explícita; nunca automática al abrir). Por defe
 |---|---|
 | `schema: "konsora/2"` | `schema: "konsora/5"` (y `$schema` apunta a `tasks.v5`) |
 | `project.base_branch`, `defaults`, `recommended`, `setup`, `checks`, `check_retries`, `reviewer` | Se descartan |
-| `tasks[].agent`, `tasks[].difficulty`, `templates[].difficulty`, `tasks[].yolo` | Se descartan |
+| `tasks[].agent`, `templates[].difficulty`, `tasks[].yolo` | Se descartan |
+| `tasks[].difficulty` | Se conserva si es `low`, `medium` o `high` (desde CORE-22); otro valor se descarta |
 | `acceptance[].check` (en tareas y plantillas) | Se descarta; el texto del criterio se conserva |
 | `notes[].run` | Se descarta |
 | Notas `review` con `verdict` | Pasan a `note` con el veredicto al principio del texto: `[review: approve] …` |

@@ -7,7 +7,7 @@
  * The actor is `agent:<name>`, from KONSORA_AGENT or else the MCP client's name
  * (`claude-code` → `agent:claude`).
  */
-import type { Op, TasksDocument } from "@konsora/core";
+import { DIFFICULTIES, DifficultySchema, type Op, type TasksDocument } from "@konsora/core";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -26,6 +26,9 @@ export function mcpActor(env: NodeJS.ProcessEnv, clientName: string | undefined)
 const WRITE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
 
 const id = z.string().min(1).describe("task id, e.g. CORE-01");
+const DIFFICULTY = DifficultySchema.describe(
+  "estimated difficulty: low (mechanical, a few files), medium (a feature within one area) or high (cross-cutting, design decisions or risky)",
+);
 const ids = z.array(z.string().min(1));
 const text = (what: string) => z.string().min(1).describe(what);
 
@@ -64,6 +67,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         acceptance: ids.optional().describe("verifiable acceptance criteria"),
         deps: ids.optional().describe("ids of the tasks it depends on"),
         labels: ids.optional(),
+        difficulty: DIFFICULTY.optional(),
         template: z
           .string()
           .min(1)
@@ -84,6 +88,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         ...(args.acceptance ? { acceptance: args.acceptance } : {}),
         ...(args.deps ? { deps: args.deps.map((d) => d.toUpperCase()) } : {}),
         ...(args.labels ? { labels: args.labels } : {}),
+        ...(args.difficulty ? { difficulty: args.difficulty } : {}),
         ...(args.template ? { template: args.template.toLowerCase() } : {}),
         ...(args.idea ? { state: "proposed" as const } : {}),
       })),
@@ -114,6 +119,10 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         acceptance: ids.optional(),
         labels: z.array(z.string()).optional(),
         group: z.string().min(1).optional().describe("move to another group (the id stays)"),
+        difficulty: z
+          .enum([...DIFFICULTIES, "none"])
+          .optional()
+          .describe("low, medium or high; none removes it"),
       },
       annotations: WRITE,
     },

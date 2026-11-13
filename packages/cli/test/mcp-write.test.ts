@@ -177,6 +177,13 @@ describe("konsora mcp: agent write tools", () => {
       ["edit", { id: "FE-02", desc: "Updated" }, ["edit", "FE-02", "--desc", "Updated"]],
       [
         "propose",
+        { title: "Rated", group: "BE", difficulty: "medium" },
+        ["propose", "Rated", "--group", "BE", "--difficulty", "medium"],
+      ],
+      ["edit", { id: "FE-02", difficulty: "high" }, ["edit", "FE-02", "--difficulty", "high"]],
+      ["edit", { id: "FE-02", difficulty: "none" }, ["edit", "FE-02", "--difficulty", "none"]],
+      [
+        "propose",
         { title: "Login crash", group: "BE", template: "bug", labels: ["auth"] },
         ["propose", "Login crash", "--group", "BE", "--template", "bug", "--labels", "auth"],
       ],
@@ -329,7 +336,7 @@ describe("konsora mcp: agent write tools", () => {
     expect(shape.isError).toBe(true);
     const nothing = await call("edit", { id: "FE-01" });
     expect(nothing.text).toBe(
-      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels or group.",
+      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels, group or difficulty.",
     );
     const blocked = await call("start", { id: "BE-03" });
     expect(blocked.text).toContain("Hint: Pick another task with the ready tool");

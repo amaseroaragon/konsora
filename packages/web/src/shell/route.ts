@@ -21,7 +21,13 @@ export type Route =
     };
 
 /** The query parameter of each part of the filter. */
-const FILTER_PARAMS = { text: "q", group: "group", label: "label", by: "by" } as const;
+const FILTER_PARAMS = {
+  text: "q",
+  group: "group",
+  label: "label",
+  by: "by",
+  difficulty: "difficulty",
+} as const;
 const FILTER_KEYS = Object.keys(FILTER_PARAMS) as (keyof typeof FILTER_PARAMS)[];
 
 export function parseRoute(hash: string): Route {
