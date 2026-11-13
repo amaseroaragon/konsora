@@ -432,6 +432,11 @@ export const es = {
   "confirm.no": "Cancelar",
   "detail.summary": "Resumen de cierre",
   "detail.commits": "Commits",
+  "brief.copy": "Copiar encargo para un agente",
+  "brief.copied": "Encargo de {id} copiado: pégalo en la sesión de tu agente.",
+  "brief.id.copy": "Copiar id",
+  "brief.id.copied": "{id} copiado.",
+  "brief.copy.error": "No se pudo copiar al portapapeles: el navegador no lo permite aquí.",
   "split.open": "Dividir en varias",
   "split.text":
     "Escribe el título de cada parte, en orden. Heredan el grupo, las etiquetas y las dependencias de {id}; cada una depende de la anterior, y lo que dependía de {id} pasa a depender de la última.",

@@ -1,6 +1,7 @@
 /** Konsora core: task schema v3, validation, graph, state machine, migration and serialization. */
 
 export * from "./archive.ts";
+export * from "./brief.ts";
 export * from "./filter.ts";
 export * from "./graph.ts";
 export * from "./hash.ts";

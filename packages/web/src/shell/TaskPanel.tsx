@@ -1,6 +1,8 @@
 import {
   ACTION_TEXT,
+  agentBrief,
   availableActions,
+  canBrief,
   canSplit,
   criteriaEvidence,
   dependentsOf,
@@ -195,6 +197,40 @@ export function Actions({
           </Button>
         ),
       )}
+    </div>
+  );
+}
+
+/**
+ * Copies a brief for an agent, or just the id (UI-28): Konsora runs no agent, so the human pastes
+ * it into their agent's session. Only the clipboard is written.
+ */
+function BriefActions({ task }: { task: BoardTask }) {
+  const toast = useToast();
+  const copy = async (text: string, done: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.show(done, "success");
+    } catch {
+      toast.show(t("brief.copy.error"), "error");
+    }
+  };
+  return (
+    <div className="a-actions">
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => void copy(agentBrief(task), t("brief.copied", { id: task.id }))}
+      >
+        {t("brief.copy")}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => void copy(task.id, t("brief.id.copied", { id: task.id }))}
+      >
+        {t("brief.id.copy")}
+      </Button>
     </div>
   );
 }
@@ -511,6 +547,7 @@ export function TaskPanel({
             dependents={dependentsOf(task.id, doc)}
           />
         )}
+        {!archived && canBrief(task, task) && <BriefActions task={task} />}
         {!readOnly && !archived && canSplit(task) && (
           <SplitForm
             key={`${task.id}:${task.hash}`}
