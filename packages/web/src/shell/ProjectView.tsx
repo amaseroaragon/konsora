@@ -32,6 +32,7 @@ import {
 } from "./board-model.ts";
 import { applyBulk, type BulkChange } from "./bulk-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
+import { COMMAND_EVENT, type ProjectCommand } from "./commands-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { dependencyProblem, editErrorText } from "./edit-model.ts";
 import { FilterBar } from "./FilterBar.tsx";
@@ -200,6 +201,19 @@ export function ProjectView({
     setChatDraft((prev) => ({ text: refineMessage(task, groupName), n: (prev?.n ?? 0) + 1 }));
   };
   const [creating, setCreating] = useState(false);
+  // UI-27: the palette and the shortcuts ask the page for its own actions.
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const command = (event as CustomEvent<ProjectCommand>).detail;
+      if (command === "ai") toggleChat();
+      else if (command === "new-task" && !readOnly) {
+        setCreating(true);
+        go({ task: null });
+      }
+    };
+    window.addEventListener(COMMAND_EVENT, onCommand);
+    return () => window.removeEventListener(COMMAND_EVENT, onCommand);
+  });
   const selection = useSelection(projectId);
   const selectedIds = visibleSelection(selection.selected, board.tasks);
   const selectedKey = selectedIds.join(",");

@@ -2,6 +2,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { useState } from "react";
 import { ApiError, createApi } from "../api/client.ts";
 import { ApiContext } from "../api/projects.ts";
+import { CommandPalette } from "./CommandPalette.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { ProjectsPage } from "./ProjectsPage.tsx";
 import { QuestionAlerts } from "./QuestionAlerts.tsx";
@@ -34,6 +35,7 @@ export function WebApp({ token, route }: { token: string | null; route: Route })
     <ApiContext.Provider value={setup.api}>
       <QueryClientProvider client={setup.queries}>
         <QuestionAlerts />
+        <CommandPalette route={route} />
         <Shell
           home={route.name === "projects"}
           nav={<QuestionsLink current={route.name === "questions"} />}

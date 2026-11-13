@@ -1454,3 +1454,57 @@
   font-size: var(--k-text-xs);
   color: var(--k-ink-muted);
 }
+
+/* Command palette and shortcut help (UI-27) */
+.b-palette {
+  width: min(640px, calc(100vw - 32px));
+  margin-top: 12vh;
+  padding: var(--k-space-6);
+}
+.b-palette__input {
+  width: 100%;
+}
+.b-palette__list {
+  max-height: 50vh;
+  margin-top: var(--k-space-5);
+  overflow-y: auto;
+}
+.b-palette__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--k-space-5);
+  padding: var(--k-space-4) var(--k-space-5);
+  cursor: pointer;
+}
+.b-palette__item--active {
+  background: var(--k-accent-soft);
+  color: var(--k-accent-soft-ink);
+}
+.b-palette__kind {
+  min-width: 5.5rem;
+  color: var(--k-ink-muted);
+}
+.b-palette__empty {
+  margin: 0;
+  padding: var(--k-space-4) var(--k-space-5);
+  color: var(--k-ink-muted);
+}
+.b-keys__list {
+  display: grid;
+  gap: var(--k-space-4);
+  margin: var(--k-space-6) 0;
+}
+.b-keys__list > div {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: var(--k-space-5);
+}
+.b-keys__list dd {
+  margin: 0;
+}
+.b-keys__list kbd {
+  padding: 0 var(--k-space-3);
+  border: 1px solid var(--k-line-strong);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+}
