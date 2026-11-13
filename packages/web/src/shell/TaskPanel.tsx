@@ -3,7 +3,9 @@ import {
   availableActions,
   criteriaEvidence,
   dependentsOf,
+  isStale,
   recommendedModel,
+  STALE_AFTER_HOURS,
   startedBy,
   type Task,
   type TaskAction,
@@ -256,6 +258,7 @@ export function TaskPanel({
   groups = [],
   archived = false,
   archive = [],
+  now,
 }: {
   projectId: string;
   task: BoardTask;
@@ -275,6 +278,8 @@ export function TaskPanel({
   archived?: boolean;
   /** The archived tasks, to name the dependencies that were archived. */
   archive?: readonly Task[] | undefined;
+  /** For tests: the instant «abandoned» is measured against (CORE-10). */
+  now?: Date;
 }) {
   // Editing is the human's, and never on an invalid (read-only) plan.
   const [editing, setEditing] = useState(false);
@@ -290,6 +295,8 @@ export function TaskPanel({
   const deps = task.deps ?? [];
   const notes = task.notes ?? [];
   const started = task.state === "doing" ? startedBy(task) : undefined;
+  // CORE-10: derived from the clock, never stored.
+  const stale = isStale(task, now ?? new Date());
   // Once done, the agent's closing summary is what the human reads first.
   const summary =
     task.state === "done"
@@ -304,6 +311,7 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
+          {stale && <StateBadge kind="stale" />}
           {archived && <span className="a-chip">{t("detail.archived")}</span>}
           {task.difficulty && <DifficultyMark difficulty={task.difficulty} text />}
           {model && <span className="a-chip b-model">{t("model.recommended", { model })}</span>}
@@ -341,6 +349,11 @@ export function TaskPanel({
       </div>
       <div className="a-detail__body a-stack">
         {archived && <p className="s-text s-muted">{t("detail.archived.text")}</p>}
+        {stale && (
+          <p className="a-callout a-callout--warn a-callout__text" role="status">
+            {t("detail.stale", { hours: STALE_AFTER_HOURS, when: when(task.updated_at) })}
+          </p>
+        )}
         <ExternalChanges
           projectId={projectId}
           flags={external}

@@ -79,6 +79,23 @@ export function startedBy(task: Task): { at: string; by: string } | undefined {
   return event ? { at: event.at, by: event.by } : undefined;
 }
 
+/** Hours without activity after which a task in progress counts as abandoned (CORE-10). */
+export const STALE_AFTER_HOURS = 24;
+
+/**
+ * A task in progress with no activity for more than `hours` before `now` (CORE-10): its agent's
+ * session probably died. Derived, never stored. Any change to the task, a note included, moves
+ * its `updated_at` and so clears it.
+ */
+export function isStale(
+  task: Pick<Task, "state" | "updated_at">,
+  now: Date,
+  hours: number = STALE_AFTER_HOURS,
+): boolean {
+  if (task.state !== "doing") return false;
+  return now.getTime() - Date.parse(task.updated_at) > hours * 3_600_000;
+}
+
 /** Tasks that list `id` as a direct dependency. */
 export function dependentsOf(id: string, doc: Pick<TasksDocument, "tasks">): string[] {
   return doc.tasks

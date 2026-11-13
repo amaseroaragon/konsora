@@ -13,7 +13,7 @@ import { CONFIG_TARGETS, type ConfigTarget, configHint, configSnippet } from "./
 import { registerMigrate } from "./migrate.ts";
 import { registerPlan } from "./plan.ts";
 import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./read.ts";
-import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
+import { CliError, EXIT, type Io, json, load, locate, staleHours, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
 import { registerUi } from "./ui.ts";
 import { parseDifficulty, registerWriteCommands } from "./write.ts";
@@ -107,13 +107,18 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   program
     .command("status")
     .description("summary: counts per state, what needs you, what is ready")
+    .option(
+      "--stale-after <hours>",
+      "a task in progress with no activity for longer counts as abandoned (default: $KONSORA_STALE_AFTER or 24)",
+    )
     .option("--json", "machine-readable output")
-    .action(async (opts: { json?: boolean }) => {
+    .action(async (opts: { json?: boolean; staleAfter?: string }) => {
+      const check = { now: io.now?.() ?? new Date(), hours: staleHours(io.env, opts.staleAfter) };
       const { root: dir, doc } = await load(io, root());
       if (opts.json) {
-        json(io, statusData(doc));
+        json(io, statusData(doc, check));
       } else {
-        io.stdout(statusText(doc, relative(io.cwd, tasksPath(dir)) || tasksPath(dir)));
+        io.stdout(statusText(doc, relative(io.cwd, tasksPath(dir)) || tasksPath(dir), check));
       }
     });
 

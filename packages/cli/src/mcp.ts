@@ -12,7 +12,7 @@ import { z } from "zod";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
 import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./read.ts";
-import { type Io, load, locate, sessionScope, VERSION } from "./shared.ts";
+import { type Io, load, locate, sessionScope, staleHours, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 
@@ -56,13 +56,13 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
     {
       title: "Plan status",
       description:
-        "Summary of the plan: counts per state, ids that are ready, blocked, waiting or ideas (proposed), the blocks with their branch and progress, and the project (its task templates in project.templates).",
+        "Summary of the plan: counts per state, ids that are ready, blocked, waiting, abandoned (stale: in progress with no recent activity) or ideas (proposed), the milestones with their progress, and the project (its task templates in project.templates).",
       annotations: READ_ONLY,
     },
     () =>
       guarded(async () => {
         const { doc } = await load(io, root);
-        return ok(statusData(doc));
+        return ok(statusData(doc, { now: io.now?.() ?? new Date(), hours: staleHours(io.env) }));
       }),
   );
 

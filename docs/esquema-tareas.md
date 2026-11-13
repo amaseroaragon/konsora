@@ -195,6 +195,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 - `blocked` = `state == todo` y alguna dependencia no está en `done`.
 - `waiting` = la última nota `question` no tiene un `answer` posterior.
 - `ready` = `todo` y no `blocked`.
+- `stale` (abandonada, CORE-10) = `doing` y su `updated_at` es más antiguo que un umbral (24 h por defecto). Cualquier cambio en la tarea, una nota incluida, mueve `updated_at` y lo quita. Depende del reloj, así que no está en `deriveFlags`: `isStale(task, now, horas)` en `core`. `konsora status` las lista aparte (`stale` en `--json` y en la herramienta `status` del MCP), con el umbral de `--stale-after <horas>` o `KONSORA_STALE_AFTER`; la UI usa las 24 h y muestra «Sin actividad» en la tarjeta y un aviso en el panel. El humano la libera arrastrándola a Por hacer (`pause`).
 
 **Git**: Konsora no ejecuta git. Las ramas, los commits y los merges del código los hace cada uno con su flujo de siempre; el plan se versiona con el código como cualquier otro fichero.
 

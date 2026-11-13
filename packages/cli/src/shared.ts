@@ -1,6 +1,6 @@
 /** Helpers shared by the CLI commands: I/O, errors, plan discovery and loading. */
 import type { Readable, Writable } from "node:stream";
-import type { TasksDocument } from "@konsora/core";
+import { STALE_AFTER_HOURS, type TasksDocument } from "@konsora/core";
 import { readTasks, type StoreError, tasksPath } from "@konsora/core/store";
 import { issuesText } from "./format.ts";
 import { type Channel, HINTS, type Hint } from "./hints.ts";
@@ -91,4 +91,21 @@ export async function load(
 
 export function json(io: Io, value: unknown) {
   io.stdout(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+/**
+ * Hours without activity after which a task in progress counts as abandoned (CORE-10):
+ * `--stale-after`, else KONSORA_STALE_AFTER, else core's default.
+ */
+export function staleHours(env: NodeJS.ProcessEnv, flag?: string): number {
+  const raw = flag ?? env.KONSORA_STALE_AFTER;
+  if (raw === undefined || raw === "") return STALE_AFTER_HOURS;
+  const hours = Number(raw);
+  if (!Number.isFinite(hours) || hours <= 0)
+    throw new CliError(
+      `Invalid stale threshold "${raw}".`,
+      "Give a positive number of hours, e.g. --stale-after 12 (or KONSORA_STALE_AFTER=12).",
+      EXIT.usage,
+    );
+  return hours;
 }

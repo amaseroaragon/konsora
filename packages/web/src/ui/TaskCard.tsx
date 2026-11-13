@@ -15,6 +15,8 @@ export type TaskCardProps = {
   /** An unapproved change made outside Konsora is pending on this task. */
   external?: boolean;
   proposedBy?: string;
+  /** In progress with no recent activity: its agent's session may have died (CORE-10). */
+  stale?: boolean;
   /** Who has the task in progress (CORE-09): an agent name, or «tú». */
   startedBy?: string | undefined;
   difficulty?: Difficulty | undefined;
@@ -37,6 +39,7 @@ export function TaskCard({
   external = false,
   proposedBy,
   startedBy,
+  stale = false,
   difficulty,
   labels = [],
   selected = false,
@@ -66,6 +69,7 @@ export function TaskCard({
         )}
         {ready && <StateBadge kind="ready" />}
         {waiting && <StateBadge kind="waiting" />}
+        {state === "doing" && stale && <StateBadge kind="stale" />}
         {external && <StateBadge kind="external" />}
         {state === "doing" && startedBy && (
           <StateBadge kind="doing" label={t("card.startedBy", { actor: startedBy })} />

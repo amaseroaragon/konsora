@@ -168,6 +168,8 @@ describe("read commands", () => {
       ready: ["BE-04"],
       blocked: ["BE-03"],
       waiting: ["BE-04"],
+      // The fixture's task in progress is days old for the real clock (CORE-10).
+      stale: ["BE-02"],
       proposed: ["FE-01"],
     });
   });

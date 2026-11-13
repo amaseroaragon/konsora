@@ -170,6 +170,11 @@ a {
   background: var(--k-warn-soft);
   color: var(--k-warn-ink);
 }
+/* In progress with no recent activity (CORE-10) */
+.k-badge--stale {
+  background: var(--k-warn-soft);
+  color: var(--k-warn-ink);
+}
 .k-badge--external {
   background: var(--k-danger-soft);
   color: var(--k-danger-ink);

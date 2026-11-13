@@ -4,9 +4,11 @@ import {
   dependentsOf,
   deriveFlags,
   indexTasks,
+  isStale,
   milestoneProgress,
   recommendedModel,
   type SchemaIssue,
+  STALE_AFTER_HOURS,
   startedBy,
   type Task,
   type TaskFlags,
@@ -57,8 +59,13 @@ export function taskTable(list: readonly TaskView[]): string {
   return `${"ID".padEnd(idWidth)}  ${"STATE".padEnd(8)}  ${"DIFF".padEnd(6)}  TITLE\n${rows.join("\n")}\n`;
 }
 
-export function statusText(doc: TasksDocument, file: string): string {
+export function statusText(
+  doc: TasksDocument,
+  file: string,
+  check: { now: Date; hours: number } = { now: new Date(), hours: STALE_AFTER_HOURS },
+): string {
   const list = views(doc);
+  const stale = list.filter((t) => isStale(t, check.now, check.hours));
   const count = (state: TaskState) => list.filter((t) => t.state === state).length;
   const section = (title: string, items: TaskView[], extra?: (t: TaskView) => string) =>
     items.length
@@ -68,10 +75,15 @@ export function statusText(doc: TasksDocument, file: string): string {
     `${doc.project.name} · ${file} · ${list.length} tasks in ${doc.groups.length} groups\n`,
     `  groups: ${doc.groups.map((g) => `${g.id} (${g.name})`).join(", ")}\n`,
     `\n  ${STATES.map((s) => `${s} ${count(s)}`).join("   ")}\n`,
-    `  ready ${list.filter((t) => t.ready).length} · blocked ${list.filter((t) => t.blocked).length} · waiting ${list.filter((t) => t.waiting).length}\n`,
+    `  ready ${list.filter((t) => t.ready).length} · blocked ${list.filter((t) => t.blocked).length} · waiting ${list.filter((t) => t.waiting).length}${stale.length ? ` · abandoned ${stale.length}` : ""}\n`,
     section(
       "Waiting for an answer",
       list.filter((t) => t.waiting),
+    ),
+    section(
+      `Abandoned? (in progress, no activity for over ${check.hours} h; pause it or pick it up)`,
+      stale,
+      startedText,
     ),
     section(
       "Doing",

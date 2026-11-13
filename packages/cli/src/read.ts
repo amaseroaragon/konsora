@@ -2,13 +2,25 @@
  * Read operations shared by the CLI (`--json`) and the MCP server: each returns the exact value
  * the CLI prints with `--json`, so both surfaces stay identical by construction.
  */
-import { milestoneProgress, type TaskState, type TasksDocument } from "@konsora/core";
+import {
+  isStale,
+  milestoneProgress,
+  STALE_AFTER_HOURS,
+  type TaskState,
+  type TasksDocument,
+} from "@konsora/core";
 import { ARCHIVE_FILE, readArchive, readTasks, type StoreError } from "@konsora/core/store";
 import { issuesText, readyViews, STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
 import { CliError, EXIT } from "./shared.ts";
 
-export function statusData(doc: TasksDocument) {
+/** When `status` looks at the clock: what counts as an abandoned task in progress (CORE-10). */
+export type StaleCheck = { now: Date; hours: number };
+
+export function statusData(
+  doc: TasksDocument,
+  stale: StaleCheck = { now: new Date(), hours: STALE_AFTER_HOURS },
+) {
   const list = views(doc);
   const byState = Object.fromEntries(
     STATES.map((s) => [s, list.filter((t) => t.state === s).length]),
@@ -21,6 +33,8 @@ export function statusData(doc: TasksDocument) {
     ready: readyViews(list).map((t) => t.id),
     blocked: list.filter((t) => t.blocked).map((t) => t.id),
     waiting: list.filter((t) => t.waiting).map((t) => t.id),
+    // CORE-10: in progress with no activity for longer than the threshold.
+    stale: list.filter((t) => isStale(t, stale.now, stale.hours)).map((t) => t.id),
     proposed: list.filter((t) => t.state === "proposed").map((t) => t.id),
     // CORE-19: each milestone with its done and total tasks; absent when the plan has none.
     ...(doc.milestones?.length ? { milestones: milestoneProgress(doc) } : {}),

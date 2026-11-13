@@ -8,6 +8,7 @@ export const es = {
   "state.waiting": "Esperando respuesta",
   "state.ready": "Lista",
   "state.external": "Cambio externo",
+  "state.stale": "Sin actividad",
   "card.select": "Seleccionar {id}",
   "labels.label": "Etiquetas",
   "card.blockedBy": "Bloqueada por {ids}",
@@ -117,6 +118,8 @@ export const es = {
   "detail.notes": "Notas",
   "detail.you": "tú",
   "detail.started": "La tiene {actor} desde el {when}",
+  "detail.stale":
+    "Sin actividad desde el {when} (más de {hours} h): puede que la sesión de su agente haya terminado. Si nadie sigue con ella, arrástrala a Por hacer en el tablero para liberarla.",
   "detail.question": "El agente pregunta:",
   "note.note": "nota",
   "note.question": "pregunta",

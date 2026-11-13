@@ -456,6 +456,27 @@ describe("planning commands", () => {
     expect((await run(["show", "BE-02"])).stdout).not.toContain("recommended model");
   });
 
+  it("status flags tasks in progress without recent activity, with a threshold (CORE-10)", async () => {
+    // BE-02 has been in doing since 2026-11-02T10:00, and the clock says 2026-11-03T09:30.
+    const quiet = await run(["status"]);
+    expect(quiet.stdout).not.toContain("Abandoned?");
+    expect((await run(["status", "--json"])).json().stale).toEqual([]);
+    const strict = await run(["status", "--stale-after", "12"]);
+    expect(strict.stdout).toContain("abandoned 1");
+    expect(strict.stdout).toMatch(
+      /Abandoned\? \(in progress, no activity for over 12 h; pause it or pick it up\):\n {2}BE-02/,
+    );
+    expect(
+      (await run(["status", "--json"], { env: { KONSORA_STALE_AFTER: "6" } })).json().stale,
+    ).toEqual(["BE-02"]);
+    // A note is activity: it clears the flag.
+    await run(["note", "BE-02", "Sigo con ello"], { env: {} });
+    expect((await run(["status", "--stale-after", "12", "--json"])).json().stale).toEqual([]);
+    const bad = await run(["status", "--stale-after", "soon"]);
+    expect(bad.code).toBe(EXIT.usage);
+    expect(bad.stderr).toContain('Invalid stale threshold "soon"');
+  });
+
   it("depend rejects cycles", async () => {
     const r = await run(["depend", "BE-02", "BE-03"]);
     expect(r.code).toBe(EXIT.failure);
