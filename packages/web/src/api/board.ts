@@ -34,7 +34,7 @@ export type BoardOk = {
   project: ProjectInfo;
   hash: string;
   external: ExternalFlag[];
-  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq" | "archived">;
+  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "milestones" | "seq" | "archived">;
   tasks: BoardTask[];
   /** The tasks moved to `.konsora/archive.json` (CORE-18), for the History. */
   archive?: Task[];

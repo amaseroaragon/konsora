@@ -229,6 +229,17 @@ describe("read endpoints", () => {
     expect(readdirSync(projectDir)).toEqual([]);
   });
 
+  it("board carries the plan's milestones for the UI (CORE-19)", async () => {
+    mkdirSync(join(projectDir, ".konsora"));
+    const withMilestones = { ...plan(), milestones: [{ id: "m1", name: "Primero" }] };
+    writeFileSync(join(projectDir, ".konsora", "tasks.json"), serializeDocument(withMilestones));
+    const { body } = await link();
+    const board = (await (await call(`/api/projects/${body.project.id}/board`)).json()) as {
+      plan: { milestones?: unknown[] };
+    };
+    expect(board.plan.milestones).toEqual([{ id: "m1", name: "Primero" }]);
+  });
+
   it("board returns tasks in dependency order with derived flags and hashes", async () => {
     mkdirSync(join(projectDir, ".konsora"));
     writeFileSync(join(projectDir, ".konsora", "tasks.json"), serializeDocument(plan()));
@@ -243,6 +254,7 @@ describe("read endpoints", () => {
     expect(board.hash).toMatch(/^sha256:/);
     expect(board.plan.groups).toEqual([{ id: "BE", name: "Backend" }]);
     expect(board.tasks.map((t) => t.id)).toEqual(["BE-01", "BE-02"]);
+    expect(board.plan).not.toHaveProperty("milestones");
     expect(board.tasks[1]).toMatchObject({
       blocked: true,
       blockers: ["BE-01"],

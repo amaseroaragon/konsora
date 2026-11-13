@@ -214,6 +214,7 @@ export function createApp(options: AppOptions): Hono {
         schema: plan.document.schema,
         project: plan.document.project,
         groups: plan.document.groups,
+        ...(plan.document.milestones ? { milestones: plan.document.milestones } : {}),
         seq: plan.document.seq,
         ...(plan.document.archived ? { archived: plan.document.archived } : {}),
       },
