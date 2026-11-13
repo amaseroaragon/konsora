@@ -89,3 +89,46 @@ export function actorName(actor: string): string {
   if (actor === "konsora") return "Konsora";
   return actor.replace(/^agent:/, "");
 }
+
+/** The History's filter (UI-17): who closed, group and text; empty fields match everything. */
+export type HistoryFilter = { by?: string; group?: string; text?: string };
+
+/** Lower case without accents, so «cache» finds «caché». */
+const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/** Who appears as closer in the log, for the filter: actors sorted, without the empty one. */
+export function closers(entries: readonly LogEntry[]): string[] {
+  return [...new Set(entries.flatMap((entry) => (entry.by ? [entry.by] : [])))].sort();
+}
+
+/** The entries that match: who closed it, its group, and the text in its id, title or summary. */
+export function filterLog(entries: readonly LogEntry[], filter: HistoryFilter): LogEntry[] {
+  const text = fold(filter.text?.trim() ?? "");
+  return entries.filter(
+    (entry) =>
+      (!filter.by || entry.by === filter.by) &&
+      (!filter.group || entry.group === filter.group) &&
+      (!text || fold(`${entry.id} ${entry.title} ${entry.summary ?? ""}`).includes(text)),
+  );
+}
+
+/**
+ * The days shown as a Markdown list (UI-17 ac3): a heading per day with its count, and per task
+ * its id, title, who closed it and the first line of its summary.
+ */
+export function historyMarkdown(days: readonly HistoryDay[]): string {
+  return days
+    .map((day) =>
+      [
+        `## ${day.label} (${day.entries.length})`,
+        "",
+        ...day.entries.map(({ entry, time }) => {
+          const who = entry.by ? ` — ${actorName(entry.by)}` : "";
+          const line = entry.summary ? `: ${summaryLine(entry.summary)}` : "";
+          return `- ${time} **${entry.id}** ${entry.title}${who}${line}`;
+        }),
+      ].join("\n"),
+    )
+    .join("\n\n")
+    .concat("\n");
+}

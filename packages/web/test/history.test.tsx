@@ -7,7 +7,13 @@ import type { BoardOk } from "../src/api/board.ts";
 import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
 import { HistoryView } from "../src/shell/HistoryView.tsx";
-import { groupByDay, summaryLine } from "../src/shell/history-model.ts";
+import {
+  closers,
+  filterLog,
+  groupByDay,
+  historyMarkdown,
+  summaryLine,
+} from "../src/shell/history-model.ts";
 import { ProjectView } from "../src/shell/ProjectView.tsx";
 import { parseRoute, projectHref } from "../src/shell/route.ts";
 import { ToastProvider } from "../src/ui/index.ts";
@@ -174,5 +180,48 @@ describe("archived tasks (CORE-18)", () => {
       />,
     );
     expect(html).toContain("No se pudo leer el archivo de tareas archivadas");
+  });
+});
+
+describe("history filters and summary (UI-17)", () => {
+  const plan: TasksDocument = {
+    ...doc,
+    groups: [
+      { id: "BE", name: "Backend" },
+      { id: "FE", name: "Frontend" },
+    ],
+    seq: { BE: 5, FE: 1 },
+    tasks: [
+      ...doc.tasks,
+      task("FE-01", "done", {
+        group: "FE",
+        title: "Pantalla",
+        ...summary("2026-11-12T09:00:00Z", "Hecha por mí", "human"),
+      }),
+    ],
+  };
+  const log = completionLog(plan);
+
+  it("filters by who closed, by group and by text in the title or summary (ac1)", () => {
+    expect(closers(log)).toEqual(["agent:claude", "human"]);
+    expect(filterLog(log, { by: "human" }).map((e) => e.id)).toEqual(["FE-01"]);
+    expect(filterLog(log, { group: "FE" }).map((e) => e.id)).toEqual(["FE-01"]);
+    // Text in the summary, without accents or case.
+    expect(filterLog(log, { text: "CACHE" }).map((e) => e.id)).toEqual(["BE-02"]);
+    // Text in the title.
+    expect(filterLog(log, { text: "pantalla" }).map((e) => e.id)).toEqual(["FE-01"]);
+    expect(filterLog(log, { by: "agent:claude", group: "FE" })).toEqual([]);
+    expect(filterLog(log, {})).toHaveLength(log.length);
+  });
+
+  it("counts each day's closures and copies the visible ones as Markdown (ac2, ac3)", () => {
+    const days = groupByDay(filterLog(log, { by: "agent:claude" }), { now, timeZone });
+    const html = wrap(<HistoryView projectId="p-1" doc={plan} openId={null} now={now} />);
+    expect(html).toMatch(/Hoy<span class="b-history__count">\d+ cierres?<\/span>/);
+    expect(html).toContain("Copiar como Markdown");
+    const md = historyMarkdown(days);
+    expect(md).toContain("## Hoy (1)");
+    expect(md).toContain("- 00:30 **BE-02** Tarea BE-02 — claude: Con caché");
+    expect(md).not.toContain("FE-01");
   });
 });
