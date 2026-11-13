@@ -11,9 +11,9 @@ Run each `konsora` command on its own, not chained with `&&`, `;` or pipes: perm
 
 ## MCP tools
 
-If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `move`, `delete`, `promote`, `demote`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`, and `add_group`, `rename_group`, `remove_group` for groups and `add_milestone`, `edit_milestone`, `remove_milestone` for milestones. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
+If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `move`, `split`, `delete`, `promote`, `demote`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`, and `add_group`, `rename_group`, `remove_group` for groups and `add_milestone`, `edit_milestone`, `remove_milestone` for milestones. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
 
-In a planning session (`konsora plan` or the AI panel of the Konsora UI; the server's instructions say so), interview the human, then create the tasks with `batch`; you may only create, revise or delete tasks nobody started, and nothing is started.
+In a planning session (`konsora plan` or the AI panel of the Konsora UI; the server's instructions say so), interview the human, then create the tasks with `batch`; you may only create, revise, split or delete tasks nobody started, and nothing is started.
 
 ## States and roles
 
@@ -52,7 +52,7 @@ JSON
 - A task with `"idea": true` is created as an idea (`proposed`) instead of in `todo`: use it for loose ideas the human has not committed to.
 - If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria and labels, and what you pass completes or replaces them.
 - Each task: an imperative title, a `desc` saying what it achieves, acceptance criteria that can be verified, and a `difficulty` you estimate: `low` (mechanical, a few files), `medium` (a feature within one area) or `high` (cross-cutting, design decisions or risky). `--difficulty` in `propose` and `edit`.
-- Keep each task small enough for one working session; split bigger work into tasks with `deps`.
+- Keep each task small enough for one working session; split bigger work into tasks with `deps`. A task nobody started that turns out too big: `konsora split <ID> --into "<part 1>" --into "<part 2>"` (the parts inherit its group, labels and dependencies, and its dependents follow the last part).
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`, or with `konsora group add FE Frontend`. `konsora group rename` and `konsora group remove` (only a group no task uses) manage them.
 - One task: `konsora propose "<title>" --group BE --criterion "<check>" --deps BE-01`. An idea for later: `konsora propose "<title>" --group BE --idea`.
 - Milestones group tasks into a goal with its progress (`konsora status` lists them). Put a task in one with `"milestone": "<id>"` in the batch, `--milestone <id>` in `propose` and `edit` (`none` takes it out); `konsora milestone add <id> "<name>" --criterion "<when it is done>"` creates one.

@@ -20,7 +20,17 @@ import { z } from "zod";
 import { opHint } from "./hints.ts";
 import { failure, guarded, ok } from "./mcp-result.ts";
 import type { Io } from "./shared.ts";
-import { agentActor, BatchSchema, batchOp, editOp, moveOp, runOp, writeJson } from "./write.ts";
+import {
+  agentActor,
+  BatchSchema,
+  batchOp,
+  editOp,
+  moveOp,
+  runOp,
+  SplitSchema,
+  splitOp,
+  writeJson,
+} from "./write.ts";
 
 /** The agent for attribution: KONSORA_AGENT, else the first word of the MCP client's name. */
 export function mcpActor(env: NodeJS.ProcessEnv, clientName: string | undefined): string {
@@ -161,6 +171,18 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       annotations: WRITE,
     },
     ({ id: task, ...place }) => apply(() => moveOp(task, place)),
+  );
+
+  server.registerTool(
+    "split",
+    {
+      title: "Split a task",
+      description:
+        "Replace a task nobody started (an idea or a todo task) by two or more, in order. They inherit its group, labels, state, milestone and difficulty (unless given); the first takes its dependencies, each next one depends on the previous, and the tasks that depended on it depend on the last.",
+      inputSchema: { id, ...SplitSchema.shape },
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    ({ id: task, ...parts }) => apply(() => splitOp(task, parts)),
   );
 
   server.registerTool(

@@ -129,6 +129,12 @@ export type Op = Base &
      * three). Only its own `rank` changes.
      */
     | { op: "move"; task: string; before?: string; after?: string; top?: boolean }
+    /**
+     * CORE-20: replaces a task nobody started by two or more, in order. They inherit its group,
+     * labels, state, milestone and (unless given) difficulty; the first takes its dependencies,
+     * each next one depends on the previous, and the tasks that depended on it depend on the last.
+     */
+    | { op: "split"; task: string; into: SplitPart[] }
     /** Removes a task; tasks that depended on it lose that dependency (with a note). */
     | { op: "delete"; task: string }
     | { op: "depend"; task: string; on: string }
@@ -168,6 +174,14 @@ export type Op = Base &
     | { op: "undo"; changes: UndoChange[] }
   );
 
+/** One of the tasks a `split` creates: what it does; the rest comes from the original. */
+export type SplitPart = {
+  title: string;
+  desc?: string;
+  acceptance?: string[];
+  difficulty?: Difficulty;
+};
+
 /** Evidence for one criterion as `finish` receives it; `met` defaults to true. */
 export type EvidenceInput = { ac: string; met?: boolean; text: string };
 
@@ -204,6 +218,11 @@ export type OpError = {
 export type OpResult =
   | { ok: true; document: TasksDocument; changed: string[]; created: string[] }
   | { ok: false; error: OpError };
+
+/** Whether a task can be split (CORE-20): only one nobody started. */
+export function canSplit(task: Pick<Task, "state">): boolean {
+  return NOT_STARTED.has(task.state);
+}
 
 /** The model the project recommends for a task's difficulty (CORE-23), if any. */
 export function recommendedModel(
@@ -267,6 +286,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   edit: ["human", "agent"], // agents: unfinished tasks only (checked below)
   move: ["human", "agent"], // agents: unfinished tasks only
   delete: ["human", "agent"], // agents: tasks nobody started only
+  split: ["human", "agent"], // tasks nobody started only
   depend: ["human", "agent"],
   undepend: ["human", "agent"], // agents: unfinished tasks only
   start: ["agent", "konsora"],
@@ -296,6 +316,7 @@ const EDITABLE = [
 /** All an agent in a planning session may do. */
 const PLAN_OPS: ReadonlySet<OpName> = new Set([
   "propose",
+  "split",
   "batch",
   "edit",
   "move",
@@ -355,7 +376,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     if (!PLAN_OPS.has(op.op)) {
       fail(
         "out_of_scope",
-        `In a planning session you can only plan: create, revise and delete tasks nobody started; ${op.op} is not available`,
+        `In a planning session you can only plan: create, revise, split and delete tasks nobody started; ${op.op} is not available`,
         "task" in op ? { task: op.task } : {},
       );
     }
@@ -667,6 +688,70 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         );
       }
       touch(task);
+      break;
+    }
+    case "split": {
+      const task = get(op.task);
+      if (!NOT_STARTED.has(task.state))
+        fail(
+          "invalid_transition",
+          `${task.id} is ${task.state}; only a task nobody started can be split`,
+          {
+            task: task.id,
+          },
+        );
+      if (op.into.length < 2) fail("invalid", "split needs at least two tasks", { task: task.id });
+      // The new tasks take the original's place in the order: between it and the next task.
+      const next = doc.tasks
+        .filter((t) => t.id !== task.id && t.rank > task.rank)
+        .sort(compareByRank)[0]?.rank;
+      let previous: Task | undefined;
+      let rank = task.rank;
+      const parts: Task[] = [];
+      for (const part of op.into) {
+        const difficulty = part.difficulty ?? task.difficulty;
+        const created = createTask(
+          {
+            title: part.title,
+            group: task.group,
+            ...(part.desc ? { desc: part.desc } : {}),
+            ...(part.acceptance ? { acceptance: part.acceptance } : {}),
+            ...(task.labels ? { labels: task.labels } : {}),
+            ...(difficulty ? { difficulty } : {}),
+            ...(task.milestone ? { milestone: task.milestone } : {}),
+          },
+          task.state,
+          previous ? [previous.id] : [...(task.deps ?? [])],
+        );
+        created.rank = rank;
+        try {
+          rank = rankBetween(rank, next);
+        } catch {
+          fail("invalid", `No rank fits after ${task.id}; move a task first`, { task: task.id });
+        }
+        addNote(created, "note", `Split from ${task.id} (${task.title}).`);
+        parts.push(created);
+        previous = created;
+      }
+      const last = parts.at(-1) as Task;
+      doc.tasks = doc.tasks.filter((t) => t.id !== task.id);
+      index.delete(task.id);
+      changed.add(task.id);
+      doc.deleted = [
+        ...(doc.deleted ?? []),
+        { id: task.id, title: task.title, at: ctx.at, by: ctx.actor },
+      ].slice(-DELETED_LIMIT);
+      for (const dependent of doc.tasks.filter((t) => t.deps?.includes(task.id))) {
+        dependent.deps = [
+          ...new Set((dependent.deps ?? []).map((d) => (d === task.id ? last.id : d))),
+        ];
+        addNote(
+          dependent,
+          "note",
+          `Dependency ${task.id} was split; it now depends on ${last.id}, the last part.`,
+        );
+        log(dependent, "edit", ["deps"]);
+      }
       break;
     }
     case "delete": {

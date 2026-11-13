@@ -487,6 +487,22 @@ describe("planning commands", () => {
     expect((await run(["show", "BE-04"])).stdout).toContain("Commits: 24476d1 8b8e7df");
   });
 
+  it("split replaces a todo task by its parts; the dependents follow the last (CORE-20)", async () => {
+    const r = await run(["split", "BE-02", "--into", "x"]);
+    expect(r.code).toBe(EXIT.usage); // one part, and BE-02 is doing anyway
+    expect(r.stderr).toContain("Give at least two parts");
+    const done = await run(["split", "BE-04", "--into", "Parte A", "--into", "Parte B"]);
+    expect(done.stdout).toBe(
+      "Split BE-04 into 2 tasks:\n  BE-06     Parte A\n  BE-07     Parte B\n",
+    );
+    expect(task("BE-06").deps).toEqual(["BE-01"]);
+    expect(task("BE-07").deps).toEqual(["BE-06"]);
+    expect(doc().tasks.some((t) => t.id === "BE-04")).toBe(false);
+    const started = await run(["split", "BE-02", "--into", "a", "--into", "b"]);
+    expect(started.code).toBe(EXIT.failure);
+    expect(started.stderr).toContain("only a task nobody started can be split");
+  });
+
   it("depend rejects cycles", async () => {
     const r = await run(["depend", "BE-02", "BE-03"]);
     expect(r.code).toBe(EXIT.failure);

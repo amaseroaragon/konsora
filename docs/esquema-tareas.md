@@ -182,6 +182,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 | editar | A, H | Título, desc, criterios, etiquetas, deps, grupo (`edit`, `depend`, `undepend`). Un agente no cambia tareas `done`. |
 | reordenar | A, H | `move`: justo antes o después de otra tarea, o la primera de todas. Solo cambia el `rank` de esa tarea. Un agente no reordena tareas `done`. |
 | borrar | A, H | `delete`. Un agente solo borra lo que nadie empezó (`proposed`, `todo`) y nunca una tarea de la que depende otra ya `done`; el humano, cualquiera. Las tareas que dependían de ella pierden esa dependencia y reciben una nota. El ID no se reutiliza. |
+| dividir | A, H | `split {task, into}` (CORE-20): sustituye una tarea que nadie empezó (`proposed` o `todo`) por dos o más, en orden y en su lugar del orden. Heredan su grupo, sus etiquetas, su estado, su hito y su dificultad (salvo que la parte traiga la suya); la primera toma sus dependencias, cada una depende de la anterior y las tareas que dependían de la original pasan a depender de la última (con una nota). La original queda en `deleted` y cada parte lleva una nota «Split from …». Una tarea empezada da `invalid_transition`. También en modo plan. CLI `konsora split <ID> --into "<título>"` (repetible) o con JSON (`--file`, `--stdin`); MCP `split`; panel «Dividir en varias». |
 | `todo` → `doing` | A | `start`. Rechazado si está `blocked`. |
 | `doing` → `todo` | A, H | `pause`, opcionalmente con una nota. |
 | `doing` → `done` | A | `finish` con `summary`. |
@@ -189,7 +190,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 | añadir `deps` | A, H | No en tareas `done`. Rechazado si crea un ciclo. |
 | deshacer | **H** | `undo`: devuelve cada tarea que tocó una acción humana a su versión anterior (o la quita, si la acción la creó). Lleva, por tarea, la versión anterior y el hash que debe tener ahora; si alguna cambió entre medias, `conflict` y no se aplica nada. El daemon responde a cada op de la UI con su `undo`, y el aviso que sigue ofrece «Deshacer». |
 
-**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, reordenar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `move`, `depend`, `undepend`, `promote`, `demote`, `delete`). Todo lo demás da `out_of_scope`.
+**Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, reordenar, dividir, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `move`, `split`, `depend`, `undepend`, `promote`, `demote`, `delete`). Todo lo demás da `out_of_scope`.
 
 **Derivados**
 

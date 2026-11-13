@@ -1,6 +1,7 @@
 import {
   ACTION_TEXT,
   availableActions,
+  canSplit,
   criteriaEvidence,
   dependentsOf,
   isStale,
@@ -12,7 +13,14 @@ import {
   type TasksDocument,
 } from "@konsora/core";
 import { type FormEvent, useState } from "react";
-import { type BoardTask, type ExternalFlag, useAddNote, useTaskAction } from "../api/board.ts";
+import {
+  type BoardTask,
+  type ExternalFlag,
+  type OpReply,
+  useAddNote,
+  useProjectOp,
+  useTaskAction,
+} from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import {
@@ -188,6 +196,100 @@ export function Actions({
         ),
       )}
     </div>
+  );
+}
+
+/**
+ * Splits a task nobody started into two or more (CORE-20): one title per part, in order. Core
+ * gives them the task's group, labels and dependencies, and the tasks that depended on it follow
+ * the last part. Offered folded behind a button.
+ */
+function SplitForm({
+  projectId,
+  task,
+  onDone,
+}: {
+  projectId: string;
+  task: BoardTask;
+  onDone: () => void;
+}) {
+  const [titles, setTitles] = useState<string[] | null>(null);
+  const mutation = useProjectOp(projectId);
+  const toast = useToast();
+  const offer = useUndoOffer(projectId);
+  if (!titles)
+    return (
+      <div className="a-actions">
+        <Button size="sm" variant="secondary" onClick={() => setTitles(["", ""])}>
+          {t("split.open")}
+        </Button>
+      </div>
+    );
+  const parts = titles.map((title) => title.trim()).filter(Boolean);
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (parts.length < 2) return;
+    mutation.mutate(
+      { op: "split", task: task.id, into: parts.map((title) => ({ title })) },
+      {
+        onSuccess: (reply) => {
+          const created = (reply as OpReply).created ?? [];
+          offer(t("split.done", { id: task.id, ids: created.join(", ") }), (reply as OpReply).undo);
+          onDone();
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.unauthorized) return;
+          const code = error instanceof ApiError ? error.code : "error";
+          toast.show(opErrorText(code, task.id, error.message), "error");
+        },
+      },
+    );
+  };
+  return (
+    <form className="a-callout a-stack" onSubmit={submit}>
+      <p className="a-callout__text">{t("split.text", { id: task.id })}</p>
+      <ol className="a-stack b-split">
+        {titles.map((title, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: rows are only added at the end or removed.
+          <li key={index} className="b-split__row">
+            <Field
+              label={t("split.part", { n: index + 1 })}
+              value={title}
+              maxLength={120}
+              onChange={(event) =>
+                setTitles(titles.map((x, i) => (i === index ? event.target.value : x)))
+              }
+            />
+            {titles.length > 2 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setTitles(titles.filter((_, i) => i !== index))}
+              >
+                ✕<span className="k-visually-hidden">{t("split.remove", { n: index + 1 })}</span>
+              </Button>
+            )}
+          </li>
+        ))}
+      </ol>
+      <div className="a-actions">
+        <Button size="sm" variant="ghost" onClick={() => setTitles([...titles, ""])}>
+          {t("split.add")}
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          variant="primary"
+          busy={mutation.isPending}
+          disabled={parts.length < 2}
+        >
+          {t("split.submit", { n: parts.length })}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setTitles(null)}>
+          {t("feedback.cancel")}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -407,6 +509,14 @@ export function TaskPanel({
             task={task}
             actions={actions}
             dependents={dependentsOf(task.id, doc)}
+          />
+        )}
+        {!readOnly && !archived && canSplit(task) && (
+          <SplitForm
+            key={`${task.id}:${task.hash}`}
+            projectId={projectId}
+            task={task}
+            onDone={onClose}
           />
         )}
         {onRefine && canRefine(task, readOnly) && (

@@ -484,3 +484,18 @@
   gap: var(--k-space-3) var(--k-space-6);
   font-size: var(--k-text-sm);
 }
+
+/* Splitting a task (CORE-20) */
+.b-split {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.b-split__row {
+  display: flex;
+  align-items: end;
+  gap: var(--k-space-4);
+}
+.b-split__row .k-field {
+  flex: 1;
+}

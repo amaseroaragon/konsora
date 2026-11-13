@@ -375,6 +375,30 @@ describe("konsora mcp: agent write tools", () => {
     await close();
   });
 
+  it("split replaces a task nobody started, also in a planning session (CORE-20)", async () => {
+    const viaMcp = project();
+    const viaCli = project();
+    const { call, close } = await connect(viaMcp, { env: { KONSORA_PLAN: "1" } });
+    const parts = { into: [{ title: "First", acceptance: ["A"] }, { title: "Second" }] };
+    const fromMcp = await call("split", { id: "be-03", ...parts });
+    expect(fromMcp.isError, fromMcp.text).toBe(false);
+    writeFileSync(join(viaCli, "parts.json"), JSON.stringify(parts));
+    const fromCli = await cli(viaCli, [
+      "split",
+      "BE-03",
+      "--file",
+      "parts.json",
+      "--as",
+      "claude",
+      "--json",
+    ]);
+    expect(fromMcp.json()).toEqual(fromCli.json());
+    expect(file(viaMcp)).toBe(file(viaCli));
+    expect(doc(viaMcp).tasks.find((t) => t.id === "BE-06")?.deps).toEqual(["BE-05"]);
+    expect((await call("split", { id: "BE-02", ...parts })).text).toContain("Error (out_of_scope)");
+    await close();
+  });
+
   it("never lets a client impersonate a human or Konsora", () => {
     expect(mcpActor({}, "Human")).toBe("agent:unknown");
     expect(mcpActor({}, "konsora")).toBe("agent:unknown");

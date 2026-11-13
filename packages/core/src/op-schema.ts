@@ -110,6 +110,22 @@ export const OpSchema = z.discriminatedUnion("op", [
     after: id.optional(),
     top: z.boolean().optional(),
   }),
+  z.strictObject({
+    op: z.literal("split"),
+    expect,
+    task: id,
+    into: z
+      .array(
+        z.strictObject({
+          title: z.string().min(1).max(120),
+          desc: z.string().max(32_768).optional(),
+          acceptance: z.array(z.string().min(1).max(500)).optional(),
+          difficulty: DifficultySchema.optional(),
+        }),
+      )
+      .min(2)
+      .max(20),
+  }),
   z.strictObject({ op: z.literal("delete"), expect, task: id }),
   z.strictObject({ op: z.literal("depend"), expect, task: id, on: id }),
   z.strictObject({ op: z.literal("undepend"), expect, task: id, on: id }),

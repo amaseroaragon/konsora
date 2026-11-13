@@ -187,6 +187,42 @@ export function parseEvidence(value: string, met: boolean): EvidenceInput {
   return { ac: ac.toLowerCase(), met, text };
 }
 
+export const SplitSchema = z.strictObject({
+  into: z
+    .array(
+      z.strictObject({
+        title: z.string().min(1),
+        desc: z.string().optional(),
+        acceptance: z.array(z.string().min(1)).optional(),
+        difficulty: DifficultySchema.optional(),
+      }),
+    )
+    .min(2),
+});
+
+/** Turns split parts (CLI titles or JSON, MCP argument) into a `split` op (CORE-20). */
+export function splitOp(id: string, value: unknown): Op {
+  const parsed = SplitSchema.safeParse(value);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    throw new CliError(
+      `Split has the wrong shape at ${first?.path.join(".") || "(root)"}: ${first?.message}`,
+      'Give at least two parts: --into "<title>" twice or more, or JSON {"into":[{"title":"…","desc":"…","acceptance":["…"],"difficulty":"low"}, …]}.',
+      EXIT.usage,
+    );
+  }
+  return {
+    op: "split",
+    task: id.toUpperCase(),
+    into: parsed.data.into.map((part) => ({
+      title: part.title,
+      ...(part.desc ? { desc: part.desc } : {}),
+      ...(part.acceptance?.length ? { acceptance: part.acceptance } : {}),
+      ...(part.difficulty ? { difficulty: part.difficulty } : {}),
+    })),
+  };
+}
+
 export type EditInput = {
   title?: string | undefined;
   desc?: string | undefined;
@@ -477,6 +513,57 @@ export function registerWriteCommands(
       ) => {
         const op = moveOp(id, opts);
         await apply(op, opts, () => `Moved ${id.toUpperCase()} ${describeMove(op)}.\n`);
+      },
+    );
+
+  withAgent(program.command("split"))
+    .description(
+      "replace a task nobody started by two or more, in order: they inherit its group, labels and dependencies, and its dependents depend on the last",
+    )
+    .argument("<id>")
+    .option("--into <title>", "a part, in order; repeat for each (at least two)", collect)
+    .option(
+      "--file <path>",
+      'read the parts as JSON: {"into":[{"title":"…","desc":"…","acceptance":["…"]}]}',
+    )
+    .option("--stdin", "read the parts as JSON from standard input")
+    .action(
+      async (
+        id: string,
+        opts: { into?: string[]; file?: string; stdin?: boolean; as?: string; json?: boolean },
+      ) => {
+        let value: unknown;
+        if (opts.file || opts.stdin) {
+          if (opts.into)
+            throw new CliError(
+              "Give the parts either with --into or as JSON.",
+              undefined,
+              EXIT.usage,
+            );
+          const text = await readText(
+            io,
+            undefined,
+            opts.file ? { file: opts.file } : { stdin: true },
+            "split JSON",
+          );
+          try {
+            value = JSON.parse(text);
+          } catch (error) {
+            throw new CliError(
+              `Split is not valid JSON: ${(error as Error).message}`,
+              undefined,
+              EXIT.usage,
+            );
+          }
+        } else value = { into: (opts.into ?? []).map((title) => ({ title })) };
+        await apply(
+          splitOp(id, value),
+          opts,
+          (doc, created) =>
+            `Split ${id.toUpperCase()} into ${created.length} tasks:\n${created
+              .map((c) => `  ${c.padEnd(9)} ${doc.tasks.find((t) => t.id === c)?.title}`)
+              .join("\n")}\n`,
+        );
       },
     );
 
