@@ -8,6 +8,7 @@ import {
   indexTasks,
   openQuestion,
   parseOp,
+  planSummary,
   type Task,
   type TasksDocument,
   taskHash,
@@ -125,11 +126,21 @@ export function createApp(options: AppOptions): Hono {
     const withPlan = await Promise.all(
       projects.map(async (project) => {
         const plan = await readTasks(project.path);
+        if (!plan.ok)
+          return { ...project, plan: { status: plan.error.code, message: plan.error.message } };
+        // The archive is read only when no closure is left in the plan itself (UI-14).
+        const doc = plan.document;
+        const archive =
+          doc.archived?.length && !doc.tasks.some((task) => task.state === "done")
+            ? await readArchive(project.path)
+            : null;
         return {
           ...project,
-          plan: plan.ok
-            ? { status: "ok" as const, tasks: plan.document.tasks.length, hash: plan.hash }
-            : { status: plan.error.code, message: plan.error.message },
+          plan: {
+            status: "ok" as const,
+            hash: plan.hash,
+            ...planSummary(doc, archive?.ok ? archive.archive.tasks : []),
+          },
         };
       }),
     );

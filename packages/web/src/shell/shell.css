@@ -128,6 +128,23 @@
 .s-project__plan--missing {
   color: var(--k-warn-ink);
 }
+/* The plan at a glance (UI-14); a project with pending questions stands out. */
+.s-project__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--k-space-2) var(--k-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--k-text-sm);
+  color: var(--k-ink-muted);
+}
+.s-project--waiting {
+  box-shadow: inset 3px 0 0 var(--k-warn-ink);
+  padding-left: var(--k-space-5);
+}
 
 /* Forms */
 .s-form {
@@ -166,8 +183,10 @@
   .s-project {
     grid-template-columns: minmax(0, 1fr) auto;
   }
-  .s-project__plan {
+  .s-project__plan,
+  .s-project__stats {
     grid-column: 1;
+    justify-content: flex-start;
   }
 }
 

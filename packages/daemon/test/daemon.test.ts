@@ -252,6 +252,54 @@ describe("read endpoints", () => {
     expect(list.projects[0]?.plan).toMatchObject({ status: "ok", tasks: 2 });
   });
 
+  it("the project list summarizes each readable plan (UI-14)", async () => {
+    const later = "2026-11-05T09:30:00Z";
+    const doc = plan();
+    doc.seq.BE = 5;
+    doc.tasks[0] = {
+      ...(doc.tasks[0] as TasksDocument["tasks"][number]),
+      notes: [{ id: "n1", at, by: "agent:claude", kind: "question", text: "¿A o B?" }],
+    };
+    const base = doc.tasks[1] as TasksDocument["tasks"][number];
+    doc.tasks.push(
+      { ...base, id: "BE-03", title: "Third", deps: [], rank: "c" },
+      {
+        ...base,
+        id: "BE-04",
+        title: "Fourth",
+        state: "done",
+        deps: [],
+        rank: "d",
+        notes: [{ id: "n1", at: later, by: "agent:claude", kind: "summary", text: "Hecho" }],
+      },
+      { ...base, id: "BE-05", title: "Fifth", state: "proposed", deps: [], rank: "e" },
+    );
+    mkdirSync(join(projectDir, ".konsora"));
+    writeFileSync(join(projectDir, ".konsora", "tasks.json"), serializeDocument(doc));
+    await link();
+    const missing = mkdtempSync(join(tmpdir(), "konsora-proj-"));
+    try {
+      await link(missing);
+      const list = (await (await call("/api/projects")).json()) as {
+        projects: { path: string; plan: Record<string, unknown> }[];
+      };
+      const [summary, absent] = list.projects;
+      expect(summary?.plan).toEqual({
+        status: "ok",
+        hash: expect.stringMatching(/^sha256:/),
+        tasks: 5,
+        byState: { proposed: 1, todo: 2, doing: 1, done: 1 },
+        ready: 1,
+        waiting: 1,
+        lastDone: later,
+      });
+      // A folder without a plan keeps its notice, with no summary.
+      expect(absent?.plan).toEqual({ status: "missing", message: expect.any(String) });
+    } finally {
+      rmSync(missing, { recursive: true, force: true });
+    }
+  });
+
   it("board shows an invalid plan with its issues, read-only", async () => {
     mkdirSync(join(projectDir, ".konsora"));
     writeFileSync(join(projectDir, ".konsora", "tasks.json"), '{"schema":"konsora/2"}');

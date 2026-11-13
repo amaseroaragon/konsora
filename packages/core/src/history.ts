@@ -2,7 +2,8 @@
  * The completion log: what got finished and when, newest first. With no approval step (M12),
  * this is how the human sees what the agents closed. Derived from the plan, nothing stored.
  */
-import type { Task, TasksDocument } from "./schema.ts";
+import { deriveFlags } from "./graph.ts";
+import type { Task, TaskState, TasksDocument } from "./schema.ts";
 
 export type LogEntry = {
   id: string;
@@ -49,4 +50,37 @@ export function completionLog(
     (a, b) =>
       (a.at < b.at ? 1 : a.at > b.at ? -1 : 0) || b.id.localeCompare(a.id, "en", { numeric: true }),
   );
+}
+
+/** A plan at a glance (UI-14): what is moving and where the human is needed. */
+export type PlanSummary = {
+  tasks: number;
+  byState: Record<TaskState, number>;
+  /** `todo` tasks with every dependency done. */
+  ready: number;
+  /** Tasks whose last question has no answer yet. */
+  waiting: number;
+  /** When the latest task was finished (archived ones included when given); absent if none. */
+  lastDone?: string;
+};
+
+export function planSummary(doc: TasksDocument, archived: readonly Task[] = []): PlanSummary {
+  const byState: Record<TaskState, number> = { proposed: 0, todo: 0, doing: 0, done: 0 };
+  let ready = 0;
+  let waiting = 0;
+  const flags = deriveFlags(doc);
+  for (const task of doc.tasks) {
+    byState[task.state]++;
+    const flag = flags.get(task.id);
+    if (flag?.ready) ready++;
+    if (flag?.waiting) waiting++;
+  }
+  const last = completionLog(doc, archived)[0];
+  return {
+    tasks: doc.tasks.length,
+    byState,
+    ready,
+    waiting,
+    ...(last ? { lastDone: last.at } : {}),
+  };
 }

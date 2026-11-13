@@ -147,7 +147,15 @@ describe("api client", () => {
 
 describe("project list texts", () => {
   it("labels each plan status in Spanish", () => {
-    expect(planLabel({ status: "ok", tasks: 3, hash: "h" })).toBe("3 tareas");
+    const summary = {
+      status: "ok" as const,
+      hash: "h",
+      byState: { proposed: 0, todo: 0, doing: 0, done: 0 },
+      ready: 0,
+      waiting: 0,
+    };
+    expect(planLabel({ ...summary, tasks: 3 })).toBe("3 tareas");
+    expect(planLabel({ ...summary, tasks: 1 })).toBe("1 tarea");
     expect(planLabel({ status: "missing", message: "m" })).toContain("konsora init");
     expect(planLabel({ status: "invalid", message: "m" })).toContain("inválido");
   });

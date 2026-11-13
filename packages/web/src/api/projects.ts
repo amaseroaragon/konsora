@@ -1,10 +1,11 @@
 /** Project registry over the daemon: list, link and unlink (TanStack Query). */
+import type { PlanSummary } from "@konsora/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext } from "react";
 import type { Api } from "./client.ts";
 
 export type PlanStatus =
-  | { status: "ok"; tasks: number; hash: string }
+  | ({ status: "ok"; hash: string } & PlanSummary)
   | { status: "missing" | "invalid" | "unsafe_path" | "lock_timeout" | "io"; message: string };
 
 export type ProjectSummary = {

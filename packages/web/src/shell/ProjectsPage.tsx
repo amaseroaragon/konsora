@@ -8,13 +8,22 @@ import {
   useUnlinkProject,
 } from "../api/projects.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
-import { askConfirm, Button, type ConfirmAsk, Field, Panel, useToast } from "../ui/index.ts";
+import {
+  askConfirm,
+  Button,
+  type ConfirmAsk,
+  Field,
+  Panel,
+  StateBadge,
+  useToast,
+} from "../ui/index.ts";
 import { Rich } from "./Rich.tsx";
 import { projectHref } from "./route.ts";
 import { QueryError } from "./Shell.tsx";
 
 export function planLabel(plan: PlanStatus): string {
-  if (plan.status === "ok") return t("projects.plan.ok", { n: plan.tasks });
+  if (plan.status === "ok")
+    return plan.tasks === 1 ? t("projects.plan.ok.one") : t("projects.plan.ok", { n: plan.tasks });
   if (plan.status === "missing") return t("projects.plan.missing");
   if (plan.status === "invalid") return t("projects.plan.invalid");
   return t("projects.plan.error");
@@ -38,6 +47,36 @@ export function confirmUnlink(name: string, ask: ConfirmAsk): Promise<boolean> {
   return ask(t("projects.unlink.confirm", { name }), { yes: t("projects.unlink"), danger: true });
 }
 
+const counted = (n: number, one: MessageKey, other: MessageKey) =>
+  n === 1 ? t(one) : t(other, { n });
+
+/** A readable plan at a glance (UI-14): size, what is moving, what needs the human, last closure. */
+export function PlanStats({ plan }: { plan: Extract<PlanStatus, { status: "ok" }> }) {
+  const lastDone = plan.lastDone
+    ? new Date(plan.lastDone).toLocaleString("es", { dateStyle: "short", timeStyle: "short" })
+    : null;
+  return (
+    <ul className="s-project__stats" aria-label={t("projects.stats")}>
+      {plan.waiting > 0 && (
+        <li>
+          <StateBadge
+            kind="waiting"
+            label={counted(plan.waiting, "projects.stats.waiting.one", "projects.stats.waiting")}
+          />
+        </li>
+      )}
+      <li>{planLabel(plan)}</li>
+      {plan.byState.doing > 0 && <li>{t("projects.stats.doing", { n: plan.byState.doing })}</li>}
+      {plan.ready > 0 && (
+        <li>{counted(plan.ready, "projects.stats.ready.one", "projects.stats.ready")}</li>
+      )}
+      <li>
+        {lastDone ? t("projects.stats.lastDone", { when: lastDone }) : t("projects.stats.noneDone")}
+      </li>
+    </ul>
+  );
+}
+
 function ProjectRow({ project }: { project: ProjectSummary }) {
   const unlink = useUnlinkProject();
   const toast = useToast();
@@ -49,7 +88,9 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
     });
   };
   return (
-    <li className="s-project">
+    <li
+      className={`s-project${project.plan.status === "ok" && project.plan.waiting > 0 ? " s-project--waiting" : ""}`}
+    >
       <a
         className="s-project__open"
         href={projectHref(project.id)}
@@ -58,9 +99,13 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
         <span className="s-project__name">{project.name}</span>
         <span className="s-project__path">{project.path}</span>
       </a>
-      <span className={`s-project__plan s-project__plan--${project.plan.status}`}>
-        <Rich text={planLabel(project.plan)} />
-      </span>
+      {project.plan.status === "ok" ? (
+        <PlanStats plan={project.plan} />
+      ) : (
+        <span className={`s-project__plan s-project__plan--${project.plan.status}`}>
+          <Rich text={planLabel(project.plan)} />
+        </span>
+      )}
       <Button
         size="sm"
         variant="ghost"
