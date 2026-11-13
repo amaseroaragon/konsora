@@ -340,6 +340,37 @@
                     "maxLength": 200
                   }
                 },
+                "evidence": {
+                  "minItems": 1,
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "ac": {
+                        "type": "string",
+                        "pattern": "^ac\\d+$"
+                      },
+                      "met": {
+                        "type": "boolean"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "ac",
+                      "met",
+                      "text"
+                    ],
+                    "additionalProperties": false,
+                    "patternProperties": {
+                      "^x-": {}
+                    }
+                  }
+                },
                 "edited": {
                   "type": "string",
                   "format": "date-time",

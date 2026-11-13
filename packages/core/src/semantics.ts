@@ -129,6 +129,23 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
         ),
     );
     task.notes?.forEach((note, j) => {
+      if (note.evidence !== undefined) {
+        if (note.kind !== "summary")
+          add(
+            ["tasks", i, "notes", j, "evidence"],
+            "evidence_not_summary",
+            `Note ${note.id} of ${task.id} has evidence, but only summaries can`,
+          );
+        checkUnique(
+          note.evidence.map((e) => e.ac),
+          (k, ac) =>
+            add(
+              ["tasks", i, "notes", j, "evidence", k, "ac"],
+              "duplicate_evidence",
+              `Summary ${note.id} of ${task.id} gives evidence for ${ac} twice`,
+            ),
+        );
+      }
       if (note.options === undefined) return;
       if (note.kind !== "question")
         add(

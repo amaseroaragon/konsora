@@ -121,6 +121,20 @@ export const QuestionOptionSchema = z
   .max(200)
   .refine((s) => s.trim().length > 0, "An option must not be blank");
 
+/**
+ * CORE-15: how a closing summary meets one acceptance criterion: `met` with its evidence, or not
+ * met with the reason.
+ */
+export const EvidenceSchema = strict({
+  ac: z.string().regex(/^ac\d+$/, "Acceptance id must look like ac1"),
+  met: z.boolean(),
+  text: z
+    .string()
+    .min(1)
+    .max(2_000)
+    .refine((s) => s.trim().length > 0, "Evidence must not be blank"),
+});
+
 export const NoteSchema = strict({
   id: z.string().regex(/^n\d+$/, "Note id must look like n1"),
   at: TimestampSchema,
@@ -129,6 +143,8 @@ export const NoteSchema = strict({
   text: z.string().min(1).max(16_384),
   /** Only on a `question`: the answers the agent offers, so the human can pick one. */
   options: z.array(QuestionOptionSchema).min(2).max(10).optional(),
+  /** Only on a `summary`: the evidence for each criterion it covers (CORE-15). */
+  evidence: z.array(EvidenceSchema).min(1).max(50).optional(),
   edited: TimestampSchema.optional(),
 });
 
@@ -243,6 +259,7 @@ export type Milestone = z.infer<typeof MilestoneSchema>;
 export type Acceptance = z.infer<typeof AcceptanceSchema>;
 export type NoteKind = z.infer<typeof NoteKindSchema>;
 export type Note = z.infer<typeof NoteSchema>;
+export type Evidence = z.infer<typeof EvidenceSchema>;
 export type Task = z.infer<typeof TaskSchema>;
 export type EventType = z.infer<typeof EventTypeSchema>;
 export type EditedField = z.infer<typeof EditedFieldSchema>;

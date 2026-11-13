@@ -1116,6 +1116,17 @@
   font-size: var(--k-text-xs);
   color: var(--k-ink-muted);
 }
+/* A closure with criteria lacking evidence or not met (CORE-15) */
+.b-history__flag {
+  margin-left: var(--k-space-4);
+  padding: 0 var(--k-space-3);
+  background: var(--k-warn-soft);
+  color: var(--k-warn-ink);
+}
+.b-history__flag--unmet {
+  background: var(--k-danger-soft);
+  color: var(--k-danger-ink);
+}
 .b-history__summary {
   font-size: var(--k-text-sm);
   color: var(--k-ink-muted);

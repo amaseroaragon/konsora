@@ -440,3 +440,36 @@
 .a-note--question .md a {
   color: inherit;
 }
+
+/* Evidence per criterion of a closed task (CORE-15) */
+.a-evidence {
+  margin-top: var(--k-space-3);
+  padding: var(--k-space-3) var(--k-space-4);
+  border-left: 3px solid var(--k-line);
+  font-size: var(--k-text-sm);
+}
+.a-evidence b {
+  font-size: var(--k-text-label);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.a-evidence--met {
+  border-left-color: var(--k-done);
+  background: var(--k-done-soft);
+}
+.a-evidence--met b {
+  color: var(--k-done-ink);
+}
+.a-evidence--unmet {
+  border-left-color: var(--k-danger);
+  background: var(--k-danger-soft);
+}
+.a-evidence--unmet b {
+  color: var(--k-danger-ink);
+}
+.a-evidence--missing {
+  background: var(--k-warn-soft);
+}
+.a-evidence--missing b {
+  color: var(--k-warn-ink);
+}

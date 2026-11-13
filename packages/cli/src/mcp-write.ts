@@ -381,13 +381,42 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     {
       title: "Finish a task",
       description:
-        "Finish a task you are doing (doing → done) with a summary of what you did and how it meets each acceptance criterion.",
-      inputSchema: { id, summary: text("what you did and how it meets each criterion") },
+        "Finish a task you are doing (doing → done) with a summary of what you did and how it meets each acceptance criterion. Give evidence per criterion (or met: false with the reason) so the human sees it next to each one.",
+      inputSchema: {
+        id,
+        summary: text("what you did and how it meets each criterion"),
+        evidence: z
+          .array(
+            z.object({
+              ac: z.string().min(1).describe("acceptance criterion id, e.g. ac1"),
+              text: text("how it is met (a command that passes, a test, a result), or why not"),
+              met: z
+                .boolean()
+                .optional()
+                .describe("false when the criterion is not met; text then says why"),
+            }),
+          )
+          .optional()
+          .describe("evidence per acceptance criterion; the human sees it next to each criterion"),
+      },
       annotations: WRITE,
     },
     (args) =>
       apply(
-        () => ({ op: "finish", task: args.id.toUpperCase(), summary: args.summary }),
+        () => ({
+          op: "finish",
+          task: args.id.toUpperCase(),
+          summary: args.summary,
+          ...(args.evidence?.length
+            ? {
+                evidence: args.evidence.map((e) => ({
+                  ac: e.ac.toLowerCase(),
+                  text: e.text,
+                  ...(e.met === false ? { met: false } : {}),
+                })),
+              }
+            : {}),
+        }),
         () => "The task is done.",
       ),
   );

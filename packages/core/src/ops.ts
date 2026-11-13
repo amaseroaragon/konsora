@@ -27,6 +27,7 @@ import {
   EVENTS_LIMIT,
   type EventType,
   EventTypeSchema,
+  type Evidence,
   type Note,
   type NoteKind,
   type SchemaIssue,
@@ -135,7 +136,11 @@ export type Op = Base &
     /** `options`: two or more answers the human may pick from (they can still write their own). */
     | { op: "ask"; task: string; text: string; options?: string[] }
     | { op: "answer"; task: string; text: string }
-    | { op: "finish"; task: string; summary: string }
+    /**
+     * `evidence` (CORE-15): per acceptance criterion of the task, how the work meets it (`met`,
+     * the default) or why it does not. Optional: finishing without evidence is still valid.
+     */
+    | { op: "finish"; task: string; summary: string; evidence?: EvidenceInput[] }
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
     | { op: "set-templates"; templates: Template[] }
     | { op: "reopen"; task: string; text?: string }
@@ -147,6 +152,9 @@ export type Op = Base &
      */
     | { op: "undo"; changes: UndoChange[] }
   );
+
+/** Evidence for one criterion as `finish` receives it; `met` defaults to true. */
+export type EvidenceInput = { ac: string; met?: boolean; text: string };
 
 /** One task's part of an undo: the version to put back and the hash it must have now. */
 export type UndoChange = { task: string; before: Task | null; after: string | null };
@@ -345,12 +353,19 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     task.updated_at = ctx.at;
     changed.add(task.id);
   };
-  const addNote = (task: Task, kind: NoteKind, text: string, options?: string[]) => {
+  const addNote = (
+    task: Task,
+    kind: NoteKind,
+    text: string,
+    options?: string[],
+    evidence?: Evidence[],
+  ) => {
     const body = text.trim();
     const notes = task.notes ?? [];
     const next = Math.max(0, ...notes.map((n) => Number(n.id.slice(1)))) + 1;
     const note: Note = { id: `n${next}`, at: ctx.at, by: ctx.actor, kind, text: body };
     if (options?.length) note.options = options;
+    if (evidence?.length) note.evidence = evidence;
     task.notes = [...notes, note];
     touch(task);
   };
@@ -748,8 +763,27 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     case "finish": {
       const task = get(op.task);
       const summary = requireText(op.summary, "summary_required", "a summary of what was done");
+      const criteria = new Set(task.acceptance?.map((a) => a.id));
+      const seen = new Set<string>();
+      const evidence = (op.evidence ?? []).map((item): Evidence => {
+        const ac = item.ac.trim().toLowerCase();
+        if (!criteria.has(ac))
+          fail(
+            "not_found",
+            `${task.id} has no acceptance criterion ${item.ac}${criteria.size ? ` (it has ${[...criteria].join(", ")})` : ""}`,
+            { task: task.id },
+          );
+        if (seen.has(ac)) fail("invalid", `Evidence for ${ac} is given twice`, { task: task.id });
+        seen.add(ac);
+        const text = item.text.trim();
+        if (!text)
+          fail("invalid", `Evidence for ${ac} needs a text (or the reason it is not met)`, {
+            task: task.id,
+          });
+        return { ac, met: item.met ?? true, text };
+      });
       transition(task, ["doing"], "done");
-      addNote(task, "summary", summary);
+      addNote(task, "summary", summary, undefined, evidence);
       break;
     }
     case "set-templates": {

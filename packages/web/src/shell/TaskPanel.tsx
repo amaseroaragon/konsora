@@ -1,6 +1,7 @@
 import {
   ACTION_TEXT,
   availableActions,
+  criteriaEvidence,
   dependentsOf,
   startedBy,
   type Task,
@@ -280,6 +281,9 @@ export function TaskPanel({
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map([...archive, ...doc.tasks].map((x) => [x.id, x]));
   const criteria = task.acceptance ?? [];
+  // A done task shows, per criterion, what its closing summary says (CORE-15).
+  const checks =
+    task.state === "done" ? new Map(criteriaEvidence(task).map((c) => [c.id, c])) : null;
   const deps = task.deps ?? [];
   const notes = task.notes ?? [];
   const started = task.state === "doing" ? startedBy(task) : undefined;
@@ -392,12 +396,25 @@ export function TaskPanel({
               <PanelSection section="criteria" title={t("detail.criteria")} count={criteria.length}>
                 <table className="a-criteria">
                   <tbody>
-                    {criteria.map((ac) => (
-                      <tr key={ac.id}>
-                        <td className="k-mono a-criteria__id">{ac.id}</td>
-                        <td>{ac.text}</td>
-                      </tr>
-                    ))}
+                    {criteria.map((ac) => {
+                      const check = checks?.get(ac.id);
+                      return (
+                        <tr key={ac.id}>
+                          <td className="k-mono a-criteria__id">{ac.id}</td>
+                          <td>
+                            {ac.text}
+                            {check && (
+                              <div className={`a-evidence a-evidence--${check.status}`}>
+                                <b>{t(`evidence.${check.status}`)}</b>
+                                {check.evidence && (
+                                  <Markdown className="md--compact" text={check.evidence} />
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </PanelSection>

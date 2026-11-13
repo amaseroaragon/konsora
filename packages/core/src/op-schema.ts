@@ -124,7 +124,22 @@ export const OpSchema = z.discriminatedUnion("op", [
     options: z.array(QuestionOptionSchema).max(10).optional(),
   }),
   z.strictObject({ op: z.literal("answer"), expect, task: id, text }),
-  z.strictObject({ op: z.literal("finish"), expect, task: id, summary: text }),
+  z.strictObject({
+    op: z.literal("finish"),
+    expect,
+    task: id,
+    summary: text,
+    evidence: z
+      .array(
+        z.strictObject({
+          ac: z.string().min(1).max(12),
+          met: z.boolean().optional(),
+          text: z.string().max(2_000),
+        }),
+      )
+      .max(50)
+      .optional(),
+  }),
   z.strictObject({
     op: z.literal("set-templates"),
     expect,

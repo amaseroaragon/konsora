@@ -53,7 +53,8 @@ const ORDER = {
   ],
   acceptance: ["id", "text"],
   created: ["at", "by"],
-  note: ["id", "at", "by", "kind", "text", "options", "edited"],
+  note: ["id", "at", "by", "kind", "text", "options", "evidence", "edited"],
+  evidence: ["ac", "met", "text"],
   event: ["at", "by", "type", "fields"],
   deleted: ["id", "title", "at", "by"],
 } as const;
@@ -67,6 +68,7 @@ const OMIT_WHEN_EMPTY = new Set([
   "notes",
   "templates",
   "options",
+  "evidence",
   "archived",
   "events",
   "fields",
@@ -119,7 +121,11 @@ function canonicalTask(task: Task): Obj {
       case "started":
         return ordered(value as Obj, ORDER.created);
       case "notes":
-        return (value as Obj[]).map((n) => ordered(n, ORDER.note));
+        return (value as Obj[]).map((n) =>
+          ordered(n, ORDER.note, (k, v) =>
+            k === "evidence" ? (v as Obj[]).map((e) => ordered(e, ORDER.evidence)) : v,
+          ),
+        );
       case "events":
         return (value as Obj[]).map((e) => ordered(e, ORDER.event));
       default:

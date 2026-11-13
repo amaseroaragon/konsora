@@ -405,6 +405,36 @@ describe("planning commands", () => {
     );
   });
 
+  it("finish takes evidence per criterion, rejects unknown ones and still works without (CORE-15)", async () => {
+    await run(["edit", "BE-04", "--criterion", "Fast", "--criterion", "Cached"]);
+    await run(["start", "BE-04"]);
+    const bad = await run(["finish", "BE-04", "--summary", "s", "--evidence", "ac9=x"]);
+    expect(bad.code).toBe(EXIT.failure);
+    expect(bad.stderr).toContain("BE-04 has no acceptance criterion ac9 (it has ac1, ac2)");
+    const malformed = await run(["finish", "BE-04", "--summary", "s", "--evidence", "fast"]);
+    expect(malformed.code).toBe(EXIT.usage);
+    expect(malformed.stderr).toContain("Write it as <criterion id>=<text>");
+    expect(task("BE-04").state).toBe("doing");
+    const done = await run([
+      "finish",
+      "BE-04",
+      "--summary",
+      "LRU",
+      "--evidence",
+      "AC1=bench: 3 ms",
+      "--unmet",
+      "ac2=left for BE-07",
+    ]);
+    expect(done.code).toBe(EXIT.ok);
+    expect(task("BE-04").notes?.at(-1)?.evidence).toEqual([
+      { ac: "ac1", met: true, text: "bench: 3 ms" },
+      { ac: "ac2", met: false, text: "left for BE-07" },
+    ]);
+    const shown = (await run(["show", "BE-04"])).stdout;
+    expect(shown).toContain("ac1 met: bench: 3 ms");
+    expect(shown).toContain("ac2 NOT MET: left for BE-07");
+  });
+
   it("depend rejects cycles", async () => {
     const r = await run(["depend", "BE-02", "BE-03"]);
     expect(r.code).toBe(EXIT.failure);

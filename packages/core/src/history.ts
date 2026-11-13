@@ -3,7 +3,15 @@
  * this is how the human sees what the agents closed. Derived from the plan, nothing stored.
  */
 import { deriveFlags } from "./graph.ts";
-import type { EditedField, EventType, Task, TaskState, TasksDocument } from "./schema.ts";
+import type {
+  Acceptance,
+  EditedField,
+  EventType,
+  Evidence,
+  Task,
+  TaskState,
+  TasksDocument,
+} from "./schema.ts";
 
 export type LogEntry = {
   id: string;
@@ -17,7 +25,36 @@ export type LogEntry = {
   summary?: string;
   /** Moved to `.konsora/archive.json` (`konsora archive`). */
   archived?: true;
+  /** CORE-15: criteria the closing summary gives no evidence for; absent when none. */
+  unproven?: number;
+  /** CORE-15: criteria the closing summary declares not met; absent when none. */
+  unmet?: number;
 };
+
+/** A criterion of a closed task with what its closing summary says about it (CORE-15). */
+export type CriterionCheck = Acceptance & {
+  status: "met" | "unmet" | "missing";
+  /** The evidence, or the reason it is not met; absent when `missing`. */
+  evidence?: string;
+};
+
+/**
+ * Each acceptance criterion of a task with the evidence of its last closing summary: met, not met
+ * (with the reason) or missing. Evidence for a criterion that no longer exists is left out.
+ */
+export function criteriaEvidence(task: Pick<Task, "acceptance" | "notes">): CriterionCheck[] {
+  const summary = task.notes?.findLast((note) => note.kind === "summary");
+  const given = new Map<string, Evidence>((summary?.evidence ?? []).map((e) => [e.ac, e]));
+  return (task.acceptance ?? []).map((criterion) => {
+    const evidence = given.get(criterion.id);
+    if (!evidence) return { ...criterion, status: "missing" as const };
+    return {
+      ...criterion,
+      status: evidence.met ? ("met" as const) : ("unmet" as const),
+      evidence: evidence.text,
+    };
+  });
+}
 
 /**
  * Done tasks, newest first, including the `archived` ones when given (the tasks of
@@ -33,6 +70,9 @@ export function completionLog(
   const add = (task: Task, isArchived: boolean) => {
     if (task.state !== "done") return;
     const summary = task.notes?.findLast((note) => note.kind === "summary");
+    const checks = criteriaEvidence(task);
+    const unproven = checks.filter((c) => c.status === "missing").length;
+    const unmet = checks.filter((c) => c.status === "unmet").length;
     entries.push({
       id: task.id,
       title: task.title,
@@ -40,6 +80,8 @@ export function completionLog(
       at: summary?.at ?? task.updated_at,
       ...(summary ? { by: summary.by, summary: summary.text } : {}),
       ...(isArchived ? { archived: true as const } : {}),
+      ...(unproven ? { unproven } : {}),
+      ...(unmet ? { unmet } : {}),
     });
   };
   const live = new Set(doc.tasks.map((task) => task.id));

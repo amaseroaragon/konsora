@@ -39,6 +39,20 @@ function Entry({
         <span className="b-history__meta">
           {entry.by ? t("history.by", { who: actorName(entry.by) }) : t("history.no_summary")}
           {entry.archived && ` · ${t("history.archived")}`}
+          {entry.unmet ? (
+            <span className="b-history__flag b-history__flag--unmet">
+              {t(entry.unmet === 1 ? "history.unmet.one" : "history.unmet.many", {
+                n: entry.unmet,
+              })}
+            </span>
+          ) : null}
+          {entry.unproven ? (
+            <span className="b-history__flag">
+              {t(entry.unproven === 1 ? "history.unproven.one" : "history.unproven.many", {
+                n: entry.unproven,
+              })}
+            </span>
+          ) : null}
         </span>
         {entry.summary && <span className="b-history__summary">{summaryLine(entry.summary)}</span>}
       </span>

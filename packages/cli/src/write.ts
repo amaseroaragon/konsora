@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import {
   type Difficulty,
   DifficultySchema,
+  type EvidenceInput,
   type Op,
   type OpContext,
   type OpError,
@@ -170,6 +171,20 @@ export function batchOp(value: unknown): Op {
       ...(t.idea ? { idea: true } : {}),
     })),
   };
+}
+
+/** `--evidence ac1=<text>` / `--unmet ac2=<reason>` → evidence for `finish` (CORE-15). */
+export function parseEvidence(value: string, met: boolean): EvidenceInput {
+  const at = value.search(/[=:]/);
+  const ac = at < 0 ? "" : value.slice(0, at).trim();
+  const text = at < 0 ? "" : value.slice(at + 1).trim();
+  if (!/^ac\d+$/i.test(ac) || !text)
+    throw new CliError(
+      `Invalid evidence "${value}".`,
+      `Write it as <criterion id>=<text>, e.g. ${met ? "--evidence ac1='npm test passes'" : "--unmet ac2='left for BE-07'"}.`,
+      EXIT.usage,
+    );
+  return { ac: ac.toLowerCase(), met, text };
 }
 
 export type EditInput = {
@@ -707,6 +722,16 @@ export function registerWriteCommands(
     .option("--summary <text>", "what you did and how it meets the acceptance criteria")
     .option("--summary-file <path>", "read the summary from a file")
     .option("--stdin", "read the summary from standard input")
+    .option(
+      "--evidence <ac=text>",
+      "how a criterion is met, e.g. ac1='npm test passes'; repeat for each criterion",
+      collect,
+    )
+    .option(
+      "--unmet <ac=reason>",
+      "a criterion that is not met and why, e.g. ac2='left for BE-07'; repeat as needed",
+      collect,
+    )
     .action(
       async (
         id: string,
@@ -714,10 +739,16 @@ export function registerWriteCommands(
           summary?: string;
           summaryFile?: string;
           stdin?: boolean;
+          evidence?: string[];
+          unmet?: string[];
           as?: string;
           json?: boolean;
         },
       ) => {
+        const evidence = [
+          ...(opts.evidence ?? []).map((value) => parseEvidence(value, true)),
+          ...(opts.unmet ?? []).map((value) => parseEvidence(value, false)),
+        ];
         const summary = await readText(
           io,
           undefined,
@@ -729,7 +760,12 @@ export function registerWriteCommands(
           "summary (--summary)",
         );
         await apply(
-          { op: "finish", task: id.toUpperCase(), summary },
+          {
+            op: "finish",
+            task: id.toUpperCase(),
+            summary,
+            ...(evidence.length ? { evidence } : {}),
+          },
           opts,
           () => `Finished ${id.toUpperCase()}: done.\n`,
         );

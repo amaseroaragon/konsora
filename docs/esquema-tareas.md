@@ -124,9 +124,11 @@ Ninguna de estas operaciones cambia tareas, así que no se pueden deshacer desde
 
 En la CLI, `konsora milestone add|edit|remove`; en el MCP, `add_milestone`, `edit_milestone` y `remove_milestone`. El progreso (`milestoneProgress` en `core`) cuenta, por hito, sus tareas hechas y el total, ideas incluidas y también las archivadas cuando se le pasan (la UI se las pasa; `konsora status`, que solo lee `tasks.json`, no). Lo muestran `konsora status` (y `milestones` en `status --json`), el filtro del tablero y del grafo (con su barra de progreso y su criterio) y Ajustes, donde se gestionan. El filtro por hito admite `none`: las tareas sin hito.
 
-**`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno.
+**`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno y, además, puede adjuntar la evidencia de cada criterio (ver *Evidencias*).
 
-**`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB), `options` (opcional, solo en una `question`: de 2 a 10 respuestas distintas, de hasta 200 caracteres, que el humano puede elegir con un clic) y `edited` (opcional: fecha). Tipos de `kind`:
+**Evidencias** (CORE-15). La nota `summary` de un cierre puede llevar `evidence`: `{ac, met, text}[]`, una por criterio como mucho. `met: true` es la evidencia (un comando que pasa, un test, un resultado) y `met: false` declara el criterio no cumplido, con el motivo en `text` (1–2000). Se pasa a `finish`: `--evidence ac1="…"` y `--unmet ac2="…"` en la CLI (repetibles) y `evidence: [{ac, text, met?}]` en el MCP (`met` vale `true` por defecto). Un id de criterio que la tarea no tiene da `not_found` con los ids que sí tiene; uno repetido o un texto vacío dan `invalid`. Terminar sin evidencias sigue siendo válido. La validación rechaza `evidence` en notas que no sean `summary` (`evidence_not_summary`) y un criterio repetido (`duplicate_evidence`); como un humano puede editar los criterios después, no exige que cada `ac` exista. `criteriaEvidence(task)` en `core` da cada criterio con lo que dice el último resumen: cumplido, no cumplido o sin evidencia. El panel de una tarea hecha lo muestra junto a cada criterio, `konsora show` lo lista bajo el resumen, y el Historial marca los cierres con criterios sin evidencia o no cumplidos (`unproven` y `unmet` en `completionLog`).
+
+**`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB), `options` (opcional, solo en una `question`: de 2 a 10 respuestas distintas, de hasta 200 caracteres, que el humano puede elegir con un clic), `evidence` (opcional, solo en un `summary`: ver *Evidencias*) y `edited` (opcional: fecha). Tipos de `kind`:
 
 | `kind` | Quién | Significado |
 |---|---|---|
@@ -235,6 +237,8 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 Límite honesto: un proceso con los permisos del usuario puede escribir cualquier archivo. Los roles se aplican en la CLI, el MCP y la UI, y las violaciones se **detectan y señalan**; no existe una frontera de seguridad contra un agente decidido a engañar.
 
 ## 6. Migraciones
+
+**Evidencias (CORE-15)**: `evidence` es opcional en las notas `summary`; los cierres anteriores siguen siendo válidos y aparecen con sus criterios «sin evidencia».
 
 **Hitos (CORE-19)**: `milestones` y `task.milestone` son opcionales; no hay cambio de versión ni migración, y `konsora migrate` no crea hitos. La validación semántica rechaza un id de hito repetido (`duplicate_milestone`) y una tarea con un hito que no existe (`unknown_milestone`).
 
