@@ -675,7 +675,7 @@
     {
       "id": "CORE-17",
       "title": "Registrar la actividad del plan: quién cambió qué y cuándo",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzwi",
       "desc": "Base de la idea del roadmap «Historial de cambios del plan». Hoy solo queda rastro de la creación, de las notas y del último `updated_at`: una promoción, un inicio sin texto, una pausa, una edición o un borrado no dejan constancia de quién ni cuándo. Derivar o guardar un registro de eventos por tarea, acotado en tamaño.",
@@ -700,7 +700,30 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-13T10:28:29Z"
+      "updated_at": "2026-11-13T12:16:03Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T12:12:40Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Eventos por tarea (events, últimos 50) y borrados en la raíz (deleted, últimos 200), sin subir de versión; los registra applyOp; planActivity() en core; documentado en esquema-tareas.md."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T12:16:03Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 173b186. Registro de actividad por tarea, según la opción elegida (eventos por tarea + borrados en la raíz).\n\n- ac1: `applyOp` añade a `task.events` un evento `{at, by, type, fields?}` en promover, devolver a idea, empezar, pausar, terminar, reabrir y editar (`depend`/`undepend` y la dependencia borrada cuentan como `edit` de `deps`). Crear queda en `created` (ya tiene actor y fecha) y eliminar en la lista raíz `deleted` con id y título. Tests en core/test/activity.test.ts (cada op, borrado y dependientes, deshacer un borrado lo olvida y deja el fichero idéntico, op rechazada no registra nada).\n- ac2: `planActivity(doc, archivadas?)` en core devuelve creaciones, eventos y borrados de lo más reciente a lo más antiguo (desempates deterministas); los cierres anteriores a CORE-17 se derivan de las notas `summary`. Tests en activity.test.ts.\n- ac3: documentado en esquema-tareas.md (campos, tipos, actividad, orden canónico y §6: son opcionales de konsora/5, sin cambio de versión ni migración; las migraciones antiguas no inventan eventos). Acotado: 50 eventos por tarea y 200 borrados, recortados al escribir (test). JSON Schema regenerado.\n\n`npm run check` en verde; probado con la CLI en un proyecto de prueba."
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T12:16:03Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-18",
@@ -2240,7 +2263,7 @@
     {
       "id": "UI-14",
       "title": "Resumen de cada proyecto en la lista de proyectos",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzi",
       "desc": "La lista de proyectos solo dice «N tareas». Mostrar por proyecto cuántas hay en curso, listas y esperando respuesta, y cuándo fue el último cierre, para saber de un vistazo dónde hay movimiento o dónde te necesitan.",
@@ -2265,7 +2288,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:43Z"
+      "updated_at": "2026-11-13T12:11:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T12:09:46Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Resumen por proyecto en GET /api/projects (recuentos por estado, listas, esperando, último cierre) calculado en core; filas de la lista con esos datos y realce si hay preguntas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T12:11:44Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit da71a3b. La lista de proyectos resume cada plan.\n\n- ac1: `GET /api/projects` devuelve en cada plan legible `tasks`, `byState`, `ready`, `waiting` y `lastDone` (calculados en core con `planSummary`; el archivo solo se lee si el plan no conserva ninguna tarea hecha). Test en daemon.test.ts.\n- ac2: cada fila muestra las tareas, las que están en curso, las listas y el último cierre (o «Nada cerrado aún»); un proyecto con preguntas pendientes lleva la insignia «N preguntas pendientes» y una marca lateral. Test en project-list.test.tsx; visto en Chrome en ancho y en móvil.\n- ac3: un plan inválido o ausente sigue mostrando su aviso, sin resumen (tests de daemon y web).\n\n`npm run check` en verde."
+        }
+      ]
     },
     {
       "id": "UI-15",
