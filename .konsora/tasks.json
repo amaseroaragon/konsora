@@ -30,7 +30,7 @@
     "CLI": 12,
     "MCP": 2,
     "DMN": 7,
-    "UI": 31
+    "UI": 32
   },
   "tasks": [
     {
@@ -3442,6 +3442,60 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-12T21:31:45Z"
+    },
+    {
+      "id": "UI-32",
+      "title": "Acotar las celdas largas del tablero y plegar carriles",
+      "state": "proposed",
+      "group": "UI",
+      "rank": "zzzzzzzzzzzzx",
+      "desc": "Cuando una celda del tablero (un estado dentro de un carril de grupo) acumula muchas tarjetas, hay que bajar con scroll hasta pasarlas todas para ver el carril siguiente. Hoy solo se pueden plegar columnas enteras (UI-19) y acotar la columna Hecho por fecha, pero nada limita Ideas, Por hacer o En curso.\n\n**Propuesta**: cada celda muestra como mucho N tarjetas (8 por defecto), las primeras según `rank`, y al final un botón «Ver N más» que la despliega entera; desplegada, «Ver menos» la recoge. Además, cada carril de grupo se puede plegar a su cabecera (con el número de tareas por estado), como ya se pliegan las columnas. Lo desplegado y lo plegado se recuerdan por navegador (`localStorage`), igual que las columnas plegadas.\n\n**Alternativas descartadas**:\n- Scroll interno por celda (altura máxima): un scroll dentro de otro scroll en un tablero con arrastrar y soltar es incómodo, y con dnd-kit el autoscroll entre contenedores falla con facilidad.\n- Paginar la columna: rompe el orden visual por `rank`, que es el que sigue `konsora ready`.\n- Solo una vista compacta de tarjetas: ayuda, pero no limita la altura; puede ser otra idea aparte.\n\n**A tener en cuenta**:\n- Si la tarea abierta en el panel (`?task=`) o una tarjeta seleccionada está entre las ocultas, su celda se despliega sola.\n- Con un filtro activo, el límite se aplica a lo que queda tras filtrar.\n- Arrastrar a una celda recogida sigue funcionando (se suelta en la celda); para reordenar respecto a una tarjeta oculta, primero se despliega.\n- Solo es presentación en `packages/web`: no cambia el plan ni `core`.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Una celda con más de 8 tarjetas muestra las 8 primeras por rank y un botón «Ver N más» con el número de ocultas; al pulsarlo se ven todas y aparece «Ver menos» (test de componentes)"
+        },
+        {
+          "id": "ac2",
+          "text": "Un carril de grupo se pliega y despliega desde su cabecera, que muestra cuántas tareas tiene en cada estado (test de componentes)"
+        },
+        {
+          "id": "ac3",
+          "text": "Las celdas desplegadas y los carriles plegados se recuerdan al recargar, y la UI funciona igual si localStorage no está disponible (tests)"
+        },
+        {
+          "id": "ac4",
+          "text": "Si la tarea abierta en el panel o una seleccionada queda entre las ocultas, su celda se despliega sola (test)"
+        },
+        {
+          "id": "ac5",
+          "text": "Arrastrar una tarjeta a una celda recogida sigue moviéndola de estado, y el teclado alcanza el botón «Ver N más» (prueba en el navegador)"
+        }
+      ],
+      "labels": [
+        "tablero",
+        "ui"
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-13T16:47:57Z",
+        "by": "human"
+      },
+      "updated_at": "2026-11-13T16:48:53Z",
+      "events": [
+        {
+          "at": "2026-11-13T16:48:53Z",
+          "by": "agent:claude",
+          "type": "edit",
+          "fields": [
+            "title",
+            "desc",
+            "acceptance",
+            "labels",
+            "difficulty"
+          ]
+        }
+      ]
     }
   ]
 }
