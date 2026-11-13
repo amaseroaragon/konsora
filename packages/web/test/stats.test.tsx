@@ -68,6 +68,13 @@ describe("activity view (UI-18)", () => {
     expect(html).toMatch(/<td class="k-mono">2026-11-12<\/td><td>1<\/td><td>1<\/td><td>2<\/td>/);
   });
 
+  it("with a single person, names them instead of a legend", () => {
+    const solo = { ...doc, tasks: doc.tasks.filter((t) => t.id !== "BE-02") };
+    const html = wrap(<ActivityView doc={solo} now={now} />);
+    expect(html).toContain("Todos los cerró claude.");
+    expect(html).not.toContain("b-stats__legend");
+  });
+
   it("says so when there are no closures in the window", () => {
     const html = wrap(<ActivityView doc={doc} now={new Date("2027-03-01T00:00:00Z")} />);
     expect(html).toContain("Aún no hay cierres en estas semanas.");

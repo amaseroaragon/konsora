@@ -441,10 +441,11 @@ export function Board({
               const key = cellKey(lane.id, taskStates[index] as TaskState);
               const view = cellView(cell, expanded.has(key), reveal);
               const toggleCell = () => flip("expanded", expanded, setExpanded, key);
+              // One key for «Ver N más» and «Ver menos»: React keeps the button, and its focus.
               const more =
                 view.hidden > 0 ? (
                   <button
-                    key="cell-more"
+                    key="cell-toggle"
                     type="button"
                     className="b-cell-more"
                     onClick={toggleCell}
@@ -453,7 +454,7 @@ export function Board({
                   </button>
                 ) : view.canCollapse ? (
                   <button
-                    key="cell-less"
+                    key="cell-toggle"
                     type="button"
                     className="b-cell-more"
                     onClick={toggleCell}

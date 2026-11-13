@@ -1341,6 +1341,11 @@
   font-size: var(--k-text-xs);
   color: var(--k-ink);
 }
+.b-stats__single {
+  margin: 0;
+  font-size: var(--k-text-xs);
+  color: var(--k-ink-muted);
+}
 .b-stats__swatch {
   display: inline-block;
   width: 10px;

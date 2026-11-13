@@ -115,6 +115,11 @@ export function ActivityView({
             <p className="s-text s-muted">{t("stats.empty")}</p>
           ) : (
             <>
+              {series.length === 1 && (
+                <p className="b-stats__single">
+                  {t("stats.single", { who: seriesName(series[0] as string) })}
+                </p>
+              )}
               {series.length > 1 && (
                 <ul className="b-stats__legend" aria-label={t("stats.legend")}>
                   {series.map((s, i) => (

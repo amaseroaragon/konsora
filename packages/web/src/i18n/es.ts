@@ -521,6 +521,7 @@ export const es = {
   "stats.day": "{day}: {n} cierre(s)",
   "stats.legend": "Quién cerró",
   "stats.other": "Otros",
+  "stats.single": "Todos los cerró {who}.",
   "stats.table": "Ver como tabla",
   "stats.table.day": "Día",
   "stats.table.total": "Total",
