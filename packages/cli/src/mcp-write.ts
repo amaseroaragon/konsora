@@ -158,6 +158,41 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     (args) => apply(() => ({ op: "delete", task: args.id.toUpperCase() })),
   );
 
+  // CORE-13: the plan's groups; a group's id is the prefix of its tasks' ids and never changes.
+  const groupId = z.string().min(1).describe("group id, e.g. CORE (see status)");
+  server.registerTool(
+    "add_group",
+    {
+      title: "Add a group",
+      description:
+        "Add a group to the plan. Its id (1–6 uppercase letters or digits, starting with a letter) becomes the prefix of its tasks' ids.",
+      inputSchema: { id: groupId, name: text("the group's name") },
+      annotations: WRITE,
+    },
+    (args) => apply(() => ({ op: "add-group", id: args.id.toUpperCase(), name: args.name })),
+  );
+  server.registerTool(
+    "rename_group",
+    {
+      title: "Rename a group",
+      description: "Rename a group. Its id and its tasks' ids stay the same.",
+      inputSchema: { id: groupId, name: text("the new name") },
+      annotations: WRITE,
+    },
+    (args) => apply(() => ({ op: "rename-group", id: args.id.toUpperCase(), name: args.name })),
+  );
+  server.registerTool(
+    "remove_group",
+    {
+      title: "Remove a group",
+      description:
+        "Remove a group no task uses: none belongs to it and no task id, in the plan or archived, has its prefix.",
+      inputSchema: { id: groupId },
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    (args) => apply(() => ({ op: "remove-group", id: args.id.toUpperCase() })),
+  );
+
   server.registerTool(
     "promote",
     {

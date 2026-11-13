@@ -582,6 +582,38 @@ export function registerWriteCommands(
       },
     );
 
+  // CORE-13: the plan's groups. Their id is the prefix of their tasks' ids, so it never changes.
+  const group = program
+    .command("group")
+    .description("add, rename or remove a group (the prefix of its tasks' ids)");
+  withAgent(group.command("add"))
+    .description("add a group")
+    .argument("<id>", "1–6 uppercase letters or digits, starting with a letter, e.g. API")
+    .argument("<name>", "the group's name")
+    .action(async (id: string, name: string, opts: { as?: string; json?: boolean }) => {
+      const key = id.toUpperCase();
+      await apply({ op: "add-group", id: key, name }, opts, () => `Added group ${key}: ${name}.\n`);
+    });
+  withAgent(group.command("rename"))
+    .description("rename a group; its id and its tasks' ids stay")
+    .argument("<id>")
+    .argument("<name>", "the new name")
+    .action(async (id: string, name: string, opts: { as?: string; json?: boolean }) => {
+      const key = id.toUpperCase();
+      await apply(
+        { op: "rename-group", id: key, name },
+        opts,
+        () => `Renamed group ${key} to ${name}.\n`,
+      );
+    });
+  withAgent(group.command("remove"))
+    .description("remove a group no task uses (none in it, and no id with its prefix)")
+    .argument("<id>")
+    .action(async (id: string, opts: { as?: string; json?: boolean }) => {
+      const key = id.toUpperCase();
+      await apply({ op: "remove-group", id: key }, opts, () => `Removed group ${key}.\n`);
+    });
+
   withAgent(program.command("finish"))
     .description("finish a task you are doing (doing → done) with a summary of what you did")
     .argument("<id>")

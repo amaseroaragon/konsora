@@ -36,6 +36,7 @@ import { FilterBar } from "./FilterBar.tsx";
 import { Graph } from "./Graph.tsx";
 import type { Link } from "./graph-model.ts";
 import { HistoryView } from "./HistoryView.tsx";
+import { ProjectSettings } from "./ProjectSettings.tsx";
 import { refineMessage } from "./refine.ts";
 import {
   navigate,
@@ -463,6 +464,9 @@ export function ProjectView({
       )}
       {view === "settings" ? (
         <div className="s-stack">
+          <div className="b-settings">
+            <ProjectSettings projectId={projectId} plan={doc} readOnly={readOnly} />
+          </div>
           <TemplateSettings
             projectId={projectId}
             templates={board.plan.project.templates}

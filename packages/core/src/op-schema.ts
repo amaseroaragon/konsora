@@ -51,6 +51,23 @@ export const OpSchema = z.discriminatedUnion("op", [
     id: z.string(),
     name: z.string().min(1).max(60),
   }),
+  z.strictObject({
+    op: z.literal("rename-group"),
+    expect,
+    id: z.string(),
+    name: z.string().min(1).max(60),
+  }),
+  z.strictObject({
+    op: z.literal("reorder-groups"),
+    expect,
+    ids: z.array(z.string()).min(1).max(200),
+  }),
+  z.strictObject({ op: z.literal("remove-group"), expect, id: z.string() }),
+  z.strictObject({
+    op: z.literal("rename-project"),
+    expect,
+    name: z.string().min(1).max(80),
+  }),
   z.strictObject({ op: z.literal("promote"), expect, task: id }),
   z.strictObject({ op: z.literal("demote"), expect, task: id }),
   z.strictObject({

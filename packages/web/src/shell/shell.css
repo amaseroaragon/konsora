@@ -847,6 +847,44 @@
   max-inline-size: 20rem;
 }
 
+/* Project name and groups (CORE-13) */
+.b-settings__inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-3);
+  align-items: start;
+}
+.b-settings__inline .k-field {
+  flex: 1 1 14rem;
+}
+.b-settings__group {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(12rem, 3fr) minmax(6rem, 1fr) auto;
+  gap: var(--k-space-3);
+  align-items: start;
+  padding-bottom: var(--k-space-3);
+  border-bottom: 1px solid var(--k-line);
+}
+.b-settings__group .b-settings__row-actions {
+  padding-top: 0;
+}
+.b-settings__group-id,
+.b-settings__group-use {
+  padding-top: var(--k-space-2);
+}
+.b-settings__add-group {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 3fr) auto;
+  gap: var(--k-space-3);
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .b-settings__group,
+  .b-settings__add-group {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Task templates (UI-22) */
 .b-settings__template {
   display: flex;

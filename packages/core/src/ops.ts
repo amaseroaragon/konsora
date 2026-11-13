@@ -86,6 +86,17 @@ export type Op = Base &
         tasks: (NewTask & { idea?: boolean })[];
       }
     | { op: "add-group"; id: string; name: string }
+    /** CORE-13: renames a group; its id (the prefix of its tasks' ids) never changes. */
+    | { op: "rename-group"; id: string; name: string }
+    /** CORE-13: the groups in a new order; `ids` lists every group exactly once. */
+    | { op: "reorder-groups"; ids: string[] }
+    /**
+     * CORE-13: removes a group no task uses: none belongs to it and no id, in the plan or
+     * archived, has its prefix. Otherwise `in_use`.
+     */
+    | { op: "remove-group"; id: string }
+    /** CORE-13: the human renames the project. */
+    | { op: "rename-project"; name: string }
     /** An idea (`proposed`) becomes work to do. Anyone may do it: there is no approval. */
     | { op: "promote"; task: string }
     /** The way back: a `todo` task nobody started becomes an idea (`proposed`) again. */
@@ -144,6 +155,7 @@ export type OpErrorCode =
   | "text_required"
   | "not_waiting"
   | "unknown_template"
+  | "in_use"
   | "invalid";
 
 export type OpError = {
@@ -202,6 +214,10 @@ const ROLES: Record<OpName, readonly Role[]> = {
   propose: ["human", "agent"],
   batch: ["human", "agent"],
   "add-group": ["human", "agent"],
+  "rename-group": ["human", "agent"],
+  "reorder-groups": ["human", "agent"],
+  "remove-group": ["human", "agent"],
+  "rename-project": ["human"],
   promote: ["human", "agent"],
   demote: ["human", "agent"],
   edit: ["human", "agent"], // agents: unfinished tasks only (checked below)
@@ -413,6 +429,53 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       if (doc.groups.some((g) => g.id === op.id)) fail("invalid", `Group ${op.id} already exists`);
       doc.groups.push({ id: op.id, name: op.name });
       doc.seq[op.id] = doc.seq[op.id] ?? 0;
+      break;
+    }
+    case "rename-group": {
+      const group =
+        doc.groups.find((g) => g.id === op.id) ??
+        fail("not_found", `Group ${op.id} does not exist`);
+      const name = op.name.trim();
+      if (!name) fail("invalid", "A group needs a name");
+      group.name = name;
+      break;
+    }
+    case "reorder-groups": {
+      const current = doc.groups.map((g) => g.id);
+      const same =
+        op.ids.length === current.length &&
+        new Set(op.ids).size === op.ids.length &&
+        current.every((id) => op.ids.includes(id));
+      if (!same)
+        fail("invalid", `reorder-groups must list every group exactly once: ${current.join(", ")}`);
+      const byId = new Map(doc.groups.map((g) => [g.id, g]));
+      doc.groups = op.ids.map((id) => byId.get(id) as (typeof doc.groups)[number]);
+      break;
+    }
+    case "remove-group": {
+      if (!doc.groups.some((g) => g.id === op.id))
+        fail("not_found", `Group ${op.id} does not exist`);
+      const prefix = `${op.id}-`;
+      const users = [
+        ...doc.tasks.filter((t) => t.group === op.id || t.id.startsWith(prefix)).map((t) => t.id),
+        ...(doc.archived ?? []).filter((id) => id.startsWith(prefix)),
+      ];
+      if (users.length > 0) {
+        const shown = users.slice(0, 5).join(", ") + (users.length > 5 ? ", …" : "");
+        fail(
+          "in_use",
+          `Group ${op.id} is still used by ${users.length} task(s) (${shown}); a group can only be removed when no task belongs to it or has its prefix in the id`,
+        );
+      }
+      if (doc.groups.length === 1) fail("invalid", "The plan needs at least one group");
+      doc.groups = doc.groups.filter((g) => g.id !== op.id);
+      delete doc.seq[op.id];
+      break;
+    }
+    case "rename-project": {
+      const name = op.name.trim();
+      if (!name) fail("invalid", "The project needs a name");
+      doc.project.name = name;
       break;
     }
     case "promote":

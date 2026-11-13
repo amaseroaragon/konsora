@@ -80,7 +80,17 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 
 **`Template`**: `id` (slug en minúsculas, único), `name` (1–60), `desc` (opcional), `acceptance` (opcional, `{text}[]`, sin id) y `labels` (opcional). Al proponer con una plantilla (`template` en `propose` y en cada tarea de `batch`; `--template <id>` en la CLI), la tarea toma sus valores y lo que se pasa explícitamente los completa o sustituye: la `desc` propia sustituye a la de la plantilla, los criterios son los de la plantilla y después los propios, numerados `ac1…`, y las etiquetas se unen. Una plantilla inexistente da `unknown_template`. `konsora status` (y la herramienta `status` del MCP, en `project.templates`) las lista.
 
-**`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60).
+**`Group`**: `id` en `^[A-Z][A-Z0-9]{0,5}$` (prefijo de los IDs), `name` (1–60). El orden de `groups` es el del tablero y el del fichero. Se gestionan con operaciones (CORE-13), desde Ajustes, con `konsora group add|rename|remove` y con las herramientas MCP `add_group`, `rename_group` y `remove_group`:
+
+| Operación | Quién | Efecto |
+|---|---|---|
+| `add-group {id, name}` | A, H | Añade un grupo al final, con `seq` a 0. Un id repetido se rechaza. |
+| `rename-group {id, name}` | A, H | Cambia el nombre. El id no cambia nunca: es el prefijo de los IDs de sus tareas. |
+| `reorder-groups {ids}` | A, H | Nuevo orden; `ids` lista cada grupo exactamente una vez. |
+| `remove-group {id}` | A, H | Quita un grupo que ninguna tarea usa: ninguna pertenece a él ni tiene su prefijo en el ID, ni en el plan ni archivada. Si no, `in_use` con las tareas que lo usan. Nunca quita el último grupo. Su entrada de `seq` desaparece: si se vuelve a crear, la numeración empieza de cero. |
+| `rename-project {name}` | **H** | Cambia `project.name`. |
+
+Ninguna de estas operaciones cambia tareas, así que no se pueden deshacer desde el aviso. En una sesión de planificación dan `out_of_scope` (los grupos nuevos se crean dentro de `batch`).
 
 **`Task`**
 

@@ -38,6 +38,10 @@ export const OP_HINTS: Partial<Record<OpError["code"], Hint>> = {
     cli: "`konsora status` lists the project's templates; only the human defines them, in the Konsora UI.",
     mcp: "The status tool lists the project's templates (project.templates); only the human defines them, in the Konsora UI.",
   },
+  in_use: {
+    cli: "Delete those tasks or leave the group: a task keeps its id (and its group prefix) when moved with `konsora edit <id> --group`.",
+    mcp: "Delete those tasks or leave the group: a task keeps its id (and its group prefix) when moved with the edit tool.",
+  },
   conflict: {
     cli: "Someone changed the task meanwhile; read it again with `konsora show <id>` and retry.",
     mcp: "Someone changed the task meanwhile; read it again with the show tool and retry.",

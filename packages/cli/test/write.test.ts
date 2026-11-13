@@ -346,6 +346,28 @@ describe("planning commands", () => {
     );
   });
 
+  it("group add, rename and remove; a group in use is refused with a hint (CORE-13)", async () => {
+    expect((await run(["group", "add", "api", "API", "--as", "claude"])).stdout).toBe(
+      "Added group API: API.\n",
+    );
+    expect((await run(["group", "rename", "API", "Public API", "--as", "claude"])).stdout).toBe(
+      "Renamed group API to Public API.\n",
+    );
+    expect(doc().groups).toEqual([
+      { id: "BE", name: "Backend" },
+      { id: "API", name: "Public API" },
+    ]);
+    const refused = await run(["group", "remove", "BE", "--as", "claude"]);
+    expect(refused.code).toBe(EXIT.failure);
+    expect(refused.stderr).toContain("Error: Group BE is still used by 5 task(s)");
+    expect(refused.stderr).toContain("Hint: Delete those tasks or leave the group");
+    expect((await run(["group", "remove", "API", "--as", "claude"])).stdout).toBe(
+      "Removed group API.\n",
+    );
+    expect(doc().groups.map((g) => g.id)).toEqual(["BE"]);
+    expect(doc().seq).toEqual({ BE: 5 });
+  });
+
   it("depend rejects cycles", async () => {
     const r = await run(["depend", "BE-02", "BE-03"]);
     expect(r.code).toBe(EXIT.failure);
