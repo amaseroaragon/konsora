@@ -430,7 +430,7 @@
     {
       "id": "CORE-10",
       "title": "Señalar las tareas en curso abandonadas",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-09"
@@ -458,7 +458,56 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:35:17Z"
+      "started": {
+        "at": "2026-11-13T16:32:28Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T16:34:40Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:32:28Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "isStale(task, now, horas) derivado en core (doing y updated_at más antiguo que el umbral, 24 h por defecto). status lo lista (umbral con --stale-after o KONSORA_STALE_AFTER), la tarjeta y el panel lo muestran. Nada se guarda."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T16:34:40Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Indicador derivado de tarea abandonada (commit 7d78469): isStale en core (doing sin cambios en más de 24 h por defecto); status la lista con umbral --stale-after o KONSORA_STALE_AFTER; tarjeta con «Sin actividad» y aviso en el panel. La UI usa el umbral por defecto (24 h); hacerlo configurable desde Ajustes sería otra tarea.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "stale.test.ts en core con reloj inyectado; write.test.ts comprueba la sección Abandoned? de status; stale.test.tsx comprueba el distintivo de la tarjeta"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Una nota o un edit mueven updated_at y quitan el indicador (core y CLI)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Solo se calcula con isStale; un test comprueba que el fichero serializado no lo lleva"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T16:32:28Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T16:34:40Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-11",
@@ -643,7 +692,7 @@
     {
       "id": "CORE-14",
       "title": "Enlazar los commits de una tarea al terminarla",
-      "state": "proposed",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzv",
       "desc": "Idea del roadmap («Enlaces a commits»), sin que Konsora ejecute git: el agente pasa los hashes al terminar (`finish --commit <sha>`, repetible) y se guardan en la tarea. El panel y el Historial los muestran y los copian. Deducirlos leyendo `git log` sería una decisión de producto aparte, porque hoy Konsora no ejecuta git.",
@@ -672,7 +721,69 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "started": {
+        "at": "2026-11-13T16:34:40Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T16:36:48Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:34:40Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "commits [sha] en la tarea, añadidos por finish (--commit repetible, commits en el MCP), hex de 7 a 40. Panel e Historial los muestran con botón de copiar. Sin ejecutar git."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T16:36:48Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commits de una tarea guardados al terminarla. finish --commit <sha> (repetible) y commits en el MCP; validados como hexadecimal de 7 a 40; panel con «Copiar commits» y su forma corta en el Historial.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "commits.test.ts en core y write.test.ts en la CLI: guarda en minúsculas sin repetidos y rechaza «main»"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "commits.test.tsx: el panel lista los commits con botón de copiar; el Historial muestra 24476d1 8b8e7df y los incluye en el Markdown copiado"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Un test en core recorre packages/*/src y falla si algo llama a git con spawn, exec o execFile"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "La skill (assets y .claude) pide pasar --commit <sha> al terminar"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "f3ab62f"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:51:15Z",
+          "by": "human",
+          "type": "promote"
+        },
+        {
+          "at": "2026-11-13T16:34:40Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T16:36:48Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-15",
@@ -1002,7 +1113,7 @@
     {
       "id": "CORE-20",
       "title": "Dividir una tarea en varias conservando sus dependencias",
-      "state": "proposed",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzi",
       "desc": "Cuando una tarea resulta demasiado grande hay que crear las nuevas, recolocar las dependencias a mano y borrar la original. Una operación que la sustituya por varias: las nuevas heredan sus dependencias y las tareas que dependían de ella pasan a depender de la última.",
@@ -1027,12 +1138,69 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "started": {
+        "at": "2026-11-13T16:36:49Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T16:43:10Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:36:49Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Op split {task, into: [{title, desc?, acceptance?, difficulty?}...≥2]}: solo tareas sin empezar; las nuevas heredan grupo, etiquetas, deps, estado (proposed/todo), hito y dificultad salvo que se diga; se encadenan en orden y los dependientes pasan a depender de la última. Rank en el sitio de la original. CLI konsora split, MCP split, también en modo plan; panel con acción Dividir."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T16:43:10Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Op split: sustituye una tarea que nadie empezó por dos o más, en orden y en su sitio; heredan grupo, etiquetas, estado, hito y dificultad; la primera toma sus dependencias, cada una depende de la anterior y los dependientes pasan a la última. CLI, MCP (también en modo plan) y «Dividir en varias» en el panel, con deshacer.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "split.test.ts en core: herencia de grupo, etiquetas, deps, estado, hito y dificultad; rechaza tareas empezadas y una sola parte"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "split.test.ts: los dependientes pasan a la última parte (con nota y evento), topoOrder sin ciclos y documento válido"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "write.test.ts (konsora split), mcp-write.test.ts (paridad CLI/MCP y modo plan), split.test.tsx; en Chrome, «Dividir en 2» sobre CLI-04 creó CLI-13 y CLI-14 encadenadas"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "8b863ec"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:51:27Z",
+          "by": "human",
+          "type": "promote"
+        },
+        {
+          "at": "2026-11-13T16:36:49Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T16:43:10Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-21",
       "title": "Limpiar los restos de etapas anteriores en textos, docs y datos",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzzzzz",
       "desc": "La auditoría encontró referencias a funciones retiradas. En la UI: `chat.intro` y `history.text` hablan de bloques, `templates.text` de dificultad, y quedan claves sin uso (`templates.difficulty`, `templates.criterion.check`, `templates.error.check`, `templates.error.difficulty`). En el MCP: la descripción de `status` menciona los bloques y sus ramas. En los docs: `arquitectura.md` §2 habla del git del merge y de la rama de un bloque, `esquema-tareas.md` §5 pone de ejemplo `approve BE-02` y dice que las notas se pueden editar (no hay op), `AGENTS.md` habla de aprobar y aceptar, y `CLAUDE.md` dice «esquema v4». En el daemon: `feedback_required` en `OP_STATUS`. En disco: `.konsora/runs/` con runs de M6–M9 y su `.konsora/.gitignore`.",
@@ -1061,7 +1229,64 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:37:32Z"
+      "started": {
+        "at": "2026-11-13T16:40:06Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T16:43:11Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:40:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Limpieza de restos de bloques, aprobación, revisión y checks en UI, MCP, daemon y docs; test que falla con claves i18n sin uso; borrar .konsora/runs y su .gitignore (confirmado por el humano)."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T16:43:11Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Limpieza de restos de etapas anteriores. UI: chat.intro, history.text y templates.text corregidos y cuatro claves sin uso quitadas; el test de claves solo cuenta claves dinámicas dentro de t(…), así que ya no las oculta un prefijo como templates.${i}. MCP: status sin bloques y las instrucciones de planificación sin withdraw. feedback_required fuera de daemon y core. Docs al día. .konsora/runs/ y .konsora/.gitignore borrados con tu confirmación. También quité el último aviso de Biome.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "grep de bloque, aprob, revis, check, rama, merge y withdraw sin resultados vigentes en UI, MCP y docs (salvo historia y migraciones); i18n-keys.test.ts falla si vuelven las claves quitadas"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "arquitectura.md (sin git, comandos actuales, modo plan), esquema-tareas.md (ejemplo de op, notas solo se añaden), AGENTS.md y CLAUDE.md (esquema v5, lo llegado tras M14)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Borrados tras confirmarlo el humano en la conversación"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "npm run check: 840 tests en verde y sin avisos de Biome"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "415aed9"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T16:40:06Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T16:43:11Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-22",
