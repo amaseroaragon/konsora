@@ -2106,7 +2106,7 @@
     {
       "id": "UI-11",
       "title": "Mostrar las etiquetas en las tarjetas y en el panel de tarea",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzr",
       "desc": "Las etiquetas se guardan y se editan (y las plantillas las añaden), pero solo se ven dentro del editor: ni la tarjeta ni el panel de tarea en modo lectura las pintan. Mostrarlas como chips en ambos sitios.",
@@ -2127,7 +2127,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:17Z"
+      "updated_at": "2026-11-13T12:07:20Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T12:02:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Chips de etiquetas en TaskCard y en la cabecera del TaskPanel, sin nada cuando no hay etiquetas; test de componente."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T12:07:20Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 52ac2ab. Las etiquetas se ven como chips en la tarjeta y en la cabecera del panel.\n\n- ac1: componente `Labels` (ui) bajo el título de la tarjeta del tablero y bajo el título del panel de tarea. Test de componente en labels.test.tsx (tarjeta suelta, tarjeta del tablero y cabecera del panel). Visto en Chrome (headless) sobre una copia del plan.\n- ac2: sin etiquetas (o con lista vacía) no se pinta nada: ni lista ni hueco (test y comprobado con CORE-23 en Chrome).\n\n`npm run check` en verde."
+        }
+      ]
     },
     {
       "id": "UI-12",
@@ -2178,7 +2194,7 @@
     {
       "id": "UI-13",
       "title": "Bandeja de preguntas pendientes de todos los proyectos",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzz",
       "desc": "Idea del roadmap («Responder preguntas en lote»). Una pregunta de un agente solo se ve entrando en su proyecto y abriendo la tarea. Una vista global con todas las tareas que esperan respuesta, en todos los proyectos vinculados, para contestarlas seguidas.",
@@ -2203,7 +2219,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:37Z"
+      "updated_at": "2026-11-13T12:07:20Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T12:02:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "GET /api/questions en el daemon (tareas waiting de todos los proyectos con su última pregunta), vista #/questions con respuesta en línea, y contador en la navegación refrescado por WebSocket."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T12:07:20Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 8c183f0. Bandeja global de preguntas pendientes.\n\n- ac1: `GET /api/questions` en el daemon devuelve, por proyecto vinculado, las tareas `waiting` con su última pregunta abierta (`openQuestion` en core) y el total; los proyectos con plan ilegible se omiten. Test en daemon.test.ts (dos proyectos, uno ilegible fuera, vacío tras responder).\n- ac2: vista `#/questions` agrupada por proyecto; cada pregunta se responde ahí mismo con el formulario del panel (opciones con un clic o texto) y desaparece al instante. Test de render en questions.test.tsx; probado en Chrome sobre un daemon aislado con dos proyectos: una respuesta por opción y otra por texto, ambas escritas como `human answer`.\n- ac3: el enlace «Preguntas» de la cabecera muestra cuántas hay (2 → 1 → 0 en la prueba). Se refresca con los eventos del tablero, al responder o deshacer y cada 15 s.\n\n`npm run check` en verde."
+        }
+      ]
     },
     {
       "id": "UI-14",
