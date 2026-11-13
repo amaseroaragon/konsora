@@ -16,7 +16,7 @@ import { taskNumber } from "./semantics.ts";
 type Obj = Record<string, unknown>;
 
 const ORDER = {
-  root: ["$schema", "schema", "project", "groups", "seq", "archived", "tasks"],
+  root: ["$schema", "schema", "project", "groups", "seq", "archived", "tasks", "deleted"],
   archive: ["schema", "tasks"],
   project: ["name", "templates"],
   template: ["id", "name", "desc", "acceptance", "labels"],
@@ -36,10 +36,13 @@ const ORDER = {
     "created",
     "updated_at",
     "notes",
+    "events",
   ],
   acceptance: ["id", "text"],
   created: ["at", "by"],
   note: ["id", "at", "by", "kind", "text", "options", "edited"],
+  event: ["at", "by", "type", "fields"],
+  deleted: ["id", "title", "at", "by"],
 } as const;
 
 /** Optional fields dropped when empty. Required arrays (`groups`, `tasks`) are always kept. */
@@ -52,6 +55,9 @@ const OMIT_WHEN_EMPTY = new Set([
   "templates",
   "options",
   "archived",
+  "events",
+  "fields",
+  "deleted",
 ]);
 
 function isEmpty(value: unknown): boolean {
@@ -99,6 +105,8 @@ function canonicalTask(task: Task): Obj {
         return ordered(value as Obj, ORDER.created);
       case "notes":
         return (value as Obj[]).map((n) => ordered(n, ORDER.note));
+      case "events":
+        return (value as Obj[]).map((e) => ordered(e, ORDER.event));
       default:
         return value;
     }
@@ -143,6 +151,8 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
         return [...(value as string[])].sort(compareTaskIds);
       case "tasks":
         return tasks;
+      case "deleted":
+        return (value as Obj[]).map((d) => ordered(d, ORDER.deleted));
       default:
         return value;
     }

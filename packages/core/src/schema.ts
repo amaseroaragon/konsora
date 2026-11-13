@@ -118,6 +118,52 @@ export const NoteSchema = strict({
   edited: TimestampSchema.optional(),
 });
 
+/**
+ * CORE-17: what changed a task, by whom and when. Creating a task is not stored here (its
+ * `created` already says it); notes and questions are their own record.
+ */
+export const EventTypeSchema = z.enum([
+  "promote",
+  "demote",
+  "start",
+  "pause",
+  "finish",
+  "reopen",
+  "edit",
+]);
+
+/** The fields an `edit` event may name. */
+export const EditedFieldSchema = z.enum([
+  "title",
+  "desc",
+  "acceptance",
+  "labels",
+  "group",
+  "rank",
+  "difficulty",
+  "deps",
+]);
+
+export const TaskEventSchema = strict({
+  at: TimestampSchema,
+  by: ActorSchema,
+  type: EventTypeSchema,
+  /** Only on an `edit`: what it changed. */
+  fields: z.array(EditedFieldSchema).min(1).optional(),
+});
+
+/** A deleted task, so the plan's activity can still name it. */
+export const DeletedTaskSchema = strict({
+  id: TaskIdSchema,
+  title: z.string().min(1).max(120),
+  at: TimestampSchema,
+  by: ActorSchema,
+});
+
+/** Events kept per task and deletions kept in the plan: older ones are dropped when writing. */
+export const EVENTS_LIMIT = 50;
+export const DELETED_LIMIT = 200;
+
 export const TaskSchema = strict({
   id: TaskIdSchema,
   title: z
@@ -136,6 +182,8 @@ export const TaskSchema = strict({
   created: strict({ at: TimestampSchema, by: ActorSchema }),
   updated_at: TimestampSchema,
   notes: z.array(NoteSchema).optional(),
+  /** CORE-17: the latest changes to the task, oldest first (at most `EVENTS_LIMIT`). */
+  events: z.array(TaskEventSchema).optional(),
 });
 
 export const DocumentSchema = strict({
@@ -150,6 +198,8 @@ export const DocumentSchema = strict({
    */
   archived: z.array(TaskIdSchema).optional(),
   tasks: z.array(TaskSchema),
+  /** CORE-17: the latest deleted tasks, oldest first (at most `DELETED_LIMIT`). */
+  deleted: z.array(DeletedTaskSchema).optional(),
 });
 
 export const ARCHIVE_SCHEMA_VERSION = "konsora-archive/1";
@@ -169,6 +219,10 @@ export type Acceptance = z.infer<typeof AcceptanceSchema>;
 export type NoteKind = z.infer<typeof NoteKindSchema>;
 export type Note = z.infer<typeof NoteSchema>;
 export type Task = z.infer<typeof TaskSchema>;
+export type EventType = z.infer<typeof EventTypeSchema>;
+export type EditedField = z.infer<typeof EditedFieldSchema>;
+export type TaskEvent = z.infer<typeof TaskEventSchema>;
+export type DeletedTask = z.infer<typeof DeletedTaskSchema>;
 export type TasksDocument = z.infer<typeof DocumentSchema>;
 export type ArchiveDocument = z.infer<typeof ArchiveSchema>;
 

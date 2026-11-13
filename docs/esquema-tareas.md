@@ -74,6 +74,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
 | `archived` | `TaskId[]` | no | IDs de las tareas hechas que `konsora archive` movió a `.konsora/archive.json` (ver §7). Una dependencia sobre una de ellas cuenta como hecha, y su ID no se reutiliza ni puede usarlo una tarea del plan. Se guarda en orden natural. |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
+| `deleted` | `DeletedTask[]` | no | Las últimas tareas borradas (como mucho 200, de la más antigua a la más reciente): `{id, title, at, by}`. Es lo que queda de ellas para la actividad del plan (§1, *Actividad*). Deshacer un borrado la quita de la lista. |
 
 **`project`**: `name` (1–80) y `templates` (opcional, `Template[]` con ids únicos): las plantillas de tarea. Solo las define el humano, con `set-templates`, que las sustituye todas (`[]` las quita); un agente recibe `forbidden`.
 
@@ -98,6 +99,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `created` | `{at, by}` | sí | |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
+| `events` | `TaskEvent[]` | no | Quién cambió la tarea, qué y cuándo (ver *Actividad*). Como mucho 50, de la más antigua a la más reciente. |
 
 **`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno.
 
@@ -110,6 +112,22 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `answer` | humano | Responde a la última `question`. |
 | `feedback` | humano | Heredado de versiones con revisión (devoluciones); se conserva al migrar. |
 | `summary` | agente | Resumen al terminar (`doing → done`). Obligatorio. La UI lo muestra destacado en las tareas hechas. |
+
+**`TaskEvent`**: `at`, `by`, `type` y `fields` (solo en `edit`: qué cambió, entre `title`, `desc`, `acceptance`, `labels`, `group`, `rank`, `difficulty` y `deps`). Lo añade `core` al aplicar cada operación, nunca quien llama:
+
+| `type` | Operación |
+|---|---|
+| `promote`, `demote`, `start`, `pause`, `finish`, `reopen` | La operación del mismo nombre (§2). |
+| `edit` | `edit`, `depend`, `undepend` y, en las tareas que dependían de una borrada, el borrado (`fields: ["deps"]`). |
+
+**Actividad** (CORE-17). `planActivity(doc, archivadas?)` en `core` devuelve la actividad del plan, de la más reciente a la más antigua, con la tarea, su título, el tipo, el actor y la fecha:
+
+- **crear**: sale de `created`, que ya tiene actor y fecha. No se guarda como evento.
+- **promover, devolver a idea, empezar, pausar, terminar, reabrir y editar**: salen de `events`.
+- **eliminar**: sale de `deleted`, con el id y el título que tenía la tarea.
+- Las tareas cerradas antes de que existieran los eventos toman sus cierres de sus notas `summary` (las anteriores a su primer evento).
+
+Las notas (preguntas, respuestas, resúmenes) siguen siendo su propio registro y no generan eventos, igual que reordenar (`move`). El tamaño está acotado: al escribir, `core` se queda con los 50 últimos eventos de cada tarea y los 200 últimos borrados. Deshacer (`undo`) devuelve la tarea a su versión anterior, con sus eventos de entonces: la acción deshecha desaparece de la actividad.
 
 **Actores (`by`)**: `human`, `agent:<nombre>` (por ejemplo, `agent:claude`) y `konsora` (una migración). Un agente se identifica con `--as` o con `KONSORA_AGENT` en la CLI y en el MCP (por defecto, `agent:unknown` en la CLI y el nombre del cliente MCP en el servidor).
 
@@ -166,11 +184,11 @@ Los errores se devuelven como `{path: JSON Pointer, code, message}`. Un archivo 
 
 Para conseguir diffs mínimos y escrituras byte-idénticas entre la CLI, el MCP y el daemon:
 
-- Las claves van en el orden de este documento. Detrás van las claves de extensión `x-*`, en orden alfabético.
+- Las claves van en el orden de este documento (`events` detrás de `notes`, y `deleted` detrás de `tasks`, al final del fichero). Detrás van las claves de extensión `x-*`, en orden alfabético.
 - Los campos opcionales vacíos se omiten (`deps: []`, `desc: ""`, `notes: []`…).
 - Indentación de 2 espacios, LF, UTF-8 sin BOM, salto de línea final.
 - Las tareas se ordenan en el array según el orden de `groups` y, dentro de cada grupo, por número de ID (orden natural: `BE-99` va antes que `BE-100`). Así, añadir una tarea es un *hunk* aislado. Las claves de `seq` siguen el orden de `groups`.
-- `deps` va en orden natural de ID y `labels`, alfabéticamente. Las notas, los criterios, los grupos y las plantillas conservan su orden, porque ese orden tiene significado.
+- `deps` va en orden natural de ID y `labels`, alfabéticamente. Las notas, los eventos, los borrados, los criterios, los grupos y las plantillas conservan su orden, porque ese orden tiene significado.
 - `parse(serialize(doc))` es idéntico a `doc`, y `serialize(parse(bytes))` es idéntico a `bytes` cuando `bytes` ya es canónico. Ambas propiedades se prueban con fast-check.
 
 ## 5. Concurrencia y cambios externos
@@ -194,6 +212,8 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 Límite honesto: un proceso con los permisos del usuario puede escribir cualquier archivo. Los roles se aplican en la CLI, el MCP y la UI, y las violaciones se **detectan y señalan**; no existe una frontera de seguridad contra un agente decidido a engañar.
 
 ## 6. Migraciones
+
+**Actividad (CORE-17)**: `events` y `deleted` son campos opcionales de `konsora/5`, como `difficulty`, así que no cambian la versión ni hace falta migrar: un plan sin ellos es válido y empieza a acumularlos con la siguiente operación. Las migraciones desde versiones anteriores no inventan eventos: la actividad de esas tareas se deriva de `created` y de sus notas `summary` (§1, *Actividad*).
 
 Con `konsora migrate` (acción explícita; nunca automática al abrir). Por defecto solo muestra el resumen; `--write` guarda primero una copia del original y después escribe.
 

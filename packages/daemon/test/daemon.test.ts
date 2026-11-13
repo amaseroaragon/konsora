@@ -484,7 +484,10 @@ describe("undo of a human action (UI-21)", () => {
     const { body } = await link();
     const deleted = await op(body.project.id, { op: "delete", task: "BE-01" });
     expect(deleted.status).toBe(200);
-    expect(file()).not.toContain('"BE-01"');
+    const after = JSON.parse(file()) as TasksDocument;
+    expect(after.tasks.map((t) => t.id)).toEqual(["BE-02"]);
+    // The deletion is recorded (CORE-17), and undoing it forgets it again.
+    expect(after.deleted).toEqual([{ id: "BE-01", title: "First", at, by: "human" }]);
     expect(deleted.body.undo).toHaveLength(2);
     const undone = await op(body.project.id, { op: "undo", changes: deleted.body.undo });
     expect(undone.status).toBe(200);

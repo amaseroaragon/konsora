@@ -19,16 +19,21 @@ import {
 } from "./graph.ts";
 import { contentHash } from "./hash.ts";
 import { rankAfterAll, rankBetween } from "./rank.ts";
-import type {
-  Acceptance,
-  Difficulty,
-  Note,
-  NoteKind,
-  SchemaIssue,
-  Task,
-  TaskState,
-  TasksDocument,
-  Template,
+import {
+  type Acceptance,
+  DELETED_LIMIT,
+  type Difficulty,
+  type EditedField,
+  EVENTS_LIMIT,
+  type EventType,
+  EventTypeSchema,
+  type Note,
+  type NoteKind,
+  type SchemaIssue,
+  type Task,
+  type TaskState,
+  type TasksDocument,
+  type Template,
 } from "./schema.ts";
 import { validateDocument } from "./semantics.ts";
 
@@ -311,6 +316,16 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     task.notes = [...notes, note];
     touch(task);
   };
+  // CORE-17: who changed the task, what and when; only the latest EVENTS_LIMIT are kept.
+  const log = (task: Task, type: EventType, fields?: EditedField[]) => {
+    const event = { at: ctx.at, by: ctx.actor, type, ...(fields?.length ? { fields } : {}) };
+    task.events = [...(task.events ?? []), event].slice(-EVENTS_LIMIT);
+  };
+  const forget = (id: string) => {
+    if (!doc.deleted?.some((d) => d.id === id)) return;
+    doc.deleted = doc.deleted.filter((d) => d.id !== id);
+    if (doc.deleted.length === 0) delete doc.deleted;
+  };
   const transition = (task: Task, from: readonly TaskState[], to: TaskState) => {
     if (!from.includes(task.state)) {
       fail(
@@ -323,6 +338,8 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
     task.state = to;
     touch(task);
+    const type = EventTypeSchema.safeParse(op.op);
+    if (type.success) log(task, type.data);
   };
   const requireText = (value: string | undefined, code: OpErrorCode, what: string): string => {
     if (!value?.trim()) fail(code, `${op.op} requires ${what}`);
@@ -425,6 +442,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         fail("forbidden", `edit cannot change ${unknown.join(", ")}`, { task: task.id });
       if (task.desc === "") delete task.desc;
       touch(task);
+      log(
+        task,
+        "edit",
+        EDITABLE.filter((key) => key in op.changes),
+      );
       break;
     }
     case "move": {
@@ -494,10 +516,15 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       doc.tasks = doc.tasks.filter((t) => t.id !== task.id);
       index.delete(task.id);
       changed.add(task.id);
+      doc.deleted = [
+        ...(doc.deleted ?? []),
+        { id: task.id, title: task.title, at: ctx.at, by: ctx.actor },
+      ].slice(-DELETED_LIMIT);
       for (const dependent of doc.tasks.filter((t) => t.deps?.includes(task.id))) {
         dependent.deps = (dependent.deps ?? []).filter((d) => d !== task.id);
         if (dependent.deps.length === 0) delete dependent.deps;
         addNote(dependent, "note", `Dependency ${task.id} (${task.title}) was deleted.`);
+        log(dependent, "edit", ["deps"]);
       }
       break;
     }
@@ -514,6 +541,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       if (!task.deps?.includes(op.on)) {
         task.deps = [...(task.deps ?? []), op.on];
         touch(task);
+        log(task, "edit", ["deps"]);
       }
       break;
     }
@@ -528,6 +556,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         task.deps = task.deps.filter((d) => d !== op.on);
         if (task.deps.length === 0) delete task.deps;
         touch(task);
+        log(task, "edit", ["deps"]);
       }
       break;
     }
@@ -616,8 +645,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       for (const change of op.changes) {
         const others = doc.tasks.filter((t) => t.id !== change.task);
         doc.tasks = change.before ? [...others, structuredClone(change.before)] : others;
-        if (change.before) index.set(change.task, change.before);
-        else index.delete(change.task);
+        if (change.before) {
+          index.set(change.task, change.before);
+          // An undone deletion is no longer a deletion.
+          forget(change.task);
+        } else index.delete(change.task);
         changed.add(change.task);
       }
       break;
@@ -632,6 +664,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       else doc.tasks.push(version);
       index.set(version.id, version);
       changed.add(version.id);
+      forget(version.id);
       break;
     }
   }
