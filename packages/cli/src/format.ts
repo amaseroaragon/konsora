@@ -5,6 +5,7 @@ import {
   deriveFlags,
   indexTasks,
   milestoneProgress,
+  recommendedModel,
   type SchemaIssue,
   startedBy,
   type Task,
@@ -139,6 +140,8 @@ export function showText(doc: TasksDocument, view: TaskView): string {
   if (dependents.length) lines.push(`dependents: ${dependents.join(", ")}`);
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
   if (view.difficulty) lines.push(`difficulty: ${view.difficulty}`);
+  const model = recommendedModel(doc.project, view);
+  if (model) lines.push(`recommended model: ${model}`);
   if (view.milestone) {
     const milestone = doc.milestones?.find((m) => m.id === view.milestone);
     lines.push(`milestone: ${view.milestone}${milestone ? ` (${milestone.name})` : ""}`);

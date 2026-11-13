@@ -38,6 +38,7 @@ import { Graph } from "./Graph.tsx";
 import type { Link } from "./graph-model.ts";
 import { HistoryView } from "./HistoryView.tsx";
 import { MilestoneSettings } from "./MilestoneSettings.tsx";
+import { ModelSettings } from "./ModelSettings.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
 import { refineMessage } from "./refine.ts";
 import {
@@ -476,6 +477,13 @@ export function ProjectView({
               projectId={projectId}
               milestones={milestones}
               tasks={doc.tasks}
+              readOnly={readOnly}
+            />
+          </div>
+          <div className="b-settings">
+            <ModelSettings
+              projectId={projectId}
+              models={board.plan.project.models}
               readOnly={readOnly}
             />
           </div>

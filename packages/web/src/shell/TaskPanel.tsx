@@ -3,6 +3,7 @@ import {
   availableActions,
   criteriaEvidence,
   dependentsOf,
+  recommendedModel,
   startedBy,
   type Task,
   type TaskAction,
@@ -281,6 +282,8 @@ export function TaskPanel({
   const actions = readOnly ? [] : availableActions(doc, task.id);
   const index = new Map([...archive, ...doc.tasks].map((x) => [x.id, x]));
   const criteria = task.acceptance ?? [];
+  // CORE-23: the human's hint for this difficulty; nothing when there is none.
+  const model = recommendedModel(doc.project, task);
   // A done task shows, per criterion, what its closing summary says (CORE-15).
   const checks =
     task.state === "done" ? new Map(criteriaEvidence(task).map((c) => [c.id, c])) : null;
@@ -303,6 +306,7 @@ export function TaskPanel({
           {task.waiting && <StateBadge kind="waiting" />}
           {archived && <span className="a-chip">{t("detail.archived")}</span>}
           {task.difficulty && <DifficultyMark difficulty={task.difficulty} text />}
+          {model && <span className="a-chip b-model">{t("model.recommended", { model })}</span>}
           {task.milestone && (
             <span className="a-chip" title={t("milestone.chip.title")}>
               {t("milestone.chip", {

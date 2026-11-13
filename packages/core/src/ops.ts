@@ -22,12 +22,14 @@ import { rankAfterAll, rankBetween } from "./rank.ts";
 import {
   type Acceptance,
   DELETED_LIMIT,
+  DIFFICULTIES,
   type Difficulty,
   type EditedField,
   EVENTS_LIMIT,
   type EventType,
   EventTypeSchema,
   type Evidence,
+  type Models,
   type Note,
   type NoteKind,
   type SchemaIssue,
@@ -143,6 +145,11 @@ export type Op = Base &
     | { op: "finish"; task: string; summary: string; evidence?: EvidenceInput[] }
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
     | { op: "set-templates"; templates: Template[] }
+    /**
+     * CORE-23: the human sets the recommended model per difficulty (it replaces them all); a level
+     * left out has none, and `{}` removes them.
+     */
+    | { op: "set-models"; models: Models }
     | { op: "reopen"; task: string; text?: string }
     | { op: "restore"; task: string; version: Task }
     /**
@@ -189,6 +196,14 @@ export type OpError = {
 export type OpResult =
   | { ok: true; document: TasksDocument; changed: string[]; created: string[] }
   | { ok: false; error: OpError };
+
+/** The model the project recommends for a task's difficulty (CORE-23), if any. */
+export function recommendedModel(
+  project: Pick<TasksDocument["project"], "models">,
+  task: Pick<Task, "difficulty">,
+): string | undefined {
+  return task.difficulty ? project.models?.[task.difficulty] : undefined;
+}
 
 /** Hash used in `expect`. Changes whenever anything in the task changes. */
 export function taskHash(task: Task): string {
@@ -253,6 +268,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   answer: ["human"],
   finish: ["agent", "konsora"],
   "set-templates": ["human"],
+  "set-models": ["human"],
   reopen: ["human"],
   restore: ["human"],
   undo: ["human"],
@@ -784,6 +800,16 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       });
       transition(task, ["doing"], "done");
       addNote(task, "summary", summary, undefined, evidence);
+      break;
+    }
+    case "set-models": {
+      const models: Models = {};
+      for (const level of DIFFICULTIES) {
+        const value = op.models[level]?.trim();
+        if (value) models[level] = value;
+      }
+      if (Object.keys(models).length > 0) doc.project.models = models;
+      else delete doc.project.models;
       break;
     }
     case "set-templates": {

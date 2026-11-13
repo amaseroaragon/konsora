@@ -7,7 +7,13 @@
  * The actor is `agent:<name>`, from KONSORA_AGENT or else the MCP client's name
  * (`claude-code` → `agent:claude`).
  */
-import { DIFFICULTIES, DifficultySchema, type Op, type TasksDocument } from "@konsora/core";
+import {
+  DIFFICULTIES,
+  DifficultySchema,
+  type Op,
+  recommendedModel,
+  type TasksDocument,
+} from "@konsora/core";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -313,7 +319,12 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           task: args.id.toUpperCase(),
           ...(args.plan ? { text: args.plan } : {}),
         }),
-        () => "Work on it, then finish it.",
+        (doc) => {
+          const task = doc.tasks.find((t) => t.id === args.id.toUpperCase());
+          const model = task && recommendedModel(doc.project, task);
+          // CORE-23: the human's recommendation for this difficulty, only a hint.
+          return `${model ? `Recommended model for this ${task?.difficulty} task: ${model}.\n` : ""}Work on it, then finish it.`;
+        },
       ),
   );
 

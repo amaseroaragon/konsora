@@ -28,7 +28,8 @@ const ORDER = {
     "deleted",
   ],
   archive: ["schema", "tasks"],
-  project: ["name", "templates"],
+  project: ["name", "templates", "models"],
+  models: ["low", "medium", "high"],
   template: ["id", "name", "desc", "acceptance", "labels"],
   criterion: ["text"],
   group: ["id", "name"],
@@ -162,6 +163,7 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
     switch (key) {
       case "project":
         return ordered(value as Obj, ORDER.project, (k, v) => {
+          if (k === "models") return ordered(v as Obj, ORDER.models);
           return k === "templates" ? (v as Obj[]).map(template) : v;
         });
       case "groups":

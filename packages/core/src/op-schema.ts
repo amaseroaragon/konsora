@@ -145,6 +145,15 @@ export const OpSchema = z.discriminatedUnion("op", [
     expect,
     templates: z.array(TemplateSchema).max(100),
   }),
+  z.strictObject({
+    op: z.literal("set-models"),
+    expect,
+    models: z.strictObject({
+      low: z.string().max(80).optional(),
+      medium: z.string().max(80).optional(),
+      high: z.string().max(80).optional(),
+    }),
+  }),
   z.strictObject({ op: z.literal("reopen"), expect, task: id, text: text.optional() }),
   z.strictObject({ op: z.literal("restore"), expect, task: id, version: TaskSchema }),
   z.strictObject({

@@ -77,6 +77,30 @@
               "^x-": {}
             }
           }
+        },
+        "models": {
+          "type": "object",
+          "properties": {
+            "low": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "medium": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "high": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          }
         }
       },
       "required": [

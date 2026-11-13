@@ -85,9 +85,27 @@ export const TemplateSchema = strict({
   labels: z.array(LabelSchema).optional(),
 });
 
+/** A recommended model or effort for one difficulty, e.g. "Opus, esfuerzo alto" (CORE-23). */
+export const ModelHintSchema = z
+  .string()
+  .min(1)
+  .max(80)
+  .refine((s) => s.trim().length > 0, "A model must not be blank");
+
+/**
+ * CORE-23: which model or effort the human recommends for each difficulty. Only a hint in text:
+ * Konsora runs no agent and chooses for nobody. Only the human sets it (`set-models`).
+ */
+export const ModelsSchema = strict({
+  low: ModelHintSchema.optional(),
+  medium: ModelHintSchema.optional(),
+  high: ModelHintSchema.optional(),
+});
+
 export const ProjectSchema = strict({
   name: z.string().min(1).max(80),
   templates: z.array(TemplateSchema).max(100).optional(),
+  models: ModelsSchema.optional(),
 });
 
 export const MilestoneIdSchema = z
@@ -254,6 +272,7 @@ export type TaskState = z.infer<typeof TaskStateSchema>;
 export type Difficulty = z.infer<typeof DifficultySchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
+export type Models = z.infer<typeof ModelsSchema>;
 export type Group = z.infer<typeof GroupSchema>;
 export type Milestone = z.infer<typeof MilestoneSchema>;
 export type Acceptance = z.infer<typeof AcceptanceSchema>;

@@ -885,6 +885,18 @@
   }
 }
 
+/* Recommended model per difficulty (CORE-23) */
+.b-settings__models {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(10rem, 1fr));
+  gap: var(--k-space-4);
+}
+@media (max-width: 760px) {
+  .b-settings__models {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Milestones (CORE-19) */
 .b-settings__milestone {
   display: flex;

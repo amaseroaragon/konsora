@@ -315,6 +315,21 @@ describe("konsora mcp: agent write tools", () => {
     ]);
   });
 
+  it("start tells the agent the recommended model for the task's difficulty (CORE-23)", async () => {
+    const dir = project();
+    const plan = doc(dir);
+    plan.project.models = { medium: "Sonnet" };
+    const four = plan.tasks.find((task) => task.id === "BE-04");
+    if (four) four.difficulty = "medium";
+    writeFileSync(join(dir, ".konsora", "tasks.json"), serializeDocument(plan));
+    const { call, close } = await connect(dir);
+    const started = await call("start", { id: "BE-04" });
+    expect(started.text).toContain("Recommended model for this medium task: Sonnet.");
+    await call("propose", { title: "Plain", group: "BE" });
+    expect((await call("start", { id: "BE-05" })).text).not.toContain("Recommended model");
+    await close();
+  });
+
   it("move reorders a task with the same rules as the CLI (CORE-11)", async () => {
     const dir = project();
     const { call, close } = await connect(dir);

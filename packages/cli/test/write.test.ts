@@ -435,6 +435,27 @@ describe("planning commands", () => {
     expect(shown).toContain("ac2 NOT MET: left for BE-07");
   });
 
+  it("show and start give the recommended model for the task's difficulty (CORE-23)", async () => {
+    await mutate(
+      dir,
+      { op: "set-models", models: { high: "Opus, esfuerzo alto" } },
+      {
+        actor: "human",
+        at,
+      },
+    );
+    expect((await run(["show", "BE-04"])).stdout).not.toContain("recommended model");
+    await run(["edit", "BE-04", "--difficulty", "high"]);
+    expect((await run(["show", "BE-04"])).stdout).toContain(
+      "recommended model: Opus, esfuerzo alto",
+    );
+    expect((await run(["start", "BE-04"])).stdout).toContain(
+      "recommended model: Opus, esfuerzo alto",
+    );
+    await run(["edit", "BE-02", "--difficulty", "low"]);
+    expect((await run(["show", "BE-02"])).stdout).not.toContain("recommended model");
+  });
+
   it("depend rejects cycles", async () => {
     const r = await run(["depend", "BE-02", "BE-03"]);
     expect(r.code).toBe(EXIT.failure);
