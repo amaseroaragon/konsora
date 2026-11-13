@@ -2500,7 +2500,7 @@
     {
       "id": "UI-23",
       "title": "Editar dependencias desde el grafo",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzi",
       "desc": "El grafo es de solo lectura: las dependencias se cambian escribiendo ids en el editor de la tarea. Permitir crear una dependencia arrastrando de un nodo a otro y quitarla seleccionando la arista, con las mismas reglas de core.",
@@ -2525,12 +2525,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:05Z"
+      "updated_at": "2026-11-13T11:17:25Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:17:22Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Asas de conexión en los nodos, onConnectEnd con las reglas de core, selección de arista con clic o D y quitar con Suprimir o la barra."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:17:25Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "ac1: arrastrar desde el asa derecha de un nodo hasta otro (en el asa o en cualquier parte del nodo) crea la dependencia con la op depend; antes se comprueba con dependencyProblem, y un ciclo se rechaza con su explicación (verificado en Chrome con CORE-13 → UI-30 y el intento inverso). ac2: una arista se selecciona con clic o con D sobre el nodo enfocado (recorre sus dependencias); se quita con la barra visible «Quitar dependencia» o con Suprimir, y Escape la deja; verificado en Chrome. ac3: sin asas, sin selección de aristas y sin instrucciones en solo lectura (test) y en tareas hechas. Commit cf48f26."
+        }
+      ]
     },
     {
       "id": "UI-24",
       "title": "Grafo: ocultar lo hecho, resaltar la cadena de una tarea y agrupar por grupo",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzr",
       "desc": "Con el plan entero, el grafo se llena de tareas hechas y cuesta ver qué queda. Añadir un conmutador para ocultarlas, resaltar al abrir una tarea todo lo que necesita y todo lo que desbloquea, y poder agrupar los nodos por grupo.",
@@ -2555,12 +2571,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:12Z"
+      "updated_at": "2026-11-13T11:17:24Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:10:15Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Conmutadores en la barra del grafo (ocultar hechas, agrupar por grupo con nodos compuestos de ELK) guardados en localStorage; cadena de la tarea abierta resaltada y el resto atenuado."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:17:24Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Barra del grafo con «Con hechas/Sin hechas» y «Por grupo/Sin agrupar», guardadas en localStorage. ac1: ocultar hechas filtra las tareas y ELK recalcula la disposición. ac2: chainOf resalta la tarea abierta, sus dependencias y dependientes transitivos y las aristas de la cadena; el resto se atenúa (CORE-17 → UI-16, UI-18 en Chrome; tests en graph.test.ts). ac3: agrupado con nodos compuestos de ELK (INCLUDE_CHILDREN) y un marco por grupo; el test comprueba que cada tarea cae dentro de su marco; preferencias recordadas tras recargar. Commit 8274ab2."
+        }
+      ]
     },
     {
       "id": "UI-25",
       "title": "Elegir las dependencias con un buscador en lugar de escribir ids",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzv",
       "desc": "Al crear o editar una tarea, las dependencias se escriben como ids («BE-01, BE-02»), lo que obliga a recordarlos. Sustituirlo por un selector que busca por id o por título y solo ofrece las tareas válidas.",
@@ -2585,12 +2617,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:21Z"
+      "updated_at": "2026-11-13T11:17:23Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:06:39Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Combobox DepPicker (id o título, teclado) con dependencyOptions en edit-model; en el editor de dependencias y en la creación."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:17:23Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "DepPicker: combobox accesible (aria-activedescendant, flechas, Intro, Escape) que sugiere por id o título, sin distinguir mayúsculas ni acentos, en el editor de dependencias y en la creación (con chips para quitar). ac1: verificado en Chrome con «tema» → UI-30 y teclado. ac2: dependencyOptions excluye la propia tarea, las ya elegidas y sus dependientes transitivos (ciclo); tests en edit.test.tsx. ac3: un id escrito o pegado (o varios separados por comas en la creación) se acepta tal cual y se valida con las reglas de core; CLI-11 pegado añadió la dependencia en Chrome. Commit 01b166e."
+        }
+      ]
     },
     {
       "id": "UI-26",
       "title": "Acciones en lote: mover de grupo y etiquetar la selección",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzx",
       "desc": "La barra de selección solo ofrece pasar a Por hacer y eliminar. Añadir mover las tareas seleccionadas a otro grupo y añadirles o quitarles una etiqueta, que hoy exige editar tarea por tarea.",
@@ -2615,7 +2663,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:30Z"
+      "updated_at": "2026-11-13T11:17:24Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:08:19Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Mover de grupo y añadir/quitar etiqueta en la SelectionBar, una op edit por tarea con expect; las rechazadas siguen seleccionadas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:17:24Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "La barra de selección añade «Mover al grupo» y «Añadir/Quitar etiqueta»: una op edit condicionada por tarea (bulk-model.ts: bulkChanges, applyBulk). ac1: verificado en Chrome con UI-27 y UI-28 (etiqueta «lote» y grupo CORE en una sola acción). ac2: las rechazadas quedan seleccionadas con su motivo en un aviso, como en promover/eliminar (applyBulk lo prueba en test/bulk.test.tsx; no forcé un rechazo real en el navegador). Las etiquetas se validan con LabelSchema, ahora exportado por core. ac3: los controles no se muestran en solo lectura (test). Commit 8ecaac7."
+        }
+      ]
     },
     {
       "id": "UI-27",
@@ -2680,7 +2744,7 @@
     {
       "id": "UI-29",
       "title": "Vista previa de Markdown al editar una descripción",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzzi",
       "desc": "La descripción admite Markdown, pero al crear o editar una tarea solo hay un área de texto: el resultado no se ve hasta guardar. Añadir una pestaña de vista previa con el mismo renderizador seguro que usa el panel.",
@@ -2701,7 +2765,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:55Z"
+      "updated_at": "2026-11-13T11:17:22Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:05:24Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Componente DescField con pestañas Escribir/Vista previa usando Markdown; en TaskEditor y TaskCreator."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:17:22Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "DescField (pestañas Escribir / Vista previa) en el editor y en la creación de tareas. ac1: la vista previa usa el componente Markdown del panel (test/desc-field.test.tsx comprueba el renderizado seguro, sin HTML). ac2: solo cambia la pestaña; el borrador vive en el estado del formulario y no se envía nada (verificado en Chrome: el texto sigue al volver a Escribir). Commit cd81c53."
+        }
+      ]
     },
     {
       "id": "UI-30",
