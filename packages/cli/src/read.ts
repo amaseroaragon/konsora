@@ -3,8 +3,8 @@
  * the CLI prints with `--json`, so both surfaces stay identical by construction.
  */
 import type { TaskState, TasksDocument } from "@konsora/core";
-import { readTasks, type StoreError } from "@konsora/core/store";
-import { readyViews, STATES, type TaskView, views } from "./format.ts";
+import { ARCHIVE_FILE, readArchive, readTasks, type StoreError } from "@konsora/core/store";
+import { issuesText, readyViews, STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
 import { CliError, EXIT } from "./shared.ts";
 
@@ -69,6 +69,25 @@ export function showData(doc: TasksDocument, id: string): TaskView {
   const view = views(doc).find((t) => t.id === id.toUpperCase());
   if (!view) throw new CliError(`Task ${id} does not exist.`, HINTS.unknownTask);
   return view;
+}
+
+/** Like `showData`, but an archived task comes from `.konsora/archive.json`, marked as such. */
+export async function showAnyData(root: string, doc: TasksDocument, id: string): Promise<TaskView> {
+  const key = id.toUpperCase();
+  if (!doc.archived?.includes(key)) return showData(doc, key);
+  const read = await readArchive(root);
+  if (!read.ok)
+    throw new CliError(
+      `${key} is archived, but ${ARCHIVE_FILE} cannot be read: ${read.error.message}`,
+      read.error.issues?.length ? issuesText(read.error.issues).trimEnd() : undefined,
+    );
+  const task = read.archive.tasks.find((t) => t.id === key);
+  if (!task)
+    throw new CliError(
+      `${key} is archived, but ${ARCHIVE_FILE} does not have it.`,
+      `Restore .konsora/${ARCHIVE_FILE} from version control.`,
+    );
+  return { ...task, blockers: [], blocked: false, ready: false, waiting: false, archived: true };
 }
 
 export type CheckData =

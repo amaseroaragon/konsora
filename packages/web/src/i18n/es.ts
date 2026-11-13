@@ -316,6 +316,12 @@ export const es = {
   "history.yesterday": "Ayer",
   "history.by": "Terminada por {who}",
   "history.no_summary": "Sin resumen de cierre",
+  "history.archived": "Archivada",
+  "history.archive_error":
+    "No se pudo leer el archivo de tareas archivadas (.konsora/archive.json), así que no aparecen aquí: {message}",
+  "detail.archived": "Archivada",
+  "detail.archived.text":
+    "Esta tarea está archivada en .konsora/archive.json: se muestra tal como se cerró y no se puede cambiar.",
   "action.promote": "Pasar a Por hacer",
   "action.demote": "Devolver a Ideas",
   "action.delete": "Eliminar",

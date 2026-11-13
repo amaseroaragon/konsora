@@ -3,7 +3,7 @@
  * exactly one semantic op; whether it is allowed is decided by `applyOp` itself (roles,
  * preconditions, blocked deps), so the board never re-implements a rule.
  */
-import { indexTasks } from "./graph.ts";
+import { blockers, indexTasks } from "./graph.ts";
 import { applyOp, type OpErrorCode, type OpName } from "./ops.ts";
 import type { TaskState, TasksDocument } from "./schema.ts";
 
@@ -77,7 +77,7 @@ export function planMove(
   if (!probe.ok) {
     const pending =
       probe.error.code === "blocked"
-        ? (task.deps ?? []).filter((d) => doc.tasks.find((t) => t.id === d)?.state !== "done")
+        ? blockers(task, indexTasks(doc), new Set(doc.archived))
         : undefined;
     return {
       ok: false,

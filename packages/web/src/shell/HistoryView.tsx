@@ -1,4 +1,4 @@
-import { completionLog, type LogEntry, type TasksDocument } from "@konsora/core";
+import { completionLog, type LogEntry, type Task, type TasksDocument } from "@konsora/core";
 import { useMemo } from "react";
 import { t } from "../i18n/index.ts";
 import { Panel } from "../ui/index.ts";
@@ -30,6 +30,7 @@ function Entry({
         </span>
         <span className="b-history__meta">
           {entry.by ? t("history.by", { who: actorName(entry.by) }) : t("history.no_summary")}
+          {entry.archived && ` · ${t("history.archived")}`}
         </span>
         {entry.summary && <span className="b-history__summary">{summaryLine(entry.summary)}</span>}
       </span>
@@ -44,19 +45,32 @@ function Entry({
 export function HistoryView({
   projectId,
   doc,
+  archive = [],
+  archiveError,
   openId,
   now,
 }: {
   projectId: string;
   doc: TasksDocument;
+  /** The tasks of `.konsora/archive.json` (CORE-18), listed too and marked as archived. */
+  archive?: readonly Task[] | undefined;
+  archiveError?: string | undefined;
   openId: string | null;
   /** For tests: the instant "today" and "yesterday" are relative to. */
   now?: Date;
 }) {
-  const days = useMemo(() => groupByDay(completionLog(doc), now ? { now } : {}), [doc, now]);
+  const days = useMemo(
+    () => groupByDay(completionLog(doc, archive), now ? { now } : {}),
+    [doc, archive, now],
+  );
   return (
     <Panel title={t("history.title")}>
       <p className="s-text s-muted">{t("history.text")}</p>
+      {archiveError && (
+        <p className="s-text" role="alert">
+          {t("history.archive_error", { message: archiveError })}
+        </p>
+      )}
       {days.length === 0 ? (
         <p className="s-text">{t("history.empty")}</p>
       ) : (

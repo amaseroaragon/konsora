@@ -72,6 +72,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `project` | objeto | sí | Ver abajo. |
 | `groups` | `Group[]` | sí (≥1) | `konsora init` crea un grupo por defecto. |
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
+| `archived` | `TaskId[]` | no | IDs de las tareas hechas que `konsora archive` movió a `.konsora/archive.json` (ver §7). Una dependencia sobre una de ellas cuenta como hecha, y su ID no se reutiliza ni puede usarlo una tarea del plan. Se guarda en orden natural. |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
 
 **`project`**: `name` (1–80) y `templates` (opcional, `Template[]` con ids únicos): las plantillas de tarea. Solo las define el humano, con `set-templates`, que las sustituye todas (`[]` las quita); un agente recibe `forbidden`.
@@ -155,7 +156,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 Hay dos niveles, ambos en `packages/core` y compartidos por la CLI, el MCP, el daemon y la UI:
 
 1. **Estructural**: un esquema zod es la fuente de verdad, y de él se genera `schema/tasks.v5.schema.json` para editores y agentes que editen el archivo a mano. Los campos desconocidos se rechazan en la raíz y en las tareas, salvo bajo una clave `x-*`, que se conserva sin interpretarse.
-2. **Semántica**: IDs únicos con prefijo igual a `group`; `seq[g]` ≥ al mayor número usado; grupos existentes; deps existentes, sin ciclos (Kahn, iterativo); IDs de notas, criterios y plantillas únicos; claves JSON duplicadas rechazadas; tamaño ≤ 8 MiB.
+2. **Semántica**: IDs únicos con prefijo igual a `group` (también frente a los de `archived`); `seq[g]` ≥ al mayor número usado, contando los archivados; deps existentes en el plan o archivadas; grupos existentes; sin ciclos (Kahn, iterativo); IDs de notas, criterios y plantillas únicos; claves JSON duplicadas rechazadas; tamaño ≤ 8 MiB.
 
 Los errores se devuelven como `{path: JSON Pointer, code, message}`. Un archivo inválido **no se sobrescribe nunca**: Konsora pasa ese proyecto a solo lectura y muestra los errores hasta que se corrija.
 
@@ -224,3 +225,20 @@ El resumen lista cuántas veces aparecía cada campo descartado y qué tareas pa
 | `attempts`, `activity`, `reviews` | Se mueven tal cual a `.konsora/legacy/v1-history.json` |
 
 La copia es `tasks.v1.json.bak`.
+
+## 7. Archivo de tareas hechas
+
+Las tareas hechas se quedan en `tasks.json` con todas sus notas, así que el fichero (y el contexto que consumen los agentes al leerlo) solo crece. `konsora archive --before <fecha>` mueve las tareas hechas cuyo cierre (su último `summary`, o `updated_at` si no tiene) es anterior a esa fecha (`YYYY-MM-DD`, en UTC, o una marca de tiempo UTC) a `.konsora/archive.json`, tal como estaban. Es una acción explícita: sin `--write` solo muestra lo que movería.
+
+```json
+{
+  "schema": "konsora-archive/1",
+  "tasks": [ { "id": "BE-01", "title": "…", "state": "done", "…": "…" } ]
+}
+```
+
+- Sus IDs se añaden a `archived` en `tasks.json`: las dependencias sobre ellas cuentan como hechas y los IDs no se reutilizan.
+- Solo contiene tareas `done`, sin IDs repetidos, en orden natural de ID y con la misma serialización canónica que las tareas del plan. Se lee con un límite de 64 MiB (no lo cargan los agentes).
+- Se escribe bajo el lock del plan: primero el archivo y después `tasks.json`. Si la segunda escritura no llega a hacerse, las tareas quedan en los dos ficheros y volver a ejecutar el comando termina el trabajo.
+- `konsora show <ID>` (y la herramienta `show` del MCP) y el Historial de la UI siguen mostrando las tareas archivadas, marcadas como tales. No se pueden cambiar ni reabrir.
+- El daemon no marca como "cambio externo" la salida de una tarea hecha del plan cuando su ID pasa a `archived`.

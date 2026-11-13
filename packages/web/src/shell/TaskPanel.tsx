@@ -2,6 +2,7 @@ import {
   ACTION_TEXT,
   availableActions,
   dependentsOf,
+  type Task,
   type TaskAction,
   type TasksDocument,
 } from "@konsora/core";
@@ -186,6 +187,8 @@ export function TaskPanel({
   onOpen,
   onSelectWithDeps,
   groups = [],
+  archived = false,
+  archive = [],
 }: {
   projectId: string;
   task: BoardTask;
@@ -199,12 +202,16 @@ export function TaskPanel({
   onSelectWithDeps?: (() => void) | undefined;
   /** The plan's groups, for moving the task while editing it. */
   groups?: readonly { id: string; name: string }[];
+  /** The task is archived (CORE-18): shown as it was closed, never changed. */
+  archived?: boolean;
+  /** The archived tasks, to name the dependencies that were archived. */
+  archive?: readonly Task[] | undefined;
 }) {
   // Editing is the human's, and never on an invalid (read-only) plan.
   const [editing, setEditing] = useState(false);
   const canEdit = !readOnly;
   const actions = readOnly ? [] : availableActions(doc, task.id);
-  const index = new Map(doc.tasks.map((x) => [x.id, x]));
+  const index = new Map([...archive, ...doc.tasks].map((x) => [x.id, x]));
   const criteria = task.acceptance ?? [];
   const deps = task.deps ?? [];
   const notes = task.notes ?? [];
@@ -222,6 +229,7 @@ export function TaskPanel({
           <StateBadge kind={task.state} />
           {task.state === "todo" && task.blocked && <StateBadge kind="blocked" />}
           {task.waiting && <StateBadge kind="waiting" />}
+          {archived && <span className="a-chip">{t("detail.archived")}</span>}
           {canEdit && !editing && (
             <Button
               size="sm"
@@ -239,6 +247,7 @@ export function TaskPanel({
         <h2 className="a-detail__title">{task.title}</h2>
       </div>
       <div className="a-detail__body a-stack">
+        {archived && <p className="s-text s-muted">{t("detail.archived.text")}</p>}
         <ExternalChanges
           projectId={projectId}
           flags={external}

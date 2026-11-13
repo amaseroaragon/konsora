@@ -30,8 +30,12 @@ export type BoardOk = {
   project: ProjectInfo;
   hash: string;
   external: ExternalFlag[];
-  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq">;
+  plan: Pick<TasksDocument, "schema" | "project" | "groups" | "seq" | "archived">;
   tasks: BoardTask[];
+  /** The tasks moved to `.konsora/archive.json` (CORE-18), for the History. */
+  archive?: Task[];
+  /** Why the archive could not be read, if it could not. */
+  archiveError?: string;
 };
 export type BoardUnavailable = {
   status: "missing" | "invalid" | "unsafe_path" | "lock_timeout" | "io";
@@ -49,6 +53,13 @@ export function toDocument(board: BoardOk): TasksDocument {
       ({ blockers: _b, blocked: _bl, ready: _r, waiting: _w, hash: _h, ...task }) => task,
     ),
   };
+}
+
+/** An archived task as the panel shows it: done, with no flags, never acted upon. */
+export function archivedTask(board: BoardOk, id: string): BoardTask | undefined {
+  const task = board.archive?.find((x) => x.id === id);
+  if (!task) return undefined;
+  return { ...task, blockers: [], blocked: false, ready: false, waiting: false, hash: "" };
 }
 
 export const boardKey = (id: string) => ["board", id] as const;

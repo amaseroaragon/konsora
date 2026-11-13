@@ -97,7 +97,7 @@ La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salid
 |---|---|
 | `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` / `move` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `demote`, `start`, `pause`, `note`, `ask`, `finish --summary` |
 
-Más comandos de la CLI: `init`, `skill`, `migrate`, `plan`, `ui` y `mcp`. Las acciones humanas **no** están en la CLI ni en el MCP.
+Más comandos de la CLI: `init`, `skill`, `migrate`, `archive` (mueve las tareas hechas antiguas a `.konsora/archive.json`; ver `esquema-tareas.md` §7), `plan`, `ui` y `mcp`. Las acciones humanas **no** están en la CLI ni en el MCP.
 
 - **Sesión de planificación**: `konsora plan [objetivo] [--model …]` abre en la terminal una sesión interactiva de Claude Code con el prompt de entrevista de `core` y solo el MCP de Konsora con `KONSORA_PLAN=1` (`--strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>`). El panel de IA hace lo mismo en modo `-p`. En ese modo la regla de `core` (`OpContext.plan`) solo deja crear tareas, revisar, enlazar, pasar a `todo` o borrar las que nadie empezó; el resto da `out_of_scope`.
 - **Sesión normal**: el agente usa `konsora` o el MCP de `.mcp.json`, que funcionan sin daemon, y sigue la skill.

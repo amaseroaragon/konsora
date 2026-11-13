@@ -9,7 +9,7 @@ import {
   type TasksDocument,
   taskHash,
 } from "@konsora/core";
-import { mutate } from "@konsora/core/store";
+import { archiveTasks, mutate } from "@konsora/core/store";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { detectUnapproved } from "../src/oversight.ts";
@@ -98,6 +98,12 @@ describe("detectUnapproved (pure)", () => {
     ]);
     expect(kinds(doc(t("BE-01", "doing")), doc())).toEqual(["BE-01:deleted"]);
     expect(kinds(doc(t("BE-01", "todo"), t("BE-02", "proposed")), doc())).toEqual([]);
+  });
+
+  it("a done task moved to the archive is not a deletion; a started one still is (CORE-18)", () => {
+    const archived = (ids: string[], ...tasks: Task[]) => ({ ...doc(...tasks), archived: ids });
+    expect(kinds(doc(t("BE-01", "done")), archived(["BE-01"]))).toEqual([]);
+    expect(kinds(doc(t("BE-01", "doing")), archived(["BE-01"]))).toEqual(["BE-01:deleted"]);
   });
 });
 
@@ -445,6 +451,22 @@ describe("daemon ops and oversight over HTTP", () => {
       }),
     ]);
     expect((await board()).body.external).toHaveLength(1); // persists until resolved
+  });
+
+  it("archiving done tasks is not flagged; the board lists them as archived (CORE-18)", async () => {
+    await board();
+    const result = await archiveTasks(root, "2026-11-03T00:00:00Z");
+    expect(result.ok && result.moved.map((e) => e.id)).toEqual(["BE-02"]);
+    const body = (await board()).body;
+    expect(body.external).toEqual([]);
+    expect(body.plan.archived).toEqual(["BE-02"]);
+    expect(body.tasks.map((task: Task) => task.id)).not.toContain("BE-02");
+    expect(body.archive).toEqual([expect.objectContaining({ id: "BE-02", state: "done" })]);
+    // An unreadable archive leaves the History without them, and says why.
+    writeFileSync(join(root, ".konsora", "archive.json"), "{}");
+    const broken = (await board()).body;
+    expect(broken.archive).toEqual([]);
+    expect(broken.archiveError).toContain("archive.json is invalid");
   });
 
   it("agent changes through the CLI/store are not flagged", async () => {

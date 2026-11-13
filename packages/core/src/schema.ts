@@ -134,6 +134,19 @@ export const DocumentSchema = strict({
   project: ProjectSchema,
   groups: z.array(GroupSchema).min(1),
   seq: z.record(GroupIdSchema, z.int().min(0)),
+  /**
+   * Ids of done tasks moved to `.konsora/archive.json` (`konsora archive`): a dependency on one
+   * counts as done, and the id is never reused.
+   */
+  archived: z.array(TaskIdSchema).optional(),
+  tasks: z.array(TaskSchema),
+});
+
+export const ARCHIVE_SCHEMA_VERSION = "konsora-archive/1";
+
+/** `.konsora/archive.json`: the done tasks taken out of the plan, as they were. */
+export const ArchiveSchema = strict({
+  schema: z.literal(ARCHIVE_SCHEMA_VERSION),
   tasks: z.array(TaskSchema),
 });
 
@@ -146,6 +159,7 @@ export type NoteKind = z.infer<typeof NoteKindSchema>;
 export type Note = z.infer<typeof NoteSchema>;
 export type Task = z.infer<typeof TaskSchema>;
 export type TasksDocument = z.infer<typeof DocumentSchema>;
+export type ArchiveDocument = z.infer<typeof ArchiveSchema>;
 
 /** A validation problem located by JSON Pointer (RFC 6901), e.g. `/tasks/3/id`. */
 export type SchemaIssue = { path: string; code: string; message: string };

@@ -10,13 +10,14 @@
  *   criteria, groups and templates keep their order (it is meaningful);
  * - 2-space indentation, LF line endings, trailing newline, UTF-8 without BOM.
  */
-import type { TasksDocument } from "./schema.ts";
+import type { ArchiveDocument, Task, TasksDocument } from "./schema.ts";
 import { taskNumber } from "./semantics.ts";
 
 type Obj = Record<string, unknown>;
 
 const ORDER = {
-  root: ["$schema", "schema", "project", "groups", "seq", "tasks"],
+  root: ["$schema", "schema", "project", "groups", "seq", "archived", "tasks"],
+  archive: ["schema", "tasks"],
   project: ["name", "templates"],
   template: ["id", "name", "desc", "acceptance", "labels"],
   criterion: ["text"],
@@ -49,6 +50,7 @@ const OMIT_WHEN_EMPTY = new Set([
   "notes",
   "templates",
   "options",
+  "archived",
 ]);
 
 function isEmpty(value: unknown): boolean {
@@ -83,6 +85,25 @@ export function compareTaskIds(a: string, b: string): number {
   return taskNumber(a) - taskNumber(b) || (a < b ? -1 : a > b ? 1 : 0);
 }
 
+function canonicalTask(task: Task): Obj {
+  return ordered(task as Obj, ORDER.task, (key, value) => {
+    switch (key) {
+      case "deps":
+        return [...(value as string[])].sort(compareTaskIds);
+      case "labels":
+        return [...(value as string[])].sort();
+      case "acceptance":
+        return (value as Obj[]).map((a) => ordered(a, ORDER.acceptance));
+      case "created":
+        return ordered(value as Obj, ORDER.created);
+      case "notes":
+        return (value as Obj[]).map((n) => ordered(n, ORDER.note));
+      default:
+        return value;
+    }
+  });
+}
+
 /** Returns a new document in canonical order with empty optionals removed. Input is not mutated. */
 export function canonicalize(doc: TasksDocument): TasksDocument {
   const groupOrder = new Map(doc.groups.map((g, i) => [g.id, i]));
@@ -98,24 +119,7 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
 
   const tasks = [...doc.tasks]
     .sort((a, b) => rankOf(a.group) - rankOf(b.group) || compareTaskIds(a.id, b.id))
-    .map((task) =>
-      ordered(task as Obj, ORDER.task, (key, value) => {
-        switch (key) {
-          case "deps":
-            return [...(value as string[])].sort(compareTaskIds);
-          case "labels":
-            return [...(value as string[])].sort();
-          case "acceptance":
-            return (value as Obj[]).map((a) => ordered(a, ORDER.acceptance));
-          case "created":
-            return ordered(value as Obj, ORDER.created);
-          case "notes":
-            return (value as Obj[]).map((n) => ordered(n, ORDER.note));
-          default:
-            return value;
-        }
-      }),
-    );
+    .map(canonicalTask);
 
   const seq: Obj = {};
   for (const key of Object.keys(doc.seq).sort(
@@ -134,6 +138,8 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
         return (value as Obj[]).map((g) => ordered(g, ORDER.group));
       case "seq":
         return seq;
+      case "archived":
+        return [...(value as string[])].sort(compareTaskIds);
       case "tasks":
         return tasks;
       default:
@@ -145,4 +151,10 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
 /** Canonical text of a document. Callers validate first; this function does not. */
 export function serializeDocument(doc: TasksDocument): string {
   return `${JSON.stringify(canonicalize(doc), null, 2)}\n`;
+}
+
+/** Canonical text of `.konsora/archive.json`: tasks in natural id order, each as in the plan. */
+export function serializeArchive(archive: ArchiveDocument): string {
+  const tasks = [...archive.tasks].sort((a, b) => compareTaskIds(a.id, b.id)).map(canonicalTask);
+  return `${JSON.stringify(ordered({ ...archive, tasks } as Obj, ORDER.archive), null, 2)}\n`;
 }

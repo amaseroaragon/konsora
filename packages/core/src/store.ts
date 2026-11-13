@@ -15,15 +15,18 @@ import { constants, watch } from "node:fs";
 import { lstat, mkdir, open, readdir, readFile, rename, unlink } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
+import { EMPTY_ARCHIVE, planArchive } from "./archive.ts";
 import { sha256Hex } from "./hash.ts";
+import type { LogEntry } from "./history.ts";
 import { applyOp, type Op, type OpContext, type OpError } from "./ops.ts";
-import type { SchemaIssue, TasksDocument } from "./schema.ts";
-import { parseTasksFile } from "./semantics.ts";
-import { serializeDocument } from "./serialize.ts";
+import type { ArchiveDocument, SchemaIssue, TasksDocument } from "./schema.ts";
+import { parseArchiveFile, parseTasksFile } from "./semantics.ts";
+import { serializeArchive, serializeDocument } from "./serialize.ts";
 
 export const KONSORA_DIR = ".konsora";
 export const TASKS_FILE = "tasks.json";
 export const LOCK_FILE = "tasks.json.lock";
+export const ARCHIVE_FILE = "archive.json";
 
 export type StoreErrorCode =
   | "missing"
@@ -32,7 +35,13 @@ export type StoreErrorCode =
   | "unsafe_path"
   | "lock_timeout"
   | "io";
-export type StoreError = { code: StoreErrorCode; message: string; issues?: SchemaIssue[] };
+export type StoreError = {
+  code: StoreErrorCode;
+  message: string;
+  issues?: SchemaIssue[];
+  /** Set when the problem is in `.konsora/archive.json` rather than in the plan. */
+  file?: "archive";
+};
 
 export type Snapshot = { document: TasksDocument; hash: string; text: string };
 export type ReadResult = ({ ok: true } & Snapshot) | { ok: false; error: StoreError };
@@ -461,6 +470,95 @@ export async function writeMigration(
     await exclusive(history, `${JSON.stringify(input.history, null, 2)}\n`);
     await writeAtomically(root, input.text);
     return { ok: true, backup, history };
+  } catch (error) {
+    return { ok: false, error: toStoreError(error) };
+  } finally {
+    await release?.();
+  }
+}
+
+export type ArchiveReadResult =
+  | { ok: true; archive: ArchiveDocument; text: string | null }
+  | { ok: false; error: StoreError };
+
+async function loadArchive(
+  root: string,
+): Promise<{ archive: ArchiveDocument; text: string | null }> {
+  const path = join(root, KONSORA_DIR, ARCHIVE_FILE);
+  const info = await lstat(path).catch(() => null);
+  if (!info) return { archive: EMPTY_ARCHIVE, text: null };
+  if (info.isSymbolicLink() || !info.isFile())
+    throw new Failure({
+      code: "unsafe_path",
+      message: `${ARCHIVE_FILE} is ${info.isSymbolicLink() ? "a symlink; Konsora refuses to follow it" : "not a regular file"}`,
+      file: "archive",
+    });
+  const text = await readFile(path, "utf8");
+  const parsed = parseArchiveFile(text);
+  if (!parsed.ok) {
+    throw new Failure({
+      code: "invalid",
+      message: `${ARCHIVE_FILE} is invalid (${parsed.issues.length} problem(s)); fix it before Konsora can archive`,
+      issues: parsed.issues,
+      file: "archive",
+    });
+  }
+  return { archive: (parsed as { archive: ArchiveDocument }).archive, text };
+}
+
+/**
+ * Reads `.konsora/archive.json` (CORE-18). A missing file is an empty archive (`text: null`).
+ * Never writes.
+ */
+export async function readArchive(root: string): Promise<ArchiveReadResult> {
+  try {
+    return { ok: true, ...(await loadArchive(root)) };
+  } catch (error) {
+    return { ok: false, error: toStoreError(error) };
+  }
+}
+
+export type ArchiveResult =
+  | ({ ok: true; moved: LogEntry[]; archive: ArchiveDocument } & Snapshot)
+  | { ok: false; error: StoreError };
+
+/**
+ * Moves the done tasks finished before `before` (ISO UTC) to `.konsora/archive.json`, under the
+ * plan's lock. The archive is written first, then the plan: if the second write never happens,
+ * the tasks are in both files, and running it again finishes the job. With `write: false` it
+ * only reports what would move.
+ */
+export async function archiveTasks(
+  root: string,
+  before: string,
+  { write = true, ...options }: StoreOptions & { write?: boolean } = {},
+): Promise<ArchiveResult> {
+  let release: (() => Promise<void>) | undefined;
+  try {
+    await ensureSafe(root);
+    if (write) release = await acquireLock(root, options);
+    const current = await load(root);
+    const { archive } = await loadArchive(root);
+    const plan = planArchive(current.document, archive, before);
+    if (!write || plan.moved.length === 0)
+      return { ok: true, moved: plan.moved, archive: plan.archive, ...current };
+    const text = serializeDocument(plan.document);
+    const check = parseTasksFile(text);
+    if (!check.ok) fail("invalid", "Archiving would make the plan invalid", check.issues);
+    await writeFileAtomically(
+      join(root, KONSORA_DIR),
+      ARCHIVE_FILE,
+      serializeArchive(plan.archive),
+    );
+    await writeAtomically(root, text);
+    return {
+      ok: true,
+      moved: plan.moved,
+      archive: plan.archive,
+      document: plan.document,
+      hash: fileHash(text),
+      text,
+    };
   } catch (error) {
     return { ok: false, error: toStoreError(error) };
   } finally {

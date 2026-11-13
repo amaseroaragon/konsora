@@ -6,12 +6,13 @@ import { basename, relative, resolve } from "node:path";
 import { GroupIdSchema, SCHEMA_VERSION, type TaskState, type TasksDocument } from "@konsora/core";
 import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
+import { registerArchive } from "./archive.ts";
 import { issuesText, STATES, showText, statusText, type TaskView, taskTable } from "./format.ts";
 import { serveStdio } from "./mcp.ts";
 import { CONFIG_TARGETS, type ConfigTarget, configHint, configSnippet } from "./mcp-config.ts";
 import { registerMigrate } from "./migrate.ts";
 import { registerPlan } from "./plan.ts";
-import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
+import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
 import { registerUi } from "./ui.ts";
@@ -156,8 +157,8 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .argument("<id>", "task id, e.g. CORE-01")
     .option("--json", "machine-readable output")
     .action(async (id: string, opts: { json?: boolean }) => {
-      const { doc } = await load(io, root());
-      const view = showData(doc, id);
+      const { root: dir, doc } = await load(io, root());
+      const view = await showAnyData(dir, doc, id);
       if (opts.json) json(io, view);
       else io.stdout(showText(doc, view));
     });
@@ -202,6 +203,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
 
   registerWriteCommands(program, io, root);
   registerMigrate(program, io, root);
+  registerArchive(program, io, root);
   registerPlan(program, io, root);
   registerSkill(program, io, root);
   registerUi(program, io, root);

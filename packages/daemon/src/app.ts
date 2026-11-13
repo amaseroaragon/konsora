@@ -12,7 +12,7 @@ import {
   taskHash,
   topoOrder,
 } from "@konsora/core";
-import { mutate, readTasks } from "@konsora/core/store";
+import { mutate, readArchive, readTasks } from "@konsora/core/store";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthConfig, guard } from "./auth.ts";
@@ -158,6 +158,8 @@ export function createApp(options: AppOptions): Hono {
       });
     }
     const external = await oversight(project.id).check(plan.document, plan.hash, now());
+    // The archived tasks, for the History; an unreadable archive leaves it empty and says why.
+    const archive = plan.document.archived?.length ? await readArchive(project.path) : null;
     return c.json({
       project,
       status: "ok",
@@ -168,8 +170,11 @@ export function createApp(options: AppOptions): Hono {
         project: plan.document.project,
         groups: plan.document.groups,
         seq: plan.document.seq,
+        ...(plan.document.archived ? { archived: plan.document.archived } : {}),
       },
       tasks: taskViews(plan.document),
+      archive: archive?.ok ? archive.archive.tasks : [],
+      ...(archive && !archive.ok ? { archiveError: archive.error.message } : {}),
     });
   });
 

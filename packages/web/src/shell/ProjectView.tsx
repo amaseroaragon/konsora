@@ -6,7 +6,13 @@ import {
   type TaskFilter,
 } from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type BoardOk, type LiveState, toDocument, useTaskAction } from "../api/board.ts";
+import {
+  archivedTask,
+  type BoardOk,
+  type LiveState,
+  toDocument,
+  useTaskAction,
+} from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
@@ -118,7 +124,10 @@ export function ProjectView({
   );
   const [swimlanes, setSwimlanes] = useState(readLanesPref);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
-  const opened = openId ? board.tasks.find((task) => task.id === openId) : undefined;
+  const openedLive = openId ? board.tasks.find((task) => task.id === openId) : undefined;
+  // An archived task (CORE-18) opens from the History, read-only.
+  const openedArchived = openId && !openedLive ? archivedTask(board, openId) : undefined;
+  const opened = openedLive ?? openedArchived;
   const toast = useToast();
   const [chatOpen, setChatOpen] = useState(readChatPref);
   const toggleChat = () => {
@@ -282,7 +291,13 @@ export function ProjectView({
             className={view === "graph" ? "b-layout__main b-layout__main--graph" : "b-layout__main"}
           >
             {view === "history" ? (
-              <HistoryView projectId={projectId} doc={doc} openId={opened ? opened.id : null} />
+              <HistoryView
+                projectId={projectId}
+                doc={doc}
+                archive={board.archive}
+                archiveError={board.archiveError}
+                openId={opened ? opened.id : null}
+              />
             ) : board.tasks.length === 0 ? (
               <p className="s-text s-muted">{t("board.empty")}</p>
             ) : shownTasks.length === 0 ? (
@@ -318,7 +333,9 @@ export function ProjectView({
               doc={doc}
               groupName={board.plan.groups.find((g) => g.id === opened.group)?.name ?? opened.group}
               external={board.external.filter((f) => f.task === opened.id)}
-              readOnly={readOnly}
+              readOnly={readOnly || openedArchived !== undefined}
+              archived={openedArchived !== undefined}
+              archive={board.archive}
               onClose={() => go({ task: null })}
               onOpen={open}
               onSelectWithDeps={

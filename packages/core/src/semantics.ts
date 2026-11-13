@@ -4,6 +4,8 @@
  */
 import { parseJsonText } from "./json-text.ts";
 import {
+  type ArchiveDocument,
+  ArchiveSchema,
   type SchemaIssue,
   type Task,
   type TasksDocument,
@@ -129,6 +131,30 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
     });
   });
 
+  checkUnique(doc.archived, (j, id) =>
+    add(["archived", j], "duplicate_archived", `Task ${id} is listed as archived twice`),
+  );
+  doc.archived?.forEach((id, j) => {
+    if (indexById.has(id)) {
+      add(
+        ["archived", j],
+        "duplicate_id",
+        `Task id ${id} is both in the plan and archived; ids must be unique`,
+      );
+    }
+    const prefix = id.slice(0, id.lastIndexOf("-"));
+    if (!groups.has(prefix)) {
+      add(
+        ["archived", j],
+        "unknown_id_prefix",
+        `Archived task id ${id} uses prefix ${prefix}, which is not a group`,
+      );
+    } else {
+      maxNumber.set(prefix, Math.max(maxNumber.get(prefix) ?? 0, taskNumber(id)));
+    }
+  });
+  const archived = new Set(doc.archived);
+
   for (const [group, max] of maxNumber) {
     const seq = doc.seq[group];
     if (seq === undefined) {
@@ -150,7 +176,7 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
     (task.deps ?? []).forEach((dep, j) => {
       if (dep === task.id) {
         add(["tasks", i, "deps", j], "self_dependency", `Task ${task.id} depends on itself`);
-      } else if (!indexById.has(dep)) {
+      } else if (!indexById.has(dep) && !archived.has(dep)) {
         add(
           ["tasks", i, "deps", j],
           "unknown_dependency",
@@ -170,6 +196,48 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
   }
 
   return issues;
+}
+
+/** Largest `.konsora/archive.json` Konsora reads (it is not loaded by agents, so it may grow). */
+export const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
+
+export type ArchiveValidation =
+  | { ok: true; archive: ArchiveDocument }
+  | { ok: false; issues: SchemaIssue[] };
+
+/** Validates `.konsora/archive.json`: its shape, unique ids and only done tasks. */
+export function parseArchiveFile(input: string | Uint8Array): ArchiveValidation {
+  const json = parseJsonText(input, MAX_ARCHIVE_BYTES);
+  if (!json.ok) return json;
+  const parsed = ArchiveSchema.safeParse(json.value);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      issues: parsed.error.issues.map((issue) => ({
+        path: toPointer(issue.path),
+        code: issue.code,
+        message: issue.message,
+      })),
+    };
+  }
+  const issues: SchemaIssue[] = [];
+  const seen = new Set<string>();
+  parsed.data.tasks.forEach((task, i) => {
+    if (seen.has(task.id))
+      issues.push({
+        path: toPointer(["tasks", i, "id"]),
+        code: "duplicate_id",
+        message: `Task ${task.id} is archived twice`,
+      });
+    seen.add(task.id);
+    if (task.state !== "done")
+      issues.push({
+        path: toPointer(["tasks", i, "state"]),
+        code: "archived_not_done",
+        message: `Archived task ${task.id} is ${task.state}; only done tasks are archived`,
+      });
+  });
+  return issues.length ? { ok: false, issues } : { ok: true, archive: parsed.data };
 }
 
 /** Structure + semantics for an already-parsed JSON value. */

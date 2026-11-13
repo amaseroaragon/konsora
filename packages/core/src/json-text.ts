@@ -8,13 +8,16 @@ export const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 
 export type JsonTextResult = { ok: true; value: unknown } | { ok: false; issues: SchemaIssue[] };
 
-export function parseJsonText(input: string | Uint8Array): JsonTextResult {
+export function parseJsonText(
+  input: string | Uint8Array,
+  maxBytes = MAX_DOCUMENT_BYTES,
+): JsonTextResult {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input).length : input.length;
-  if (bytes > MAX_DOCUMENT_BYTES) {
+  if (bytes > maxBytes) {
     return fail(
       "",
       "too_large",
-      `File is ${bytes} bytes; the limit is ${MAX_DOCUMENT_BYTES} (8 MiB)`,
+      `File is ${bytes} bytes; the limit is ${maxBytes} (${maxBytes / 1024 / 1024} MiB)`,
     );
   }
   let text: string;

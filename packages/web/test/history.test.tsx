@@ -139,3 +139,40 @@ describe("History view", () => {
     expect(html).not.toContain("b-history__day");
   });
 });
+
+describe("archived tasks (CORE-18)", () => {
+  const old = task("BE-06", "done", summary("2026-10-01T08:00:00Z", "Archivada hace tiempo"));
+  const archivedDoc: TasksDocument = { ...doc, seq: { BE: 6 }, archived: ["BE-06"] };
+  const board = (): BoardOk => ({ ...boardOf(archivedDoc), archive: [old] });
+
+  it("the History lists them too, marked as archived", () => {
+    const html = wrap(
+      <HistoryView projectId="p-1" doc={doc} archive={[old]} openId={null} now={now} />,
+    );
+    expect(html).toContain(">BE-06<");
+    expect(html).toContain("Terminada por claude · Archivada");
+    expect(html.indexOf(">BE-06<")).toBeGreaterThan(html.indexOf(">BE-01<")); // the oldest
+  });
+
+  it("an archived task opens read-only from the History, marked as such", () => {
+    const html = wrap(<ProjectView board={board()} live="live" view="history" openId="BE-06" />);
+    expect(html).toContain('aria-label="Detalle de BE-06"');
+    expect(html).toContain("Esta tarea está archivada");
+    expect(html).toContain("Archivada hace tiempo");
+    expect(html).not.toContain(">Editar<");
+    expect(html).not.toContain(">Reabrir<");
+  });
+
+  it("says when the archive cannot be read", () => {
+    const html = wrap(
+      <HistoryView
+        projectId="p-1"
+        doc={doc}
+        archiveError="archive.json is invalid"
+        openId={null}
+        now={now}
+      />,
+    );
+    expect(html).toContain("No se pudo leer el archivo de tareas archivadas");
+  });
+});

@@ -11,7 +11,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
-import { checkData, LIST_PRESETS, listData, showData, statusData } from "./read.ts";
+import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./read.ts";
 import { type Io, load, locate, sessionScope, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
@@ -89,8 +89,8 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
     },
     ({ id }) =>
       guarded(async () => {
-        const { doc } = await load(io, root);
-        return ok(showData(doc, id));
+        const { root: dir, doc } = await load(io, root);
+        return ok(await showAnyData(dir, doc, id));
       }),
   );
 

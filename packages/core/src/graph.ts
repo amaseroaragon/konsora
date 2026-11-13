@@ -19,21 +19,37 @@ export function compareByRank(a: Pick<Task, "id" | "rank">, b: Pick<Task, "id" |
   return a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : compareTaskIds(a.id, b.id);
 }
 
+const NONE: ReadonlySet<string> = new Set();
+
 /**
- * Dependencies that keep a `todo` task blocked. Only `done` unblocks. A missing dependency counts as unmet. Tasks in other states have no blockers.
+ * Dependencies that keep a `todo` task blocked. Only `done` unblocks, and an archived task
+ * (`archived`, see `konsora archive`) was done. Any other missing dependency counts as unmet.
+ * Tasks in other states have no blockers.
  */
-export function blockers(task: Task, index: TaskIndex): string[] {
+export function blockers(
+  task: Task,
+  index: TaskIndex,
+  archived: ReadonlySet<string> = NONE,
+): string[] {
   if (task.state !== "todo") return [];
-  return (task.deps ?? []).filter((id) => index.get(id)?.state !== "done");
+  return (task.deps ?? []).filter((id) => index.get(id)?.state !== "done" && !archived.has(id));
 }
 
-export function isBlocked(task: Task, index: TaskIndex): boolean {
-  return blockers(task, index).length > 0;
+export function isBlocked(
+  task: Task,
+  index: TaskIndex,
+  archived: ReadonlySet<string> = NONE,
+): boolean {
+  return blockers(task, index, archived).length > 0;
 }
 
 /** `todo` and every dependency `done`: an agent may start it. */
-export function isReady(task: Task, index: TaskIndex): boolean {
-  return task.state === "todo" && !isBlocked(task, index);
+export function isReady(
+  task: Task,
+  index: TaskIndex,
+  archived: ReadonlySet<string> = NONE,
+): boolean {
+  return task.state === "todo" && !isBlocked(task, index, archived);
 }
 
 /** The latest `question` note has no `answer` note after it. */
@@ -155,11 +171,14 @@ export function pendingSubgraph(id: string, doc: Pick<TasksDocument, "tasks">): 
 export type TaskFlags = { blockers: string[]; blocked: boolean; ready: boolean; waiting: boolean };
 
 /** All derived flags at once, for views that render every task. */
-export function deriveFlags(doc: Pick<TasksDocument, "tasks">): Map<string, TaskFlags> {
+export function deriveFlags(
+  doc: Pick<TasksDocument, "tasks" | "archived">,
+): Map<string, TaskFlags> {
   const index = indexTasks(doc);
+  const archived = new Set(doc.archived);
   return new Map(
     doc.tasks.map((task) => {
-      const list = blockers(task, index);
+      const list = blockers(task, index, archived);
       return [
         task.id,
         {

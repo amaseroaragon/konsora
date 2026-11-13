@@ -142,7 +142,10 @@ export function detectUnapproved(
       });
     }
   }
+  // A done task moved to the archive (`konsora archive`) left the plan, but nothing was lost.
+  const archived = new Set(after.archived);
   for (const prev of before.tasks) {
+    if (prev.state === "done" && archived.has(prev.id)) continue;
     if (!now.has(prev.id) && prev.state !== "proposed" && prev.state !== "todo") {
       flags.push({
         task: prev.id,

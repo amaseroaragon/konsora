@@ -15,7 +15,12 @@ import {
 export const STATES: readonly TaskState[] = ["proposed", "todo", "doing", "done"];
 
 /** A task plus its derived flags: the shape of every task in `--json` output. */
-export type TaskView = Task & Omit<TaskFlags, "blocked"> & { blocked: boolean };
+export type TaskView = Task &
+  Omit<TaskFlags, "blocked"> & {
+    blocked: boolean;
+    /** Moved to `.konsora/archive.json` (`konsora archive`); only `show` returns these. */
+    archived?: true;
+  };
 
 export function views(doc: TasksDocument): TaskView[] {
   const flags = deriveFlags(doc);
@@ -94,15 +99,17 @@ function templatesText(doc: TasksDocument): string {
 
 export function showText(doc: TasksDocument, view: TaskView): string {
   const index = indexTasks(doc);
+  const archived = new Set(doc.archived);
   const group = doc.groups.find((g) => g.id === view.group);
+  const flags = view.archived ? "archived" : flagText(view);
   const lines = [
     `${view.id} · ${view.title}`,
-    `state: ${view.state}${flagText(view) ? ` (${flagText(view)})` : ""}   group: ${view.group}${group ? ` (${group.name})` : ""}   rank: ${view.rank}`,
+    `state: ${view.state}${flags ? ` (${flags})` : ""}   group: ${view.group}${group ? ` (${group.name})` : ""}   rank: ${view.rank}`,
   ];
   if (view.deps?.length) {
-    lines.push(
-      `deps: ${view.deps.map((d) => `${d} (${index.get(d)?.state ?? "missing"})`).join(", ")}`,
-    );
+    const depState = (d: string) =>
+      index.get(d)?.state ?? (archived.has(d) ? "done, archived" : "missing");
+    lines.push(`deps: ${view.deps.map((d) => `${d} (${depState(d)})`).join(", ")}`);
   }
   const dependents = dependentsOf(view.id, doc);
   if (dependents.length) lines.push(`dependents: ${dependents.join(", ")}`);

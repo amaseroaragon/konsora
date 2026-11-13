@@ -9,7 +9,14 @@
  * 3. the transition rules; and finally that the whole result still validates.
  * `applyOp` is pure: it never mutates its input.
  */
-import { compareByRank, indexTasks, isBlocked, isWaiting, transitiveDeps } from "./graph.ts";
+import {
+  blockers,
+  compareByRank,
+  indexTasks,
+  isBlocked,
+  isWaiting,
+  transitiveDeps,
+} from "./graph.ts";
 import { contentHash } from "./hash.ts";
 import { rankAfterAll, rankBetween } from "./rank.ts";
 import type {
@@ -479,8 +486,9 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     }
     case "start": {
       const task = get(op.task);
-      if (task.state === "todo" && isBlocked(task, index)) {
-        const pending = (task.deps ?? []).filter((d) => index.get(d)?.state !== "done");
+      const archived = new Set(doc.archived);
+      if (task.state === "todo" && isBlocked(task, index, archived)) {
+        const pending = blockers(task, index, archived);
         fail("blocked", `${task.id} is blocked by ${pending.join(", ")}`, { task: task.id });
       }
       transition(task, ["todo"], "doing");
