@@ -853,7 +853,7 @@
     {
       "id": "CORE-22",
       "title": "Recuperar la dificultad de las tareas",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzw",
       "desc": "Antes del giro de M11, cada tarea podía llevar una **dificultad** (`low`, `medium`, `high`) que estimaba el agente al crearla. Se usaba sobre todo para elegir qué agente lanzar, y `konsora/3` la quitó junto con la ejecución. Sin ella, ni en el tablero ni en `konsora ready` se ve qué es trivial y qué exige diseño, y eso ayuda a elegir la siguiente tarea, a repartirla y a decidir con qué modelo trabajarla.\n\n**Qué se recupera**\n\n- **Esquema** (`konsora/5`, campo opcional, sin migración): `task.difficulty` con `low | medium | high`. En la UI se muestra como Baja, Media y Alta. Su sitio en el orden canónico es detrás de `labels`.\n- **Quién la pone**: el agente la estima al crear (`propose --difficulty`, `difficulty` en cada tarea de `batch` y en el MCP) y la ajusta con `edit`. El humano puede cambiarla en cualquier tarea desde el panel. Como el resto de campos, un agente no la cambia en una tarea `done`. Es opcional: una tarea sin dificultad sigue siendo válida.\n- **Criterio de estimación**, el mismo que había, para la skill y el prompt de planificación: *baja* = mecánica, pocos ficheros; *media* = una funcionalidad dentro de un área; *alta* = transversal, con decisiones de diseño o con riesgo.\n- **Dónde se ve**: en la tarjeta del tablero y en el grafo (una marca discreta), en el panel de tarea, en `konsora show`, `list` y `ready`, y en el `--json` y el MCP.\n- **Filtro**: la dificultad se suma al filtro del tablero y del grafo (UI-10, `TaskFilter` en core, en la URL) y a `konsora list` / `ready` (`--difficulty`).\n- **Migración**: `konsora migrate` desde `konsora/2` conserva la `difficulty` de las tareas en vez de descartarla. La de las plantillas se sigue descartando.\n\nFuera de alcance: dificultad en las plantillas y recomendar un modelo según la dificultad (idea aparte).",
@@ -891,7 +891,23 @@
         "at": "2026-11-13T09:44:18Z",
         "by": "human"
       },
-      "updated_at": "2026-11-13T10:26:43Z"
+      "updated_at": "2026-11-13T10:37:32Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T10:32:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: campo difficulty (low|medium|high) en core (esquema, orden canónico, ops propose/batch/edit, filtro), CLI/MCP (--difficulty, show/list/ready), skill y prompt de plan, migración v2 que la conserva; UI: marca en tarjeta, grafo y panel, selector en el editor y en el filtro."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T10:37:32Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 9548f00. Vuelve la dificultad de las tareas (low, medium, high).\n\n- ac1: `difficulty` es un campo opcional de la tarea, validado (un valor desconocido invalida el plan), serializado detrás de `labels` y en el JSON Schema regenerado. Tests en ops.test.ts.\n- ac2: `propose --difficulty`, `difficulty` en `batch` y `edit --difficulty` (`none` la quita; `null` en la op) en la CLI y el MCP; mcp-write.test comprueba que ambas vías dejan el mismo fichero. Un agente no la cambia en una tarea hecha (`forbidden`); el humano sí. Tests en core y CLI.\n- ac3: `show` muestra `difficulty: …`, `list`/`ready` tienen columna DIFF y `--difficulty <nivel|none>` filtra (también en el MCP). Tests en write.test.ts y cli.test.ts.\n- ac4: la skill (assets y la de este repo) y el prompt de planificación piden estimarla con el criterio baja/media/alta. Test y snapshot en plan-prompt.test.ts.\n- ac5: la UI la muestra como barras en la tarjeta, el nodo del grafo y el panel (con texto), y el humano la elige o la quita en el editor (también en tareas hechas) y al crear. Tests en difficulty.test.tsx. Probado en Chrome headless sobre una copia del plan: marcas en el tablero y el grafo, y el cambio desde el editor llega al fichero.\n- ac6: el filtro del tablero y del grafo ofrece las dificultades en uso y `Sin dificultad`, y las guarda en la URL (`?difficulty=`). Tests en filter.test.ts (core) y difficulty.test.tsx.\n- ac7: `konsora migrate` desde konsora/2 conserva una dificultad válida (tests en core y CLI).\n\nDocs: esquema-tareas.md. `npm run check` en verde (681 tests)."
+        }
+      ]
     },
     {
       "id": "CORE-23",
@@ -1562,7 +1578,7 @@
     {
       "id": "DMN-05",
       "title": "Conservar los chats del panel de IA entre reinicios del daemon",
-      "state": "todo",
+      "state": "done",
       "group": "DMN",
       "rank": "zzzzzzzzzr",
       "desc": "Los chats viven en memoria: `konsora ui --restart`, o una actualización del checkout que reinicia el daemon, borran la conversación de planificación a medias. Guardarlos en el directorio de datos del usuario (nunca en el proyecto) y reanudarlos con su sesión de Claude Code. Guardar el contenido del chat en disco es una decisión de producto que hay que confirmar.",
@@ -1587,12 +1603,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:39:48Z"
+      "updated_at": "2026-11-13T10:46:07Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T10:40:43Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: el ChatManager guarda cada chat (mensajes, sesión de Claude Code) en <datos>/projects/<id>/chat.json (0600, nunca en el proyecto) tras cada cambio, lo carga al abrir el panel o al enviar, y continúa con --resume; «Empezar de nuevo» borra el fichero; un turno cortado por el reinicio queda como detenido. Tomo la petición de hacer DMN-05 como la confirmación de producto que pedía la tarea."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T10:46:07Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 316386a. Los chats del panel de IA sobreviven a un reinicio del daemon.\n\n- ac1: cada chat (mensajes, siguiente id y sesión de Claude Code) se guarda tras cada cambio y se carga al abrir el panel o al enviar; el siguiente turno sigue la misma sesión con `--resume` y sin repetir el prompt de entrevista. Test con el `claude` falso que crea un ChatManager nuevo sobre el mismo directorio de datos (chat.test.ts). Probado también en Chrome headless reiniciando un daemon real: el panel muestra la conversación anterior. Un turno cortado por el reinicio aparece como detenido, y un fichero dañado se ignora (tests).\n- ac2: el fichero es `<datos>/projects/<id>/chat.json`, con permisos 0600 en un directorio 0700, y el test comprueba que dentro del proyecto no aparece nada nuevo.\n- ac3: «Empezar de nuevo» lo borra del disco (test). El daemon sigue sin escribir prompts en los logs: su único log es la línea de arranque.\n\nLa tarea pedía confirmar que se guarde el contenido del chat en disco; tomé tu petición de hacerla como esa confirmación. Docs: arquitectura.md. `npm run check` en verde (689 tests)."
+        }
+      ]
     },
     {
       "id": "DMN-06",
       "title": "Elegir el modelo del panel de IA",
-      "state": "todo",
+      "state": "done",
       "group": "DMN",
       "rank": "zzzzzzzzzv",
       "desc": "`konsora plan` acepta `--model`, pero el panel de IA siempre usa el modelo por defecto de Claude Code. Permitir elegirlo en el panel, por proyecto.",
@@ -1617,12 +1649,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:39:55Z"
+      "updated_at": "2026-11-13T10:46:06Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T10:39:04Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: el mensaje del panel lleva un model opcional (validado en el daemon) que se pasa como --model a claude -p; selector en el panel (por defecto, Opus, Sonnet, Haiku) recordado por proyecto en localStorage; sin elegir nada no cambia nada."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T10:46:06Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commits f316641 y d61f0f8. El panel de IA permite elegir el modelo.\n\n- ac1: selector «Modelo» en el panel (el de Claude Code por defecto, Opus, Sonnet, Haiku). El modelo elegido viaja con el mensaje (`{text, model}`) y el daemon lanza el turno con `--model <id>`; acepta alias o ids de modelo y nunca algo que empiece por guion (400). Test con el `claude` falso que comprueba los argumentos, también al reanudar la sesión con otro modelo (chat.test.ts).\n- ac2: sin elegir nada no se envía `model` y no hay `--model` en el comando (tests).\n- ac3: la elección se recuerda por proyecto en el navegador (localStorage, clave por id de proyecto; tests en chat.test.tsx). Como localStorage va por origen y el daemon cambiaba de puerto en cada arranque, ahora el daemon vuelve a usar su último puerto si está libre (daemon.test.ts), y con ello también sobreviven a un reinicio las demás preferencias de la UI. Probado en Chrome headless con un daemon aparte y un claude falso: se elige Haiku, el turno lleva `--model haiku` y tras reiniciar el daemon el panel sigue en Haiku.\n\n`npm run check` en verde (689 tests)."
+        }
+      ]
     },
     {
       "id": "DMN-07",
       "title": "Consultar y parar el daemon desde la CLI",
-      "state": "todo",
+      "state": "done",
       "group": "DMN",
       "rank": "zzzzzzzzzzzx",
       "desc": "El daemon se arranca con `konsora ui` y se reinicia con `--restart`, pero no hay forma de ver si está en marcha ni de pararlo sin buscar su PID en `daemon.json`.",
@@ -1647,7 +1695,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:06Z"
+      "updated_at": "2026-11-13T10:38:40Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T10:37:36Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: konsora ui --status (en marcha, versión, URL sin token, proyectos vinculados) y --stop (para el daemon, borra daemon.json; si no está, lo dice y sale con 0), reutilizando la lógica de --restart; tests con un daemon real en un directorio de datos temporal."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T10:38:40Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 6d713d1. La CLI consulta y para el daemon.\n\n- ac1: `konsora ui --status` dice si el daemon está en marcha, con su URL sin el token, pid, versión (de /api/health), desde cuándo y los proyectos vinculados (id, nombre, ruta y estado del plan); avisa si ejecuta código más antiguo que el checkout. Sin daemon lo dice y sale con 0.\n- ac2: `konsora ui --stop` lo para (SIGTERM y espera) y borra `daemon.json` (también uno huérfano de un proceso muerto); si no está en marcha lo dice y sale con 0. `--status` con `--stop` es un error de uso.\n- ac3: test en cli/test/ui.test.ts con un daemon real en un directorio de datos temporal: estado sin daemon, estado con el proyecto vinculado y sin el token en la salida, parada, segunda parada y limpieza del daemon.json huérfano.\n\nTambién probado contra el daemon real de este equipo con `--status`. Docs: arquitectura.md. `npm run check` en verde (682 tests)."
+        }
+      ]
     },
     {
       "id": "UI-01",
