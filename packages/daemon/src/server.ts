@@ -1,5 +1,6 @@
 /**
- * Starts the daemon: 127.0.0.1 only, a free port, a fresh 256-bit token, and
+ * Starts the daemon: 127.0.0.1 only, the port it used last time if it is free (so the browser keeps
+ * the UI's per-origin preferences across restarts) or else a free one, a fresh 256-bit token, and
  * `daemon.json` {url, token, pid, started_at} (0600) in the data dir so `konsora ui` can find it.
  * One daemon per data dir: a live daemon recorded in daemon.json is never duplicated.
  */
@@ -17,6 +18,9 @@ import { createOversights } from "./oversight.ts";
 import { codeStamp, DAEMON_FILE, dataDir as defaultDataDir } from "./paths.ts";
 import { Registry } from "./registry.ts";
 
+/** The port of the last start (data dir), tried first on the next one. */
+export const PORT_FILE = "daemon-port.json";
+
 export type DaemonInfo = {
   url: string;
   token: string;
@@ -28,7 +32,7 @@ export type DaemonInfo = {
 
 export type StartOptions = {
   dataDir?: string;
-  /** 0 = pick a free port (default). */
+  /** 0 = pick a free port. Default: the port of the last start, if free, else a free one. */
   port?: number;
   /** Extra allowed browser origins, e.g. the Vite dev server http://127.0.0.1:5173. */
   extraOrigins?: string[];
@@ -92,18 +96,33 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const registry = new Registry(dir);
   // Host/Origin checks need the real port, known only once listening; until then refuse.
   let app: Hono | undefined;
-  const server = await new Promise<ReturnType<typeof serve>>((resolve, reject) => {
-    const s = serve(
-      {
-        fetch: (request) => (app ? app.fetch(request) : new Response("Starting", { status: 503 })),
-        hostname: "127.0.0.1",
-        port: options.port ?? 0,
-      },
-      () => resolve(s),
-    );
-    s.on("error", reject);
-  });
+  const listen = (port: number) =>
+    new Promise<ReturnType<typeof serve>>((resolve, reject) => {
+      const s = serve(
+        {
+          fetch: (request) =>
+            app ? app.fetch(request) : new Response("Starting", { status: 503 }),
+          hostname: "127.0.0.1",
+          port,
+        },
+        () => resolve(s),
+      );
+      s.on("error", reject);
+    });
+  const last = await readJson<{ port?: unknown }>(join(dir, PORT_FILE)).catch(() => undefined);
+  const lastPort =
+    Number.isInteger(last?.port) && (last?.port as number) > 0 && (last?.port as number) < 65_536
+      ? (last?.port as number)
+      : 0;
+  let server: ReturnType<typeof serve>;
+  if (options.port !== undefined) server = await listen(options.port);
+  else {
+    // Taken by something else meanwhile: any free port will do.
+    server = await listen(lastPort).catch(() => listen(0));
+  }
   const port = (server.address() as AddressInfo).port;
+  if (options.port === undefined)
+    await writePrivateFile(join(dir, PORT_FILE), `${JSON.stringify({ port })}\n`);
   const oversight = createOversights(dir);
   const auth = { token, port, extraOrigins: options.extraOrigins ?? [] };
   let hub: EventHub | undefined;

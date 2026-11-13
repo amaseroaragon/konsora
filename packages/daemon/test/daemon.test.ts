@@ -8,6 +8,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { serializeDocument, type TasksDocument } from "@konsora/core";
@@ -323,5 +324,27 @@ describe("startDaemon (real server)", () => {
     }
     expect(readdirSync(data)).not.toContain("daemon.json");
     expect(await findDaemon(data)).toBeUndefined();
+  });
+
+  it("comes back on the same port, so the browser keeps the UI's preferences; else any free one", async () => {
+    const first = await startDaemon({ dataDir: data });
+    await first.close();
+    const second = await startDaemon({ dataDir: data });
+    try {
+      expect(second.url).toBe(first.url);
+    } finally {
+      await second.close();
+    }
+    // Something else took the port meanwhile: the daemon starts anyway, elsewhere.
+    const port = Number(new URL(first.url).port);
+    const squatter = createServer().listen(port, "127.0.0.1");
+    await new Promise((resolve) => squatter.once("listening", resolve));
+    try {
+      const third = await startDaemon({ dataDir: data });
+      expect(third.url).not.toBe(first.url);
+      await third.close();
+    } finally {
+      squatter.close();
+    }
   });
 });
