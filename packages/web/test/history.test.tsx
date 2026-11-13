@@ -104,7 +104,9 @@ describe("history model", () => {
 
 describe("History view", () => {
   it("lists entries with time, who finished them and their summary line (ac1)", () => {
-    const html = wrap(<HistoryView projectId="p-1" doc={doc} openId={null} now={now} />);
+    const html = wrap(
+      <HistoryView initialMode="done" projectId="p-1" doc={doc} openId={null} now={now} />,
+    );
     expect(html).toContain("Historial");
     expect(html).toContain("Ayer");
     expect(html).toContain("Terminada por claude");
@@ -116,7 +118,9 @@ describe("History view", () => {
   });
 
   it("links each task to its panel in the History view (ac2)", () => {
-    const html = wrap(<HistoryView projectId="p-1" doc={doc} openId="BE-03" now={now} />);
+    const html = wrap(
+      <HistoryView initialMode="done" projectId="p-1" doc={doc} openId="BE-03" now={now} />,
+    );
     const href = projectHref("p-1", { view: "history", task: "BE-03" });
     expect(html).toContain(`href="${href.replace("&", "&amp;")}"`);
     expect(parseRoute(href)).toEqual({
@@ -140,7 +144,7 @@ describe("History view", () => {
 
   it("explains an empty history in Spanish (ac3)", () => {
     const empty = { ...doc, tasks: [task("BE-01", "todo")] };
-    const html = wrap(<HistoryView projectId="p-1" doc={empty} openId={null} />);
+    const html = wrap(<HistoryView initialMode="done" projectId="p-1" doc={empty} openId={null} />);
     expect(html).toContain("Todavía no hay tareas hechas.");
     expect(html).not.toContain("b-history__day");
   });
@@ -153,7 +157,14 @@ describe("archived tasks (CORE-18)", () => {
 
   it("the History lists them too, marked as archived", () => {
     const html = wrap(
-      <HistoryView projectId="p-1" doc={doc} archive={[old]} openId={null} now={now} />,
+      <HistoryView
+        initialMode="done"
+        projectId="p-1"
+        doc={doc}
+        archive={[old]}
+        openId={null}
+        now={now}
+      />,
     );
     expect(html).toContain(">BE-06<");
     expect(html).toContain("Terminada por claude · Archivada");
@@ -216,7 +227,9 @@ describe("history filters and summary (UI-17)", () => {
 
   it("counts each day's closures and copies the visible ones as Markdown (ac2, ac3)", () => {
     const days = groupByDay(filterLog(log, { by: "agent:claude" }), { now, timeZone });
-    const html = wrap(<HistoryView projectId="p-1" doc={plan} openId={null} now={now} />);
+    const html = wrap(
+      <HistoryView initialMode="done" projectId="p-1" doc={plan} openId={null} now={now} />,
+    );
     expect(html).toMatch(/Hoy<span class="b-history__count">\d+ cierres?<\/span>/);
     expect(html).toContain("Copiar como Markdown");
     const md = historyMarkdown(days);

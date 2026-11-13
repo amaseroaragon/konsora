@@ -107,7 +107,13 @@ describe("evidence per criterion (CORE-15)", () => {
 
   it("the History tells closures with criteria lacking evidence or not met", () => {
     const html = wrap(
-      <HistoryView projectId="p" doc={doc} openId={null} now={new Date("2026-11-10T12:00:00Z")} />,
+      <HistoryView
+        initialMode="done"
+        projectId="p"
+        doc={doc}
+        openId={null}
+        now={new Date("2026-11-10T12:00:00Z")}
+      />,
     );
     const entry = (id: string) => html.slice(html.indexOf(`>${id}<`)).split("</a>")[0] ?? "";
     expect(entry("BE-01")).toContain("1 criterio no cumplido");

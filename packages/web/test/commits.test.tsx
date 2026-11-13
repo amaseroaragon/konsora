@@ -69,7 +69,13 @@ describe("commits of a done task (CORE-14)", () => {
 
   it("the History shows their short hashes and copies them in its Markdown", () => {
     const html = wrap(
-      <HistoryView projectId="p" doc={doc} openId={null} now={new Date("2026-11-10T12:00:00Z")} />,
+      <HistoryView
+        initialMode="done"
+        projectId="p"
+        doc={doc}
+        openId={null}
+        now={new Date("2026-11-10T12:00:00Z")}
+      />,
     );
     expect(html).toContain('<span class="b-history__commits k-mono">24476d1 8b8e7df</span>');
     const md = historyMarkdown(

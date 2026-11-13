@@ -1146,6 +1146,32 @@
   font-size: var(--k-text-xs);
   color: var(--k-ink-muted);
 }
+/* Every change of the plan (UI-16) */
+.b-history__intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--k-space-6);
+}
+.b-history__entry--gone {
+  color: var(--k-ink-muted);
+}
+.b-history__entry--gone .b-history__title {
+  text-decoration: line-through;
+}
+.b-activity__type {
+  font-weight: var(--k-weight-medium);
+  color: var(--k-ink);
+}
+.b-activity__type--finish {
+  color: var(--k-done-ink);
+}
+.b-activity__type--delete,
+.b-activity__type--reopen {
+  color: var(--k-danger-ink);
+}
+
 /* The commits of a closure (CORE-14) */
 .b-history__commits {
   margin-left: var(--k-space-4);
