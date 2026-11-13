@@ -50,6 +50,7 @@ import {
 } from "./board-model.ts";
 import { projectHref } from "./route.ts";
 import { isSelectable } from "./selection.ts";
+import { useUndoOffer } from "./undo.ts";
 
 /** What a droppable stands for: a cell of a state, or a card of the dragged task's own column. */
 type DropData = { state: TaskState; card?: string };
@@ -263,6 +264,7 @@ export function Board({
   const move = useMoveTask(board.project.id);
   const reorder = useReorderTask(board.project.id);
   const toast = useToast();
+  const offer = useUndoOffer(board.project.id);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: cellToCell }),
@@ -303,9 +305,8 @@ export function Board({
     move.mutate(
       { task, op: plan.op, to: plan.to },
       {
-        onSuccess: () => {
-          toast.show(t(DONE_KEYS[plan.op] ?? "move.done.other", { id: task.id }), "success");
-        },
+        onSuccess: (reply) =>
+          offer(t(DONE_KEYS[plan.op] ?? "move.done.other", { id: task.id }), reply.undo),
         onError: onRefused(task),
       },
     );

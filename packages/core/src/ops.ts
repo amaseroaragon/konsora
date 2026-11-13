@@ -114,7 +114,16 @@ export type Op = Base &
     | { op: "set-templates"; templates: Template[] }
     | { op: "reopen"; task: string; text?: string }
     | { op: "restore"; task: string; version: Task }
+    /**
+     * Human-only: undoes one of their own actions (UI-21). Each change puts a task back to
+     * `before` (null: the task did not exist, so it is removed), but only if it is still exactly
+     * as that action left it (`after`, its hash; null: it was deleted). Otherwise nothing applies.
+     */
+    | { op: "undo"; changes: UndoChange[] }
   );
+
+/** One task's part of an undo: the version to put back and the hash it must have now. */
+export type UndoChange = { task: string; before: Task | null; after: string | null };
 
 export type OpName = Op["op"];
 
@@ -151,6 +160,38 @@ export function taskHash(task: Task): string {
   return contentHash(task);
 }
 
+/**
+ * What undoes an action: for each task it changed, its version before and the hash it has after
+ * (null when the action deleted it). Tasks are in `ids` order.
+ */
+export function undoOf(
+  before: Pick<TasksDocument, "tasks">,
+  after: Pick<TasksDocument, "tasks">,
+  ids: readonly string[],
+): UndoChange[] {
+  const old = indexTasks(before);
+  const now = indexTasks(after);
+  return ids.map((task) => {
+    const then = old.get(task);
+    const current = now.get(task);
+    return { task, before: then ?? null, after: current ? taskHash(current) : null };
+  });
+}
+
+/**
+ * Several consecutive actions undone at once (a bulk action, task by task): per task, the version
+ * before the first and the hash after the last.
+ */
+export function mergeUndo(steps: readonly (readonly UndoChange[])[]): UndoChange[] {
+  const merged = new Map<string, UndoChange>();
+  for (const step of steps)
+    for (const change of step) {
+      const first = merged.get(change.task);
+      merged.set(change.task, first ? { ...first, after: change.after } : change);
+    }
+  return [...merged.values()];
+}
+
 /** Who may run each op (docs/esquema-tareas.md §2). */
 const ROLES: Record<OpName, readonly Role[]> = {
   propose: ["human", "agent"],
@@ -172,6 +213,7 @@ const ROLES: Record<OpName, readonly Role[]> = {
   "set-templates": ["human"],
   reopen: ["human"],
   restore: ["human"],
+  undo: ["human"],
 };
 
 const EDITABLE = ["title", "desc", "acceptance", "labels", "group", "rank", "difficulty"] as const;
@@ -553,6 +595,31 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       const task = get(op.task);
       transition(task, ["done"], "todo");
       if (op.text?.trim()) addNote(task, "note", op.text);
+      break;
+    }
+    case "undo": {
+      if (op.changes.length === 0) fail("invalid", "undo needs at least one change");
+      for (const change of op.changes) {
+        const current = original.get(change.task);
+        const now = current ? taskHash(current) : null;
+        if (now !== change.after)
+          fail(
+            "conflict",
+            change.after === null
+              ? `${change.task} was created again since; undo would overwrite it`
+              : `${change.task} changed since that action; undo would overwrite the newer change`,
+            { task: change.task, ...(current ? { current } : {}) },
+          );
+        if (change.before && change.before.id !== change.task)
+          fail("invalid", `undo: version is for ${change.before.id}, not ${change.task}`);
+      }
+      for (const change of op.changes) {
+        const others = doc.tasks.filter((t) => t.id !== change.task);
+        doc.tasks = change.before ? [...others, structuredClone(change.before)] : others;
+        if (change.before) index.set(change.task, change.before);
+        else index.delete(change.task);
+        changed.add(change.task);
+      }
       break;
     }
     case "restore": {

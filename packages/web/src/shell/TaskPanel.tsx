@@ -16,6 +16,7 @@ import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { PanelSection } from "./PanelSection.tsx";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
+import { useUndoOffer } from "./undo.ts";
 
 const LABEL: Record<TaskAction, MessageKey> = {
   promote: "action.promote",
@@ -54,6 +55,7 @@ function Actions({
 }) {
   const mutation = useTaskAction(projectId);
   const toast = useToast();
+  const offer = useUndoOffer(projectId);
   // Answering is always shown as a form: an open question is what needs the human.
   const [open, setOpen] = useState<TaskAction | null>(actions.includes("answer") ? "answer" : null);
   const [text, setText] = useState("");
@@ -62,8 +64,8 @@ function Actions({
     mutation.mutate(
       { task, action, ...(value ? { text: value } : {}) },
       {
-        onSuccess: () => {
-          toast.show(t(DONE[action], { id: task.id }), "success");
+        onSuccess: (reply) => {
+          offer(t(DONE[action], { id: task.id }), reply.undo);
           setOpen(null);
           setText("");
         },

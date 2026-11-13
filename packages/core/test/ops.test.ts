@@ -1,6 +1,14 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { applyOp, type Op, type OpContext, type OpResult, taskHash } from "../src/ops.ts";
+import {
+  applyOp,
+  mergeUndo,
+  type Op,
+  type OpContext,
+  type OpResult,
+  taskHash,
+  undoOf,
+} from "../src/ops.ts";
 import type { Task, TaskState, TasksDocument } from "../src/schema.ts";
 import { parseTasksFile, validateDocument } from "../src/semantics.ts";
 import { serializeDocument } from "../src/serialize.ts";
@@ -643,6 +651,59 @@ describe("restore (human-only revert)", () => {
     expect(err(applyOp(changed, { op: "restore", task: "BE-02", version: original }, human))).toBe(
       "invalid",
     );
+  });
+});
+
+describe("undo (UI-21, human-only)", () => {
+  const later = { actor: "human" as const, at: "2026-11-02T11:00:00Z" };
+  const plan = doc(
+    task("BE-01", "doing", [], {
+      notes: [{ id: "n1", at, by: "agent:claude", kind: "note", text: "Hecho a medias" }],
+    }),
+    task("BE-02", "todo", ["BE-01"]),
+    task("BE-03", "done"),
+  );
+  const undoFor = (before: TasksDocument, op: Op) => {
+    const result = ok(applyOp(before, op, later));
+    return { after: result.document, changes: undoOf(before, result.document, result.changed) };
+  };
+
+  it("brings a deleted task back with its id, notes and the deps others had on it", () => {
+    const { after, changes } = undoFor(plan, { op: "delete", task: "BE-01" });
+    expect(after.tasks.map((t) => t.id)).toEqual(["BE-02", "BE-03"]);
+    expect(changes.map((c) => c.task).sort()).toEqual(["BE-01", "BE-02"]);
+    const undone = ok(applyOp(after, { op: "undo", changes }, later)).document;
+    expect(serializeDocument(undone)).toBe(serializeDocument(plan));
+  });
+
+  it("undoes a reopen and a promote, and several actions merged into one", () => {
+    const reopened = undoFor(plan, { op: "reopen", task: "BE-03" });
+    expect(
+      serializeDocument(
+        ok(applyOp(reopened.after, { op: "undo", changes: reopened.changes }, later)).document,
+      ),
+    ).toBe(serializeDocument(plan));
+    const ideas = doc(task("BE-01", "proposed"), task("BE-02", "proposed"));
+    const first = undoFor(ideas, { op: "promote", task: "BE-01" });
+    const second = undoFor(first.after, { op: "promote", task: "BE-02" });
+    const third = undoFor(second.after, { op: "edit", task: "BE-01", changes: { title: "Otra" } });
+    const changes = mergeUndo([first.changes, second.changes, third.changes]);
+    expect(changes).toHaveLength(2);
+    expect(
+      serializeDocument(ok(applyOp(third.after, { op: "undo", changes }, later)).document),
+    ).toBe(serializeDocument(ideas));
+  });
+
+  it("refuses, changing nothing, when a task changed after the action", () => {
+    const { after, changes } = undoFor(plan, { op: "delete", task: "BE-01" });
+    const touched = ok(
+      applyOp(after, { op: "note", task: "BE-02", text: "Luego" }, agent),
+    ).document;
+    const result = applyOp(touched, { op: "undo", changes }, later);
+    expect(err(result)).toBe("conflict");
+    expect(result.ok ? "" : result.error.task).toBe("BE-02");
+    const recreated = undoFor(plan, { op: "reopen", task: "BE-03" });
+    expect(err(applyOp(plan, { op: "undo", changes: recreated.changes }, agent))).toBe("forbidden");
   });
 });
 

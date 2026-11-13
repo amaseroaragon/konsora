@@ -98,6 +98,20 @@ export const OpSchema = z.discriminatedUnion("op", [
   }),
   z.strictObject({ op: z.literal("reopen"), expect, task: id, text: text.optional() }),
   z.strictObject({ op: z.literal("restore"), expect, task: id, version: TaskSchema }),
+  z.strictObject({
+    op: z.literal("undo"),
+    expect,
+    changes: z
+      .array(
+        z.strictObject({
+          task: TaskIdSchema,
+          before: TaskSchema.nullable(),
+          after: z.string().nullable(),
+        }),
+      )
+      .min(1)
+      .max(500),
+  }),
 ]);
 
 /** Parses untrusted JSON into an `Op`, or explains the first problem. */

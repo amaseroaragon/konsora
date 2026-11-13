@@ -14,6 +14,11 @@ export const es = {
   "card.open": "Abrir {id}",
   "toast.dismiss": "Cerrar aviso",
   "toast.region": "Avisos",
+  "undo.action": "Deshacer",
+  "undo.done": "Deshecho: el plan vuelve a estar como antes.",
+  "undo.conflict":
+    "No se puede deshacer: {id} cambió después y deshacer pisaría ese cambio. Revísala y cámbiala a mano.",
+  "undo.error": "No se pudo deshacer: {message}",
   "action.loading": "Cargando…",
   "app.views": "Vistas",
   "app.view.board": "Tablero",

@@ -46,7 +46,13 @@ export type StoreError = {
 export type Snapshot = { document: TasksDocument; hash: string; text: string };
 export type ReadResult = ({ ok: true } & Snapshot) | { ok: false; error: StoreError };
 export type MutateResult =
-  | ({ ok: true; changed: string[]; created: string[] } & Snapshot)
+  | ({
+      ok: true;
+      changed: string[];
+      created: string[];
+      /** The plan the op was applied to, read under the lock (what an undo goes back to). */
+      previous: TasksDocument;
+    } & Snapshot)
   | { ok: false; source: "op"; error: OpError }
   | { ok: false; source: "store"; error: StoreError };
 
@@ -287,6 +293,7 @@ export async function mutate(
       text,
       changed: result.changed,
       created: result.created,
+      previous: current.document,
     };
   } catch (error) {
     return { ok: false, source: "store", error: toStoreError(error) };

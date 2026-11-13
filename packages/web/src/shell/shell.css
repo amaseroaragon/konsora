@@ -422,11 +422,6 @@
 .g-edge--editable {
   cursor: pointer;
 }
-.g-edge.g-edge--selected .react-flow__edge-path {
-  stroke: var(--k-danger);
-  stroke-width: 2.5;
-  stroke-dasharray: none;
-}
 .g-graph .react-flow__connection-path {
   stroke: var(--k-accent);
   stroke-width: 2;
@@ -497,6 +492,12 @@
 .g-edge--chain .react-flow__edge-path {
   stroke: var(--k-accent);
   stroke-width: 2;
+  stroke-dasharray: none;
+}
+/* After the chain: a selected edge (UI-23) wins over every other edge style. */
+.g-edge--selected .react-flow__edge-path {
+  stroke: var(--k-danger);
+  stroke-width: 2.5;
   stroke-dasharray: none;
 }
 .g-node {

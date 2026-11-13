@@ -16,4 +16,4 @@ export {
 } from "./StateBadge.tsx";
 export { Segmented, type SegmentedProps, type TabItem, Tabs, type TabsProps } from "./Tabs.tsx";
 export { TaskCard, type TaskCardProps } from "./TaskCard.tsx";
-export { ToastProvider, type ToastTone, useToast } from "./Toast.tsx";
+export { type ToastAction, ToastProvider, type ToastTone, useToast } from "./Toast.tsx";

@@ -10,13 +10,17 @@ import {
 import { t } from "../i18n/index.ts";
 
 export type ToastTone = "info" | "success" | "error";
-type ToastItem = { id: number; tone: ToastTone; text: string };
+/** A button in the notice, such as «Deshacer» (UI-21); pressing it also dismisses the notice. */
+export type ToastAction = { label: string; run: () => void };
+type ToastItem = { id: number; tone: ToastTone; text: string; action?: ToastAction | undefined };
 
-type ToastApi = { show: (text: string, tone?: ToastTone) => void };
+type ToastApi = { show: (text: string, tone?: ToastTone, action?: ToastAction) => void };
 
 const ToastContext = createContext<ToastApi | null>(null);
 
 const DISMISS_MS = 6000;
+/** A notice with an action stays longer, so there is time to use it. */
+const ACTION_DISMISS_MS = 12_000;
 
 /**
  * Hosts transient notices. Info/success use a polite live region; errors use role="alert"
@@ -31,10 +35,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (text: string, tone: ToastTone = "info") => {
+    (text: string, tone: ToastTone = "info", action?: ToastAction) => {
       const id = next.current++;
-      setItems((current) => [...current, { id, tone, text }]);
-      if (tone !== "error") window.setTimeout(() => dismiss(id), DISMISS_MS);
+      setItems((current) => [...current, { id, tone, text, action }]);
+      if (tone !== "error")
+        window.setTimeout(() => dismiss(id), action ? ACTION_DISMISS_MS : DISMISS_MS);
     },
     [dismiss],
   );
@@ -53,6 +58,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <span className="k-toast__mark" aria-hidden="true" />
               <span className="k-toast__text">{item.text}</span>
+              {item.action && (
+                <button
+                  type="button"
+                  className="k-toast__action"
+                  onClick={() => {
+                    dismiss(item.id);
+                    item.action?.run();
+                  }}
+                >
+                  {item.action.label}
+                </button>
+              )}
               <button
                 type="button"
                 className="k-toast__close"

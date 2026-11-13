@@ -11,6 +11,7 @@ import {
   type TasksDocument,
   taskHash,
   topoOrder,
+  undoOf,
 } from "@konsora/core";
 import { mutate, readArchive, readTasks } from "@konsora/core/store";
 import { Hono } from "hono";
@@ -265,9 +266,13 @@ export function createApp(options: AppOptions): Hono {
     await watch.log(entries);
     await watch.trust(result.document, result.hash, at);
     const affected = new Set([...result.created, ...result.changed]);
+    // What undoes this action from the toast that follows it (UI-21); an undo is not undone.
+    const undo =
+      parsed.op.op === "undo" ? undefined : undoOf(result.previous, result.document, [...affected]);
     return c.json({
       ok: true,
       hash: result.hash,
+      ...(undo?.length ? { undo } : {}),
       created: result.created,
       changed: result.changed,
       tasks: taskViews(result.document).filter((t) => affected.has(t.id)),

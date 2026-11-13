@@ -613,6 +613,24 @@ textarea.k-field__control {
 .k-toast__text {
   flex: 1;
 }
+.k-toast__action {
+  flex: none;
+  min-height: 28px;
+  padding: 0 var(--k-space-5);
+  border: 1px solid var(--k-line-strong);
+  background: var(--k-surface);
+  color: var(--k-ink);
+  font: inherit;
+  font-weight: var(--k-weight-medium);
+  cursor: pointer;
+}
+.k-toast__action:hover {
+  border-color: var(--k-ink);
+}
+.k-toast__action:focus-visible {
+  outline: 3px solid var(--k-focus);
+  outline-offset: 2px;
+}
 .k-toast__close {
   flex: none;
   width: 28px;

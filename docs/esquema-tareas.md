@@ -141,6 +141,7 @@ H = humano (solo desde la UI de Konsora), A = agente (CLI/MCP). **No hay aprobac
 | `doing` → `done` | A | `finish` con `summary`. |
 | `done` → `todo` | **H** | `reopen`. |
 | añadir `deps` | A, H | No en tareas `done`. Rechazado si crea un ciclo. |
+| deshacer | **H** | `undo`: devuelve cada tarea que tocó una acción humana a su versión anterior (o la quita, si la acción la creó). Lleva, por tarea, la versión anterior y el hash que debe tener ahora; si alguna cambió entre medias, `conflict` y no se aplica nada. El daemon responde a cada op de la UI con su `undo`, y el aviso que sigue ofrece «Deshacer». |
 
 **Sesión de planificación** (`konsora plan` o el panel de IA de la UI, con `KONSORA_PLAN=1` en el servidor MCP): el agente solo puede crear tareas (`propose`, `batch`), revisar, reordenar, enlazar, pasar a `todo` o borrar tareas que nadie empezó (`edit`, `move`, `depend`, `undepend`, `promote`, `demote`, `delete`). Todo lo demás da `out_of_scope`.
 

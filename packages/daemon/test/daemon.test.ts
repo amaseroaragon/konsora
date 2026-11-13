@@ -348,3 +348,48 @@ describe("startDaemon (real server)", () => {
     }
   });
 });
+
+describe("undo of a human action (UI-21)", () => {
+  type OpReply = { ok?: boolean; undo?: unknown[]; error?: { code: string; message: string } };
+  const op = async (id: string, body: unknown) => {
+    const res = await call(`/api/projects/${id}/ops`, { method: "POST", body });
+    return { status: res.status, body: (await res.json()) as OpReply };
+  };
+  const file = () => readFileSync(join(projectDir, ".konsora", "tasks.json"), "utf8");
+
+  it("a deleted task comes back with its id, notes and the deps others had on it", async () => {
+    mkdirSync(join(projectDir, ".konsora"));
+    const withNote = plan();
+    const first = withNote.tasks[0];
+    if (first) first.notes = [{ id: "n1", at, by: "agent:claude", kind: "note", text: "A medias" }];
+    writeFileSync(join(projectDir, ".konsora", "tasks.json"), serializeDocument(withNote));
+    const before = file();
+    const { body } = await link();
+    const deleted = await op(body.project.id, { op: "delete", task: "BE-01" });
+    expect(deleted.status).toBe(200);
+    expect(file()).not.toContain('"BE-01"');
+    expect(deleted.body.undo).toHaveLength(2);
+    const undone = await op(body.project.id, { op: "undo", changes: deleted.body.undo });
+    expect(undone.status).toBe(200);
+    expect(undone.body.undo).toBeUndefined();
+    expect(file()).toBe(before);
+    // The restored state is the daemon's own write: no external change is flagged.
+    const board = (await (await call(`/api/projects/${body.project.id}/board`)).json()) as {
+      external: unknown[];
+    };
+    expect(board.external).toEqual([]);
+  });
+
+  it("refuses with a conflict, writing nothing, if the task changed in between", async () => {
+    mkdirSync(join(projectDir, ".konsora"));
+    writeFileSync(join(projectDir, ".konsora", "tasks.json"), serializeDocument(plan()));
+    const { body } = await link();
+    const deleted = await op(body.project.id, { op: "delete", task: "BE-01" });
+    await op(body.project.id, { op: "note", task: "BE-02", text: "Después" });
+    const after = file();
+    const undone = await op(body.project.id, { op: "undo", changes: deleted.body.undo });
+    expect(undone.status).toBe(409);
+    expect(undone.body.error?.code).toBe("conflict");
+    expect(file()).toBe(after);
+  });
+});

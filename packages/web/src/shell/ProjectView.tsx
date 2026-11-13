@@ -2,8 +2,10 @@ import {
   filterFacets,
   isFilterActive,
   matchingIds,
+  mergeUndo,
   pendingSubgraph,
   type TaskFilter,
+  type UndoChange,
 } from "@konsora/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -45,6 +47,7 @@ import { isSelectable, useSelection, visibleSelection } from "./selection.ts";
 import { TaskCreator } from "./TaskCreator.tsx";
 import { TaskPanel } from "./TaskPanel.tsx";
 import { TemplateSettings } from "./TemplateSettings.tsx";
+import { useUndoOffer } from "./undo.ts";
 
 const LANES_KEY = "konsora.board.swimlanes";
 
@@ -166,6 +169,7 @@ export function ProjectView({
   const openedArchived = openId && !openedLive ? archivedTask(board, openId) : undefined;
   const opened = openedLive ?? openedArchived;
   const toast = useToast();
+  const offer = useUndoOffer(projectId);
   const [chatOpen, setChatOpen] = useState(readChatPref);
   const toggleChat = () => {
     setChatOpen(!chatOpen);
@@ -219,11 +223,13 @@ export function ProjectView({
       if (!(await confirmDelete(ids, dependents, askConfirm))) return;
     }
     const refused: string[] = [];
+    const steps: UndoChange[][] = [];
     for (const id of ids) {
       const task = board.tasks.find((x) => x.id === id);
       if (!task) continue;
       try {
-        await action.mutateAsync({ task, action: kind });
+        const reply = await action.mutateAsync({ task, action: kind });
+        if (reply.undo) steps.push(reply.undo);
       } catch (error) {
         if (error instanceof ApiError && error.unauthorized) return;
         refused.push(id);
@@ -231,10 +237,11 @@ export function ProjectView({
       }
     }
     const done = ids.length - refused.length;
+    // One «Deshacer» for the whole bulk action (UI-21).
     if (done > 0)
-      toast.show(
+      offer(
         t(kind === "promote" ? "selection.promote.done" : "selection.delete.done", { n: done }),
-        "success",
+        mergeUndo(steps),
       );
     dispatchSelection({ type: "clear" });
     if (refused.length > 0) dispatchSelection({ type: "add", ids: refused });
@@ -273,13 +280,13 @@ export function ProjectView({
     edit.mutate(
       { op, task: link.task, hash: task.hash, on: link.on },
       {
-        onSuccess: () =>
-          toast.show(
+        onSuccess: (reply) =>
+          offer(
             t(op === "depend" ? "edit.deps.added" : "edit.deps.removed", {
               id: link.task,
               on: link.on,
             }),
-            "success",
+            reply.undo,
           ),
         onError: (error) => {
           if (error instanceof ApiError && error.unauthorized) return;
@@ -289,24 +296,28 @@ export function ProjectView({
     );
   };
   const runBulk = async (change: BulkChange) => {
+    const steps: UndoChange[][] = [];
     const { changed, refused } = await applyBulk(
       board.tasks,
       selectedIds,
       change,
-      (id, hash, changes) => edit.mutateAsync({ op: "edit", task: id, hash, changes }),
+      async (id, hash, changes) => {
+        const reply = await edit.mutateAsync({ op: "edit", task: id, hash, changes });
+        if (reply.undo) steps.push(reply.undo);
+      },
     );
     if (refused.some(({ error }) => error instanceof ApiError && error.unauthorized)) return;
     for (const { id, error } of refused) toast.show(editError(error, { id }), "error");
     const n = changed.length;
     if (n > 0)
-      toast.show(
+      offer(
         change.kind === "group"
           ? t("bulk.group.done", { n, group: change.group })
           : t(change.kind === "label-add" ? "bulk.label.added" : "bulk.label.removed", {
               n,
               label: change.label,
             }),
-        "success",
+        mergeUndo(steps),
       );
     else if (refused.length === 0) toast.show(t("bulk.none"), "info");
     dispatchSelection({ type: "clear" });

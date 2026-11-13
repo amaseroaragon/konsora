@@ -6,6 +6,7 @@ import {
   type TaskAction,
   type TaskFlags,
   type TasksDocument,
+  type UndoChange,
 } from "@konsora/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -90,7 +91,7 @@ export function useMoveTask(projectId: string) {
   const key = boardKey(projectId);
   return useMutation({
     mutationFn: (move: Move) =>
-      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, moveBody(move)),
+      api.post<OpReply>(`/projects/${encodeURIComponent(projectId)}/ops`, moveBody(move)),
     onMutate: async (move) => {
       await client.cancelQueries({ queryKey: key });
       const before = client.getQueryData<Board>(key);
@@ -254,7 +255,7 @@ export function useTaskAction(projectId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: TaskActionInput) =>
-      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, actionBody(input)),
+      api.post<OpReply>(`/projects/${encodeURIComponent(projectId)}/ops`, actionBody(input)),
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
   });
 }
@@ -307,7 +308,7 @@ export function useEditTask(projectId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: EditInput) =>
-      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, editBody(input)),
+      api.post<OpReply>(`/projects/${encodeURIComponent(projectId)}/ops`, editBody(input)),
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
   });
 }
@@ -319,6 +320,23 @@ export function useProjectOp(projectId: string) {
   return useMutation({
     mutationFn: (op: Record<string, unknown>) =>
       api.post(`/projects/${encodeURIComponent(projectId)}/ops`, op),
+    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
+}
+
+/** What the daemon answers to an op: among others, what undoes it (UI-21). */
+export type OpReply = { ok: true; created?: string[]; changed?: string[]; undo?: UndoChange[] };
+
+/** Undoes a human action with what its op's reply returned; refused if a task changed since. */
+export function useUndo(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: readonly UndoChange[]) =>
+      api.post<OpReply>(`/projects/${encodeURIComponent(projectId)}/ops`, {
+        op: "undo",
+        changes,
+      }),
     onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
   });
 }
