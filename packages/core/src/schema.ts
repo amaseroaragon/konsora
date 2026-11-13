@@ -180,6 +180,11 @@ export const TaskSchema = strict({
   labels: z.array(LabelSchema).optional(),
   difficulty: DifficultySchema.optional(),
   created: strict({ at: TimestampSchema, by: ActorSchema }),
+  /**
+   * CORE-09: who started the task and when. `start` sets it, `pause` and `reopen` remove it and
+   * `finish` keeps it, so a done task still says who took it.
+   */
+  started: strict({ at: TimestampSchema, by: ActorSchema }).optional(),
   updated_at: TimestampSchema,
   notes: z.array(NoteSchema).optional(),
   /** CORE-17: the latest changes to the task, oldest first (at most `EVENTS_LIMIT`). */

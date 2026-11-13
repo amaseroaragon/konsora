@@ -97,6 +97,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `labels` | `string[]` | no | `^[a-z0-9][a-z0-9-]{0,30}$`, ordenados. |
 | `difficulty` | `low \| medium \| high` | no | Dificultad estimada: *low* = mecánica, pocos ficheros; *medium* = una funcionalidad dentro de un área; *high* = transversal, con decisiones de diseño o con riesgo. La estima el agente al crear (`--difficulty`, `difficulty` en `batch` y en el MCP) y se cambia con `edit` (`none` / `null` la quita). Se ve en el tablero, el grafo, el panel y `konsora show`/`list`, y se puede filtrar por ella. |
 | `created` | `{at, by}` | sí | |
+| `started` | `{at, by}` | no | Quién empezó la tarea y cuándo (CORE-09). Lo pone `start`; `pause` y `reopen` lo quitan, porque ya nadie la tiene; `finish` lo conserva, así que una tarea hecha sigue diciendo quién la tomó. Lo escribe `core`, nunca quien llama. Se ve en `konsora status` (sección *Doing*), `konsora show`, la tarjeta y el panel. Una tarea empezada antes de que existiera el campo toma su último evento `start`, si lo tiene. |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
 | `events` | `TaskEvent[]` | no | Quién cambió la tarea, qué y cuándo (ver *Actividad*). Como mucho 50, de la más antigua a la más reciente. |
@@ -212,6 +213,8 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 Límite honesto: un proceso con los permisos del usuario puede escribir cualquier archivo. Los roles se aplican en la CLI, el MCP y la UI, y las violaciones se **detectan y señalan**; no existe una frontera de seguridad contra un agente decidido a engañar.
 
 ## 6. Migraciones
+
+**Quién empezó (CORE-09)**: `started` también es opcional y no exige migrar. `konsora migrate` no lo inventa: las tareas en curso que vienen de versiones anteriores quedan sin él, y la UI y la CLI lo derivan de su último evento `start` si existe.
 
 **Actividad (CORE-17)**: `events` y `deleted` son campos opcionales de `konsora/5`, como `difficulty`, así que no cambian la versión ni hace falta migrar: un plan sin ellos es válido y empieza a acumularlos con la siguiente operación. Las migraciones desde versiones anteriores no inventan eventos: la actividad de esas tareas se deriva de `created` y de sus notas `summary` (§1, *Actividad*).
 

@@ -568,12 +568,14 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         fail("blocked", `${task.id} is blocked by ${pending.join(", ")}`, { task: task.id });
       }
       transition(task, ["todo"], "doing");
+      task.started = { at: ctx.at, by: ctx.actor };
       if (op.text?.trim()) addNote(task, "note", op.text);
       break;
     }
     case "pause": {
       const task = get(op.task);
       transition(task, ["doing"], "todo");
+      delete task.started;
       if (op.text?.trim()) addNote(task, "note", op.text);
       break;
     }
@@ -623,6 +625,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     case "reopen": {
       const task = get(op.task);
       transition(task, ["done"], "todo");
+      delete task.started;
       if (op.text?.trim()) addNote(task, "note", op.text);
       break;
     }

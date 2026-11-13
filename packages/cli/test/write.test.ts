@@ -447,6 +447,21 @@ describe("work commands", () => {
     ); // BE-01 is done
   });
 
+  it("start records who took the task and since when; status and show say it (CORE-09)", async () => {
+    await run(["start", "BE-04", "--as", "claude"]);
+    const shown = (await run(["show", "BE-04", "--json"])).json();
+    expect(shown.started).toEqual({ at: "2026-11-03T09:30:00Z", by: "agent:claude" });
+    expect((await run(["show", "BE-04"])).stdout).toContain(
+      "started: 2026-11-03T09:30:00Z by agent:claude",
+    );
+    expect((await run(["status"])).stdout).toContain(
+      "BE-04     Title BE-04  (claude, since 2026-11-03 09:30)",
+    );
+    await run(["pause", "BE-04", "--as", "claude"]);
+    expect(task("BE-04").started).toBeUndefined();
+    expect((await run(["show", "BE-04"])).stdout).not.toContain("started:");
+  });
+
   it("pause returns a task to todo; text may only come from one source", async () => {
     await run(["start", "BE-04"]);
     expect((await run(["pause", "BE-04", "-m", "Need input"])).stdout).toBe(

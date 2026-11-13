@@ -68,6 +68,17 @@ export function isWaiting(task: Task): boolean {
   return openQuestion(task) !== undefined;
 }
 
+/**
+ * Who started a task in progress (or done) and when (CORE-09): its `started`, or, for a task
+ * started before that field existed, its latest `start` event. Undefined for ideas and todo tasks.
+ */
+export function startedBy(task: Task): { at: string; by: string } | undefined {
+  if (task.state !== "doing" && task.state !== "done") return undefined;
+  if (task.started) return task.started;
+  const event = task.events?.findLast((e) => e.type === "start");
+  return event ? { at: event.at, by: event.by } : undefined;
+}
+
 /** Tasks that list `id` as a direct dependency. */
 export function dependentsOf(id: string, doc: Pick<TasksDocument, "tasks">): string[] {
   return doc.tasks

@@ -2,6 +2,7 @@ import {
   ACTION_TEXT,
   availableActions,
   dependentsOf,
+  startedBy,
   type Task,
   type TaskAction,
   type TasksDocument,
@@ -281,6 +282,7 @@ export function TaskPanel({
   const criteria = task.acceptance ?? [];
   const deps = task.deps ?? [];
   const notes = task.notes ?? [];
+  const started = task.state === "doing" ? startedBy(task) : undefined;
   // Once done, the agent's closing summary is what the human reads first.
   const summary =
     task.state === "done"
@@ -313,6 +315,14 @@ export function TaskPanel({
         </div>
         <h2 className="a-detail__title">{task.title}</h2>
         <Labels labels={task.labels} className="a-detail__labels" />
+        {started && (
+          <p className="s-text s-muted a-detail__started">
+            {t("detail.started", {
+              actor: started.by === "human" ? t("detail.you") : started.by.replace(/^agent:/, ""),
+              when: when(started.at),
+            })}
+          </p>
+        )}
       </div>
       <div className="a-detail__body a-stack">
         {archived && <p className="s-text s-muted">{t("detail.archived.text")}</p>}

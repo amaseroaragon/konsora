@@ -16,7 +16,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { type MovePlan, planMove, type TaskState } from "@konsora/core";
+import { type MovePlan, planMove, startedBy, type TaskState } from "@konsora/core";
 import { useMemo, useState } from "react";
 import {
   type BoardOk,
@@ -118,6 +118,7 @@ function Card({
   selection?: BoardSelection | undefined;
 }) {
   const proposer = task.created.by.replace(/^agent:/, "");
+  const started = startedBy(task);
   return (
     <TaskCard
       id={task.id}
@@ -130,6 +131,7 @@ function Card({
       labels={task.labels}
       {...(onOpen ? { onOpen } : {})}
       {...(task.state === "proposed" ? { proposedBy: proposer } : {})}
+      {...(started ? { startedBy: started.by.replace(/^agent:/, "") } : {})}
       {...(selection
         ? {
             selected: selection.selected.has(task.id),

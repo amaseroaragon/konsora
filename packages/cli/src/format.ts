@@ -5,6 +5,7 @@ import {
   deriveFlags,
   indexTasks,
   type SchemaIssue,
+  startedBy,
   type Task,
   type TaskFlags,
   type TaskState,
@@ -57,9 +58,9 @@ export function taskTable(list: readonly TaskView[]): string {
 export function statusText(doc: TasksDocument, file: string): string {
   const list = views(doc);
   const count = (state: TaskState) => list.filter((t) => t.state === state).length;
-  const section = (title: string, items: TaskView[]) =>
+  const section = (title: string, items: TaskView[], extra?: (t: TaskView) => string) =>
     items.length
-      ? `\n${title}:\n${items.map((t) => `  ${t.id.padEnd(9)} ${t.title}`).join("\n")}\n`
+      ? `\n${title}:\n${items.map((t) => `  ${t.id.padEnd(9)} ${t.title}${extra?.(t) ?? ""}`).join("\n")}\n`
       : "";
   return [
     `${doc.project.name} · ${file} · ${list.length} tasks in ${doc.groups.length} groups\n`,
@@ -73,6 +74,7 @@ export function statusText(doc: TasksDocument, file: string): string {
     section(
       "Doing",
       list.filter((t) => t.state === "doing"),
+      startedText,
     ),
     section("Ready to start", readyViews(list)),
     section(
@@ -82,6 +84,14 @@ export function statusText(doc: TasksDocument, file: string): string {
     templatesText(doc),
   ].join("");
 }
+
+/** `  (claude, since 2026-11-02 10:00)`: who has a task in progress (CORE-09). */
+function startedText(view: TaskView): string {
+  const started = startedBy(view);
+  return started ? `  (${started.by.replace(/^agent:/, "")}, since ${minute(started.at)})` : "";
+}
+
+const minute = (at: string) => at.replace("T", " ").slice(0, 16);
 
 /** The project's templates, for `propose --template <id>`. */
 function templatesText(doc: TasksDocument): string {
@@ -116,6 +126,8 @@ export function showText(doc: TasksDocument, view: TaskView): string {
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
   if (view.difficulty) lines.push(`difficulty: ${view.difficulty}`);
   lines.push(`created: ${view.created.at} by ${view.created.by} · updated: ${view.updated_at}`);
+  const started = startedBy(view);
+  if (started) lines.push(`started: ${started.at} by ${started.by}`);
   if (view.desc) lines.push("", view.desc);
   if (view.acceptance?.length) {
     lines.push("", "Acceptance:");

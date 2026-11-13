@@ -34,6 +34,7 @@ const ORDER = {
     "labels",
     "difficulty",
     "created",
+    "started",
     "updated_at",
     "notes",
     "events",
@@ -102,6 +103,7 @@ function canonicalTask(task: Task): Obj {
       case "acceptance":
         return (value as Obj[]).map((a) => ordered(a, ORDER.acceptance));
       case "created":
+      case "started":
         return ordered(value as Obj, ORDER.created);
       case "notes":
         return (value as Obj[]).map((n) => ordered(n, ORDER.note));
