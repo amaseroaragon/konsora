@@ -74,7 +74,7 @@ export const es = {
     "Ese grupo aún tiene tareas (en él o con su prefijo en el id): elimínalas antes de quitarlo.",
   "templates.title": "Plantillas de tarea",
   "templates.text":
-    "Valores de partida para las tareas que se propongan con una plantilla: la descripción y la dificultad propias sustituyen a las suyas, sus criterios van antes que los propios y las etiquetas se suman.",
+    "Valores de partida para las tareas que se creen con una plantilla: la descripción propia sustituye a la suya, sus criterios van antes que los propios y las etiquetas se suman.",
   "templates.none": "El proyecto no tiene plantillas.",
   "templates.item": "Plantilla {n}",
   "templates.id": "Id de la plantilla {n}",
@@ -82,10 +82,8 @@ export const es = {
   "templates.desc": "Descripción base de la plantilla {n}",
   "templates.labels": "Etiquetas de la plantilla {n}",
   "templates.labels.hint": "Separadas por comas, en minúsculas.",
-  "templates.difficulty": "Dificultad de la plantilla {n}",
   "templates.criteria": "Criterios de aceptación",
   "templates.criterion.text": "Criterio {m} de la plantilla {n}",
-  "templates.criterion.check": "Check del criterio {m} (opcional)",
   "templates.criterion.remove": "Quitar el criterio {m} de la plantilla {n}",
   "templates.criterion.add": "Añadir criterio",
   "templates.up": "Subir la plantilla {n}",
@@ -100,13 +98,11 @@ export const es = {
   "templates.error.name": "Escribe un nombre de hasta {max} caracteres.",
   "templates.error.desc": "La descripción no puede pasar de {max} caracteres.",
   "templates.error.criterion": "Escribe el criterio, de hasta {max} caracteres.",
-  "templates.error.check": "El check no puede pasar de {max} caracteres.",
   "templates.error.criteria.many": "Una plantilla admite como mucho {max} criterios.",
   "templates.error.labels": "Revisa las etiquetas: minúsculas, números y guiones.",
   "templates.error.label": "«{label}» no vale como etiqueta: usa minúsculas, números y guiones.",
   "templates.error.label.twice": "La etiqueta «{label}» está repetida.",
   "templates.error.label.twice.server": "Hay una etiqueta repetida.",
-  "templates.error.difficulty": "Elige baja, media o alta, o ninguna.",
   "templates.error.many": "El proyecto admite como mucho {max} plantillas.",
   "templates.error.invalid": "Revisa este valor.",
   "templates.error.other": "No se pudieron guardar las plantillas: {message}",
@@ -480,7 +476,7 @@ export const es = {
   "chat.reset": "Empezar de nuevo",
   "chat.close": "Cerrar el panel de IA",
   "chat.intro":
-    "Cuéntale a Claude qué quieres conseguir. Te hará preguntas y creará las tareas en Por hacer, agrupando en bloques las que deban ir juntas en una rama. Usa tu sesión de Claude Code y solo puede planificar: no cambia código ni empieza tareas.",
+    "Cuéntale a Claude qué quieres conseguir. Te hará preguntas y creará las tareas en Por hacer, con sus dependencias. Usa tu sesión de Claude Code y solo puede planificar: no cambia código ni empieza tareas.",
   "chat.unavailable":
     "El panel de IA no está disponible en este daemon. Reinícialo con `konsora ui --restart`.",
   "chat.thinking": "Claude está pensando…",
@@ -499,7 +495,7 @@ export const es = {
   "app.view.history": "Historial",
   "history.title": "Historial",
   "history.text":
-    "Las tareas hechas y los bloques integrados, del más reciente al más antiguo. Pulsa una tarea para ver su detalle y su resumen de cierre.",
+    "Las tareas hechas, de la más reciente a la más antigua. Pulsa una tarea para ver su detalle y su resumen de cierre.",
   "history.empty":
     "Todavía no hay tareas hechas. Aparecerán aquí, con su fecha y hora, en cuanto se terminen.",
   "history.today": "Hoy",

@@ -20,7 +20,7 @@ export type FlagKind = "transition" | "created_approved" | "edited" | "deleted" 
 export type ExternalFlag = {
   task: string;
   kind: FlagKind;
-  /** Human-readable explanation, e.g. "review → done without your acceptance". */
+  /** Human-readable explanation, e.g. "todo → done without a new summary". */
   message: string;
   from?: string;
   to?: string;

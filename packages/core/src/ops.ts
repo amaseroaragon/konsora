@@ -198,7 +198,6 @@ export type OpErrorCode =
   | "blocked"
   | "conflict"
   | "summary_required"
-  | "feedback_required"
   | "text_required"
   | "not_waiting"
   | "unknown_template"

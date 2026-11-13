@@ -65,7 +65,8 @@ export type SessionScope = { plan?: boolean };
 
 /**
  * A planning session (`konsora plan`, the UI's AI panel) starts its MCP server with
- * KONSORA_PLAN=1: the agent may then only propose tasks and revise or withdraw proposals.
+ * KONSORA_PLAN=1: the agent may then only create tasks and revise, split or delete the ones
+ * nobody started.
  */
 export function sessionScope(env: NodeJS.ProcessEnv): SessionScope {
   return env.KONSORA_PLAN === "1" ? { plan: true } : {};

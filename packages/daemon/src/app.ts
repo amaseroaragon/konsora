@@ -73,7 +73,6 @@ const OP_STATUS: Record<string, 400 | 403 | 404 | 409 | 422> = {
   in_use: 409,
   not_waiting: 409,
   summary_required: 422,
-  feedback_required: 422,
   text_required: 422,
   invalid: 422,
 };

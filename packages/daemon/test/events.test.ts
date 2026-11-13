@@ -68,7 +68,13 @@ function client(headers: Record<string, string> = {}) {
       const queued = queue.findIndex((m) => m.type === type);
       if (queued >= 0) return resolve(queue.splice(queued, 1)[0] as Message);
       const timer = setTimeout(() => reject(new Error(`timeout waiting for ${type}`)), timeoutMs);
-      waiters.push({ type, resolve: (m) => (clearTimeout(timer), resolve(m)) });
+      waiters.push({
+        type,
+        resolve: (m) => {
+          clearTimeout(timer);
+          resolve(m);
+        },
+      });
     });
   const opened = new Promise<void>((resolve, reject) => {
     ws.once("open", () => resolve());

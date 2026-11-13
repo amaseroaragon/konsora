@@ -113,7 +113,7 @@ Ninguna de estas operaciones cambia tareas, así que no se pueden deshacer desde
 | `created` | `{at, by}` | sí | |
 | `started` | `{at, by}` | no | Quién empezó la tarea y cuándo (CORE-09). Lo pone `start`; `pause` y `reopen` lo quitan, porque ya nadie la tiene; `finish` lo conserva, así que una tarea hecha sigue diciendo quién la tomó. Lo escribe `core`, nunca quien llama. Se ve en `konsora status` (sección *Doing*), `konsora show`, la tarjeta y el panel. Una tarea empezada antes de que existiera el campo toma su último evento `start`, si lo tiene. |
 | `updated_at` | ISO-8601 UTC | sí | |
-| `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
+| `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas: ninguna operación las edita ni las borra (`edited` se conserva si un plan antiguo lo trae). |
 | `commits` | `string[]` | no | Los commits del trabajo (CORE-14): hashes de 7 a 40 caracteres hexadecimales en minúsculas, sin repetidos, de los más antiguos a los más recientes. Los pasa el agente al terminar (`finish --commit <sha>`, repetible; `commits` en el MCP) y se añaden a los que ya tuviera la tarea. Konsora **no ejecuta git**: solo guarda lo que recibe y no comprueba que existan. El panel los lista con un botón para copiarlos, `konsora show` los imprime y el Historial muestra su forma corta (y los incluye en el Markdown que copia). |
 | `events` | `TaskEvent[]` | no | Quién cambió la tarea, qué y cuándo (ver *Actividad*). Como mucho 50, de la más antigua a la más reciente. |
 
@@ -227,7 +227,7 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 
 **Escrituras de Konsora**
 
-1. Las mutaciones son **operaciones semánticas** (`approve BE-02`, `note BE-02 …`), no el reemplazo del documento entero.
+1. Las mutaciones son **operaciones semánticas** (`start BE-02`, `note BE-02 …`), no el reemplazo del documento entero.
 2. Se adquiere `.konsora/tasks.json.lock` con `O_EXCL`. El lock contiene `{pid, host, at}`, y solo se considera caducado si su PID no existe en el mismo host. **No hay caducidad por tiempo**, que es lo que provoca la pérdida de escrituras en Kanvas. Se espera un máximo de 5 s y, si no se consigue, se devuelve un error claro.
 3. Se lee el archivo, se valida y se aplica la operación con su **precondición por tarea**: el hash de la tarea que vio el cliente. Si esa tarea cambió → conflicto `409` con la versión actual. Si cambiaron otras tareas → la operación se aplica igualmente (es la "fusión por tarea", sin conflictos de archivo completo).
 4. Se valida el resultado y se serializa en forma canónica; se escribe en un temporal del mismo directorio, se hace `fsync` y `rename`, y luego `fsync` del directorio.

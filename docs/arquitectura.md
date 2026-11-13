@@ -42,7 +42,7 @@ schema/      tasks.v5.schema.json (generado desde core)
 docs/
 ```
 
-Dependencias permitidas entre capas: `web → (HTTP/WS) → daemon → core` y `cli → core`, más `cli → daemon` solo para que `konsora ui` localice y arranque el daemon, que además sirve la UI compilada fuera de `/api`. `core` no depende de nada del proyecto ni de procesos externos: el git del merge vive en el daemon, y la CLI solo lee la rama actual para la base por defecto de un bloque.
+Dependencias permitidas entre capas: `web → (HTTP/WS) → daemon → core` y `cli → core`, más `cli → daemon` solo para que `konsora ui` localice y arranque el daemon, que además sirve la UI compilada fuera de `/api`. `core` no depende de nada del proyecto ni de procesos externos, y ningún paquete ejecuta git (un test de `core` lo comprueba): los commits de una tarea solo se guardan si el agente los pasa al terminarla.
 
 ### Dependencias y por qué
 
@@ -95,11 +95,11 @@ La CLI y el MCP exponen las mismas operaciones de agente sobre `core`, con salid
 
 | Lectura | Escritura (agente) |
 |---|---|
-| `status`, `list [--state --group --ready --blocked --waiting]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` / `move` (tareas no hechas), `depend`, `delete` (lo que nadie empezó), `promote`, `demote`, `start`, `pause`, `note`, `ask`, `finish --summary` |
+| `status [--stale-after <h>]` (con las tareas en curso abandonadas y el progreso de los hitos), `list [--state --group --ready --blocked --waiting --difficulty]`, `show <id>`, `ready`, `blocked`, `check` | `propose [--idea --milestone]`, `batch` (JSON por stdin, todo o nada, con `idea: true` por tarea), `edit` / `undepend` / `move` (tareas no hechas), `depend`, `split` y `delete` (lo que nadie empezó), `promote`, `demote`, `start`, `pause`, `note`, `ask [--option]`, `finish --summary [--evidence ac=… --unmet ac=… --commit <sha>]`, `group add\|rename\|remove`, `milestone add\|edit\|remove` |
 
 Más comandos de la CLI: `init`, `skill`, `migrate`, `archive` (mueve las tareas hechas antiguas a `.konsora/archive.json`; ver `esquema-tareas.md` §7), `plan`, `ui` y `mcp`. Las acciones humanas **no** están en la CLI ni en el MCP.
 
-- **Sesión de planificación**: `konsora plan [objetivo] [--model …]` abre en la terminal una sesión interactiva de Claude Code con el prompt de entrevista de `core` y solo el MCP de Konsora con `KONSORA_PLAN=1` (`--strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>`). El panel de IA hace lo mismo en modo `-p`. En ese modo la regla de `core` (`OpContext.plan`) solo deja crear tareas, revisar, enlazar, pasar a `todo` o borrar las que nadie empezó; el resto da `out_of_scope`.
+- **Sesión de planificación**: `konsora plan [objetivo] [--model …]` abre en la terminal una sesión interactiva de Claude Code con el prompt de entrevista de `core` y solo el MCP de Konsora con `KONSORA_PLAN=1` (`--strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>`). El panel de IA hace lo mismo en modo `-p`. En ese modo la regla de `core` (`OpContext.plan`) solo deja crear tareas, revisar, reordenar, dividir, enlazar, pasar a `todo` o devolver a idea y borrar las que nadie empezó; el resto da `out_of_scope`.
 - **Sesión normal**: el agente usa `konsora` o el MCP de `.mcp.json`, que funcionan sin daemon, y sigue la skill.
 - Los mensajes de la CLI y el MCP están en inglés y los errores son accionables: `Error: BE-03 is blocked by BE-02. Pick another task with konsora ready…`.
 

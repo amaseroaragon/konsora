@@ -39,9 +39,9 @@ const GUIDE =
 function instructions(env: NodeJS.ProcessEnv): string {
   if (!sessionScope(env).plan) return GUIDE;
   return (
-    `${GUIDE}\n\nThis is a planning session: interview the human, then propose tasks with ` +
-    `propose or batch. You may revise or withdraw proposals with edit and withdraw; every ` +
-    `other write is refused, and nothing is started.`
+    `${GUIDE}\n\nThis is a planning session: interview the human, then create tasks with ` +
+    `propose or batch. You may revise, reorder, split, link, promote, demote or delete tasks ` +
+    `nobody started; every other write is refused, and nothing is started.`
   );
 }
 

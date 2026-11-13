@@ -10,7 +10,7 @@
  * - `board.changed` {project, hash, changes: {added, removed, modified}, external}
  * - `board.invalid` {project, message, issues}
  * - `board.missing` {project}
- * - `permission.requested` / `permission.resolved` {project, run, approval} (MCP-04)
+ * - `chat.updated` {project, chat}: the AI panel's chat of the project (DMN-04)
  * - `limits.updated` {limits}: to every authenticated client, subscribed or not (DMN-06)
  */
 import type { IncomingMessage } from "node:http";
@@ -215,7 +215,7 @@ export class EventHub {
     }
   }
 
-  /** Sends an event (e.g. `permission.requested`) to every client subscribed to the project. */
+  /** Sends an event (e.g. `chat.updated`) to every client subscribed to the project. */
   publish(projectId: string, payload: unknown) {
     for (const client of this.feeds.get(projectId)?.clients ?? []) send(client, payload);
   }
