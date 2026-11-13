@@ -2808,12 +2808,12 @@
     {
       "id": "UI-16",
       "title": "Ampliar el Historial a todos los cambios del plan",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "deps": [
         "CORE-17"
       ],
-      "rank": "zzzzzzzzi",
+      "rank": "zzzzzn",
       "desc": "Idea del roadmap. El Historial solo enseña cierres. Con el registro de actividad, mostrar también las tareas creadas, promovidas, empezadas, pausadas, reabiertas y eliminadas, con quién hizo cada cosa, y poder quedarse solo con los cierres.",
       "acceptance": [
         {
@@ -2836,7 +2836,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:05Z"
+      "started": {
+        "at": "2026-11-13T16:53:52Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:02:55Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:53:52Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Historial con dos modos: todos los cambios (planActivity de core) o solo cierres (la vista actual). Agrupado por día, con actor y tipo; enlace a la tarea salvo si está eliminada."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:02:55Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "El Historial lista todos los cambios del plan (planActivity) por día, con quién y qué, y un conmutador «Todos los cambios / Solo cierres» que se recuerda.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "activity.test.tsx: cambios agrupados por día con tipo («Editada: título, dependencias», «Empezada»…) y actor; en Chrome, «Hoy 63 cambios»"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "activity.test.tsx: «Solo cierres» muestra la vista de antes; los tests de cierres fijan ese modo"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "activity.test.tsx: cada cambio enlaza al panel de su tarea; la eliminada muestra id y título tachados, sin enlace"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "e254d81"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T16:53:52Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:02:55Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "UI-17",
@@ -2887,12 +2939,12 @@
     {
       "id": "UI-18",
       "title": "Vista de actividad: ritmo de cierres y tiempo en curso",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "deps": [
         "CORE-17"
       ],
-      "rank": "zzzzzzzzv",
+      "rank": "zzzzzni",
       "desc": "No hay ninguna medida de cómo avanza el plan. Una vista pequeña con los cierres por día y por agente, el tiempo medio que pasa una tarea en curso y cuántas se reabren, sin estimaciones ni objetivos (siguen fuera de alcance).",
       "acceptance": [
         {
@@ -2915,7 +2967,60 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:18Z"
+      "started": {
+        "at": "2026-11-13T16:55:52Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:02:55Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:55:52Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Cálculos en core (activityStats: cierres por día y agente en las últimas semanas, tiempo medio de start a finish y reabiertas) y una vista Actividad en la web, en vivo con el tablero."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:02:55Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Vista Actividad: cierres por día de las últimas 4 semanas apilados por quién cerró, tiempo medio en curso y reabiertas; cálculos en core (activityStats).",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "stats.test.tsx: 28 barras apiladas por agente con leyenda, tooltip y tabla; en Chrome se ve en claro y oscuro"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "stats.test.ts en core: tiempo medio de start a finish (reinicia tras pausa o reapertura) y tareas reabiertas en la ventana; la vista lo muestra en sus tres indicadores"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "activityStats vive en core con 5 tests (ventana, agentes, ciclo, archivo, zona horaria); la vista sale del tablero en vivo, así que se actualiza sola"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "0f05444",
+        "ee47661"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T16:55:52Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:02:55Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "UI-19",
@@ -3390,9 +3495,9 @@
     {
       "id": "UI-30",
       "title": "Selector de tema claro, oscuro o del sistema",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
-      "rank": "zzzzzzzzzzzr",
+      "rank": "zzzzzo",
       "desc": "El tema sigue al sistema operativo y solo se puede forzar con `?theme=` en la URL, pensado para capturas. Añadir un selector visible y recordar la elección.",
       "acceptance": [
         {
@@ -3411,7 +3516,54 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:43:03Z"
+      "started": {
+        "at": "2026-11-13T16:58:49Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:02:56Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:58:49Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Selector Claro/Oscuro/Sistema en la cabecera, aplicado sin recargar y recordado en localStorage; un script temprano en index.html pone data-theme antes de pintar."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:02:56Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Selector Claro / Oscuro / Sistema en la cabecera, aplicado al momento y recordado; public/theme.js lo aplica antes del primer pintado.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "theme.test.tsx y Chrome: al pulsar Oscuro, data-theme=dark y el fondo cambia sin recargar; Sistema lo quita"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "theme.test.tsx ejecuta public/theme.js en un sandbox; en Chrome, tras recargar con Oscuro guardado, theme.js se carga y data-theme ya es dark"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "24945d2"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T16:58:49Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:02:56Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "UI-31",
@@ -3446,9 +3598,9 @@
     {
       "id": "UI-32",
       "title": "Acotar las celdas largas del tablero y plegar carriles",
-      "state": "proposed",
+      "state": "done",
       "group": "UI",
-      "rank": "zzzzzzzzzzzzx",
+      "rank": "zzzzzm",
       "desc": "Cuando una celda del tablero (un estado dentro de un carril de grupo) acumula muchas tarjetas, hay que bajar con scroll hasta pasarlas todas para ver el carril siguiente. Hoy solo se pueden plegar columnas enteras (UI-19) y acotar la columna Hecho por fecha, pero nada limita Ideas, Por hacer o En curso.\n\n**Propuesta**: cada celda muestra como mucho N tarjetas (8 por defecto), las primeras según `rank`, y al final un botón «Ver N más» que la despliega entera; desplegada, «Ver menos» la recoge. Además, cada carril de grupo se puede plegar a su cabecera (con el número de tareas por estado), como ya se pliegan las columnas. Lo desplegado y lo plegado se recuerdan por navegador (`localStorage`), igual que las columnas plegadas.\n\n**Alternativas descartadas**:\n- Scroll interno por celda (altura máxima): un scroll dentro de otro scroll en un tablero con arrastrar y soltar es incómodo, y con dnd-kit el autoscroll entre contenedores falla con facilidad.\n- Paginar la columna: rompe el orden visual por `rank`, que es el que sigue `konsora ready`.\n- Solo una vista compacta de tarjetas: ayuda, pero no limita la altura; puede ser otra idea aparte.\n\n**A tener en cuenta**:\n- Si la tarea abierta en el panel (`?task=`) o una tarjeta seleccionada está entre las ocultas, su celda se despliega sola.\n- Con un filtro activo, el límite se aplica a lo que queda tras filtrar.\n- Arrastrar a una celda recogida sigue funcionando (se suelta en la celda); para reordenar respecto a una tarjeta oculta, primero se despliega.\n- Solo es presentación en `packages/web`: no cambia el plan ni `core`.",
       "acceptance": [
         {
@@ -3481,7 +3633,58 @@
         "at": "2026-11-13T16:47:57Z",
         "by": "human"
       },
-      "updated_at": "2026-11-13T16:48:53Z",
+      "started": {
+        "at": "2026-11-13T16:52:06Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:02:55Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T16:52:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Límite de 8 tarjetas por celda con Ver N más / Ver menos y carriles plegables, recordados en localStorage; la celda con la tarea abierta o seleccionada se despliega sola."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:02:55Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Celdas del tablero limitadas a 8 tarjetas con «Ver N más» / «Ver menos» y carriles de grupo plegables, recordados por proyecto en el navegador.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "board-cells.test.tsx: 8 primeras por rank, «Ver 4 más» y «Ver menos» al desplegar"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "board-cells.test.tsx: botón de plegar en la cabecera del carril y el número de tareas por estado al plegarlo"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "board-cells.test.tsx: se recuerdan (localStorage por proyecto) y todo funciona sin localStorage; en Chrome, el carril plegado sigue plegado tras recargar"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "board-cells.test.tsx: la celda se despliega sola con la tarea abierta o una seleccionada entre las ocultas"
+            },
+            {
+              "ac": "ac5",
+              "met": true,
+              "text": "Chrome headless: arrastrar una idea a la celda recogida de Por hacer la promovió; el botón es un <button> que recibe el foco y Enter despliega y recoge sin perderlo (arreglado en ee47661)"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "54e176f",
+        "ee47661"
+      ],
       "events": [
         {
           "at": "2026-11-13T16:48:53Z",
@@ -3494,6 +3697,21 @@
             "labels",
             "difficulty"
           ]
+        },
+        {
+          "at": "2026-11-13T16:51:12Z",
+          "by": "human",
+          "type": "promote"
+        },
+        {
+          "at": "2026-11-13T16:52:06Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:02:55Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     }
