@@ -32,8 +32,11 @@ import { t } from "../i18n/index.ts";
 import { cx } from "../ui/cx.ts";
 import { DifficultyMark, StateBadge, stateLabel } from "../ui/index.ts";
 import {
+  chainOf,
   elkInput,
+  type GroupBox,
   graphEdges,
+  groupBoxesOf,
   initialViewport,
   type LayoutTask,
   layoutKey,
@@ -55,19 +58,21 @@ import {
 } from "./graph-nav.ts";
 import { isSelectable } from "./selection.ts";
 
-type Layout = { key: string; positions: Positions; ms: number } | { key: string; error: string };
+type Layout =
+  | { key: string; positions: Positions; boxes: GroupBox[]; ms: number }
+  | { key: string; error: string };
 
 /**
  * Lays the DAG out with ELK in its own web worker (so a large plan never freezes the page), and
  * again only when tasks or dependencies change. Until a newer layout arrives the last one stays.
  */
-function useGraphLayout(tasks: readonly LayoutTask[]): Layout | null {
-  const key = layoutKey(tasks);
+function useGraphLayout(tasks: readonly LayoutTask[], grouped: boolean): Layout | null {
+  const key = layoutKey(tasks, grouped);
   const [layout, setLayout] = useState<Layout | null>(null);
   const elk = useRef<ELK | null>(null);
   const latest = useRef(0);
-  const input = useRef(tasks);
-  input.current = tasks;
+  const input = useRef({ tasks, grouped });
+  input.current = { tasks, grouped };
   useEffect(() => {
     const instance = new Elk({ workerUrl: elkWorkerUrl });
     elk.current = instance;
@@ -81,10 +86,15 @@ function useGraphLayout(tasks: readonly LayoutTask[]): Layout | null {
     if (!instance) return;
     const id = ++latest.current;
     const started = performance.now();
-    instance.layout(elkInput(input.current)).then(
+    instance.layout(elkInput(input.current.tasks, input.current.grouped)).then(
       (result) => {
         if (id === latest.current)
-          setLayout({ key, positions: positionsOf(result), ms: performance.now() - started });
+          setLayout({
+            key,
+            positions: positionsOf(result),
+            boxes: groupBoxesOf(result),
+            ms: performance.now() - started,
+          });
       },
       (error: unknown) => {
         if (id === latest.current) setLayout({ key, error: String(error) });
@@ -105,6 +115,8 @@ type TaskNodeData = {
   describedBy: string;
   selected: boolean;
   selectable: boolean;
+  /** Outside the open task's chain (UI-24): drawn faded. */
+  dimmed: boolean;
   onOpen: (id: string) => void;
   onToggle: (id: string) => void;
   onSelectWithDeps: (id: string) => void;
@@ -122,6 +134,7 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
     describedBy,
     selected,
     selectable,
+    dimmed,
     onOpen,
     onToggle,
     onSelectWithDeps,
@@ -129,7 +142,12 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
   const tone = nodeTone(task);
   return (
     <div
-      className={cx("g-node", open && "g-node--open", selected && "g-node--selected")}
+      className={cx(
+        "g-node",
+        open && "g-node--open",
+        selected && "g-node--selected",
+        dimmed && "g-node--dim",
+      )}
       style={{ ...nodeStyle(tone), width: NODE_W, height: NODE_H } as CSSProperties}
     >
       <Handle type="target" position={Position.Left} isConnectable={false} />
@@ -175,7 +193,19 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
   );
 });
 
-const nodeTypes = { task: TaskNodeView };
+type GroupNodeData = { label: string };
+type GroupNode = Node<GroupNodeData, "group-box">;
+
+/** A group's frame behind its tasks when the graph is grouped (UI-24); never interactive. */
+const GroupNodeView = memo(function GroupNodeView({ data }: NodeProps<GroupNode>) {
+  return (
+    <div className="g-group">
+      <span className="g-group__name">{data.label}</span>
+    </div>
+  );
+});
+
+const nodeTypes = { task: TaskNodeView, "group-box": GroupNodeView };
 
 const ariaLabels = (): Partial<AriaLabelConfig> => ({
   "node.a11yDescription.default": t("graph.a11y.node"),
@@ -190,6 +220,9 @@ const ariaLabels = (): Partial<AriaLabelConfig> => ({
 export type GraphProps = {
   label: string;
   tasks: readonly BoardTask[];
+  /** Lay the tasks out inside a frame per group (UI-24). */
+  grouped: boolean;
+  groups: readonly { id: string; name: string }[];
   external: ReadonlySet<string>;
   openId: string | null;
   onOpen: (id: string) => void;
@@ -201,6 +234,8 @@ export type GraphProps = {
 function GraphCanvas({
   label,
   tasks,
+  grouped,
+  groups,
   external,
   openId,
   onOpen,
@@ -208,13 +243,15 @@ function GraphCanvas({
   onToggle,
   onSelectWithDeps,
 }: GraphProps) {
-  const layout = useGraphLayout(tasks);
+  const layout = useGraphLayout(tasks, grouped);
   const flow = useReactFlow();
   const fitted = useRef(false);
   const mounted = useRef(performance.now());
   const [drawnMs, setDrawnMs] = useState<number | null>(null);
 
   const positions = layout && "positions" in layout ? layout.positions : null;
+  const boxes = layout && "boxes" in layout ? layout.boxes : null;
+  const chain = useMemo(() => chainOf(tasks, openId), [tasks, openId]);
   const nav = useMemo(() => (positions ? navGraph(tasks, positions) : null), [tasks, positions]);
   const instructionsId = useId();
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -224,9 +261,24 @@ function GraphCanvas({
       ? focusId
       : entryNode(nav, openId)
     : null;
-  const nodes = useMemo<TaskNode[]>(() => {
+  const nodes = useMemo<(TaskNode | GroupNode)[]>(() => {
     if (!positions || !nav) return [];
-    return tasks.flatMap((task) => {
+    const frames: GroupNode[] = (boxes ?? []).map((box) => ({
+      id: `group:${box.group}`,
+      type: "group-box" as const,
+      position: { x: box.x, y: box.y },
+      width: box.width,
+      height: box.height,
+      selectable: false,
+      draggable: false,
+      connectable: false,
+      focusable: false,
+      zIndex: -1,
+      data: {
+        label: `${box.group} · ${groups.find((g) => g.id === box.group)?.name ?? box.group}`,
+      },
+    }));
+    const taskNodes = tasks.flatMap((task) => {
       const position = positions[task.id];
       if (!position) return [];
       return [
@@ -245,6 +297,7 @@ function GraphCanvas({
             describedBy: instructionsId,
             selected: selected.has(task.id),
             selectable: isSelectable(task),
+            dimmed: chain !== null && !chain.nodes.has(task.id),
             onOpen,
             onToggle,
             onSelectWithDeps,
@@ -252,9 +305,13 @@ function GraphCanvas({
         },
       ];
     });
+    return [...frames, ...taskNodes];
   }, [
     tasks,
     positions,
+    boxes,
+    groups,
+    chain,
     nav,
     external,
     openId,
@@ -269,16 +326,22 @@ function GraphCanvas({
     const state = new Map(tasks.map((task) => [task.id, task.state]));
     return graphEdges(tasks).map((edge) => {
       const done = state.get(edge.from) === "done";
+      const inChain = chain?.edges.has(edge.id);
       return {
         id: edge.id,
         source: edge.from,
         target: edge.to,
-        className: cx("g-edge", done && "g-edge--done"),
+        className: cx(
+          "g-edge",
+          done && "g-edge--done",
+          inChain && "g-edge--chain",
+          chain && !inChain && "g-edge--dim",
+        ),
         markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
         focusable: false,
       };
     });
-  }, [tasks]);
+  }, [tasks, chain]);
 
   // Place the view once, when the first layout is on screen; later updates keep the human's.
   const section = useRef<HTMLElement>(null);

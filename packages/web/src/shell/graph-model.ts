@@ -9,16 +9,30 @@ export const NODE_W = 232;
 export const NODE_H = 76;
 
 /** What the layout needs from a task: nothing else moves a node. */
-export type LayoutTask = { id: string; deps?: readonly string[] | undefined };
+export type LayoutTask = { id: string; deps?: readonly string[] | undefined; group?: string };
 export type Point = { x: number; y: number };
 export type Positions = Record<string, Point>;
+/** A group's frame when the graph is grouped (UI-24): top-left, size, absolute. */
+export type GroupBox = { group: string; x: number; y: number; width: number; height: number };
 
+type ElkNode = {
+  id: string;
+  width?: number;
+  height?: number;
+  layoutOptions?: Record<string, string>;
+  children?: ElkNode[];
+};
 export type ElkInput = {
   id: string;
   layoutOptions: Record<string, string>;
-  children: { id: string; width: number; height: number }[];
+  children: ElkNode[];
   edges: { id: string; sources: string[]; targets: string[] }[];
 };
+
+/** Prefix of a group's compound node, never a task id (ids are `GROUP-NN`). */
+export const GROUP_NODE = "group:";
+/** Room inside a group's frame; the top one holds its name. */
+const GROUP_PADDING = "[top=36,left=16,bottom=16,right=16]";
 
 /** Layered left-to-right: a task sits to the right of everything it depends on. */
 export const ELK_OPTIONS: Record<string, string> = {
@@ -44,31 +58,118 @@ export function graphEdges(
   );
 }
 
-export function elkInput(tasks: readonly LayoutTask[]): ElkInput {
+/**
+ * The ELK graph. Grouped (UI-24), each group is a compound node holding its tasks, in the order
+ * groups first appear; edges cross groups, so ELK lays out the whole hierarchy at once.
+ */
+export function elkInput(tasks: readonly LayoutTask[], grouped = false): ElkInput {
+  const node = (task: LayoutTask): ElkNode => ({ id: task.id, width: NODE_W, height: NODE_H });
+  const edges = graphEdges(tasks).map((edge) => ({
+    id: edge.id,
+    sources: [edge.from],
+    targets: [edge.to],
+  }));
+  if (!grouped) return { id: "root", layoutOptions: ELK_OPTIONS, children: tasks.map(node), edges };
+  const groups = new Map<string, ElkNode[]>();
+  for (const task of tasks) {
+    const group = task.group ?? "";
+    groups.set(group, [...(groups.get(group) ?? []), node(task)]);
+  }
   return {
     id: "root",
-    layoutOptions: ELK_OPTIONS,
-    children: tasks.map((task) => ({ id: task.id, width: NODE_W, height: NODE_H })),
-    edges: graphEdges(tasks).map((edge) => ({
-      id: edge.id,
-      sources: [edge.from],
-      targets: [edge.to],
+    layoutOptions: { ...ELK_OPTIONS, "elk.hierarchyHandling": "INCLUDE_CHILDREN" },
+    children: [...groups].map(([group, children]) => ({
+      id: `${GROUP_NODE}${group}`,
+      layoutOptions: { "elk.padding": GROUP_PADDING },
+      children,
     })),
+    edges,
   };
 }
 
-/** Changes only when tasks or dependencies do: a state change recolors without re-layout. */
-export function layoutKey(tasks: readonly LayoutTask[]): string {
-  return tasks.map((task) => `${task.id}<${(task.deps ?? []).join(",")}`).join("|");
+/** Changes only when tasks, dependencies or grouping do: a state change recolors in place. */
+export function layoutKey(tasks: readonly LayoutTask[], grouped = false): string {
+  const key = tasks.map((task) => `${task.id}<${(task.deps ?? []).join(",")}`);
+  return grouped
+    ? `grouped|${tasks.map((task, i) => `${key[i]}@${task.group ?? ""}`).join("|")}`
+    : key.join("|");
 }
 
-/** ELK's result → top-left positions by task id. */
-export function positionsOf(result: {
-  children?: { id: string; x?: number; y?: number }[];
-}): Positions {
+type ElkResult = {
+  id?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  children?: ElkResult[];
+};
+
+/** ELK's result → absolute top-left positions by task id (group frames left out). */
+export function positionsOf(result: ElkResult): Positions {
   const out: Positions = {};
-  for (const child of result.children ?? []) out[child.id] = { x: child.x ?? 0, y: child.y ?? 0 };
+  const walk = (node: ElkResult, dx: number, dy: number) => {
+    for (const child of node.children ?? []) {
+      const x = dx + (child.x ?? 0);
+      const y = dy + (child.y ?? 0);
+      if (child.id?.startsWith(GROUP_NODE)) walk(child, x, y);
+      else if (child.id) out[child.id] = { x, y };
+    }
+  };
+  walk(result, 0, 0);
   return out;
+}
+
+/** The group frames of a grouped layout; empty when it is not grouped. */
+export function groupBoxesOf(result: ElkResult): GroupBox[] {
+  return (result.children ?? [])
+    .filter((child) => child.id?.startsWith(GROUP_NODE))
+    .map((child) => ({
+      group: (child.id ?? "").slice(GROUP_NODE.length),
+      x: child.x ?? 0,
+      y: child.y ?? 0,
+      width: child.width ?? 0,
+      height: child.height ?? 0,
+    }));
+}
+
+/**
+ * The chain of an open task (UI-24): the task, everything it needs and everything it unblocks,
+ * transitively, plus the edges along it (between two of its dependencies, or two of its
+ * dependents, or to and from the task). Null when nothing is open.
+ */
+export function chainOf(
+  tasks: readonly LayoutTask[],
+  id: string | null,
+): { nodes: Set<string>; edges: Set<string> } | null {
+  if (!id || !tasks.some((task) => task.id === id)) return null;
+  const edges = graphEdges(tasks);
+  const reach = (start: string, next: (from: string) => string[]) => {
+    const seen = new Set<string>();
+    const stack = next(start);
+    while (stack.length > 0) {
+      const current = stack.pop() as string;
+      if (current === start || seen.has(current)) continue;
+      seen.add(current);
+      stack.push(...next(current));
+    }
+    return seen;
+  };
+  const up = reach(id, (from) => edges.filter((e) => e.to === from).map((e) => e.from));
+  const down = reach(id, (from) => edges.filter((e) => e.from === from).map((e) => e.to));
+  const upside = new Set([...up, id]);
+  const downside = new Set([...down, id]);
+  return {
+    nodes: new Set([id, ...up, ...down]),
+    edges: new Set(
+      edges
+        .filter(
+          (e) =>
+            (upside.has(e.from) && upside.has(e.to)) ||
+            (downside.has(e.from) && downside.has(e.to)),
+        )
+        .map((e) => e.id),
+    ),
+  };
 }
 
 /** A node's look: its stored state, or "blocked" for a todo still waiting on dependencies. */

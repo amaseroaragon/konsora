@@ -2,10 +2,13 @@ import { readFileSync } from "node:fs";
 import ELK from "elkjs/lib/elk.bundled.js";
 import { describe, expect, it } from "vitest";
 import {
+  chainOf,
   elkInput,
   graphEdges,
+  groupBoxesOf,
   layoutKey,
   NODE_COLORS,
+  NODE_H,
   NODE_W,
   nodeStyle,
   nodeTone,
@@ -76,4 +79,52 @@ describe("graph layout", () => {
     }
     // Timing is measured in the browser and recorded in the commit (ac1), not asserted here.
   }, 20_000);
+});
+
+describe("graph chain and grouping (UI-24)", () => {
+  // A → B → C, D → B, E alone; F depends on A only.
+  const plan = [
+    { id: "A", group: "BE" },
+    { id: "B", deps: ["A", "D"], group: "BE" },
+    { id: "C", deps: ["B"], group: "FE" },
+    { id: "D", group: "FE" },
+    { id: "E", group: "FE" },
+    { id: "F", deps: ["A"], group: "BE" },
+  ];
+
+  it("the chain of a task is what it needs and what it unblocks, transitively (ac2)", () => {
+    const chain = chainOf(plan, "B");
+    expect([...(chain?.nodes ?? [])].sort()).toEqual(["A", "B", "C", "D"]);
+    // A → F is not on B's chain: F neither needs B nor is needed by it.
+    expect([...(chain?.edges ?? [])].sort()).toEqual(["A->B", "B->C", "D->B"]);
+    expect(chainOf(plan, null)).toBeNull();
+    expect(chainOf(plan, "GONE")).toBeNull();
+  });
+
+  it("grouping changes the layout key, and only then the groups matter", () => {
+    expect(layoutKey(plan, true)).not.toBe(layoutKey(plan));
+    const moved = plan.map((task) => (task.id === "E" ? { ...task, group: "BE" } : task));
+    expect(layoutKey(moved)).toBe(layoutKey(plan));
+    expect(layoutKey(moved, true)).not.toBe(layoutKey(plan, true));
+  });
+
+  it("lays each group out in its own frame, with every task inside its group's (ac3)", async () => {
+    const result = await new ELK().layout(elkInput(plan, true));
+    const positions = positionsOf(result);
+    const boxes = groupBoxesOf(result);
+    expect(Object.keys(positions).sort()).toEqual(["A", "B", "C", "D", "E", "F"]);
+    expect(boxes.map((box) => box.group).sort()).toEqual(["BE", "FE"]);
+    for (const task of plan) {
+      const box = boxes.find((b) => b.group === task.group);
+      const at = positions[task.id];
+      expect(box && at, task.id).toBeTruthy();
+      if (!box || !at) continue;
+      expect(at.x).toBeGreaterThanOrEqual(box.x);
+      expect(at.y).toBeGreaterThanOrEqual(box.y);
+      expect(at.x + NODE_W).toBeLessThanOrEqual(box.x + box.width);
+      expect(at.y + NODE_H).toBeLessThanOrEqual(box.y + box.height);
+    }
+    // Ungrouped, there are no frames.
+    expect(groupBoxesOf(await new ELK().layout(elkInput(plan)))).toEqual([]);
+  });
 });

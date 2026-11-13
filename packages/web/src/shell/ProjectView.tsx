@@ -63,6 +63,26 @@ function writeLanesPref(on: boolean) {
   }
 }
 
+/** The graph's view preferences (UI-24): hide done work, frame tasks by group. */
+const GRAPH_DONE_KEY = "konsora.graph.hideDone";
+const GRAPH_GROUPS_KEY = "konsora.graph.grouped";
+
+function readFlag(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    window.localStorage.setItem(key, on ? "on" : "off");
+  } catch {
+    // Not persisted; the toggle still works for this page.
+  }
+}
+
 const CHAT_KEY = "konsora.chat.open";
 
 function readChatPref(): boolean {
@@ -132,6 +152,12 @@ export function ProjectView({
     [board.tasks, visible],
   );
   const [swimlanes, setSwimlanes] = useState(readLanesPref);
+  const [hideDone, setHideDone] = useState(() => readFlag(GRAPH_DONE_KEY));
+  const [graphGrouped, setGraphGrouped] = useState(() => readFlag(GRAPH_GROUPS_KEY));
+  const graphTasks = useMemo(
+    () => (hideDone ? shownTasks.filter((task) => task.state !== "done") : shownTasks),
+    [shownTasks, hideDone],
+  );
   const [doneDays, setDoneDays] = useState<DoneWindow>(readDoneWindow);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
   const openedLive = openId ? board.tasks.find((task) => task.id === openId) : undefined;
@@ -310,6 +336,34 @@ export function ProjectView({
             }))}
           />
         )}
+        {view === "graph" && (
+          <Segmented
+            label={t("graph.done")}
+            value={hideDone ? "hide" : "show"}
+            onChange={(value) => {
+              setHideDone(value === "hide");
+              writeFlag(GRAPH_DONE_KEY, value === "hide");
+            }}
+            options={[
+              { value: "show", label: t("graph.done.show") },
+              { value: "hide", label: t("graph.done.hide") },
+            ]}
+          />
+        )}
+        {view === "graph" && (
+          <Segmented
+            label={t("graph.grouping")}
+            value={graphGrouped ? "groups" : "none"}
+            onChange={(value) => {
+              setGraphGrouped(value === "groups");
+              writeFlag(GRAPH_GROUPS_KEY, value === "groups");
+            }}
+            options={[
+              { value: "groups", label: t("board.lanes.groups") },
+              { value: "none", label: t("board.lanes.none") },
+            ]}
+          />
+        )}
         {!readOnly && (
           <Button
             size="sm"
@@ -369,10 +423,14 @@ export function ProjectView({
               <p className="s-text s-muted">{t("board.empty")}</p>
             ) : shownTasks.length === 0 ? (
               <p className="s-text s-muted">{t("filter.none")}</p>
+            ) : view === "graph" && graphTasks.length === 0 ? (
+              <p className="s-text s-muted">{t("graph.done.allHidden")}</p>
             ) : view === "graph" ? (
               <Graph
                 label={t("graph.label", { name: board.project.name })}
-                tasks={shownTasks}
+                tasks={graphTasks}
+                grouped={graphGrouped}
+                groups={board.plan.groups}
                 external={flagged}
                 openId={opened ? opened.id : null}
                 onOpen={open}

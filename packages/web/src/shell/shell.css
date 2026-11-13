@@ -419,6 +419,39 @@
   /* biome-ignore lint/complexity/noImportantStyles: only !important beats React Flow's inline style. */
   pointer-events: all !important;
 }
+/* Group frames (UI-24) sit behind the tasks and never take the pointer: the canvas pans. */
+.g-graph .react-flow__node.react-flow__node-group-box {
+  /* biome-ignore lint/complexity/noImportantStyles: it must beat the rule above. */
+  pointer-events: none !important;
+}
+.g-group {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--k-line);
+  background: var(--k-bg);
+}
+.g-group__name {
+  display: block;
+  padding: var(--k-space-3) var(--k-space-5);
+  color: var(--k-ink-muted);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* The open task's chain (UI-24): the rest fades, the chain's edges are drawn solid. */
+.g-node--dim {
+  opacity: 0.35;
+}
+.g-edge--dim {
+  opacity: 0.25;
+}
+.g-edge--chain .react-flow__edge-path {
+  stroke: var(--k-accent);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
 .g-node {
   position: relative;
   box-sizing: border-box;
