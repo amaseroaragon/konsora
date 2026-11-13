@@ -7,9 +7,11 @@ import {
   graphEdges,
   groupBoxesOf,
   layoutKey,
+  linkFromDrag,
   NODE_COLORS,
   NODE_H,
   NODE_W,
+  nextDependencyEdge,
   nodeStyle,
   nodeTone,
   positionsOf,
@@ -126,5 +128,29 @@ describe("graph chain and grouping (UI-24)", () => {
     }
     // Ungrouped, there are no frames.
     expect(groupBoxesOf(await new ELK().layout(elkInput(plan)))).toEqual([]);
+  });
+});
+
+describe("editing dependencies from the graph (UI-23)", () => {
+  it("a drag from the right handle makes the target depend on the source, and vice versa (ac1)", () => {
+    expect(linkFromDrag("A", "source", "B")).toEqual({ task: "B", on: "A" });
+    expect(linkFromDrag("B", "target", "A")).toEqual({ task: "B", on: "A" });
+    expect(linkFromDrag("A", "source", "A")).toBeNull();
+    expect(linkFromDrag("A", "source", null)).toBeNull();
+    expect(linkFromDrag("A", "source", "group:BE")).toBeNull();
+  });
+
+  it("D walks a task's dependencies one after another, cycling (ac2)", () => {
+    expect(nextDependencyEdge("C", [], null)).toBeNull();
+    const first = nextDependencyEdge("C", ["A", "B"], null);
+    expect(first).toEqual({ task: "C", on: "A" });
+    const second = nextDependencyEdge("C", ["A", "B"], first);
+    expect(second).toEqual({ task: "C", on: "B" });
+    expect(nextDependencyEdge("C", ["A", "B"], second)).toEqual({ task: "C", on: "A" });
+    // A selection on another task starts over.
+    expect(nextDependencyEdge("C", ["A", "B"], { task: "X", on: "B" })).toEqual({
+      task: "C",
+      on: "A",
+    });
   });
 });

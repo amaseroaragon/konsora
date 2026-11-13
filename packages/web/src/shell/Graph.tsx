@@ -30,18 +30,22 @@ import {
 import type { BoardTask } from "../api/board.ts";
 import { t } from "../i18n/index.ts";
 import { cx } from "../ui/cx.ts";
-import { DifficultyMark, StateBadge, stateLabel } from "../ui/index.ts";
+import { Button, DifficultyMark, StateBadge, stateLabel } from "../ui/index.ts";
 import {
   chainOf,
+  edgeId,
   elkInput,
   type GroupBox,
   graphEdges,
   groupBoxesOf,
   initialViewport,
   type LayoutTask,
+  type Link,
   layoutKey,
+  linkFromDrag,
   NODE_H,
   NODE_W,
+  nextDependencyEdge,
   nodeStyle,
   nodeTone,
   type Positions,
@@ -117,6 +121,8 @@ type TaskNodeData = {
   selectable: boolean;
   /** Outside the open task's chain (UI-24): drawn faded. */
   dimmed: boolean;
+  /** Its handles start or end a new dependency (UI-23). */
+  connectable: boolean;
   onOpen: (id: string) => void;
   onToggle: (id: string) => void;
   onSelectWithDeps: (id: string) => void;
@@ -135,6 +141,7 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
     selected,
     selectable,
     dimmed,
+    connectable,
     onOpen,
     onToggle,
     onSelectWithDeps,
@@ -150,7 +157,13 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
       )}
       style={{ ...nodeStyle(tone), width: NODE_W, height: NODE_H } as CSSProperties}
     >
-      <Handle type="target" position={Position.Left} isConnectable={false} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        isConnectable={connectable}
+        className={cx(connectable && "g-handle")}
+        aria-label={connectable ? t("graph.link.handle.in", { id: task.id }) : undefined}
+      />
       {selectable && (
         <input
           type="checkbox"
@@ -188,7 +201,13 @@ const TaskNodeView = memo(function TaskNodeView({ data }: NodeProps<TaskNode>) {
           {external && <StateBadge kind="external" />}
         </span>
       )}
-      <Handle type="source" position={Position.Right} isConnectable={false} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        isConnectable={connectable}
+        className={cx(connectable && "g-handle")}
+        aria-label={connectable ? t("graph.link.handle.out", { id: task.id }) : undefined}
+      />
     </div>
   );
 });
@@ -229,6 +248,10 @@ export type GraphProps = {
   selected: ReadonlySet<string>;
   onToggle: (id: string) => void;
   onSelectWithDeps: (id: string) => void;
+  /** Adds a dependency dragged between two nodes (UI-23); absent in read-only. */
+  onLink?: ((link: Link) => void) | undefined;
+  /** Removes a dependency (UI-23); absent in read-only. */
+  onUnlink?: ((link: Link) => void) | undefined;
 };
 
 function GraphCanvas({
@@ -242,8 +265,23 @@ function GraphCanvas({
   selected,
   onToggle,
   onSelectWithDeps,
+  onLink,
+  onUnlink,
 }: GraphProps) {
   const layout = useGraphLayout(tasks, grouped);
+  const editable = Boolean(onLink && onUnlink);
+  const stateOf = useMemo(() => new Map(tasks.map((task) => [task.id, task.state])), [tasks]);
+  /** A done task's links are not edited from here: reopening it is a human action of its own. */
+  const removable = useCallback(
+    (link: Link) => editable && stateOf.has(link.task) && stateOf.get(link.task) !== "done",
+    [editable, stateOf],
+  );
+  const [pickedEdge, setPickedEdge] = useState<Link | null>(null);
+  const linked = (link: Link) =>
+    tasks.some((task) => task.id === link.task && (task.deps ?? []).includes(link.on));
+  // A selected edge that vanished (removed here or elsewhere) is no longer selected.
+  const selectedEdge =
+    pickedEdge && removable(pickedEdge) && linked(pickedEdge) ? pickedEdge : null;
   const flow = useReactFlow();
   const fitted = useRef(false);
   const mounted = useRef(performance.now());
@@ -298,6 +336,7 @@ function GraphCanvas({
             selected: selected.has(task.id),
             selectable: isSelectable(task),
             dimmed: chain !== null && !chain.nodes.has(task.id),
+            connectable: editable && task.state !== "done",
             onOpen,
             onToggle,
             onSelectWithDeps,
@@ -312,6 +351,7 @@ function GraphCanvas({
     boxes,
     groups,
     chain,
+    editable,
     nav,
     external,
     openId,
@@ -327,6 +367,8 @@ function GraphCanvas({
     return graphEdges(tasks).map((edge) => {
       const done = state.get(edge.from) === "done";
       const inChain = chain?.edges.has(edge.id);
+      const link = { task: edge.to, on: edge.from };
+      const picked = selectedEdge !== null && edgeId(selectedEdge) === edge.id;
       return {
         id: edge.id,
         source: edge.from,
@@ -336,12 +378,15 @@ function GraphCanvas({
           done && "g-edge--done",
           inChain && "g-edge--chain",
           chain && !inChain && "g-edge--dim",
+          removable(link) && "g-edge--editable",
+          picked && "g-edge--selected",
         ),
+        data: link,
         markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
         focusable: false,
       };
     });
-  }, [tasks, chain]);
+  }, [tasks, chain, removable, selectedEdge]);
 
   // Place the view once, when the first layout is on screen; later updates keep the human's.
   const section = useRef<HTMLElement>(null);
@@ -382,8 +427,40 @@ function GraphCanvas({
       ?.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`)
       ?.focus({ preventScroll: true });
   };
+  const say = (text: string) =>
+    // A trailing no-break space makes a repeated message count as new, so it is said again.
+    setAnnouncement((prev) => (prev === text ? `${text}\u00a0` : text));
+  const unlink = (link: Link) => {
+    setPickedEdge(null);
+    onUnlink?.(link);
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const from = (event.target as HTMLElement).dataset?.task;
+    if (selectedEdge && (event.key === "Delete" || event.key === "Backspace")) {
+      event.preventDefault();
+      unlink(selectedEdge);
+      return;
+    }
+    if (selectedEdge && event.key === "Escape") {
+      // Clears the edge only; the panel stays open.
+      event.preventDefault();
+      event.stopPropagation();
+      setPickedEdge(null);
+      say(t("graph.link.cleared"));
+      return;
+    }
+    if (from && editable && (event.key === "d" || event.key === "D")) {
+      event.preventDefault();
+      const deps = (nav?.deps.get(from) ?? []).filter((on) => removable({ task: from, on }));
+      const next = nextDependencyEdge(from, deps, selectedEdge);
+      setPickedEdge(next);
+      say(
+        next
+          ? t("graph.link.selected", { id: next.task, on: next.on })
+          : t("graph.link.none", { id: from }),
+      );
+      return;
+    }
     if (from && event.key === " ") {
       // Space selects instead of opening (Enter opens); Shift+Space takes the pending deps too.
       event.preventDefault();
@@ -401,11 +478,7 @@ function GraphCanvas({
     if (next) {
       setAnnouncement("");
       moveTo(next);
-    } else {
-      // A trailing no-break space makes a repeated message count as new, so it is said again.
-      const text = t(`graph.nav.${key}`, { id: from });
-      setAnnouncement((prev) => (prev === text ? `${text}\u00a0` : text));
-    }
+    } else say(t(`graph.nav.${key}`, { id: from }));
   };
   const onFocus = (event: FocusEvent<HTMLElement>) => {
     const id = (event.target as HTMLElement).dataset?.task;
@@ -431,7 +504,22 @@ function GraphCanvas({
       )}
       <p id={instructionsId} className="k-visually-hidden">
         {t("graph.instructions")}
+        {editable && ` ${t("graph.instructions.edit")}`}
       </p>
+      {selectedEdge && (
+        // biome-ignore lint/a11y/useSemanticElements: a toolbar for the selected edge, not a form.
+        <div className="g-edgebar" role="group" aria-label={t("graph.link.bar")}>
+          <span className="g-edgebar__text">
+            {t("graph.link.text", { id: selectedEdge.task, on: selectedEdge.on })}
+          </span>
+          <Button size="sm" variant="danger" onClick={() => unlink(selectedEdge)}>
+            {t("graph.link.remove")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setPickedEdge(null)}>
+            {t("graph.link.cancel")}
+          </Button>
+        </div>
+      )}
       <p className="k-visually-hidden" aria-live="polite">
         {announcement}
       </p>
@@ -445,7 +533,27 @@ function GraphCanvas({
         edges={edges}
         nodeTypes={nodeTypes}
         nodesDraggable={false}
-        nodesConnectable={false}
+        nodesConnectable={editable}
+        onConnectEnd={(event, connection) => {
+          const from = connection.fromNode?.id;
+          const handle = connection.fromHandle?.type;
+          if (!from || !handle || !onLink) return;
+          // Dropped anywhere on a node, not only on its handle.
+          const point = "changedTouches" in event ? event.changedTouches[0] : event;
+          const under = point
+            ? document
+                .elementFromPoint(point.clientX, point.clientY)
+                ?.closest(".react-flow__node")
+                ?.getAttribute("data-id")
+            : null;
+          const link = linkFromDrag(from, handle, connection.toNode?.id ?? under);
+          if (link) onLink(link);
+        }}
+        onEdgeClick={(_event, edge) => {
+          const link = { task: edge.target, on: edge.source };
+          if (removable(link)) setPickedEdge(link);
+        }}
+        onPaneClick={() => setPickedEdge(null)}
         elementsSelectable={false}
         nodesFocusable={false}
         edgesFocusable={false}

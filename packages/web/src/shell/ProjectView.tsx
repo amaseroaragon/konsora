@@ -28,9 +28,10 @@ import {
 import { applyBulk, type BulkChange } from "./bulk-model.ts";
 import { ChatPanel } from "./ChatPanel.tsx";
 import { ExternalChanges } from "./External.tsx";
-import { editErrorText } from "./edit-model.ts";
+import { dependencyProblem, editErrorText } from "./edit-model.ts";
 import { FilterBar } from "./FilterBar.tsx";
 import { Graph } from "./Graph.tsx";
+import type { Link } from "./graph-model.ts";
 import { HistoryView } from "./HistoryView.tsx";
 import {
   navigate,
@@ -243,6 +244,50 @@ export function ProjectView({
    * Applies one bulk change to each selected task, as one `edit` conditioned on the version shown
    * (UI-26). Tasks that already had it are skipped; the ones refused stay selected, with the reason.
    */
+  const editError = (error: unknown, ctx: { id: string; on?: string }) =>
+    error instanceof ApiError
+      ? editErrorText(
+          {
+            code: error.code,
+            message: error.message,
+            ...(error.details.issues ? { issues: error.details.issues } : {}),
+          },
+          ctx,
+        )
+      : String(error);
+  /**
+   * A dependency added or removed from the graph (UI-23): checked with core's rules first, so a
+   * cycle is explained before anything is sent, then one `depend` or `undepend` op conditioned on
+   * the dependent task as the graph showed it.
+   */
+  const relink = (op: "depend" | "undepend", link: Link) => {
+    const task = board.tasks.find((x) => x.id === link.task);
+    if (!task) return;
+    if (op === "depend") {
+      const why = dependencyProblem(doc, link.task, link.on);
+      if (why) {
+        toast.show(why, "error");
+        return;
+      }
+    }
+    edit.mutate(
+      { op, task: link.task, hash: task.hash, on: link.on },
+      {
+        onSuccess: () =>
+          toast.show(
+            t(op === "depend" ? "edit.deps.added" : "edit.deps.removed", {
+              id: link.task,
+              on: link.on,
+            }),
+            "success",
+          ),
+        onError: (error) => {
+          if (error instanceof ApiError && error.unauthorized) return;
+          toast.show(editError(error, { id: link.task, on: link.on }), "error");
+        },
+      },
+    );
+  };
   const runBulk = async (change: BulkChange) => {
     const { changed, refused } = await applyBulk(
       board.tasks,
@@ -251,20 +296,7 @@ export function ProjectView({
       (id, hash, changes) => edit.mutateAsync({ op: "edit", task: id, hash, changes }),
     );
     if (refused.some(({ error }) => error instanceof ApiError && error.unauthorized)) return;
-    for (const { id, error } of refused)
-      toast.show(
-        error instanceof ApiError
-          ? editErrorText(
-              {
-                code: error.code,
-                message: error.message,
-                ...(error.details.issues ? { issues: error.details.issues } : {}),
-              },
-              { id },
-            )
-          : String(error),
-        "error",
-      );
+    for (const { id, error } of refused) toast.show(editError(error, { id }), "error");
     const n = changed.length;
     if (n > 0)
       toast.show(
@@ -360,7 +392,7 @@ export function ProjectView({
             }}
             options={[
               { value: "groups", label: t("board.lanes.groups") },
-              { value: "none", label: t("board.lanes.none") },
+              { value: "none", label: t("graph.grouping.none") },
             ]}
           />
         )}
@@ -437,6 +469,8 @@ export function ProjectView({
                 selected={selected}
                 onToggle={toggle}
                 onSelectWithDeps={selectWithDeps}
+                onLink={readOnly ? undefined : (link) => relink("depend", link)}
+                onUnlink={readOnly ? undefined : (link) => relink("undepend", link)}
               />
             ) : (
               <Board

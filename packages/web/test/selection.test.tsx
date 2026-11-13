@@ -149,3 +149,48 @@ describe("selection shared by graph and board (UI-07)", () => {
     expect(html).toMatch(/<button type="button" class="k-btn k-btn--danger[^"]*">Eliminar/);
   });
 });
+
+describe("graph view controls (UI-23, UI-24)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const render = (readOnly: boolean) =>
+    renderToStaticMarkup(
+      <ApiContext.Provider value={createApi("ab".repeat(32))}>
+        <QueryClientProvider client={new QueryClient()}>
+          <ToastProvider>
+            <ProjectView
+              board={boardOf(doc, "p-graph0000001")}
+              live="live"
+              view="graph"
+              openId={null}
+              readOnly={readOnly}
+            />
+          </ToastProvider>
+        </QueryClientProvider>
+      </ApiContext.Provider>,
+    );
+
+  it("explains how to add and remove dependencies, but not in read-only (UI-23 ac3)", () => {
+    expect(render(false)).toContain("Para añadir una dependencia, arrastra");
+    expect(render(true)).not.toContain("Para añadir una dependencia");
+  });
+
+  it("offers hiding done work and grouping, remembered in the browser (UI-24)", () => {
+    const html = render(false);
+    expect(html).toContain('aria-label="Tareas hechas en el grafo"');
+    expect(html).toContain('aria-label="Agrupar el grafo"');
+  });
+
+  it("starts from the remembered preferences", () => {
+    const store = new Map([
+      ["konsora.graph.hideDone", "on"],
+      ["konsora.graph.grouped", "on"],
+    ]);
+    vi.stubGlobal("window", {
+      ...globalThis.window,
+      localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} },
+    });
+    const html = render(false);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Sin hechas</);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Por grupo</);
+  });
+});

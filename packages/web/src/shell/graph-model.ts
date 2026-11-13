@@ -266,3 +266,35 @@ export function initialViewport(
     zoom: OVERVIEW_ZOOM,
   };
 }
+
+/** A dependency as the graph edits it (UI-23): `task` depends on `on`. */
+export type Link = { task: string; on: string };
+
+/**
+ * The dependency a drag makes: from a node's right handle (it is the dependency) onto another
+ * node, or from its left handle (it is the dependent). Null when dropped on nothing or itself.
+ */
+export function linkFromDrag(
+  from: string,
+  handle: "source" | "target",
+  to: string | null | undefined,
+): Link | null {
+  if (!to || to === from || to.startsWith(GROUP_NODE)) return null;
+  return handle === "source" ? { task: to, on: from } : { task: from, on: to };
+}
+
+export const edgeId = (link: Link) => `${link.on}->${link.task}`;
+
+/**
+ * The next dependency edge of `task` to select from the keyboard, after the selected one (cycling);
+ * null when the task has none.
+ */
+export function nextDependencyEdge(
+  task: string,
+  deps: readonly string[],
+  selected: Link | null,
+): Link | null {
+  if (deps.length === 0) return null;
+  const at = selected?.task === task ? deps.indexOf(selected.on) : -1;
+  return { task, on: deps[(at + 1) % deps.length] as string };
+}
