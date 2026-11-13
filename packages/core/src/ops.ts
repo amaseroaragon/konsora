@@ -69,6 +69,8 @@ export type NewTask = {
   deps?: string[];
   labels?: string[];
   difficulty?: Difficulty;
+  /** CORE-19: the milestone the task belongs to. */
+  milestone?: string;
   /**
    * A template of `project.templates` the task starts from: its own desc replaces the
    * template's, its criteria come after the template's and its labels join them.
@@ -97,6 +99,12 @@ export type Op = Base &
     | { op: "remove-group"; id: string }
     /** CORE-13: the human renames the project. */
     | { op: "rename-project"; name: string }
+    /** CORE-19: adds a milestone at the end. */
+    | { op: "add-milestone"; id: string; name: string; criterion?: string }
+    /** CORE-19: renames a milestone or changes its done criterion (`null` removes it). */
+    | { op: "edit-milestone"; id: string; name?: string; criterion?: string | null }
+    /** CORE-19: removes a milestone no task belongs to; otherwise `in_use`. */
+    | { op: "remove-milestone"; id: string }
     /** An idea (`proposed`) becomes work to do. Anyone may do it: there is no approval. */
     | { op: "promote"; task: string }
     /** The way back: a `todo` task nobody started becomes an idea (`proposed`) again. */
@@ -108,6 +116,8 @@ export type Op = Base &
           acceptance?: Acceptance[];
           /** `null` removes it. */
           difficulty?: Difficulty | null;
+          /** CORE-19: the milestone; `null` takes the task out of it. */
+          milestone?: string | null;
         };
       }
     /**
@@ -218,6 +228,9 @@ const ROLES: Record<OpName, readonly Role[]> = {
   "reorder-groups": ["human", "agent"],
   "remove-group": ["human", "agent"],
   "rename-project": ["human"],
+  "add-milestone": ["human", "agent"],
+  "edit-milestone": ["human", "agent"],
+  "remove-milestone": ["human", "agent"],
   promote: ["human", "agent"],
   demote: ["human", "agent"],
   edit: ["human", "agent"], // agents: unfinished tasks only (checked below)
@@ -237,7 +250,16 @@ const ROLES: Record<OpName, readonly Role[]> = {
   undo: ["human"],
 };
 
-const EDITABLE = ["title", "desc", "acceptance", "labels", "group", "rank", "difficulty"] as const;
+const EDITABLE = [
+  "title",
+  "desc",
+  "acceptance",
+  "labels",
+  "group",
+  "rank",
+  "difficulty",
+  "milestone",
+] as const;
 
 /** All an agent in a planning session may do. */
 const PLAN_OPS: ReadonlySet<OpName> = new Set([
@@ -361,6 +383,11 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     if (!value?.trim()) fail(code, `${op.op} requires ${what}`);
     return value as string;
   };
+  const milestoneOf = (id: string): string => {
+    if (!doc.milestones?.some((m) => m.id === id))
+      fail("not_found", `Milestone ${id} does not exist`);
+    return id;
+  };
   const createTask = (spec: NewTask, state: TaskState, deps: string[]): Task => {
     if (!doc.groups.some((g) => g.id === spec.group))
       fail("not_found", `Group ${spec.group} does not exist`);
@@ -392,6 +419,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     const labels = [...new Set([...(template?.labels ?? []), ...(spec.labels ?? [])])];
     if (labels.length) task.labels = labels;
     if (spec.difficulty) task.difficulty = spec.difficulty;
+    if (spec.milestone) task.milestone = milestoneOf(spec.milestone);
     doc.tasks.push(task);
     index.set(task.id, task);
     created.push(task.id);
@@ -478,6 +506,49 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
       doc.project.name = name;
       break;
     }
+    case "add-milestone": {
+      if (doc.milestones?.some((m) => m.id === op.id))
+        fail("invalid", `Milestone ${op.id} already exists`);
+      const name = op.name.trim();
+      if (!name) fail("invalid", "A milestone needs a name");
+      const criterion = op.criterion?.trim();
+      doc.milestones = [
+        ...(doc.milestones ?? []),
+        { id: op.id, name, ...(criterion ? { criterion } : {}) },
+      ];
+      break;
+    }
+    case "edit-milestone": {
+      const milestone =
+        doc.milestones?.find((m) => m.id === op.id) ??
+        fail("not_found", `Milestone ${op.id} does not exist`);
+      if (op.name !== undefined) {
+        const name = op.name.trim();
+        if (!name) fail("invalid", "A milestone needs a name");
+        milestone.name = name;
+      }
+      if (op.criterion !== undefined) {
+        const criterion = op.criterion?.trim();
+        if (criterion) milestone.criterion = criterion;
+        else delete milestone.criterion;
+      }
+      break;
+    }
+    case "remove-milestone": {
+      if (!doc.milestones?.some((m) => m.id === op.id))
+        fail("not_found", `Milestone ${op.id} does not exist`);
+      const users = doc.tasks.filter((t) => t.milestone === op.id).map((t) => t.id);
+      if (users.length > 0) {
+        const shown = users.slice(0, 5).join(", ") + (users.length > 5 ? ", …" : "");
+        fail(
+          "in_use",
+          `Milestone ${op.id} still has ${users.length} task(s) (${shown}); take them out of it first`,
+        );
+      }
+      doc.milestones = (doc.milestones ?? []).filter((m) => m.id !== op.id);
+      if (doc.milestones.length === 0) delete doc.milestones;
+      break;
+    }
     case "promote":
       transition(get(op.task), ["proposed"], "todo");
       break;
@@ -491,6 +562,7 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
           task: task.id,
         });
       }
+      if (typeof op.changes.milestone === "string") milestoneOf(op.changes.milestone);
       // Whitelist at runtime too: callers (CLI, MCP) pass JSON from agents.
       for (const key of EDITABLE) {
         if (!(key in op.changes)) continue;

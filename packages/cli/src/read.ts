@@ -2,7 +2,7 @@
  * Read operations shared by the CLI (`--json`) and the MCP server: each returns the exact value
  * the CLI prints with `--json`, so both surfaces stay identical by construction.
  */
-import type { TaskState, TasksDocument } from "@konsora/core";
+import { milestoneProgress, type TaskState, type TasksDocument } from "@konsora/core";
 import { ARCHIVE_FILE, readArchive, readTasks, type StoreError } from "@konsora/core/store";
 import { issuesText, readyViews, STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
@@ -22,6 +22,8 @@ export function statusData(doc: TasksDocument) {
     blocked: list.filter((t) => t.blocked).map((t) => t.id),
     waiting: list.filter((t) => t.waiting).map((t) => t.id),
     proposed: list.filter((t) => t.state === "proposed").map((t) => t.id),
+    // CORE-19: each milestone with its done and total tasks; absent when the plan has none.
+    ...(doc.milestones?.length ? { milestones: milestoneProgress(doc) } : {}),
   };
 }
 

@@ -39,8 +39,8 @@ export const OP_HINTS: Partial<Record<OpError["code"], Hint>> = {
     mcp: "The status tool lists the project's templates (project.templates); only the human defines them, in the Konsora UI.",
   },
   in_use: {
-    cli: "Delete those tasks or leave the group: a task keeps its id (and its group prefix) when moved with `konsora edit <id> --group`.",
-    mcp: "Delete those tasks or leave the group: a task keeps its id (and its group prefix) when moved with the edit tool.",
+    cli: "A group is in use while a task is in it or has its prefix in the id (moving a task keeps its id); a milestone, while a task belongs to it (`konsora edit <id> --milestone none`).",
+    mcp: "A group is in use while a task is in it or has its prefix in the id (moving a task keeps its id); a milestone, while a task belongs to it (edit with milestone none).",
   },
   conflict: {
     cli: "Someone changed the task meanwhile; read it again with `konsora show <id>` and retry.",
@@ -75,8 +75,8 @@ export const HINTS = {
     mcp: "The batch tool's input schema describes the format.",
   },
   nothingToChange: {
-    cli: "Pass --title, --desc, --criterion, --labels, --group or --difficulty.",
-    mcp: "Pass title, desc, acceptance, labels, group or difficulty.",
+    cli: "Pass --title, --desc, --criterion, --labels, --group, --difficulty or --milestone.",
+    mcp: "Pass title, desc, acceptance, labels, group, difficulty or milestone.",
   },
   movePlace: {
     cli: "Pass exactly one of --before <id>, --after <id> or --top.",

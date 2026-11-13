@@ -3,6 +3,7 @@ import {
   isFilterActive,
   matchingIds,
   mergeUndo,
+  milestoneProgress,
   pendingSubgraph,
   type TaskFilter,
   type UndoChange,
@@ -36,6 +37,7 @@ import { FilterBar } from "./FilterBar.tsx";
 import { Graph } from "./Graph.tsx";
 import type { Link } from "./graph-model.ts";
 import { HistoryView } from "./HistoryView.tsx";
+import { MilestoneSettings } from "./MilestoneSettings.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
 import { refineMessage } from "./refine.ts";
 import {
@@ -154,6 +156,7 @@ export function ProjectView({
     [doc, filter, filtering],
   );
   const facets = useMemo(() => filterFacets(doc), [doc]);
+  const milestones = useMemo(() => milestoneProgress(doc, board.archive), [doc, board.archive]);
   const shownTasks = useMemo(
     () => (visible ? board.tasks.filter((task) => visible.has(task.id)) : board.tasks),
     [board.tasks, visible],
@@ -459,6 +462,7 @@ export function ProjectView({
           groups={board.plan.groups}
           facets={facets}
           hidden={board.tasks.length - shownTasks.length}
+          milestones={milestones}
           onChange={setFilter}
         />
       )}
@@ -466,6 +470,14 @@ export function ProjectView({
         <div className="s-stack">
           <div className="b-settings">
             <ProjectSettings projectId={projectId} plan={doc} readOnly={readOnly} />
+          </div>
+          <div className="b-settings">
+            <MilestoneSettings
+              projectId={projectId}
+              milestones={milestones}
+              tasks={doc.tasks}
+              readOnly={readOnly}
+            />
           </div>
           <TemplateSettings
             projectId={projectId}

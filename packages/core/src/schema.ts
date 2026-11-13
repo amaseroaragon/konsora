@@ -90,6 +90,20 @@ export const ProjectSchema = strict({
   templates: z.array(TemplateSchema).max(100).optional(),
 });
 
+export const MilestoneIdSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,30}$/, "Milestone id must be a lowercase slug, e.g. m11");
+
+/**
+ * CORE-19: a goal that groups tasks, with its done criterion. Only a name and progress: it has
+ * nothing to do with git (no branch, no merge).
+ */
+export const MilestoneSchema = strict({
+  id: MilestoneIdSchema,
+  name: z.string().min(1).max(80),
+  criterion: z.string().min(1).max(500).optional(),
+});
+
 export const GroupSchema = strict({
   id: GroupIdSchema,
   name: z.string().min(1).max(60),
@@ -141,6 +155,7 @@ export const EditedFieldSchema = z.enum([
   "group",
   "rank",
   "difficulty",
+  "milestone",
   "deps",
 ]);
 
@@ -179,6 +194,8 @@ export const TaskSchema = strict({
   acceptance: z.array(AcceptanceSchema).optional(),
   labels: z.array(LabelSchema).optional(),
   difficulty: DifficultySchema.optional(),
+  /** CORE-19: the milestone (of `milestones`) the task belongs to. */
+  milestone: MilestoneIdSchema.optional(),
   created: strict({ at: TimestampSchema, by: ActorSchema }),
   /**
    * CORE-09: who started the task and when. `start` sets it, `pause` and `reopen` remove it and
@@ -196,6 +213,8 @@ export const DocumentSchema = strict({
   schema: z.literal(SCHEMA_VERSION),
   project: ProjectSchema,
   groups: z.array(GroupSchema).min(1),
+  /** CORE-19: the plan's milestones, in their order. */
+  milestones: z.array(MilestoneSchema).max(100).optional(),
   seq: z.record(GroupIdSchema, z.int().min(0)),
   /**
    * Ids of done tasks moved to `.konsora/archive.json` (`konsora archive`): a dependency on one
@@ -220,6 +239,7 @@ export type Difficulty = z.infer<typeof DifficultySchema>;
 export type Template = z.infer<typeof TemplateSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type Group = z.infer<typeof GroupSchema>;
+export type Milestone = z.infer<typeof MilestoneSchema>;
 export type Acceptance = z.infer<typeof AcceptanceSchema>;
 export type NoteKind = z.infer<typeof NoteKindSchema>;
 export type Note = z.infer<typeof NoteSchema>;

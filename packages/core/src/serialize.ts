@@ -7,7 +7,7 @@
  * - optional fields that are empty are omitted (`deps: []`, `desc: ""`, `notes: []`…);
  * - tasks ordered by the order of `groups`, then by id number; `seq` keys by `groups` order;
  * - `deps` in natural id order and `labels` (of tasks and templates) alphabetically; notes,
- *   criteria, groups and templates keep their order (it is meaningful);
+ *   criteria, groups, milestones and templates keep their order (it is meaningful);
  * - 2-space indentation, LF line endings, trailing newline, UTF-8 without BOM.
  */
 import type { ArchiveDocument, Task, TasksDocument } from "./schema.ts";
@@ -16,12 +16,23 @@ import { taskNumber } from "./semantics.ts";
 type Obj = Record<string, unknown>;
 
 const ORDER = {
-  root: ["$schema", "schema", "project", "groups", "seq", "archived", "tasks", "deleted"],
+  root: [
+    "$schema",
+    "schema",
+    "project",
+    "groups",
+    "milestones",
+    "seq",
+    "archived",
+    "tasks",
+    "deleted",
+  ],
   archive: ["schema", "tasks"],
   project: ["name", "templates"],
   template: ["id", "name", "desc", "acceptance", "labels"],
   criterion: ["text"],
   group: ["id", "name"],
+  milestone: ["id", "name", "criterion"],
   task: [
     "id",
     "title",
@@ -33,6 +44,7 @@ const ORDER = {
     "acceptance",
     "labels",
     "difficulty",
+    "milestone",
     "created",
     "started",
     "updated_at",
@@ -59,6 +71,7 @@ const OMIT_WHEN_EMPTY = new Set([
   "events",
   "fields",
   "deleted",
+  "milestones",
 ]);
 
 function isEmpty(value: unknown): boolean {
@@ -147,6 +160,8 @@ export function canonicalize(doc: TasksDocument): TasksDocument {
         });
       case "groups":
         return (value as Obj[]).map((g) => ordered(g, ORDER.group));
+      case "milestones":
+        return (value as Obj[]).map((m) => ordered(m, ORDER.milestone));
       case "seq":
         return seq;
       case "archived":

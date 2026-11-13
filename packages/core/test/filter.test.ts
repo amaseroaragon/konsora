@@ -74,6 +74,7 @@ describe("task filters", () => {
       labels: ["perf", "ui"],
       actors: ["agent:claude", "agent:codex", "human"],
       difficulties: ["none"],
+      milestones: [],
     });
   });
 });

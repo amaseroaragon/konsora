@@ -26,6 +26,7 @@ const NewTask = {
   deps: z.array(z.string().min(1).max(120)).optional(),
   labels: z.array(z.string()).optional(),
   difficulty: DifficultySchema.optional(),
+  milestone: z.string().min(1).max(31).optional(),
   template: z.string().min(1).max(31).optional(),
 };
 
@@ -68,6 +69,21 @@ export const OpSchema = z.discriminatedUnion("op", [
     expect,
     name: z.string().min(1).max(80),
   }),
+  z.strictObject({
+    op: z.literal("add-milestone"),
+    expect,
+    id: z.string().min(1).max(31),
+    name: z.string().min(1).max(80),
+    criterion: z.string().max(500).optional(),
+  }),
+  z.strictObject({
+    op: z.literal("edit-milestone"),
+    expect,
+    id: z.string().min(1).max(31),
+    name: z.string().min(1).max(80).optional(),
+    criterion: z.string().max(500).nullable().optional(),
+  }),
+  z.strictObject({ op: z.literal("remove-milestone"), expect, id: z.string().min(1).max(31) }),
   z.strictObject({ op: z.literal("promote"), expect, task: id }),
   z.strictObject({ op: z.literal("demote"), expect, task: id }),
   z.strictObject({
@@ -83,6 +99,7 @@ export const OpSchema = z.discriminatedUnion("op", [
       rank: z.string().optional(),
       // null removes it (JSON has no undefined).
       difficulty: DifficultySchema.nullable().optional(),
+      milestone: z.string().min(1).max(31).nullable().optional(),
     }),
   }),
   z.strictObject({

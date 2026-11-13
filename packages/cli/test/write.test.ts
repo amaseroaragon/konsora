@@ -360,12 +360,49 @@ describe("planning commands", () => {
     const refused = await run(["group", "remove", "BE", "--as", "claude"]);
     expect(refused.code).toBe(EXIT.failure);
     expect(refused.stderr).toContain("Error: Group BE is still used by 5 task(s)");
-    expect(refused.stderr).toContain("Hint: Delete those tasks or leave the group");
+    expect(refused.stderr).toContain("Hint: A group is in use while a task is in it");
     expect((await run(["group", "remove", "API", "--as", "claude"])).stdout).toBe(
       "Removed group API.\n",
     );
     expect(doc().groups.map((g) => g.id)).toEqual(["BE"]);
     expect(doc().seq).toEqual({ BE: 5 });
+  });
+
+  it("milestones: add, join, progress in status and show, edit and remove (CORE-19)", async () => {
+    expect(
+      (await run(["milestone", "add", "M11", "Giro", "--criterion", "Pruebas manuales"])).stdout,
+    ).toBe("Added milestone m11: Giro.\n");
+    await run(["edit", "BE-04", "--milestone", "m11", "--as", "claude"]);
+    const created = await run(["propose", "Más", "--group", "BE", "--milestone", "m11", "--json"]);
+    const id = created.json().created[0] as string;
+    expect(task(id).milestone).toBe("m11");
+    // A done task joins it only through the human; here we set it as the human would.
+    await mutate(
+      dir,
+      { op: "edit", task: "BE-01", changes: { milestone: "m11" } },
+      {
+        actor: "human",
+        at,
+      },
+    );
+    const status = (await run(["status"])).stdout;
+    expect(status).toContain("Milestones (propose --milestone <id>):\n  m11       Giro  1/3 done");
+    expect(status).toContain("done when: Pruebas manuales");
+    expect((await run(["status", "--json"])).json().milestones).toEqual([
+      { id: "m11", name: "Giro", criterion: "Pruebas manuales", done: 1, total: 3 },
+    ]);
+    expect((await run(["show", "BE-04"])).stdout).toContain("milestone: m11 (Giro)");
+    const refused = await run(["milestone", "remove", "m11"]);
+    expect(refused.code).toBe(EXIT.failure);
+    expect(refused.stderr).toContain("Milestone m11 still has 3 task(s)");
+    await run(["milestone", "edit", "m11", "--name", "Gestor", "--no-criterion"]);
+    expect(doc().milestones).toEqual([{ id: "m11", name: "Gestor" }]);
+    expect((await run(["milestone", "edit", "m11"])).code).toBe(EXIT.usage);
+    await run(["edit", "BE-04", "--milestone", "none"]);
+    expect(task("BE-04").milestone).toBeUndefined();
+    expect((await run(["edit", "BE-04", "--milestone", "ghost"])).stderr).toContain(
+      "Milestone ghost does not exist",
+    );
   });
 
   it("depend rejects cycles", async () => {

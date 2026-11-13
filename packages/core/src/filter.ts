@@ -1,6 +1,6 @@
 /**
  * Task filters shared by every view that narrows the plan (the board and the graph today): free
- * text, group, label and who created or closed the task. Pure and derived: a filter never changes
+ * text, group, label, who created or closed the task, difficulty and milestone. Pure and derived: a filter never changes
  * the plan.
  */
 import { DIFFICULTIES, type Difficulty, type Task, type TasksDocument } from "./schema.ts";
@@ -14,9 +14,11 @@ export type TaskFilter = {
   by?: string;
   /** `low`, `medium` or `high`; `none` matches the tasks without one (CORE-22). */
   difficulty?: string;
+  /** A milestone id; `none` matches the tasks outside every milestone (CORE-19). */
+  milestone?: string;
 };
 
-const FILTER_KEYS = ["text", "group", "label", "by", "difficulty"] as const;
+const FILTER_KEYS = ["text", "group", "label", "by", "difficulty", "milestone"] as const;
 
 /** The filter without empty values; `{}` when nothing narrows the plan. */
 export function cleanFilter(filter: TaskFilter): TaskFilter {
@@ -40,8 +42,9 @@ function actorsOf(task: Task): string[] {
 
 /** Whether `task` passes every part of `filter` (an empty filter passes everything). */
 export function taskMatches(task: Task, filter: TaskFilter): boolean {
-  const { text, group, label, by, difficulty } = cleanFilter(filter);
+  const { text, group, label, by, difficulty, milestone } = cleanFilter(filter);
   if (group && task.group !== group) return false;
+  if (milestone && (task.milestone ?? "none") !== milestone) return false;
   if (difficulty && (task.difficulty ?? "none") !== difficulty) return false;
   if (label && !task.labels?.includes(label)) return false;
   if (by && !actorsOf(task).includes(by)) return false;
@@ -64,10 +67,12 @@ export type FilterFacets = {
   actors: string[];
   /** The difficulties in use, easiest first, then `none` if some task has none. */
   difficulties: (Difficulty | "none")[];
+  /** The plan's milestones in their order, then `none` if some task is outside every one. */
+  milestones: string[];
 };
 
-/** What the plan can be filtered by: its labels, actors and difficulties. */
-export function filterFacets(doc: Pick<TasksDocument, "tasks">): FilterFacets {
+/** What the plan can be filtered by: its labels, actors, difficulties and milestones. */
+export function filterFacets(doc: Pick<TasksDocument, "tasks" | "milestones">): FilterFacets {
   const labels = new Set<string>();
   const actors = new Set<string>();
   const difficulties = new Set<Difficulty | "none">();
@@ -80,5 +85,11 @@ export function filterFacets(doc: Pick<TasksDocument, "tasks">): FilterFacets {
     labels: [...labels].sort(),
     actors: [...actors].sort(),
     difficulties: [...DIFFICULTIES, "none" as const].filter((d) => difficulties.has(d)),
+    milestones: doc.milestones?.length
+      ? [
+          ...doc.milestones.map((m) => m.id),
+          ...(doc.tasks.some((t) => !t.milestone) ? ["none"] : []),
+        ]
+      : [],
   };
 }

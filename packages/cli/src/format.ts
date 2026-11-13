@@ -4,6 +4,7 @@ import {
   dependentsOf,
   deriveFlags,
   indexTasks,
+  milestoneProgress,
   type SchemaIssue,
   startedBy,
   type Task,
@@ -81,6 +82,7 @@ export function statusText(doc: TasksDocument, file: string): string {
       "Ideas (proposed; anyone can promote them to todo)",
       list.filter((t) => t.state === "proposed"),
     ),
+    milestonesText(doc),
     templatesText(doc),
   ].join("");
 }
@@ -92,6 +94,18 @@ function startedText(view: TaskView): string {
 }
 
 const minute = (at: string) => at.replace("T", " ").slice(0, 16);
+
+/** Each milestone with its done and total tasks (CORE-19), for `propose --milestone <id>`. */
+function milestonesText(doc: TasksDocument): string {
+  const progress = milestoneProgress(doc);
+  if (progress.length === 0) return "";
+  const width = Math.max(9, ...progress.map((m) => m.id.length + 1));
+  const rows = progress.map(
+    (m) =>
+      `  ${m.id.padEnd(width)} ${m.name}  ${m.done}/${m.total} done${m.criterion ? `\n  ${"".padEnd(width)} done when: ${m.criterion}` : ""}`,
+  );
+  return `\nMilestones (propose --milestone <id>):\n${rows.join("\n")}\n`;
+}
 
 /** The project's templates, for `propose --template <id>`. */
 function templatesText(doc: TasksDocument): string {
@@ -125,6 +139,10 @@ export function showText(doc: TasksDocument, view: TaskView): string {
   if (dependents.length) lines.push(`dependents: ${dependents.join(", ")}`);
   if (view.labels?.length) lines.push(`labels: ${view.labels.join(", ")}`);
   if (view.difficulty) lines.push(`difficulty: ${view.difficulty}`);
+  if (view.milestone) {
+    const milestone = doc.milestones?.find((m) => m.id === view.milestone);
+    lines.push(`milestone: ${view.milestone}${milestone ? ` (${milestone.name})` : ""}`);
+  }
   lines.push(`created: ${view.created.at} by ${view.created.by} · updated: ${view.updated_at}`);
   const started = startedBy(view);
   if (started) lines.push(`started: ${started.at} by ${started.by}`);

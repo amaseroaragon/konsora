@@ -75,6 +75,11 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           .describe(
             "id of a project template the task starts from (status lists them); explicit values complete or replace it",
           ),
+        milestone: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("id of the milestone it belongs to (status lists them)"),
         idea: z.boolean().optional().describe("create it as an idea (proposed) instead of todo"),
       },
       annotations: WRITE,
@@ -90,6 +95,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
         ...(args.labels ? { labels: args.labels } : {}),
         ...(args.difficulty ? { difficulty: args.difficulty } : {}),
         ...(args.template ? { template: args.template.toLowerCase() } : {}),
+        ...(args.milestone ? { milestone: args.milestone.toLowerCase() } : {}),
         ...(args.idea ? { state: "proposed" as const } : {}),
       })),
   );
@@ -123,6 +129,11 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           .enum([...DIFFICULTIES, "none"])
           .optional()
           .describe("low, medium or high; none removes it"),
+        milestone: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("move it to this milestone id; none takes it out of its milestone"),
       },
       annotations: WRITE,
     },
@@ -191,6 +202,62 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       annotations: { ...WRITE, destructiveHint: true },
     },
     (args) => apply(() => ({ op: "remove-group", id: args.id.toUpperCase() })),
+  );
+
+  // CORE-19: milestones, goals that group tasks with their progress. Nothing to do with git.
+  const milestoneId = z.string().min(1).describe("milestone id, a lowercase slug such as m11");
+  server.registerTool(
+    "add_milestone",
+    {
+      title: "Add a milestone",
+      description:
+        "Add a milestone: a goal that groups tasks, with an optional done criterion. Tasks join it with milestone in propose, batch or edit; status shows its progress.",
+      inputSchema: {
+        id: milestoneId,
+        name: text("the milestone's name"),
+        criterion: z.string().min(1).optional().describe("when it counts as done"),
+      },
+      annotations: WRITE,
+    },
+    (args) =>
+      apply(() => ({
+        op: "add-milestone",
+        id: args.id.toLowerCase(),
+        name: args.name,
+        ...(args.criterion ? { criterion: args.criterion } : {}),
+      })),
+  );
+  server.registerTool(
+    "edit_milestone",
+    {
+      title: "Edit a milestone",
+      description: "Rename a milestone or change its done criterion (none removes it).",
+      inputSchema: {
+        id: milestoneId,
+        name: z.string().min(1).optional(),
+        criterion: z.string().min(1).optional().describe("the new done criterion; none removes it"),
+      },
+      annotations: WRITE,
+    },
+    (args) =>
+      apply(() => ({
+        op: "edit-milestone",
+        id: args.id.toLowerCase(),
+        ...(args.name !== undefined ? { name: args.name } : {}),
+        ...(args.criterion !== undefined
+          ? { criterion: args.criterion.toLowerCase() === "none" ? null : args.criterion }
+          : {}),
+      })),
+  );
+  server.registerTool(
+    "remove_milestone",
+    {
+      title: "Remove a milestone",
+      description: "Remove a milestone no task belongs to.",
+      inputSchema: { id: milestoneId },
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    (args) => apply(() => ({ op: "remove-milestone", id: args.id.toLowerCase() })),
   );
 
   server.registerTool(

@@ -885,6 +885,42 @@
   }
 }
 
+/* Milestones (CORE-19) */
+.b-settings__milestone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  padding-bottom: var(--k-space-4);
+  border-bottom: 1px solid var(--k-line);
+}
+.b-settings__add-milestone {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 2fr) minmax(12rem, 3fr) auto;
+  gap: var(--k-space-3);
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .b-settings__add-milestone {
+    grid-template-columns: 1fr;
+  }
+}
+.b-milestone__bar {
+  inline-size: 100%;
+  max-inline-size: 24rem;
+  block-size: 0.5rem;
+  accent-color: var(--k-accent, currentColor);
+}
+.b-filter__milestone {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.b-filter__milestone .b-milestone__bar {
+  inline-size: 12rem;
+}
+
 /* Task templates (UI-22) */
 .b-settings__template {
   display: flex;

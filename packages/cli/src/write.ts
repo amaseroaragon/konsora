@@ -128,6 +128,11 @@ export const BatchSchema = z.strictObject({
           .min(1)
           .optional()
           .describe("id of a project template the task starts from (see status)"),
+        milestone: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("id of the milestone the task belongs to (see status)"),
         idea: z
           .boolean()
           .optional()
@@ -161,6 +166,7 @@ export function batchOp(value: unknown): Op {
       ...(t.labels ? { labels: t.labels } : {}),
       ...(t.difficulty ? { difficulty: t.difficulty } : {}),
       ...(t.template ? { template: t.template.toLowerCase() } : {}),
+      ...(t.milestone ? { milestone: t.milestone.toLowerCase() } : {}),
       ...(t.idea ? { idea: true } : {}),
     })),
   };
@@ -174,6 +180,8 @@ export type EditInput = {
   group?: string | undefined;
   /** `none` removes it. */
   difficulty?: Difficulty | "none" | undefined;
+  /** A milestone id; `none` takes the task out of its milestone. */
+  milestone?: string | undefined;
 };
 
 /** Builds an `edit` op for a proposal; the acceptance criteria are replaced as ac1, ac2, … */
@@ -188,6 +196,12 @@ export function editOp(id: string, input: EditInput): Op {
     ...(input.group ? { group: input.group.toUpperCase() } : {}),
     ...(input.difficulty !== undefined
       ? { difficulty: input.difficulty === "none" ? null : input.difficulty }
+      : {}),
+    ...(input.milestone !== undefined
+      ? {
+          milestone:
+            input.milestone.toLowerCase() === "none" ? null : input.milestone.toLowerCase(),
+        }
       : {}),
   };
   if (Object.keys(changes).length === 0)
@@ -320,6 +334,7 @@ export function registerWriteCommands(
       "--template <id>",
       "start from a project template (see `konsora status`); explicit values complete or replace it",
     )
+    .option("--milestone <id>", "the milestone it belongs to (see `konsora status`)")
     .option("--idea", "create it as an idea (proposed) instead of todo")
     .action(
       async (
@@ -333,6 +348,7 @@ export function registerWriteCommands(
           labels?: string[];
           difficulty?: Difficulty;
           template?: string;
+          milestone?: string;
           as?: string;
           json?: boolean;
         },
@@ -348,6 +364,7 @@ export function registerWriteCommands(
             ...(opts.labels ? { labels: opts.labels } : {}),
             ...(opts.difficulty ? { difficulty: opts.difficulty } : {}),
             ...(opts.template ? { template: opts.template.toLowerCase() } : {}),
+            ...(opts.milestone ? { milestone: opts.milestone.toLowerCase() } : {}),
             ...(opts.idea ? { state: "proposed" as const } : {}),
           },
           opts,
@@ -366,7 +383,7 @@ export function registerWriteCommands(
     .option("--file <path>", "read the JSON from a file instead of standard input")
     .addHelpText(
       "after",
-      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"difficulty":"medium","template":"<template id>"},{"title":"…","group":"API","idea":true}]}\nA task with "idea": true is created as an idea (proposed); the rest go to todo.',
+      '\nJSON: {"groups":[{"id":"API","name":"API"}],"tasks":[{"title":"…","group":"API","desc":"…","acceptance":["…"],"deps":["CORE-01","<earlier title>"],"labels":["…"],"difficulty":"medium","template":"<template id>","milestone":"<milestone id>"},{"title":"…","group":"API","idea":true}]}\nA task with "idea": true is created as an idea (proposed); the rest go to todo.',
     )
     .action(async (opts: { file?: string; as?: string; json?: boolean }) => {
       const text = await readText(
@@ -406,6 +423,7 @@ export function registerWriteCommands(
     .option("--difficulty <level>", "low, medium or high; none removes it", (value: string) =>
       parseDifficulty(value, true),
     )
+    .option("--milestone <id>", "move it to a milestone; none takes it out of its milestone")
     .action(
       async (
         id: string,
@@ -416,6 +434,7 @@ export function registerWriteCommands(
           labels?: string[];
           group?: string;
           difficulty?: Difficulty | "none";
+          milestone?: string;
           as?: string;
           json?: boolean;
         },
@@ -612,6 +631,74 @@ export function registerWriteCommands(
     .action(async (id: string, opts: { as?: string; json?: boolean }) => {
       const key = id.toUpperCase();
       await apply({ op: "remove-group", id: key }, opts, () => `Removed group ${key}.\n`);
+    });
+
+  // CORE-19: milestones, goals that group tasks. Nothing to do with git.
+  const milestone = program
+    .command("milestone")
+    .description("add, edit or remove a milestone: a goal that groups tasks, with its progress");
+  withAgent(milestone.command("add"))
+    .description("add a milestone; tasks join it with --milestone in propose or edit")
+    .argument("<id>", "a lowercase slug, e.g. m11")
+    .argument("<name>", "the milestone's name")
+    .option("--criterion <text>", "when it counts as done")
+    .action(
+      async (
+        id: string,
+        name: string,
+        opts: { criterion?: string; as?: string; json?: boolean },
+      ) => {
+        const key = id.toLowerCase();
+        await apply(
+          {
+            op: "add-milestone",
+            id: key,
+            name,
+            ...(opts.criterion ? { criterion: opts.criterion } : {}),
+          },
+          opts,
+          () => `Added milestone ${key}: ${name}.\n`,
+        );
+      },
+    );
+  withAgent(milestone.command("edit"))
+    .description("rename a milestone or change its done criterion")
+    .argument("<id>")
+    .option("--name <text>", "the new name")
+    .option("--criterion <text>", "the new done criterion")
+    .option("--no-criterion", "remove the done criterion")
+    .action(
+      async (
+        id: string,
+        opts: { name?: string; criterion?: string | false; as?: string; json?: boolean },
+      ) => {
+        const key = id.toLowerCase();
+        if (opts.name === undefined && opts.criterion === undefined)
+          throw new CliError(
+            "Nothing to change.",
+            "Pass --name, --criterion or --no-criterion.",
+            EXIT.usage,
+          );
+        await apply(
+          {
+            op: "edit-milestone",
+            id: key,
+            ...(opts.name !== undefined ? { name: opts.name } : {}),
+            ...(opts.criterion !== undefined
+              ? { criterion: opts.criterion === false ? null : opts.criterion }
+              : {}),
+          },
+          opts,
+          () => `Updated milestone ${key}.\n`,
+        );
+      },
+    );
+  withAgent(milestone.command("remove"))
+    .description("remove a milestone no task belongs to")
+    .argument("<id>")
+    .action(async (id: string, opts: { as?: string; json?: boolean }) => {
+      const key = id.toLowerCase();
+      await apply({ op: "remove-milestone", id: key }, opts, () => `Removed milestone ${key}.\n`);
     });
 
   withAgent(program.command("finish"))

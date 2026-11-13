@@ -29,6 +29,7 @@ const FILTER_PARAMS = {
   label: "label",
   by: "by",
   difficulty: "difficulty",
+  milestone: "milestone",
 } as const;
 const FILTER_KEYS = Object.keys(FILTER_PARAMS) as (keyof typeof FILTER_PARAMS)[];
 

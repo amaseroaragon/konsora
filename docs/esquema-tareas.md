@@ -71,6 +71,7 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 | `schema` | `"konsora/5"` | sí | Versión del formato. Un valor desconocido u otra versión → solo lectura, con el error mostrado (`konsora migrate` convierte las antiguas). |
 | `project` | objeto | sí | Ver abajo. |
 | `groups` | `Group[]` | sí (≥1) | `konsora init` crea un grupo por defecto. |
+| `milestones` | `Milestone[]` | no | Los hitos del plan, en su orden (CORE-19). Ver *Hitos*. |
 | `seq` | `{[groupId]: int}` | sí | Último número asignado por grupo. **Nunca decrece**: un ID borrado no se reutiliza (Kanvas sí los reutiliza). |
 | `archived` | `TaskId[]` | no | IDs de las tareas hechas que `konsora archive` movió a `.konsora/archive.json` (ver §7). Una dependencia sobre una de ellas cuenta como hecha, y su ID no se reutiliza ni puede usarlo una tarea del plan. Se guarda en orden natural. |
 | `tasks` | `Task[]` | sí | El orden del array no tiene significado; el orden visual lo da `rank`. |
@@ -106,11 +107,22 @@ Ninguna de estas operaciones cambia tareas, así que no se pueden deshacer desde
 | `acceptance` | `Acceptance[]` | no | Criterios de "hecho"; ver abajo. |
 | `labels` | `string[]` | no | `^[a-z0-9][a-z0-9-]{0,30}$`, ordenados. |
 | `difficulty` | `low \| medium \| high` | no | Dificultad estimada: *low* = mecánica, pocos ficheros; *medium* = una funcionalidad dentro de un área; *high* = transversal, con decisiones de diseño o con riesgo. La estima el agente al crear (`--difficulty`, `difficulty` en `batch` y en el MCP) y se cambia con `edit` (`none` / `null` la quita). Se ve en el tablero, el grafo, el panel y `konsora show`/`list`, y se puede filtrar por ella. |
+| `milestone` | id de hito | no | El hito al que pertenece la tarea (CORE-19). Debe existir en `milestones`. Se fija al crear (`--milestone`, `milestone` en `batch` y en el MCP) y con `edit` (`none` / `null` la saca). Una tarea `done` solo la cambia el humano. |
 | `created` | `{at, by}` | sí | |
 | `started` | `{at, by}` | no | Quién empezó la tarea y cuándo (CORE-09). Lo pone `start`; `pause` y `reopen` lo quitan, porque ya nadie la tiene; `finish` lo conserva, así que una tarea hecha sigue diciendo quién la tomó. Lo escribe `core`, nunca quien llama. Se ve en `konsora status` (sección *Doing*), `konsora show`, la tarjeta y el panel. Una tarea empezada antes de que existiera el campo toma su último evento `start`, si lo tiene. |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
 | `events` | `TaskEvent[]` | no | Quién cambió la tarea, qué y cuándo (ver *Actividad*). Como mucho 50, de la más antigua a la más reciente. |
+
+**Hitos** (CORE-19). Un hito agrupa tareas en un objetivo: `{id, name, criterion?}`, con `id` en `^[a-z0-9][a-z0-9-]{0,30}$` (único), `name` (1–80) y `criterion` (opcional, 1–500): cuándo se da por hecho. No tiene rama, ni merge, ni ninguna relación con git (a diferencia de los bloques retirados en M14): es solo un nombre, su criterio y sus tareas. Operaciones, para agentes y humano (en una sesión de planificación, `out_of_scope`):
+
+| Operación | Efecto |
+|---|---|
+| `add-milestone {id, name, criterion?}` | Añade un hito al final. Un id repetido se rechaza. |
+| `edit-milestone {id, name?, criterion?}` | Cambia el nombre o el criterio (`null` lo quita). |
+| `remove-milestone {id}` | Quita un hito sin tareas del plan; si tiene, `in_use` con cuáles. |
+
+En la CLI, `konsora milestone add|edit|remove`; en el MCP, `add_milestone`, `edit_milestone` y `remove_milestone`. El progreso (`milestoneProgress` en `core`) cuenta, por hito, sus tareas hechas y el total, ideas incluidas y también las archivadas cuando se le pasan (la UI se las pasa; `konsora status`, que solo lee `tasks.json`, no). Lo muestran `konsora status` (y `milestones` en `status --json`), el filtro del tablero y del grafo (con su barra de progreso y su criterio) y Ajustes, donde se gestionan. El filtro por hito admite `none`: las tareas sin hito.
 
 **`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno.
 
@@ -124,7 +136,7 @@ Ninguna de estas operaciones cambia tareas, así que no se pueden deshacer desde
 | `feedback` | humano | Heredado de versiones con revisión (devoluciones); se conserva al migrar. |
 | `summary` | agente | Resumen al terminar (`doing → done`). Obligatorio. La UI lo muestra destacado en las tareas hechas. |
 
-**`TaskEvent`**: `at`, `by`, `type` y `fields` (solo en `edit`: qué cambió, entre `title`, `desc`, `acceptance`, `labels`, `group`, `rank`, `difficulty` y `deps`). Lo añade `core` al aplicar cada operación, nunca quien llama:
+**`TaskEvent`**: `at`, `by`, `type` y `fields` (solo en `edit`: qué cambió, entre `title`, `desc`, `acceptance`, `labels`, `group`, `rank`, `difficulty`, `milestone` y `deps`). Lo añade `core` al aplicar cada operación, nunca quien llama:
 
 | `type` | Operación |
 |---|---|
@@ -223,6 +235,8 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 Límite honesto: un proceso con los permisos del usuario puede escribir cualquier archivo. Los roles se aplican en la CLI, el MCP y la UI, y las violaciones se **detectan y señalan**; no existe una frontera de seguridad contra un agente decidido a engañar.
 
 ## 6. Migraciones
+
+**Hitos (CORE-19)**: `milestones` y `task.milestone` son opcionales; no hay cambio de versión ni migración, y `konsora migrate` no crea hitos. La validación semántica rechaza un id de hito repetido (`duplicate_milestone`) y una tarea con un hito que no existe (`unknown_milestone`).
 
 **Quién empezó (CORE-09)**: `started` también es opcional y no exige migrar. `konsora migrate` no lo inventa: las tareas en curso que vienen de versiones anteriores quedan sin él, y la UI y la CLI lo derivan de su último evento `start` si existe.
 

@@ -194,6 +194,25 @@ describe("konsora mcp: agent write tools", () => {
       ["add_group", { id: "qa", name: "QA" }, ["group", "add", "qa", "QA"]],
       ["rename_group", { id: "QA", name: "Quality" }, ["group", "rename", "QA", "Quality"]],
       ["remove_group", { id: "QA" }, ["group", "remove", "QA"]],
+      [
+        "add_milestone",
+        { id: "M1", name: "First", criterion: "Shipped" },
+        ["milestone", "add", "M1", "First", "--criterion", "Shipped"],
+      ],
+      [
+        "propose",
+        { title: "In a milestone", group: "BE", milestone: "m1" },
+        ["propose", "In a milestone", "--group", "BE", "--milestone", "m1"],
+      ],
+      ["edit", { id: "BE-04", milestone: "m1" }, ["edit", "BE-04", "--milestone", "m1"]],
+      ["edit", { id: "BE-04", milestone: "none" }, ["edit", "BE-04", "--milestone", "none"]],
+      [
+        "edit_milestone",
+        { id: "m1", name: "Renamed", criterion: "none" },
+        ["milestone", "edit", "m1", "--name", "Renamed", "--no-criterion"],
+      ],
+      ["add_milestone", { id: "m2", name: "Empty" }, ["milestone", "add", "m2", "Empty"]],
+      ["remove_milestone", { id: "m2" }, ["milestone", "remove", "m2"]],
       ["start", { id: "BE-04", plan: "Plan" }, ["start", "BE-04", "-m", "Plan"]],
       ["note", { id: "BE-04", text: "Progress" }, ["note", "BE-04", "Progress"]],
       ["ask", { id: "BE-04", question: "Which TTL?" }, ["ask", "BE-04", "Which TTL?"]],
@@ -338,7 +357,7 @@ describe("konsora mcp: agent write tools", () => {
     expect(shape.isError).toBe(true);
     const nothing = await call("edit", { id: "FE-01" });
     expect(nothing.text).toBe(
-      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels, group or difficulty.",
+      "Error: Nothing to change.\nHint: Pass title, desc, acceptance, labels, group, difficulty or milestone.",
     );
     const blocked = await call("start", { id: "BE-03" });
     expect(blocked.text).toContain("Hint: Pick another task with the ready tool");

@@ -1,4 +1,9 @@
-import { type FilterFacets, isFilterActive, type TaskFilter } from "@konsora/core";
+import {
+  type FilterFacets,
+  isFilterActive,
+  type MilestoneProgress,
+  type TaskFilter,
+} from "@konsora/core";
 import { useId } from "react";
 import { t } from "../i18n/index.ts";
 import { Button, difficultyLabel, Field } from "../ui/index.ts";
@@ -58,10 +63,13 @@ export function FilterBar({
   facets,
   hidden,
   onChange,
+  milestones = [],
 }: {
   filter: TaskFilter;
   groups: readonly { id: string; name: string }[];
   facets: FilterFacets;
+  /** The plan's milestones with their progress (CORE-19). */
+  milestones?: readonly MilestoneProgress[];
   /** How many tasks the filter leaves out. */
   hidden: number;
   onChange: (filter: TaskFilter) => void;
@@ -125,6 +133,26 @@ export function FilterBar({
           onChange={(value) => set("difficulty", value)}
         />
       )}
+      {(facets.milestones.length > 0 || filter.milestone) && (
+        <Choice
+          label={t("filter.milestone")}
+          all={t("filter.milestone.all")}
+          value={filter.milestone ?? ""}
+          options={facets.milestones.map((id) => {
+            const m = milestones.find((x) => x.id === id);
+            return {
+              value: id,
+              label:
+                id === "none"
+                  ? t("milestone.none")
+                  : m
+                    ? t("filter.milestone.option", { name: m.name, done: m.done, total: m.total })
+                    : id,
+            };
+          })}
+          onChange={(value) => set("milestone", value)}
+        />
+      )}
       {active && (
         <>
           <span className="b-filter__hidden" role="status">
@@ -135,6 +163,29 @@ export function FilterBar({
           </Button>
         </>
       )}
+      <MilestoneBar milestone={milestones.find((m) => m.id === filter.milestone)} />
     </search>
+  );
+}
+
+/** The milestone being filtered by, with how many of its tasks are done (CORE-19). */
+export function MilestoneBar({ milestone }: { milestone: MilestoneProgress | undefined }) {
+  if (!milestone) return null;
+  return (
+    <div className="b-filter__milestone">
+      <span>
+        <b>{milestone.name}</b>{" "}
+        {t("milestone.progress", { done: milestone.done, total: milestone.total })}
+      </span>
+      <progress
+        className="b-milestone__bar"
+        max={Math.max(1, milestone.total)}
+        value={milestone.done}
+        aria-label={t("milestone.progress.label", { name: milestone.name })}
+      />
+      {milestone.criterion && (
+        <span className="s-muted">{t("milestone.criterion", { text: milestone.criterion })}</span>
+      )}
+    </div>
   );
 }

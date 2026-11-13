@@ -25,6 +25,8 @@ export type Draft = {
   acceptance: DraftCriterion[];
   /** A level, or empty for none (CORE-22). */
   difficulty: Difficulty | "";
+  /** A milestone id, or empty for none (CORE-19). */
+  milestone: string;
 };
 export type DraftField = keyof Draft;
 export const draftFields: readonly DraftField[] = [
@@ -34,11 +36,12 @@ export const draftFields: readonly DraftField[] = [
   "group",
   "acceptance",
   "difficulty",
+  "milestone",
 ];
 
 type Editable = Pick<
   Task,
-  "id" | "title" | "desc" | "labels" | "group" | "acceptance" | "difficulty"
+  "id" | "title" | "desc" | "labels" | "group" | "acceptance" | "difficulty" | "milestone"
 >;
 
 /** A select's value as a difficulty: a level, or empty for none. */
@@ -54,6 +57,7 @@ export function draftFrom(task: Editable): Draft {
     group: task.group,
     acceptance: (task.acceptance ?? []).map((ac) => ({ id: ac.id, text: ac.text })),
     difficulty: task.difficulty ?? "",
+    milestone: task.milestone ?? "",
   };
 }
 
@@ -96,6 +100,8 @@ export type EditChanges = Partial<Pick<Task, "title" | "desc" | "labels" | "grou
   acceptance?: Acceptance[];
   /** `null` removes it. */
   difficulty?: Difficulty | null;
+  /** `null` takes the task out of its milestone. */
+  milestone?: string | null;
 };
 
 export type DraftCheck =
@@ -128,6 +134,7 @@ export function changesFrom(
   if (touched.has("group")) changes.group = draft.group;
   if (touched.has("acceptance")) changes.acceptance = criteriaFrom(draft.acceptance);
   if (touched.has("difficulty")) changes.difficulty = draft.difficulty || null;
+  if (touched.has("milestone")) changes.milestone = draft.milestone || null;
   // A field typed back to what it was is not a change.
   const stored: Required<EditChanges> = {
     title: base.title,
@@ -136,6 +143,7 @@ export function changesFrom(
     group: base.group,
     acceptance: base.acceptance ?? [],
     difficulty: base.difficulty ?? null,
+    milestone: base.milestone ?? null,
   };
   for (const key of Object.keys(changes) as (keyof EditChanges)[])
     if (same(changes[key], stored[key])) delete changes[key];

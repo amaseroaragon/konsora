@@ -299,6 +299,13 @@ export function TaskPanel({
           {task.waiting && <StateBadge kind="waiting" />}
           {archived && <span className="a-chip">{t("detail.archived")}</span>}
           {task.difficulty && <DifficultyMark difficulty={task.difficulty} text />}
+          {task.milestone && (
+            <span className="a-chip" title={t("milestone.chip.title")}>
+              {t("milestone.chip", {
+                name: doc.milestones?.find((m) => m.id === task.milestone)?.name ?? task.milestone,
+              })}
+            </span>
+          )}
           {canEdit && !editing && (
             <Button
               size="sm"
@@ -371,6 +378,7 @@ export function TaskPanel({
             projectId={projectId}
             task={task}
             groups={groups}
+            milestones={doc.milestones ?? []}
             onClose={() => setEditing(false)}
           />
         ) : (

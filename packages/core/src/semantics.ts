@@ -58,6 +58,17 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
       add(["seq", key], "seq_unknown_group", `seq has an entry for unknown group ${key}`);
   }
 
+  const milestones = new Set<string>();
+  doc.milestones?.forEach((milestone, i) => {
+    if (milestones.has(milestone.id))
+      add(
+        ["milestones", i, "id"],
+        "duplicate_milestone",
+        `Milestone ${milestone.id} is defined twice`,
+      );
+    milestones.add(milestone.id);
+  });
+
   const indexById = new Map<string, number>();
   const maxNumber = new Map<string, number>();
   doc.tasks.forEach((task, i) => {
@@ -87,6 +98,12 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
     } else {
       maxNumber.set(prefix, Math.max(maxNumber.get(prefix) ?? 0, taskNumber(task.id)));
     }
+    if (task.milestone !== undefined && !milestones.has(task.milestone))
+      add(
+        ["tasks", i, "milestone"],
+        "unknown_milestone",
+        `Task ${task.id} belongs to unknown milestone ${task.milestone}`,
+      );
     checkUnique(task.deps, (j, dep) =>
       add(["tasks", i, "deps", j], "duplicate_dependency", `Task ${task.id} lists ${dep} twice`),
     );

@@ -24,6 +24,7 @@ const FIELD_NAME: Record<DraftField, MessageKey> = {
   group: "edit.field.name.group",
   acceptance: "edit.field.name.acceptance",
   difficulty: "edit.field.name.difficulty",
+  milestone: "edit.field.name.milestone",
 };
 
 const errorText = (error: unknown, ctx: { id: string; on?: string }) =>
@@ -50,6 +51,8 @@ function ChangedOutside({ base, current }: { base: Draft; current: Draft }) {
       "difficulty",
       current.difficulty ? difficultyLabel(current.difficulty) : t("difficulty.none"),
     ]);
+  if (base.milestone !== current.milestone)
+    rows.push(["milestone", current.milestone || t("milestone.none")]);
   if (JSON.stringify(base.acceptance) !== JSON.stringify(current.acceptance))
     rows.push(["acceptance", current.acceptance.map((ac) => ac.text).join(" · ")]);
   if (rows.length === 0) return <p className="a-callout__text">{t("edit.changed.none")}</p>;
@@ -74,12 +77,15 @@ export function TaskEditor({
   projectId,
   task,
   groups,
+  milestones = [],
   onClose,
   startFrom = task,
 }: {
   projectId: string;
   task: BoardTask;
   groups: readonly { id: string; name: string }[];
+  /** The plan's milestones (CORE-19), to move the task into one or out of it. */
+  milestones?: readonly { id: string; name: string }[];
   onClose: () => void;
   /** The version the edit starts from (the current task, unless resuming an older draft). */
   startFrom?: BoardTask;
@@ -203,6 +209,13 @@ export function TaskEditor({
         onChange={(value) => set("group", value)}
       />
       <DifficultySelect value={draft.difficulty} onChange={(value) => set("difficulty", value)} />
+      {(milestones.length > 0 || draft.milestone) && (
+        <MilestoneSelect
+          milestones={milestones}
+          value={draft.milestone}
+          onChange={(value) => set("milestone", value)}
+        />
+      )}
       {error && !error.field && (
         <p className="k-field__error" role="alert">
           {error.text}
@@ -330,6 +343,43 @@ export function DifficultySelect({
         {DIFFICULTIES.map((level) => (
           <option key={level} value={level}>
             {difficultyLabel(level)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** The task's milestone (CORE-19): one of the plan's, or none. */
+export function MilestoneSelect({
+  milestones,
+  value,
+  onChange,
+}: {
+  milestones: readonly { id: string; name: string }[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  const listed =
+    value && !milestones.some((m) => m.id === value)
+      ? [...milestones, { id: value, name: value }]
+      : milestones;
+  return (
+    <div className="k-field">
+      <label htmlFor={id} className="k-field__label">
+        {t("edit.field.milestone")}
+      </label>
+      <select
+        id={id}
+        className="k-field__control"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">{t("milestone.none")}</option>
+        {listed.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.id} · {m.name}
           </option>
         ))}
       </select>
