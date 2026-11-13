@@ -812,3 +812,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Description with preview (UI-29) ───────────────────── */
+.b-desc .k-tabs__tab {
+  height: 30px;
+  padding: 0 var(--k-space-5);
+}
+.b-desc .k-tabs__panel {
+  padding: var(--k-space-4) 0 0;
+}
+.b-desc__preview {
+  min-height: 8rem;
+  padding: var(--k-space-4) var(--k-space-5);
+  border: 1px solid var(--k-line);
+  background: var(--k-surface);
+}

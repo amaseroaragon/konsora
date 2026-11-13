@@ -4,6 +4,7 @@ import { type BoardTask, useEditTask } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, difficultyLabel, Field, useToast } from "../ui/index.ts";
+import { DescField } from "./DescField.tsx";
 import {
   changesFrom,
   type Draft,
@@ -176,14 +177,11 @@ export function TaskEditor({
         error={fieldError("title")}
         onChange={(e) => set("title", e.target.value)}
       />
-      <Field
-        multiline
+      <DescField
         rows={8}
-        label={t("edit.field.desc")}
-        hint={t("edit.field.desc.hint")}
         value={draft.desc}
         error={fieldError("desc")}
-        onChange={(e) => set("desc", e.target.value)}
+        onChange={(value) => set("desc", value)}
       />
       <Criteria
         rows={draft.acceptance}

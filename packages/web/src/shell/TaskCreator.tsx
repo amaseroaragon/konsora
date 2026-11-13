@@ -6,6 +6,7 @@ import { t } from "../i18n/index.ts";
 import { Button, Field, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
 import { type CreateDraft, type CreateField, createOp, emptyDraft } from "./create-model.ts";
+import { DescField } from "./DescField.tsx";
 import { Criteria, DifficultySelect, GroupSelect } from "./TaskEditor.tsx";
 
 /**
@@ -110,14 +111,11 @@ export function TaskCreator({
             )}
           </div>
         )}
-        <Field
-          multiline
+        <DescField
           rows={6}
-          label={t("edit.field.desc")}
-          hint={t("edit.field.desc.hint")}
           value={draft.desc}
           error={fieldError("desc")}
-          onChange={(e) => set("desc", e.target.value)}
+          onChange={(value) => set("desc", value)}
         />
         <Criteria
           rows={draft.acceptance}
