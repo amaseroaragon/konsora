@@ -130,6 +130,25 @@ describe("ChatManager (AI panel)", () => {
     expect(events.at(-1)).toMatchObject({ type: "chat.updated", project: "p1" });
   });
 
+  it("passes the chosen model as --model; without one, no --model at all (DMN-06)", async () => {
+    const chats = manager();
+    await chats.send(proj(), "Plan a cache");
+    await idle(chats, "p1");
+    expect(runs()[0]?.args).not.toContain("--model");
+    await chats.send(proj(), "Go on", { model: "opus" });
+    await idle(chats, "p1");
+    const args = runs()[1]?.args ?? [];
+    expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual([
+      "--model",
+      "opus",
+    ]);
+    expect(args.slice(-2)).toEqual(["--resume", "sess-1"]); // same session, another model
+    await expect(chats.send(proj(), "x", { model: "--dangerously-skip" })).rejects.toThrow(
+      "Invalid model",
+    );
+    expect(runs()).toHaveLength(2);
+  });
+
   it("reports a failed turn, a missing CLI, a busy chat and a stopped answer", async () => {
     const failing = manager("fail");
     await failing.send(proj(), "Hi");
@@ -185,6 +204,20 @@ describe("chat routes", () => {
     });
     expect(sent.status).toBe(202);
     await idle(chats, linked.id);
+    const badModel = await app.request(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text: "Go on", model: "-x" }),
+    });
+    expect(badModel.status).toBe(400);
+    const withModel = await app.request(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text: "Go on", model: "claude-sonnet-4-5" }),
+    });
+    expect(withModel.status).toBe(202);
+    await idle(chats, linked.id);
+    expect(runs().at(-1)?.args).toContain("claude-sonnet-4-5");
     const read = (await (await app.request(url, { headers })).json()) as { chat: ChatView };
     expect(read.chat.messages[0]).toMatchObject({ role: "human", text: "Plan a cache" });
     expect((await app.request(url, { method: "DELETE", headers })).status).toBe(204);

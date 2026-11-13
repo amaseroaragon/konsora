@@ -26,7 +26,7 @@ export type ChatMessage = { id: number; role: ChatRole; text: string; at: string
 export type ChatView = { messages: ChatMessage[]; busy: boolean };
 
 export class ChatError extends Error {
-  readonly code: "not_found" | "busy" | "invalid_plan" | "unavailable";
+  readonly code: "not_found" | "busy" | "invalid_plan" | "unavailable" | "bad_request";
   constructor(code: ChatError["code"], message: string) {
     super(message);
     this.code = code;
@@ -50,6 +50,12 @@ type Chat = {
   child?: ChildProcess | undefined;
   next: number;
 };
+
+/**
+ * A model for `claude --model` (DMN-06): an alias such as `sonnet` or a full id such as
+ * `claude-sonnet-4-5`. Never starts with a dash, so it cannot pass for another flag.
+ */
+export const CHAT_MODEL = /^[a-z][a-z0-9.[\]-]{0,63}$/i;
 
 /** Longest text kept from one message, so a runaway answer cannot grow without bound. */
 const MAX_TEXT = 32_768;
@@ -106,8 +112,13 @@ export class ChatManager {
       chat.messages.splice(0, chat.messages.length - MAX_MESSAGES);
   }
 
-  /** Runs one turn with the human's `text`; the answer arrives through `publish`. */
-  async send(project: Project, text: string): Promise<ChatView> {
+  /**
+   * Runs one turn with the human's `text`, with `model` when given (else Claude Code's default);
+   * the answer arrives through `publish`.
+   */
+  async send(project: Project, text: string, options: { model?: string } = {}): Promise<ChatView> {
+    if (options.model !== undefined && !CHAT_MODEL.test(options.model))
+      throw new ChatError("bad_request", `Invalid model "${options.model}"`);
     const chat = this.#chat(project.id);
     if (chat.child) throw new ChatError("busy", "The agent is still answering; wait or stop it");
     let prompt = text;
@@ -142,6 +153,7 @@ export class ChatManager {
       `--disallowedTools=${PLAN_DENIED_TOOLS.join(",")}`,
       "--permission-mode",
       "default",
+      ...(options.model ? ["--model", options.model] : []),
       ...(chat.session ? ["--resume", chat.session] : []),
     ];
     const child = spawn(this.#options.command ?? "claude", args, {

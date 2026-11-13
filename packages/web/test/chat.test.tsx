@@ -1,7 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { applyChatMessage, type Chat, chatKey } from "../src/api/chat.ts";
+import {
+  applyChatMessage,
+  type Chat,
+  chatBody,
+  chatKey,
+  readChatModel,
+  writeChatModel,
+} from "../src/api/chat.ts";
 import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
 import { ChatPanel } from "../src/shell/ChatPanel.tsx";
@@ -77,5 +84,53 @@ describe("AI panel", () => {
     expect(client.getQueryData(chatKey("p1"))).toEqual(chat);
     applyChatMessage(client, "p1", { chat: { nope: true } });
     expect(client.getQueryData(chatKey("p1"))).toEqual(chat);
+  });
+});
+
+describe("the panel's model (DMN-06)", () => {
+  const storage = new Map<string, string>();
+  const withStorage = (run: () => void) => {
+    const global = globalThis as { window?: unknown };
+    const before = global.window;
+    global.window = {
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => void storage.set(key, value),
+        removeItem: (key: string) => void storage.delete(key),
+      },
+    };
+    try {
+      run();
+    } finally {
+      global.window = before;
+    }
+  };
+
+  it("offers Claude Code's default and the models, default first", () => {
+    const html = render({ messages: [], busy: false });
+    expect(html).toContain(">Modelo<");
+    expect(html).toMatch(/<option value="" selected="">El de Claude Code por defecto<\/option>/);
+    for (const name of ["Opus", "Sonnet", "Haiku"]) expect(html).toContain(`>${name}</option>`);
+  });
+
+  it("sends no model unless one was chosen", () => {
+    expect(chatBody("Hola", "")).toEqual({ text: "Hola" });
+    expect(chatBody("Hola", "opus")).toEqual({ text: "Hola", model: "opus" });
+  });
+
+  it("remembers the choice per project, and shows it", () => {
+    withStorage(() => {
+      expect(readChatModel("p1")).toBe("");
+      writeChatModel("p1", "haiku");
+      expect(readChatModel("p1")).toBe("haiku");
+      expect(readChatModel("p2")).toBe("");
+      expect(render({ messages: [], busy: false })).toMatch(
+        /<option value="haiku" selected="">Haiku<\/option>/,
+      );
+      writeChatModel("p1", "");
+      expect(readChatModel("p1")).toBe("");
+      storage.set("konsora.chat.model.p1", "gpt");
+      expect(readChatModel("p1")).toBe("");
+    });
   });
 });

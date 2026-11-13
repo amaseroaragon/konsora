@@ -1,5 +1,15 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { type ChatMessage, useChat, useResetChat, useSendChat, useStopChat } from "../api/chat.ts";
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import {
+  CHAT_MODELS,
+  type ChatMessage,
+  type ChatModel,
+  readChatModel,
+  useChat,
+  useResetChat,
+  useSendChat,
+  useStopChat,
+  writeChatModel,
+} from "../api/chat.ts";
 import { ApiError } from "../api/client.ts";
 import { t } from "../i18n/index.ts";
 import { Button, Field, useToast } from "../ui/index.ts";
@@ -51,6 +61,8 @@ export function ChatPanel({
   const reset = useResetChat(projectId);
   const toast = useToast();
   const [text, setText] = useState("");
+  const [model, setModel] = useState<ChatModel>(() => readChatModel(projectId));
+  const modelId = useId();
   const end = useRef<HTMLLIElement>(null);
   const messages = chat.data?.messages ?? [];
   const busy = chat.data?.busy ?? false;
@@ -69,7 +81,7 @@ export function ChatPanel({
     event?.preventDefault();
     const body = text.trim();
     if (!body || busy || readOnly) return;
-    send.mutate(body, { onSuccess: () => setText(""), onError: failed });
+    send.mutate({ text: body, model }, { onSuccess: () => setText(""), onError: failed });
   };
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -129,6 +141,28 @@ export function ChatPanel({
             onChange={(event) => setText(event.target.value)}
             onKeyDown={onKey}
           />
+          <div className="k-field b-chat__model">
+            <label htmlFor={modelId} className="k-field__label">
+              {t("chat.model")}
+            </label>
+            <select
+              id={modelId}
+              className="k-field__control"
+              value={model}
+              disabled={readOnly}
+              onChange={(event) => {
+                const next = event.target.value as ChatModel;
+                setModel(next);
+                writeChatModel(projectId, next);
+              }}
+            >
+              {CHAT_MODELS.map((value) => (
+                <option key={value} value={value}>
+                  {value ? t(`chat.model.${value}`) : t("chat.model.default")}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="a-actions">
             <Button
               type="submit"

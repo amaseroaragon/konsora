@@ -38,11 +38,42 @@ function useChatMutation<T>(projectId: string, run: (input: T) => Promise<Chat |
   });
 }
 
+/** The models the panel offers (DMN-06); "" is Claude Code's own default. */
+export const CHAT_MODELS = ["", "opus", "sonnet", "haiku"] as const;
+export type ChatModel = (typeof CHAT_MODELS)[number];
+
+const modelKey = (projectId: string) => `konsora.chat.model.${projectId}`;
+
+/** The model chosen for this project's panel, remembered in this browser. */
+export function readChatModel(projectId: string): ChatModel {
+  try {
+    const value = window.localStorage.getItem(modelKey(projectId)) ?? "";
+    return (CHAT_MODELS as readonly string[]).includes(value) ? (value as ChatModel) : "";
+  } catch {
+    return "";
+  }
+}
+
+export function writeChatModel(projectId: string, model: ChatModel) {
+  try {
+    if (model) window.localStorage.setItem(modelKey(projectId), model);
+    else window.localStorage.removeItem(modelKey(projectId));
+  } catch {
+    // Not remembered; the choice still applies on this page.
+  }
+}
+
+/** The body of one message: the text, and the model only when one was chosen. */
+export function chatBody(text: string, model: ChatModel): { text: string; model?: string } {
+  return model ? { text, model } : { text };
+}
+
 export function useSendChat(projectId: string) {
   const api = useApi();
   return useChatMutation(
     projectId,
-    async (text: string) => (await api.post<{ chat: Chat }>(path(projectId), { text })).chat,
+    async ({ text, model = "" }: { text: string; model?: ChatModel }) =>
+      (await api.post<{ chat: Chat }>(path(projectId), chatBody(text, model))).chat,
   );
 }
 

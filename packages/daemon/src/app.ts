@@ -16,7 +16,7 @@ import { mutate, readArchive, readTasks } from "@konsora/core/store";
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthConfig, guard } from "./auth.ts";
-import { ChatError, type ChatManager } from "./chat.ts";
+import { CHAT_MODEL, ChatError, type ChatManager } from "./chat.ts";
 import { createOversights, type LedgerEntry, type OversightFor } from "./oversight.ts";
 import { type Registry, RegistryError } from "./registry.ts";
 import { site } from "./site.ts";
@@ -33,10 +33,15 @@ export type AppOptions = AuthConfig & {
   chats?: ChatManager;
 };
 
-const ChatBody = z.strictObject({ text: z.string().trim().min(1).max(16_384) });
+const ChatBody = z.strictObject({
+  text: z.string().trim().min(1).max(16_384),
+  /** DMN-06: the model for this turn; absent = Claude Code's default. */
+  model: z.string().regex(CHAT_MODEL).optional(),
+});
 
 /** HTTP status for the chat errors (the body carries code and message). */
-const CHAT_STATUS: Record<ChatError["code"], 404 | 409 | 503> = {
+const CHAT_STATUS: Record<ChatError["code"], 400 | 404 | 409 | 503> = {
+  bad_request: 400,
   not_found: 404,
   busy: 409,
   invalid_plan: 409,
@@ -362,8 +367,12 @@ export function createApp(options: AppOptions): Hono {
     const project = await registry.get(c.req.param("id"));
     const body = ChatBody.safeParse(await c.req.json().catch(() => null));
     if (!body.success)
-      return c.json({ error: { code: "bad_request", message: "Send {text} as JSON" } }, 400);
-    return c.json({ chat: await chatsOf().send(project, body.data.text) }, 202);
+      return c.json(
+        { error: { code: "bad_request", message: "Send {text, model?} as JSON" } },
+        400,
+      );
+    const { text, model } = body.data;
+    return c.json({ chat: await chatsOf().send(project, text, model ? { model } : {}) }, 202);
   });
 
   /** Stops the answer in progress, if any. */
