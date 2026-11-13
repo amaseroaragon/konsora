@@ -361,6 +361,7 @@
   width: 100%;
   margin: 0;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: var(--k-text-xs);
 }
 .b-external__diff th,
@@ -375,9 +376,8 @@
   color: var(--k-ink-muted);
   font-weight: var(--k-weight-medium);
 }
-.b-external__diff tbody th {
-  width: 7rem;
-  white-space: nowrap;
+.b-external__diff thead th:first-child {
+  width: 8rem;
 }
 .b-external__before {
   color: var(--k-ink-muted);

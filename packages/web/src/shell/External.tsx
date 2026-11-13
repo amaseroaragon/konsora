@@ -44,7 +44,7 @@ function ExternalDetail({ flag, current }: { flag: ExternalFlag; current: Task |
     );
   }
   const rows = externalDiff(previous, current);
-  if (rows.length === 0) return null;
+  if (rows.length === 0) return <p className="b-external__diff s-muted">{t("external.nodiff")}</p>;
   return (
     <table className="b-external__diff">
       <thead>

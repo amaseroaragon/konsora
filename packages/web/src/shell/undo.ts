@@ -25,23 +25,25 @@ export function undoErrorText(error: unknown): string {
 export function useUndoOffer(projectId: string) {
   const toast = useToast();
   const undo = useUndo(projectId);
-  const mutate = undo.mutate;
+  const mutateAsync = undo.mutateAsync;
   return useCallback(
     (text: string, changes: readonly UndoChange[] | undefined) => {
+      // The promise, not mutate's callbacks: the component that offered the undo (a deleted
+      // task's panel) may be gone by the time it is pressed.
       const run = () =>
-        mutate(changes ?? [], {
-          onSuccess: () => toast.show(t("undo.done"), "success"),
-          onError: (error) => {
+        mutateAsync(changes ?? []).then(
+          () => toast.show(t("undo.done"), "success"),
+          (error: unknown) => {
             if (error instanceof ApiError && error.unauthorized) return;
             toast.show(undoErrorText(error), "error");
           },
-        });
+        );
       toast.show(
         text,
         "success",
         changes && changes.length > 0 ? { label: t("undo.action"), run } : undefined,
       );
     },
-    [toast, mutate],
+    [toast, mutateAsync],
   );
 }

@@ -15,6 +15,7 @@ import { choiceAnswer, confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { PanelSection } from "./PanelSection.tsx";
+import { canRefine } from "./refine.ts";
 import { DependencyEditor, TaskEditor } from "./TaskEditor.tsx";
 import { useUndoOffer } from "./undo.ts";
 
@@ -236,6 +237,7 @@ export function TaskPanel({
   onClose,
   onOpen,
   onSelectWithDeps,
+  onRefine,
   groups = [],
   archived = false,
   archive = [],
@@ -250,6 +252,8 @@ export function TaskPanel({
   onOpen: (id: string) => void;
   /** Selects this task with its pending dependencies (UI-07); only offered where it applies. */
   onSelectWithDeps?: (() => void) | undefined;
+  /** «Afinar con IA» (UI-20): only offered for tasks nobody started, outside read-only. */
+  onRefine?: (() => void) | undefined;
   /** The plan's groups, for moving the task while editing it. */
   groups?: readonly { id: string; name: string }[];
   /** The task is archived (CORE-18): shown as it was closed, never changed. */
@@ -324,6 +328,13 @@ export function TaskPanel({
             actions={actions}
             dependents={dependentsOf(task.id, doc)}
           />
+        )}
+        {onRefine && canRefine(task, readOnly) && (
+          <div className="a-actions">
+            <Button size="sm" variant="secondary" onClick={onRefine}>
+              {t("refine.open")}
+            </Button>
+          </div>
         )}
         {onSelectWithDeps && (
           <div className="a-actions">

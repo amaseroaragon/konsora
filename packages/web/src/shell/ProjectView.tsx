@@ -11,11 +11,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   archivedTask,
   type BoardOk,
+  type BoardTask,
   type LiveState,
   toDocument,
   useEditTask,
   useTaskAction,
 } from "../api/board.ts";
+import { readChatModel, useSendChat } from "../api/chat.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
@@ -35,6 +37,7 @@ import { FilterBar } from "./FilterBar.tsx";
 import { Graph } from "./Graph.tsx";
 import type { Link } from "./graph-model.ts";
 import { HistoryView } from "./HistoryView.tsx";
+import { refineMessage } from "./refine.ts";
 import {
   navigate,
   type ProjectViewName,
@@ -176,6 +179,26 @@ export function ProjectView({
     writeChatPref(!chatOpen);
   };
   const action = useTaskAction(projectId);
+  const sendChat = useSendChat(projectId);
+  /**
+   * «Afinar con IA» (UI-20): the AI panel takes the side, and its next message is the task with
+   * its content; the planning agent edits it with the plan tools, and the board updates live.
+   */
+  const refine = (task: BoardTask) => {
+    if (!chatOpen) toggleChat();
+    go({ task: null });
+    const groupName = board.plan.groups.find((g) => g.id === task.group)?.name ?? task.group;
+    sendChat.mutate(
+      { text: refineMessage(task, groupName), model: readChatModel(projectId) },
+      {
+        onSuccess: () => toast.show(t("refine.sent", { id: task.id }), "info"),
+        onError: (error) => {
+          if (error instanceof ApiError && error.unauthorized) return;
+          toast.show(t("chat.error", { message: error.message }), "error");
+        },
+      },
+    );
+  };
   const [creating, setCreating] = useState(false);
   const selection = useSelection(projectId);
   const selectedIds = visibleSelection(selection.selected, board.tasks);
@@ -514,6 +537,7 @@ export function ProjectView({
               archive={board.archive}
               onClose={() => go({ task: null })}
               onOpen={open}
+              onRefine={() => refine(opened)}
               onSelectWithDeps={
                 view === "graph" && isSelectable(opened)
                   ? () => selectWithDeps(opened.id)
