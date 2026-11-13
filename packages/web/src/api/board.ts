@@ -259,6 +259,24 @@ export function useTaskAction(projectId: string) {
   });
 }
 
+/**
+ * A human note on a task (UI-12): an indication for the agent, in any state. No `expect`: a note
+ * only appends, so it applies whatever else happened to the task meanwhile.
+ */
+export function noteBody(task: string, text: string): Extract<Op, { op: "note" }> {
+  return { op: "note", task, text: text.trim() };
+}
+
+export function useAddNote(projectId: string) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ task, text }: { task: string; text: string }) =>
+      api.post(`/projects/${encodeURIComponent(projectId)}/ops`, noteBody(task, text)),
+    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+  });
+}
+
 /** Confirms (keeps, logged as yours) or reverts an unapproved external change on a task. */
 export function useResolveExternal(projectId: string) {
   const api = useApi();

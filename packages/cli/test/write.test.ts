@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseTasksFile, serializeDocument, type Task, type TasksDocument } from "@konsora/core";
+import { mutate } from "@konsora/core/store";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EXIT, main } from "../src/main.ts";
 
@@ -396,6 +397,20 @@ describe("work commands", () => {
       ["question", "Which store?"],
       ["summary", "LRU with TTL, tests added"],
     ]);
+  });
+
+  it("show includes a human note, so the agent reads it when it resumes the task (UI-12)", async () => {
+    await mutate(
+      dir,
+      { op: "note", task: "BE-04", text: "Usa la caché existente" },
+      {
+        actor: "human",
+        at,
+      },
+    );
+    const shown = (await run(["show", "BE-04"])).stdout;
+    expect(shown).toContain("human  note");
+    expect(shown).toContain("Usa la caché existente");
   });
 
   it("pause returns a task to todo; text may only come from one source", async () => {

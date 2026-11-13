@@ -76,6 +76,10 @@ export const es = {
   "note.answer": "respuesta",
   "note.feedback": "comentario",
   "note.summary": "resumen",
+  "note.add": "Añadir nota",
+  "note.add.label": "Nota para el agente",
+  "note.add.hint": "La leerá al retomar la tarea (aparece en konsora show).",
+  "note.add.done": "Nota añadida a {id}.",
 
   "shell.home": "Proyectos",
   "shell.nav": "Navegación",

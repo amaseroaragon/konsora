@@ -2,7 +2,7 @@ import { deriveFlags, type Task, type TasksDocument, taskHash } from "@konsora/c
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { actionBody, type BoardTask, moveBody } from "../src/api/board.ts";
+import { actionBody, type BoardTask, moveBody, noteBody } from "../src/api/board.ts";
 import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
 import { choiceAnswer } from "../src/shell/board-model.ts";
@@ -123,6 +123,24 @@ describe("questions with options (CORE-16)", () => {
       task: "BE-03",
       expect: { "BE-03": task.hash },
       text: "SQLite",
+    });
+  });
+});
+
+describe("human notes from the panel (UI-12)", () => {
+  it("offers a note form on any task, done ones included, but not read-only", () => {
+    for (const id of ["BE-01", "BE-02", "BE-03", "BE-04"]) {
+      expect(panel(id)).toContain("Nota para el agente");
+      expect(buttons(panel(id))).toContain("Añadir nota");
+    }
+    expect(panel("BE-03", doc, true)).not.toContain("Nota para el agente");
+  });
+
+  it("sends one note op, as the daemon runs it for the human", () => {
+    expect(noteBody("BE-04", "  Revisa también el caso vacío \n")).toEqual({
+      op: "note",
+      task: "BE-04",
+      text: "Revisa también el caso vacío",
     });
   });
 });

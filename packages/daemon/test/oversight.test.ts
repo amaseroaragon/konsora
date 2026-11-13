@@ -453,6 +453,21 @@ describe("daemon ops and oversight over HTTP", () => {
     expect((await board()).body.external).toHaveLength(1); // persists until resolved
   });
 
+  it("a human note from the panel lands in the file, done tasks included, unflagged (UI-12)", async () => {
+    await board();
+    const r = await call(`/projects/${id}/ops`, {
+      op: "note",
+      task: "BE-02",
+      text: "Revisa también el caso vacío",
+    });
+    expect(r.status).toBe(200);
+    expect(read().tasks[1]?.notes).toEqual([
+      { id: "n1", at, by: "human", kind: "note", text: "Revisa también el caso vacío" },
+    ]);
+    expect(r.body.tasks[0].notes).toHaveLength(1);
+    expect((await board()).body.external).toEqual([]);
+  });
+
   it("archiving done tasks is not flagged; the board lists them as archived (CORE-18)", async () => {
     await board();
     const result = await archiveTasks(root, "2026-11-03T00:00:00Z");

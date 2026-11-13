@@ -7,7 +7,7 @@ import {
   type TasksDocument,
 } from "@konsora/core";
 import { type FormEvent, useState } from "react";
-import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.ts";
+import { type BoardTask, type ExternalFlag, useAddNote, useTaskAction } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Field, StateBadge, useToast } from "../ui/index.ts";
@@ -168,6 +168,54 @@ function Actions({
         ),
       )}
     </div>
+  );
+}
+
+/** The human's note for the agent (UI-12): it lands in the timeline and `konsora show`. */
+function NoteForm({ projectId, taskId }: { projectId: string; taskId: string }) {
+  const mutation = useAddNote(projectId);
+  const toast = useToast();
+  const [text, setText] = useState("");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!text.trim()) return;
+    mutation.mutate(
+      { task: taskId, text },
+      {
+        onSuccess: () => {
+          toast.show(t("note.add.done", { id: taskId }), "success");
+          setText("");
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.unauthorized) return;
+          const code = error instanceof ApiError ? error.code : "error";
+          toast.show(opErrorText(code, taskId, error.message), "error");
+        },
+      },
+    );
+  };
+  return (
+    <form className="a-stack b-note-form" onSubmit={submit}>
+      <Field
+        multiline
+        rows={2}
+        label={t("note.add.label")}
+        hint={t("note.add.hint")}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+      />
+      <div className="a-actions">
+        <Button
+          type="submit"
+          size="sm"
+          variant="secondary"
+          busy={mutation.isPending}
+          disabled={!text.trim()}
+        >
+          {t("note.add")}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -361,6 +409,7 @@ export function TaskPanel({
             </ol>
           </PanelSection>
         )}
+        {!readOnly && <NoteForm key={task.id} projectId={projectId} taskId={task.id} />}
       </div>
     </aside>
   );
