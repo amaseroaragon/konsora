@@ -2,7 +2,7 @@
  * Pure derivations over a validated `konsora/5` document (docs/esquema-tareas.md §2, "Derivados").
  * Nothing here is stored in the file: `blocked`, `ready` and `waiting` are always computed.
  */
-import type { Task, TasksDocument } from "./schema.ts";
+import type { Note, Task, TasksDocument } from "./schema.ts";
 import { compareTaskIds } from "./serialize.ts";
 
 export type TaskIndex = ReadonlyMap<string, Task>;
@@ -52,15 +52,20 @@ export function isReady(
   return task.state === "todo" && !isBlocked(task, index, archived);
 }
 
-/** The latest `question` note has no `answer` note after it. */
-export function isWaiting(task: Task): boolean {
+/** The latest `question` note when no `answer` note follows it: what the task waits on. */
+export function openQuestion(task: Task): Note | undefined {
   const notes = task.notes ?? [];
   for (let i = notes.length - 1; i >= 0; i--) {
-    const kind = notes[i]?.kind;
-    if (kind === "answer") return false;
-    if (kind === "question") return true;
+    const note = notes[i];
+    if (note?.kind === "answer") return undefined;
+    if (note?.kind === "question") return note;
   }
-  return false;
+  return undefined;
+}
+
+/** The latest `question` note has no `answer` note after it. */
+export function isWaiting(task: Task): boolean {
+  return openQuestion(task) !== undefined;
 }
 
 /** Tasks that list `id` as a direct dependency. */

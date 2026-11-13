@@ -1045,3 +1045,64 @@
   border: 1px solid var(--k-line);
   background: var(--k-surface);
 }
+
+/* Pending questions of every project (UI-13) */
+.s-nav__count {
+  margin-left: var(--k-space-3);
+  padding: 0 var(--k-space-2);
+  background: var(--k-warn-soft);
+  color: var(--k-warn-ink);
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+}
+.s-questions {
+  max-width: 820px;
+  margin: 0 auto;
+}
+.s-questions__project + .s-questions__project {
+  margin-top: var(--k-space-8);
+}
+.s-questions__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--k-space-3);
+  margin: 0 0 var(--k-space-4);
+  font-size: var(--k-text-md);
+}
+.s-questions__name a {
+  color: inherit;
+}
+.s-questions__count {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}
+.s-questions__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.s-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+}
+.s-question__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.s-question__task {
+  color: var(--k-ink);
+  font-weight: var(--k-weight-medium);
+}
+.s-question__meta {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}

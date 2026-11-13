@@ -50,17 +50,20 @@ const when = (iso: string) =>
   new Date(iso).toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
 
 /** The buttons for the human actions core allows on this task; text-taking ones open a form. */
-function Actions({
+export function Actions({
   projectId,
   task,
   actions,
   dependents,
+  onDone,
 }: {
   projectId: string;
   task: BoardTask;
   actions: TaskAction[];
   /** Tasks that depend on this one: deleting it asks first, naming them. */
   dependents: readonly string[];
+  /** Called once an action succeeded. */
+  onDone?: (action: TaskAction) => void;
 }) {
   const mutation = useTaskAction(projectId);
   const toast = useToast();
@@ -77,6 +80,7 @@ function Actions({
           offer(t(DONE[action], { id: task.id }), reply.undo);
           setOpen(null);
           setText("");
+          onDone?.(action);
         },
         onError: (error) => {
           if (error instanceof ApiError && error.unauthorized) return;

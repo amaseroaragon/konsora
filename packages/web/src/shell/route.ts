@@ -1,5 +1,6 @@
 /**
- * Hash routes: `#/` projects and `#/p/<id>` a project. Any other hash leads to the projects.
+ * Hash routes: `#/` projects, `#/questions` the pending questions of every project (UI-13) and
+ * `#/p/<id>` a project. Any other hash leads to the projects.
  * A project route carries its view, its open task and its task filter as a query, so they survive
  * a reload and can be linked: `#/p/<id>?view=graph&task=UI-05&q=cache&label=perf`.
  */
@@ -11,6 +12,7 @@ export const projectViews: readonly ProjectViewName[] = ["board", "graph", "hist
 
 export type Route =
   | { name: "projects" }
+  | { name: "questions" }
   | {
       name: "project";
       id: string;
@@ -52,8 +54,11 @@ export function parseRoute(hash: string): Route {
       ...(Object.keys(filter).length > 0 ? { filter } : {}),
     };
   }
+  if (path === "/questions") return { name: "questions" };
   return { name: "projects" };
 }
+
+export const QUESTIONS_HREF = "#/questions";
 
 /** Link to a project; the board without an open task is the bare `#/p/<id>`. */
 export function projectHref(

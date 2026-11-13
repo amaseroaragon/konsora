@@ -287,6 +287,75 @@ describe("read endpoints", () => {
   });
 });
 
+describe("pending questions across projects (UI-13)", () => {
+  const note = (n: number, kind: "question" | "answer", text: string, options?: string[]) => ({
+    id: `n${n}`,
+    at,
+    by: kind === "question" ? "agent:claude" : "human",
+    kind,
+    text,
+    ...(options ? { options } : {}),
+  });
+
+  it("lists the waiting tasks of every readable project with their open question", async () => {
+    const waiting = plan();
+    waiting.tasks[0] = {
+      ...(waiting.tasks[0] as TasksDocument["tasks"][number]),
+      notes: [
+        note(1, "question", "¿Primero?"),
+        note(2, "answer", "Sí"),
+        note(3, "question", "¿A o B?", ["A", "B"]),
+      ],
+    };
+    mkdirSync(join(projectDir, ".konsora"));
+    writeFileSync(join(projectDir, ".konsora", "tasks.json"), serializeDocument(waiting));
+    const { body } = await link();
+    // A project without questions and one with an unreadable plan are left out.
+    const quiet = mkdtempSync(join(tmpdir(), "konsora-proj-"));
+    const broken = mkdtempSync(join(tmpdir(), "konsora-proj-"));
+    try {
+      mkdirSync(join(quiet, ".konsora"));
+      writeFileSync(join(quiet, ".konsora", "tasks.json"), serializeDocument(plan()));
+      mkdirSync(join(broken, ".konsora"));
+      writeFileSync(join(broken, ".konsora", "tasks.json"), "{");
+      await link(quiet);
+      await link(broken);
+      const res = await call("/api/questions");
+      expect(res.status).toBe(200);
+      const list = (await res.json()) as {
+        total: number;
+        projects: {
+          project: { id: string; name: string };
+          questions: { task: { id: string; hash: string; waiting: boolean }; question: unknown }[];
+        }[];
+      };
+      expect(list.total).toBe(1);
+      expect(list.projects).toHaveLength(1);
+      expect(list.projects[0]?.project).toEqual({
+        id: body.project.id,
+        name: expect.any(String),
+      });
+      expect(list.projects[0]?.questions).toEqual([
+        {
+          task: expect.objectContaining({ id: "BE-01", waiting: true, hash: expect.any(String) }),
+          question: note(3, "question", "¿A o B?", ["A", "B"]),
+        },
+      ]);
+      // Once answered, it is no longer pending.
+      const task = list.projects[0]?.questions[0]?.task as { id: string; hash: string };
+      const answered = await call(`/api/projects/${body.project.id}/ops`, {
+        method: "POST",
+        body: { op: "answer", task: task.id, text: "A", expect: { [task.id]: task.hash } },
+      });
+      expect(answered.status).toBe(200);
+      expect(await (await call("/api/questions")).json()).toEqual({ projects: [], total: 0 });
+    } finally {
+      rmSync(quiet, { recursive: true, force: true });
+      rmSync(broken, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("startDaemon (real server)", () => {
   it("listens on 127.0.0.1, records daemon.json privately, and refuses a second instance", async () => {
     const daemon = await startDaemon({ dataDir: data });

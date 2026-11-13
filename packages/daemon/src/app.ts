@@ -6,6 +6,7 @@ import {
   dependentsOf,
   deriveFlags,
   indexTasks,
+  openQuestion,
   parseOp,
   type Task,
   type TasksDocument,
@@ -133,6 +134,32 @@ export function createApp(options: AppOptions): Hono {
       }),
     );
     return c.json({ projects: withPlan });
+  });
+
+  /**
+   * UI-13: every task waiting for the human's answer, across the linked projects, with its open
+   * question. Projects whose plan cannot be read are left out (nothing can be answered there).
+   */
+  api.get("/questions", async (c) => {
+    const projects = await registry.list();
+    const groups = await Promise.all(
+      projects.map(async (project) => {
+        const plan = await readTasks(project.path);
+        if (!plan.ok) return null;
+        const questions = taskViews(plan.document).flatMap((task) => {
+          const question = openQuestion(task);
+          return question ? [{ task, question }] : [];
+        });
+        return questions.length > 0
+          ? { project: { id: project.id, name: project.name }, questions }
+          : null;
+      }),
+    );
+    const withQuestions = groups.filter((group) => group !== null);
+    return c.json({
+      projects: withQuestions,
+      total: withQuestions.reduce((sum, group) => sum + group.questions.length, 0),
+    });
   });
 
   api.post("/projects", async (c) => {

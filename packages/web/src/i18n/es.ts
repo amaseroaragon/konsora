@@ -89,6 +89,16 @@ export const es = {
 
   "shell.home": "Proyectos",
   "shell.nav": "Navegación",
+  "questions.nav": "Preguntas",
+  "questions.nav.label": "Preguntas pendientes: {n}",
+  "questions.title": "Preguntas pendientes",
+  "questions.eyebrow": "Todos los proyectos",
+  "questions.text":
+    "Las tareas cuyo agente espera tu respuesta, en todos los proyectos vinculados.",
+  "questions.empty": "No hay preguntas pendientes.",
+  "questions.project": "Abrir {name}",
+  "questions.open": "Abrir {id} en su proyecto",
+  "questions.asked": "{actor} · {when}",
   "session.title": "Sin sesión",
   "session.text":
     "Esta página necesita el token de sesión del daemon local. Ábrela desde la terminal con `konsora ui`.",

@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyChatMessage } from "./chat.ts";
 import { type ProjectSummary, projectsKey, useApi } from "./projects.ts";
+import { questionsKey } from "./questions.ts";
 import { reconnectDelay, TOKEN_KEY } from "./session.ts";
 
 export type BoardTask = Task & TaskFlags & { hash: string };
@@ -185,6 +186,7 @@ export function useBoardEvents(projectId: string): LiveState {
     const refresh = () => {
       client.invalidateQueries({ queryKey: boardKey(projectId) });
       client.invalidateQueries({ queryKey: projectsKey });
+      client.invalidateQueries({ queryKey: questionsKey });
     };
     const resync = () => {
       refresh();
@@ -258,7 +260,10 @@ export function useTaskAction(projectId: string) {
   return useMutation({
     mutationFn: (input: TaskActionInput) =>
       api.post<OpReply>(`/projects/${encodeURIComponent(projectId)}/ops`, actionBody(input)),
-    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: boardKey(projectId) });
+      client.invalidateQueries({ queryKey: questionsKey });
+    },
   });
 }
 
@@ -339,6 +344,9 @@ export function useUndo(projectId: string) {
         op: "undo",
         changes,
       }),
-    onSettled: () => client.invalidateQueries({ queryKey: boardKey(projectId) }),
+    onSettled: () => {
+      client.invalidateQueries({ queryKey: boardKey(projectId) });
+      client.invalidateQueries({ queryKey: questionsKey });
+    },
   });
 }
