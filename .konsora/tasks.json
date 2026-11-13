@@ -26,7 +26,7 @@
     }
   ],
   "seq": {
-    "CORE": 22,
+    "CORE": 23,
     "CLI": 12,
     "MCP": 2,
     "DMN": 7,
@@ -677,7 +677,7 @@
       "title": "Registrar la actividad del plan: quién cambió qué y cuándo",
       "state": "todo",
       "group": "CORE",
-      "rank": "zzzzzzzz",
+      "rank": "zzzzzzzwi",
       "desc": "Base de la idea del roadmap «Historial de cambios del plan». Hoy solo queda rastro de la creación, de las notas y del último `updated_at`: una promoción, un inicio sin texto, una pausa, una edición o un borrado no dejan constancia de quién ni cuándo. Derivar o guardar un registro de eventos por tarea, acotado en tamaño.",
       "acceptance": [
         {
@@ -700,7 +700,7 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:36:55Z"
+      "updated_at": "2026-11-13T10:28:29Z"
     },
     {
       "id": "CORE-18",
@@ -757,7 +757,7 @@
       "title": "Hitos: agrupar tareas en un objetivo con su progreso",
       "state": "todo",
       "group": "CORE",
-      "rank": "zzzzzzzzz",
+      "rank": "zzzzzzzw9",
       "desc": "Este mismo repo se organiza por hitos (M11–M14) que solo existen en `roadmap.md`: el plan no sabe qué tareas forman un hito ni cuánto falta. Un hito sería un nombre y un criterio de hecho, con tareas asignadas y su progreso. A diferencia de los bloques retirados en M14, no tiene rama ni merge ni ninguna relación con git.",
       "acceptance": [
         {
@@ -784,7 +784,7 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:37:19Z"
+      "updated_at": "2026-11-13T10:28:46Z"
     },
     {
       "id": "CORE-20",
@@ -852,16 +852,76 @@
     },
     {
       "id": "CORE-22",
-      "title": "Recuperar dificultad de tarea",
-      "state": "proposed",
+      "title": "Recuperar la dificultad de las tareas",
+      "state": "todo",
       "group": "CORE",
-      "rank": "zzzzzzzzzzzzr",
-      "desc": "Tras el cambio de rumbo, se ha perdido que las tareas muestren la dificultad de las mismas. Quiero recuperarlo.",
+      "rank": "zzzzw",
+      "desc": "Antes del giro de M11, cada tarea podía llevar una **dificultad** (`low`, `medium`, `high`) que estimaba el agente al crearla. Se usaba sobre todo para elegir qué agente lanzar, y `konsora/3` la quitó junto con la ejecución. Sin ella, ni en el tablero ni en `konsora ready` se ve qué es trivial y qué exige diseño, y eso ayuda a elegir la siguiente tarea, a repartirla y a decidir con qué modelo trabajarla.\n\n**Qué se recupera**\n\n- **Esquema** (`konsora/5`, campo opcional, sin migración): `task.difficulty` con `low | medium | high`. En la UI se muestra como Baja, Media y Alta. Su sitio en el orden canónico es detrás de `labels`.\n- **Quién la pone**: el agente la estima al crear (`propose --difficulty`, `difficulty` en cada tarea de `batch` y en el MCP) y la ajusta con `edit`. El humano puede cambiarla en cualquier tarea desde el panel. Como el resto de campos, un agente no la cambia en una tarea `done`. Es opcional: una tarea sin dificultad sigue siendo válida.\n- **Criterio de estimación**, el mismo que había, para la skill y el prompt de planificación: *baja* = mecánica, pocos ficheros; *media* = una funcionalidad dentro de un área; *alta* = transversal, con decisiones de diseño o con riesgo.\n- **Dónde se ve**: en la tarjeta del tablero y en el grafo (una marca discreta), en el panel de tarea, en `konsora show`, `list` y `ready`, y en el `--json` y el MCP.\n- **Filtro**: la dificultad se suma al filtro del tablero y del grafo (UI-10, `TaskFilter` en core, en la URL) y a `konsora list` / `ready` (`--difficulty`).\n- **Migración**: `konsora migrate` desde `konsora/2` conserva la `difficulty` de las tareas en vez de descartarla. La de las plantillas se sigue descartando.\n\nFuera de alcance: dificultad en las plantillas y recomendar un modelo según la dificultad (idea aparte).",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "core: `difficulty` (low|medium|high) es un campo opcional de la tarea, validado, serializado en orden canónico y en el JSON Schema regenerado; un valor desconocido hace el plan inválido (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "CLI y MCP: `propose --difficulty`, `difficulty` en `batch` y `edit --difficulty` (con `none` para quitarla) dejan el mismo fichero por las dos vías; un agente no puede cambiarla en una tarea done (tests)"
+        },
+        {
+          "id": "ac3",
+          "text": "`konsora show`, `list` y `ready` muestran la dificultad, y `list`/`ready --difficulty <nivel>` filtran por ella (tests)"
+        },
+        {
+          "id": "ac4",
+          "text": "La skill y el prompt de planificación piden estimarla con el criterio baja/media/alta (test del prompt)"
+        },
+        {
+          "id": "ac5",
+          "text": "La UI muestra la dificultad en la tarjeta, en el nodo del grafo y en el panel; el humano la elige o la quita al editar la tarea, también en tareas hechas (tests de componentes y prueba en el navegador)"
+        },
+        {
+          "id": "ac6",
+          "text": "El filtro del tablero y del grafo admite la dificultad y la guarda en la URL (tests)"
+        },
+        {
+          "id": "ac7",
+          "text": "`konsora migrate` desde konsora/2 conserva la dificultad de las tareas (test de migración)"
+        }
+      ],
       "created": {
         "at": "2026-11-13T09:44:18Z",
         "by": "human"
       },
-      "updated_at": "2026-11-13T09:44:18Z"
+      "updated_at": "2026-11-13T10:26:43Z"
+    },
+    {
+      "id": "CORE-23",
+      "title": "Recomendar un modelo según la dificultad de la tarea",
+      "state": "proposed",
+      "group": "CORE",
+      "deps": [
+        "CORE-22"
+      ],
+      "rank": "zzzzzzzzzzzzv",
+      "desc": "Con la dificultad recuperada (CORE-22), el humano puede indicar por proyecto qué modelo o esfuerzo conviene para cada nivel (por ejemplo, baja → Haiku, media → Sonnet, alta → Opus con esfuerzo alto). Es solo una indicación en texto: Konsora no lanza agentes ni elige por nadie.\n\n- **Dónde se define**: `project.models` (opcional), un texto libre corto por nivel (`low`, `medium`, `high`). Solo lo cambia el humano, desde Ajustes, con una op de proyecto como `set-templates`; un agente recibe `forbidden`.\n- **Dónde se ve**: en el panel de tarea, junto a la dificultad (\"Modelo recomendado: …\"), en `konsora show` y en la salida de `konsora start`, para que el agente o el humano lo tengan a mano al empezar.\n- Sin `project.models`, o sin entrada para ese nivel, no se muestra nada.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "core: `project.models` opcional con una entrada por nivel, validada y serializada en orden canónico; la op de proyecto que lo fija es solo humana (tests)"
+        },
+        {
+          "id": "ac2",
+          "text": "Ajustes permite definir, cambiar y quitar el modelo de cada nivel (tests de componentes y prueba en el navegador)"
+        },
+        {
+          "id": "ac3",
+          "text": "El panel de tarea, `konsora show` y `konsora start` muestran el modelo recomendado para la dificultad de la tarea, y nada si no hay ninguno (tests)"
+        }
+      ],
+      "created": {
+        "at": "2026-11-13T10:25:36Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T10:25:36Z"
     },
     {
       "id": "CLI-01",
