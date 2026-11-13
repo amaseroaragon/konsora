@@ -2301,7 +2301,7 @@
     {
       "id": "UI-17",
       "title": "Filtrar el Historial y resumir cada periodo",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzr",
       "desc": "El Historial es una lista continua sin filtros. Poder acotarlo por agente, grupo y texto, y ver en la cabecera de cada día cuántas tareas se cerraron, para repasar lo que ha hecho un agente en una sesión larga.",
@@ -2326,7 +2326,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:10Z"
+      "updated_at": "2026-11-13T11:35:46Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:30:36Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "filterLog y historyMarkdown en history-model; filtros (quién, grupo, texto), recuento por día y botón de copiar en HistoryView."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:35:46Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "El Historial tiene filtros por quién cerró, grupo y texto (id, título o resumen, sin distinguir acentos), un recuento por día y «Copiar como Markdown». ac1: filterLog/closers con tests del modelo en history.test.tsx. ac2: la cabecera de cada día muestra «N cierres». ac3: historyMarkdown copia los cierres visibles (encabezado por día con su recuento y una línea por tarea); verificado en Chrome con el filtro DMN + «modelo» → DMN-06 en el portapapeles. Commit cae9b0a."
+        }
+      ]
     },
     {
       "id": "UI-18",
@@ -2410,7 +2426,7 @@
     {
       "id": "UI-20",
       "title": "Afinar una tarea o una idea concreta con el panel de IA",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzx",
       "desc": "El panel de IA solo arranca desde un objetivo en blanco. Desde el panel de una idea o de una tarea sin empezar, un botón «Afinar con IA» abriría el chat con esa tarea como contexto para concretar su descripción, sus criterios o dividirla. El modo plan ya permite editar tareas que nadie ha empezado.",
@@ -2435,12 +2451,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:40Z"
+      "updated_at": "2026-11-13T11:35:47Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:31:51Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Botón «Afinar con IA» en el panel de tareas proposed/todo: abre el panel de IA y envía un primer mensaje con el id y el contenido de la tarea."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:35:47Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "«Afinar con IA» en el panel de las tareas proposed y todo: abre el panel de IA y envía un primer mensaje con el id, el estado, el grupo, la descripción, los criterios y las dependencias de la tarea (refine.ts). ac1: verificado en Chrome con CORE-19; test de refineMessage. ac2: prueba manual con el claude real (haiku) en un daemon aislado: tras una respuesta, el agente añadió ac5 a CORE-19 con edit del modo plan y el panel lo mostró sin recargar. ac3: canRefine excluye doing, done y solo lectura (tests; en Chrome no aparece en la tarea hecha UI-23). Commit 184f9bf."
+        }
+      ]
     },
     {
       "id": "UI-21",
       "title": "Deshacer la última acción humana desde el aviso",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzy",
       "desc": "Eliminar pide confirmación, pero después no hay vuelta atrás, y lo mismo pasa al reabrir o al pasar ideas a Por hacer en lote. Ofrecer «Deshacer» en el aviso que sigue a cada acción humana, apoyándose en la op `restore` que ya existe para revertir cambios externos.",
@@ -2465,12 +2497,28 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:48Z"
+      "updated_at": "2026-11-13T11:35:46Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:26:25Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Op humana undo en core (versión anterior + hash esperado por tarea, conflict si cambió); el daemon devuelve el undo de cada op de la UI y el aviso ofrece Deshacer, también en lote."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:35:46Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Nueva op humana undo en core (versión anterior y hash esperado por tarea; conflict sin aplicar nada si alguna cambió), undoOf/mergeUndo, y mutate devuelve el plan previo leído bajo el lock. El daemon responde a cada op de la UI con su undo y el aviso ofrece «Deshacer». ac1: test del daemon (delete + undo deja el archivo byte a byte igual, con id, notas y la dependencia de BE-02, sin cambios externos marcados); verificado en Chrome con CORE-09/CORE-10. ac2: reabrir, pasar a Por hacer, mover en el tablero, las acciones en lote (un único Deshacer con mergeUndo) y las dependencias del grafo; probado en Chrome pasando CORE-14 y CORE-20 a Por hacer y deshaciendo. ac3: si una tarea cambió entre medias, 409 conflict con «No se puede deshacer: X cambió después…» (test del daemon y de core; en Chrome con una nota de otro agente). Documentado en esquema-tareas.md. Commits d749edb y 184f9bf (el aviso del resultado sale aunque el panel ya no exista)."
+        }
+      ]
     },
     {
       "id": "UI-22",
       "title": "Mostrar el antes y el después de un cambio externo",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzz",
       "desc": "Un cambio externo sin aprobar solo dice de qué tipo es («tarea terminada modificada fuera de Konsora»). El daemon ya guarda la versión anterior para revertir: enseñar qué campos cambiaron y sus valores antes de decidir entre confirmar y revertir.",
@@ -2495,7 +2543,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:57Z"
+      "updated_at": "2026-11-13T11:35:47Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T11:29:10Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Modelo externalDiff (campos que difieren entre previous y la versión actual, o contenido perdido si se borró) y filas con antes/después recortables con <details>."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T11:35:47Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Cada cambio externo muestra qué hizo: external-model.ts compara la versión guardada para revertir con la actual. ac1: tabla Campo / Antes / Ahora solo con los campos que difieren (estado, título, descripción, criterios, etiquetas, grupo, dependencias, dificultad, notas); si ya no difiere, lo dice. ac2: en una tarea borrada se lista lo que se perdería. ac3: el texto largo o de varias líneas se recorta y se despliega con <details>. Tests en external.test.tsx; verificado en Chrome editando a mano CORE-01 (hecha) y borrando UI-24. Commits 7d392af y 184f9bf."
+        }
+      ]
     },
     {
       "id": "UI-23",
