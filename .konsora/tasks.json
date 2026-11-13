@@ -2778,7 +2778,7 @@
     {
       "id": "UI-15",
       "title": "Avisar en el navegador cuando un agente pregunta o termina una tarea",
-      "state": "doing",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzr",
       "desc": "La UI se actualiza en vivo, pero si la pestaña está en segundo plano no te enteras de que un agente espera respuesta. Usar las notificaciones del navegador (con permiso explícito y un interruptor en Ajustes) y un contador en el título de la pestaña.",
@@ -2807,7 +2807,7 @@
         "at": "2026-11-13T17:29:17Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-13T17:34:59Z",
+      "updated_at": "2026-11-13T17:50:13Z",
       "notes": [
         {
           "id": "n1",
@@ -2833,13 +2833,71 @@
             "Funciona",
             "No funciona"
           ]
+        },
+        {
+          "id": "n4",
+          "at": "2026-11-13T17:41:47Z",
+          "by": "human",
+          "kind": "answer",
+          "text": "Prueba a preguntarme algo, que me salgo de la web y te digo si se me ha notificado"
+        },
+        {
+          "id": "n5",
+          "at": "2026-11-13T17:49:18Z",
+          "by": "agent:claude",
+          "kind": "question",
+          "text": "Prueba de aviso: si ves esta pregunta como notificación de Firefox, púlsala. ¿Te ha llegado la notificación y al pulsarla se ha abierto UI-15?",
+          "options": [
+            "Sí, llegó y abrió la tarea",
+            "Llegó, pero no abrió la tarea",
+            "No llegó"
+          ]
+        },
+        {
+          "id": "n6",
+          "at": "2026-11-13T17:49:30Z",
+          "by": "human",
+          "kind": "answer",
+          "text": "Sí, llegó y abrió la tarea"
+        },
+        {
+          "id": "n7",
+          "at": "2026-11-13T17:50:13Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Avisos del navegador para preguntas nuevas y contador en el título. Comprobado en Chrome headless y, con avisos reales del sistema, por el humano en Firefox.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Prueba manual del humano en Firefox: con la pestaña en segundo plano llegó la notificación de la pregunta de prueba y al pulsarla se abrió UI-15"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "El título muestra «(N) Konsora» (notify.test.tsx y Chrome headless: «(1) Konsora» y «(2) Konsora»)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Sin permiso no se lanza nada y Ajustes explica que están bloqueados (Chrome headless y notify.test.tsx); la preferencia se guarda en localStorage (konsora.notify)"
+            }
+          ]
         }
+      ],
+      "commits": [
+        "e640618"
       ],
       "events": [
         {
           "at": "2026-11-13T17:29:17Z",
           "by": "agent:claude",
           "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:50:13Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     },
