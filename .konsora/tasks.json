@@ -372,7 +372,7 @@
     {
       "id": "CORE-09",
       "title": "Registrar quién empezó cada tarea en curso y desde cuándo",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzx",
       "desc": "`start` solo deja rastro si se pasa un texto: una tarea en `doing` no dice qué agente la tiene ni desde cuándo, y con varias sesiones en paralelo no se distinguen. Guardar en la tarea quién la empezó y cuándo (campo nuevo, con su migración) y enseñarlo en `status`, `show`, la tarjeta y el panel.",
@@ -397,7 +397,35 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:35:06Z"
+      "updated_at": "2026-11-13T15:14:26Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T15:11:55Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Campo opcional started {at, by} en la tarea: lo pone start, lo quita pause y reopen, finish lo conserva. Sin cambio de versión; las tareas en curso sin él lo derivan del último evento start. Se ve en status, show, tarjeta y panel."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T15:14:26Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Campo opcional `started {at, by}` en la tarea (commit 24476d1). ac1: `konsora start <ID> --as claude` lo rellena y `show --json` lo incluye; `pause` y `reopen` lo quitan y `finish` lo conserva, documentado en esquema-tareas.md. `status` lo muestra en Doing y `show` en texto. ac2: la tarjeta en curso muestra «Con <agente>» y el panel «La tiene X desde el …» (tests en web/test/started.test.tsx). ac3: esquema JSON regenerado; sin cambio de versión, `konsora migrate` no lo inventa y el resultado valida (test en core/test/started.test.ts); las tareas antiguas lo derivan del último evento start. npm run check: 757 tests en verde."
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:11:55Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T15:14:26Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-10",
@@ -527,7 +555,7 @@
     {
       "id": "CORE-13",
       "title": "Gestionar los grupos y el nombre del proyecto",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzw",
       "desc": "Los grupos solo se crean en `init` o dentro de un `batch`: la op `add-group` existe en core pero no tiene comando ni UI, y no se puede renombrar un grupo, reordenarlos, quitar uno vacío ni cambiar el nombre del proyecto sin editar el JSON a mano.",
@@ -556,7 +584,61 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T22:10:54Z"
+      "started": {
+        "at": "2026-11-13T15:14:27Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T15:32:35Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T15:14:27Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Ops rename-group, reorder-groups, remove-group (solo sin tareas ni IDs con su prefijo) y rename-project (humana). CLI konsora group add|rename|remove y herramientas MCP. Ajustes con un panel Proyecto y grupos."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T15:32:35Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Grupos y nombre del proyecto gestionables (commit 8b8e7df). Ops rename-group, reorder-groups, remove-group y rename-project (solo humana) en core; CLI konsora group add|rename|remove y herramientas MCP add_group/rename_group/remove_group; panel «Proyecto y grupos» en Ajustes. npm run check: 816 tests en verde.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "packages/core/test/groups.test.ts cubre renombrar, reordenar, quitar un grupo vacío y renombrar el proyecto"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "write.test.ts prueba konsora group add|rename|remove; mcp-write.test.ts compara cada herramienta con su comando"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Probado en Chrome headless contra una copia del plan: crear QA, renombrarlo, subirlo, quitarlo y renombrar el proyecto quedan escritos en tasks.json; project-settings.test.tsx"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "remove-group con tareas da in_use con las tareas que lo usan y un hint (core y CLI); en la UI el ✕ está desactivado y hay un toast en español"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:14:27Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T15:32:35Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-14",
@@ -595,7 +677,7 @@
     {
       "id": "CORE-15",
       "title": "Marcar en el cierre cómo se cumple cada criterio de aceptación",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzx",
       "desc": "El resumen de `finish` es texto libre: para saber si un cierre cubre todos los criterios hay que leerlo entero. Permitir que el agente adjunte por criterio su evidencia (o que lo declare no cumplido con el motivo) y mostrarlo junto a cada criterio en el panel.",
@@ -624,7 +706,61 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:36:38Z"
+      "started": {
+        "at": "2026-11-13T15:23:52Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T15:32:37Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T15:23:52Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Evidencia por criterio en la nota summary: evidence [{ac, met, text}]. finish la acepta (CLI --evidence ac1=… / --unmet ac2=…, MCP evidence), rechaza ids inexistentes y repetidos. Panel con cada criterio y su evidencia o «sin evidencia»; Historial marca los cierres con criterios sin evidencia o no cumplidos."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T15:32:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Evidencia por criterio en el cierre (commit 4f18daa). evidence [{ac, met, text}] en la nota summary; finish la acepta en la CLI (--evidence/--unmet) y en el MCP; panel e Historial la muestran.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "evidence.test.ts en core y write.test.ts: un id inexistente da not_found con los ids válidos; paridad CLI/MCP en mcp-write.test.ts"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "El panel de una tarea hecha muestra Cumplido / No cumplido / Sin evidencia por criterio (evidence.test.tsx y Chrome)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "El Historial marca «N criterios sin evidencia» y «N no cumplidos» (completionLog unproven/unmet; Chrome)"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "finish sin evidencias sigue funcionando (test en core); los cierres anteriores salen como sin evidencia"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:23:52Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T15:32:37Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-16",
@@ -778,7 +914,7 @@
     {
       "id": "CORE-19",
       "title": "Hitos: agrupar tareas en un objetivo con su progreso",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzw9",
       "desc": "Este mismo repo se organiza por hitos (M11–M14) que solo existen en `roadmap.md`: el plan no sabe qué tareas forman un hito ni cuánto falta. Un hito sería un nombre y un criterio de hecho, con tareas asignadas y su progreso. A diferencia de los bloques retirados en M14, no tiene rama ni merge ni ninguna relación con git.",
@@ -807,7 +943,61 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-13T10:28:46Z"
+      "started": {
+        "at": "2026-11-13T15:18:12Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T15:32:36Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T15:18:12Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Raíz milestones [{id, name, criterion?}] y task.milestone, opcionales en konsora/5. Ops add/edit/remove-milestone, milestone en propose/batch/edit. Progreso hechas/total en status y en la UI (Ajustes y filtro), filtro por hito en tablero y grafo."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T15:32:36Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Hitos con su progreso (commits e576614 y 0e18da9). Raíz milestones y task.milestone opcionales; ops add/edit/remove-milestone; milestone en propose, batch y edit; progreso en status, en el filtro y en Ajustes. El daemon ahora envía milestones a la web (fallo encontrado en la prueba en el navegador).",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "milestones.test.ts en core: validación (duplicate_milestone, unknown_milestone), orden canónico, ops y migrate sin hitos"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "konsora status muestra «m11 Giro 1/3 done» y status --json lleva milestones (write.test.ts); en la UI, el filtro y Ajustes muestran «0 de 2 hechas» (Chrome y milestones.test.tsx)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "El filtro milestone (o none) se aplica al tablero y al grafo y va en la URL; en Chrome, el grafo filtrado por m15 deja solo CORE-10 y UI-15"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "Las ops de hitos son puras en core y no llaman a git; documentado en esquema-tareas.md"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:18:12Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T15:32:36Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CORE-20",
@@ -935,7 +1125,7 @@
     {
       "id": "CORE-23",
       "title": "Recomendar un modelo según la dificultad de la tarea",
-      "state": "proposed",
+      "state": "done",
       "group": "CORE",
       "deps": [
         "CORE-22"
@@ -960,7 +1150,61 @@
         "at": "2026-11-13T10:25:36Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-13T10:25:36Z"
+      "started": {
+        "at": "2026-11-13T15:27:06Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T15:32:37Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T15:27:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "project.models {low?, medium?, high?} (texto ≤ 80), op set-models solo humana. Se muestra en el panel junto a la dificultad, en konsora show y en la salida de start (CLI y MCP). Ajustes con un campo por nivel."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T15:32:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Modelo recomendado por dificultad (commit 93f15db). project.models {low, medium, high} con set-models solo humana; se ve en el panel, en konsora show, en konsora start y en la herramienta start del MCP.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "models.test.ts en core: orden canónico low/medium/high, validación y forbidden para agentes"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "models.test.tsx (campos, construir set-models) y Chrome: guardar Haiku/Opus escribió project.models en tasks.json"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "write.test.ts (show y start), mcp-write.test.ts (start) y models.test.tsx (panel); sin modelo para el nivel o sin dificultad no se muestra nada"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T15:09:53Z",
+          "by": "human",
+          "type": "promote"
+        },
+        {
+          "at": "2026-11-13T15:27:06Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T15:32:37Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-01",
