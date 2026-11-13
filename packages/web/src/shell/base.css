@@ -31,6 +31,12 @@
   padding: var(--k-space-3) var(--k-space-6);
   border-right: 1px solid var(--k-line);
 }
+/* The theme picker sits at the far end of the header (UI-30). */
+.a-header__theme {
+  margin-left: auto;
+  border-right: 0;
+  border-left: 1px solid var(--k-line);
+}
 .a-header__cell .k-menu__trigger {
   border-color: transparent;
 }

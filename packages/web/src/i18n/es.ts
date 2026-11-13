@@ -499,6 +499,10 @@ export const es = {
   "chat.error": "No se pudo enviar el mensaje: {message}",
   "app.view.history": "Historial",
   "app.view.activity": "Actividad",
+  "theme.label": "Tema",
+  "theme.light": "Claro",
+  "theme.dark": "Oscuro",
+  "theme.system": "Sistema",
   "stats.title": "Actividad",
   "stats.text":
     "Cómo avanza el plan en las últimas {days} semanas: cuántas tareas se cierran cada día y quién las cierra, cuánto tarda de media una tarea desde que se empieza hasta que se termina y cuántas se reabren. Sin estimaciones ni objetivos. Se actualiza en vivo.",

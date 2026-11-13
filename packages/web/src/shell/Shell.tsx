@@ -4,6 +4,7 @@ import { t } from "../i18n/index.ts";
 import { Button, Panel } from "../ui/index.ts";
 import { Brand } from "./Brand.tsx";
 import { Rich } from "./Rich.tsx";
+import { ThemePicker } from "./ThemePicker.tsx";
 
 /**
  * The real app's frame: header with the brand, a link home and, once there is a session, the
@@ -28,6 +29,9 @@ export function Shell({
           </a>
         </nav>
         {nav && <div className="a-header__cell s-nav__group">{nav}</div>}
+        <div className="a-header__cell a-header__theme">
+          <ThemePicker />
+        </div>
       </header>
       <main className="s-page">{children}</main>
     </div>
