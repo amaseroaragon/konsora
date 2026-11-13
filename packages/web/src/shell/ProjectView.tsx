@@ -41,6 +41,7 @@ import { HistoryView } from "./HistoryView.tsx";
 import { MilestoneSettings } from "./MilestoneSettings.tsx";
 import { ModelSettings } from "./ModelSettings.tsx";
 import { ProjectSettings } from "./ProjectSettings.tsx";
+import { NotifySettings } from "./QuestionAlerts.tsx";
 import { refineMessage } from "./refine.ts";
 import {
   navigate,
@@ -481,6 +482,9 @@ export function ProjectView({
               tasks={doc.tasks}
               readOnly={readOnly}
             />
+          </div>
+          <div className="b-settings">
+            <NotifySettings />
           </div>
           <div className="b-settings">
             <ModelSettings

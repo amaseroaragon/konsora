@@ -432,6 +432,18 @@ export const es = {
   "confirm.no": "Cancelar",
   "detail.summary": "Resumen de cierre",
   "detail.commits": "Commits",
+  "notify.title": "{id} espera tu respuesta · {project}",
+  "notify.settings.eyebrow": "Este navegador",
+  "notify.settings.title": "Avisos de preguntas",
+  "notify.settings.text":
+    "Con los avisos activados, cuando un agente te pregunte algo y esta pestaña esté en segundo plano, el navegador te lo notifica; al pulsar el aviso se abre esa tarea. Vale para todos los proyectos y se recuerda en este navegador. El título de la pestaña siempre muestra cuántas preguntas esperan.",
+  "notify.on": "Activados: te avisaremos de cada pregunta nueva.",
+  "notify.off": "Desactivados.",
+  "notify.denied":
+    "El navegador tiene bloqueados los avisos de esta página, así que no se mostrará ninguno. Permítelos en la configuración del sitio (el icono junto a la dirección) y vuelve aquí.",
+  "notify.unsupported": "Este navegador no admite avisos.",
+  "notify.enable": "Activar avisos",
+  "notify.disable": "Desactivar avisos",
   "brief.copy": "Copiar encargo para un agente",
   "brief.copied": "Encargo de {id} copiado: pégalo en la sesión de tu agente.",
   "brief.id.copy": "Copiar id",

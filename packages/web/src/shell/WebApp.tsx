@@ -4,6 +4,7 @@ import { ApiError, createApi } from "../api/client.ts";
 import { ApiContext } from "../api/projects.ts";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { ProjectsPage } from "./ProjectsPage.tsx";
+import { QuestionAlerts } from "./QuestionAlerts.tsx";
 import { QuestionsLink, QuestionsPage } from "./QuestionsPage.tsx";
 import type { Route } from "./route.ts";
 import { NoSession, Shell } from "./Shell.tsx";
@@ -32,6 +33,7 @@ export function WebApp({ token, route }: { token: string | null; route: Route })
   return (
     <ApiContext.Provider value={setup.api}>
       <QueryClientProvider client={setup.queries}>
+        <QuestionAlerts />
         <Shell
           home={route.name === "projects"}
           nav={<QuestionsLink current={route.name === "questions"} />}
