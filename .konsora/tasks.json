@@ -26,7 +26,7 @@
     }
   ],
   "seq": {
-    "CORE": 21,
+    "CORE": 22,
     "CLI": 12,
     "MCP": 2,
     "DMN": 7,
@@ -529,7 +529,7 @@
       "title": "Gestionar los grupos y el nombre del proyecto",
       "state": "todo",
       "group": "CORE",
-      "rank": "zzzzzzzr",
+      "rank": "zzzzzzzw",
       "desc": "Los grupos solo se crean en `init` o dentro de un `batch`: la op `add-group` existe en core pero no tiene comando ni UI, y no se puede renombrar un grupo, reordenarlos, quitar uno vacío ni cambiar el nombre del proyecto sin editar el JSON a mano.",
       "acceptance": [
         {
@@ -556,7 +556,7 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:35:51Z"
+      "updated_at": "2026-11-12T22:10:54Z"
     },
     {
       "id": "CORE-14",
@@ -629,7 +629,7 @@
     {
       "id": "CORE-16",
       "title": "Preguntas con opciones de respuesta",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzy",
       "desc": "`ask` solo admite texto, y el humano contesta escribiendo. Muchas preguntas son una elección entre dos o tres caminos: que el agente pueda adjuntar opciones y el humano responda con un clic, pudiendo añadir un comentario.",
@@ -654,7 +654,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:36:46Z"
+      "updated_at": "2026-11-13T09:38:30Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T09:36:20Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: campo opcional options en las notas question (core: esquema, op ask, validación, serializador), --option en la CLI y options en el MCP ask; en el panel de tarea, botones por opción que envían la respuesta (con comentario opcional) y texto libre como hasta ahora."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T09:38:30Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 44db91b. Las preguntas admiten opciones de respuesta.\n\n- ac1: `konsora ask <ID> \"…\" --option A --option B` (y `options` en la herramienta `ask` del MCP) guarda las opciones en la nota `question` (campo opcional `options`, de 2 a 10, distintas, solo en preguntas; validado en core y serializado de forma canónica). Tests: core (ops.test: guardar, rechazar una sola, repetidas o en blanco, y `options_not_question`), CLI (write.test: `--option` y `show` las lista) y MCP (mcp-write.test: misma escritura que la CLI).\n- ac2: el panel de tarea pinta las opciones como botones en el formulario de respuesta; pulsar una envía `answer` con la opción (y el comentario, si se escribió). Tests en task-actions.test.tsx (render y cuerpo de la op). No lo he probado en un navegador real.\n- ac3: el texto libre sigue funcionando: el campo pasa a ser «Comentario (opcional) u otra respuesta» y «Responder» envía lo escrito.\n\nDocs (esquema-tareas.md) y la skill actualizados. `npm run check` en verde (640 tests)."
+        }
+      ]
     },
     {
       "id": "CORE-17",
@@ -689,7 +705,7 @@
     {
       "id": "CORE-18",
       "title": "Archivar las tareas hechas antiguas",
-      "state": "todo",
+      "state": "done",
       "group": "CORE",
       "rank": "zzzzzzzzx",
       "desc": "Las tareas hechas se quedan en `tasks.json` para siempre con todas sus notas: el fichero, los diffs y el contexto que consumen los agentes al leerlo crecen sin límite (el tope es 8 MiB). Mover las hechas antiguas a un archivo aparte dentro de `.konsora/`, como acción explícita, sin romper las dependencias que apuntan a ellas.",
@@ -718,7 +734,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:37:06Z"
+      "updated_at": "2026-11-13T09:44:03Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T09:38:31Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: ids archivados en tasks.json (campo archived) y tareas completas en .konsora/archive.json; konsora archive --before <fecha> [--write]; deps archivadas cuentan como hechas; show, Historial y el daemon leen el archivo; la supervisión no marca como borradas las archivadas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T09:44:03Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 8e715a2. Las tareas hechas antiguas se pueden archivar.\n\n- ac1: `konsora archive --before <fecha>` (YYYY-MM-DD en UTC o marca UTC) mueve las tareas hechas cerradas antes de esa fecha a `.konsora/archive.json` (`konsora-archive/1`, serialización canónica) y el plan sigue pasando `konsora check`. Tests: core/test/archive.test.ts (planArchive, store, archivo inválido, ejecución interrumpida) y cli/test/archive.test.ts. Probado también sobre una copia del plan de este repo: 7 tareas movidas, `check` OK.\n- ac2: sus ids quedan en el nuevo campo opcional `archived` de `tasks.json`: una dependencia sobre ellas cuenta como hecha (`blockers`, `start`, `ready`) y no se reutilizan (`seq_behind` y `duplicate_id` los cuentan; una tarea nueva toma el número siguiente). Tests en core y CLI.\n- ac3: `konsora show` (y la herramienta `show` del MCP, que usa la misma función) muestra la tarea archivada con `state: done (archived)` (`archived: true` en JSON) y las deps archivadas como `done, archived`. El daemon envía las archivadas con el tablero; el Historial las lista marcadas «Archivada» y las abre en el panel en solo lectura. Tests en daemon (oversight.test) y web (history.test). No lo he probado en un navegador real.\n- ac4: sin `--write` solo muestra lo que movería y no escribe nada (tests).\n\nAdemás, la supervisión del daemon no marca como borrada una tarea hecha que pasa a `archived`. Docs: esquema-tareas.md §1, §3 y nueva §7; arquitectura.md. `npm run check` en verde (663 tests)."
+        }
+      ]
     },
     {
       "id": "CORE-19",
@@ -817,6 +849,19 @@
         "by": "agent:claude"
       },
       "updated_at": "2026-11-12T21:37:32Z"
+    },
+    {
+      "id": "CORE-22",
+      "title": "Recuperar dificultad de tarea",
+      "state": "proposed",
+      "group": "CORE",
+      "rank": "zzzzzzzzzzzzr",
+      "desc": "Tras el cambio de rumbo, se ha perdido que las tareas muestren la dificultad de las mismas. Quiero recuperarlo.",
+      "created": {
+        "at": "2026-11-13T09:44:18Z",
+        "by": "human"
+      },
+      "updated_at": "2026-11-13T09:44:18Z"
     },
     {
       "id": "CLI-01",
@@ -1963,7 +2008,7 @@
     {
       "id": "UI-12",
       "title": "Añadir notas humanas desde el panel de tarea",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzv",
       "desc": "El núcleo ya permite al humano añadir notas (`note`, también en tareas hechas), pero la UI solo ofrece responder, reabrir, pasar a Por hacer y eliminar. Sin esto no hay forma de dejarle al agente una indicación en una tarea que no ha preguntado nada.",
@@ -1988,7 +2033,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:28Z"
+      "updated_at": "2026-11-13T10:21:02Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T09:44:04Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: formulario de nota en el panel de tarea (op note como humano, también en tareas hechas), refresco del tablero al terminar; oculto en solo lectura y en tareas archivadas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T10:21:02Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 079c0e8. El panel de tarea permite al humano dejar notas.\n\n- ac1: formulario «Nota para el agente» en el panel (cualquier estado, también hechas) que envía la op `note` al daemon, que la firma como `human`; al terminar se refresca el tablero y la nota aparece en la línea de tiempo sin recargar. Tests: task-actions.test.tsx (formulario y cuerpo de la op) y oversight.test.ts (la nota llega al fichero como `human`, también en una tarea hecha, sin marcarse como cambio externo). Probado en Chrome (headless, por CDP) sobre una copia del plan: la nota aparece en el panel al momento.\n- ac2: `konsora show <ID>` muestra la nota con `human  note` (test en cli/test/write.test.ts y comprobado en la copia del plan).\n- ac3: en solo lectura el formulario no aparece (test), y tampoco en tareas archivadas.\n\n`npm run check` en verde."
+        }
+      ]
     },
     {
       "id": "UI-13",
@@ -2179,7 +2240,7 @@
     {
       "id": "UI-19",
       "title": "Acotar la columna Hecho del tablero",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzy",
       "desc": "La columna Hecho muestra todas las tareas terminadas y solo crece: en este repo ya tiene todo el backlog. Dejar en el tablero las cerradas recientemente y remitir el resto al Historial, y permitir plegar columnas.",
@@ -2204,7 +2265,23 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:41:23Z"
+      "updated_at": "2026-11-13T10:21:03Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T10:18:57Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Plan: la columna Hecho muestra las cerradas en una ventana elegible (7, 14, 30 días o todo; recordada) y un enlace «ver N más en el Historial» por carril; cualquier columna se pliega desde su cabecera y se recuerda en localStorage; el grafo no se toca."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T10:21:03Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Commit 1d2dc09. La columna Hecho se acota y las columnas se pliegan.\n\n- ac1: la columna Hecho muestra solo las tareas cerradas en la ventana elegida en la barra (7, 14 —por defecto—, 30 días o Todo; se recuerda en localStorage) y, en cada carril que deja tareas fuera, un enlace «Ver N más en el Historial». Mientras hay un filtro activo no se oculta nada, para que la búsqueda las encuentre. Tests en board.test.ts (`oldDone`, recuento por carril). Probado en Chrome headless sobre una copia del plan con dos tareas cerradas hace semanas: 14 días las oculta con su enlace al Historial; «Todo» las vuelve a mostrar.\n- ac2: cada columna tiene un botón en la cabecera para plegarla (queda una franja estrecha con su nombre en vertical y su recuento, que sigue aceptando soltar tarjetas); la preferencia se guarda en localStorage y sobrevive a recargar (probado en Chrome y con test de lectura y escritura).\n- ac3: el grafo no se ha tocado (Graph.tsx y graph-model.ts sin cambios).\n\n`npm run check` en verde (670 tests)."
+        }
+      ]
     },
     {
       "id": "UI-20",
