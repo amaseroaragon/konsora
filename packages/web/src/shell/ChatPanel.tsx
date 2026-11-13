@@ -50,20 +50,31 @@ export function ChatPanel({
   projectId,
   readOnly,
   onClose,
+  draft,
 }: {
   projectId: string;
   readOnly: boolean;
   onClose: () => void;
+  /** A message to put in the input, not sent (UI-20 «Afinar con IA»); `n` changes on each one. */
+  draft?: { text: string; n: number } | undefined;
 }) {
   const chat = useChat(projectId);
   const send = useSendChat(projectId);
   const stop = useStopChat(projectId);
   const reset = useResetChat(projectId);
   const toast = useToast();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft?.text ?? "");
   const [model, setModel] = useState<ChatModel>(() => readChatModel(projectId));
   const modelId = useId();
   const end = useRef<HTMLLIElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  // A new draft replaces the input and takes the focus there, ready to review and send.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new draft (its `n`) applies.
+  useEffect(() => {
+    if (!draft) return;
+    setText(draft.text);
+    form.current?.querySelector("textarea")?.focus();
+  }, [draft?.n]);
   const messages = chat.data?.messages ?? [];
   const busy = chat.data?.busy ?? false;
   const count = messages.length;
@@ -130,10 +141,10 @@ export function ChatPanel({
             <li ref={end} aria-hidden="true" />
           </ol>
         )}
-        <form className="a-stack b-chat__form" onSubmit={submit}>
+        <form ref={form} className="a-stack b-chat__form" onSubmit={submit}>
           <Field
             multiline
-            rows={3}
+            rows={text.length > 200 ? 10 : 3}
             label={t("chat.input")}
             hint={t("chat.input.hint")}
             value={text}

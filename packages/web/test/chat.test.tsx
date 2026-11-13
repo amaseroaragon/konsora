@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyChatMessage,
   type Chat,
@@ -16,14 +16,14 @@ import { ToastProvider } from "../src/ui/index.ts";
 
 const at = "2026-11-02T10:00:00Z";
 
-function render(chat: Chat | undefined, readOnly = false) {
+function render(chat: Chat | undefined, readOnly = false, draft?: { text: string; n: number }) {
   const client = new QueryClient();
   if (chat) client.setQueryData(chatKey("p1"), chat);
   return renderToStaticMarkup(
     <ApiContext.Provider value={createApi("ab".repeat(32))}>
       <QueryClientProvider client={client}>
         <ToastProvider>
-          <ChatPanel projectId="p1" readOnly={readOnly} onClose={() => {}} />
+          <ChatPanel projectId="p1" readOnly={readOnly} onClose={() => {}} draft={draft} />
         </ToastProvider>
       </QueryClientProvider>
     </ApiContext.Provider>,
@@ -132,5 +132,20 @@ describe("the panel's model (DMN-06)", () => {
       storage.set("konsora.chat.model.p1", "gpt");
       expect(readChatModel("p1")).toBe("");
     });
+  });
+
+  it("«Afinar con IA» leaves the message in the input, unsent, for the human to send (UI-20)", () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const html = render({ messages: [], busy: false }, false, {
+      text: "Quiero afinar CORE-19",
+      n: 1,
+    });
+    expect(html).toMatch(/<textarea[^>]*>Quiero afinar CORE-19<\/textarea>/);
+    // Not sent: the conversation is still empty and the send button is enabled.
+    expect(html).toContain("solo puede planificar");
+    expect(html).not.toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Enviar/);
+    expect(fetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

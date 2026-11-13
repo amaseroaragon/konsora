@@ -350,7 +350,6 @@ export const es = {
   "create.error.dep": "{id} no existe en este plan.",
   "create.error.template": "Esa plantilla ya no existe.",
   "refine.open": "Afinar con IA",
-  "refine.sent": "{id} enviada al panel de IA para afinarla.",
   "refine.ask":
     "Quiero afinar la tarea {id} («{title}»), que nadie ha empezado. Ayúdame a concretar su descripción y sus criterios de aceptación, o a dividirla si es demasiado grande. Pregúntame lo que necesites y, cuando lo tengamos claro, cámbiala con las herramientas del modo plan.",
   "refine.state": "Estado",

@@ -17,7 +17,6 @@ import {
   useEditTask,
   useTaskAction,
 } from "../api/board.ts";
-import { readChatModel, useSendChat } from "../api/chat.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
@@ -179,25 +178,18 @@ export function ProjectView({
     writeChatPref(!chatOpen);
   };
   const action = useTaskAction(projectId);
-  const sendChat = useSendChat(projectId);
+  /** A message waiting in the AI panel's input; `n` changes on each new one. */
+  const [chatDraft, setChatDraft] = useState<{ text: string; n: number } | null>(null);
   /**
-   * «Afinar con IA» (UI-20): the AI panel takes the side, and its next message is the task with
-   * its content; the planning agent edits it with the plan tools, and the board updates live.
+   * «Afinar con IA» (UI-20): the AI panel takes the side with the task and its content written in
+   * its input, for the human to review and send; then the planning agent edits it with the plan
+   * tools, and the board updates live.
    */
   const refine = (task: BoardTask) => {
     if (!chatOpen) toggleChat();
     go({ task: null });
     const groupName = board.plan.groups.find((g) => g.id === task.group)?.name ?? task.group;
-    sendChat.mutate(
-      { text: refineMessage(task, groupName), model: readChatModel(projectId) },
-      {
-        onSuccess: () => toast.show(t("refine.sent", { id: task.id }), "info"),
-        onError: (error) => {
-          if (error instanceof ApiError && error.unauthorized) return;
-          toast.show(t("chat.error", { message: error.message }), "error");
-        },
-      },
-    );
+    setChatDraft((prev) => ({ text: refineMessage(task, groupName), n: (prev?.n ?? 0) + 1 }));
   };
   const [creating, setCreating] = useState(false);
   const selection = useSelection(projectId);
@@ -555,7 +547,14 @@ export function ProjectView({
               onClose={() => setCreating(false)}
             />
           ) : (
-            chatOpen && <ChatPanel projectId={projectId} readOnly={readOnly} onClose={toggleChat} />
+            chatOpen && (
+              <ChatPanel
+                projectId={projectId}
+                readOnly={readOnly}
+                onClose={toggleChat}
+                draft={chatDraft ?? undefined}
+              />
+            )
           )}
         </div>
       )}
