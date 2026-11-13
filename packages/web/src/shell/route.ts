@@ -7,8 +7,14 @@
 import type { TaskFilter } from "@konsora/core";
 import { useEffect, useState } from "react";
 
-export type ProjectViewName = "board" | "graph" | "history" | "settings";
-export const projectViews: readonly ProjectViewName[] = ["board", "graph", "history", "settings"];
+export type ProjectViewName = "board" | "graph" | "history" | "activity" | "settings";
+export const projectViews: readonly ProjectViewName[] = [
+  "board",
+  "graph",
+  "history",
+  "activity",
+  "settings",
+];
 
 export type Route =
   | { name: "projects" }

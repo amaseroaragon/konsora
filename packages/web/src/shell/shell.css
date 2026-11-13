@@ -1271,3 +1271,181 @@
   font-size: var(--k-text-label);
   color: var(--k-ink-muted);
 }
+
+/* Activity view (UI-18). Categorical slots validated against the surfaces (dataviz validator);
+   three light steps sit under 3:1, so the chart ships with its table. */
+.b-stats {
+  --b-series-1: #2a78d6;
+  --b-series-2: #eb6834;
+  --b-series-3: #1baf7a;
+  --b-series-4: #eda100;
+  --b-series-5: #e87ba4;
+  --b-series-6: #008300;
+  --b-series-7: #6250d6;
+  --b-series-other: #8a919e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .b-stats {
+    --b-series-1: #3987e5;
+    --b-series-2: #d95926;
+    --b-series-3: #199e70;
+    --b-series-4: #c98500;
+    --b-series-5: #d55181;
+    --b-series-6: #008300;
+    --b-series-7: #9085e9;
+    --b-series-other: #6b7385;
+  }
+}
+:root[data-theme="dark"] .b-stats {
+  --b-series-1: #3987e5;
+  --b-series-2: #d95926;
+  --b-series-3: #199e70;
+  --b-series-4: #c98500;
+  --b-series-5: #d55181;
+  --b-series-6: #008300;
+  --b-series-7: #9085e9;
+  --b-series-other: #6b7385;
+}
+.b-stats__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--k-space-6);
+  margin-block: var(--k-space-7);
+}
+.b-stat {
+  padding: var(--k-space-6);
+  border: 1px solid var(--k-line);
+  background: var(--k-surface);
+}
+.b-stat__value {
+  font-size: var(--k-text-2xl);
+  font-weight: var(--k-weight-semibold);
+  color: var(--k-ink);
+}
+.b-stat__hint {
+  font-size: var(--k-text-xs);
+  color: var(--k-ink-muted);
+}
+.b-stats__chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-5);
+}
+.b-stats__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-4) var(--k-space-7);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--k-text-xs);
+  color: var(--k-ink);
+}
+.b-stats__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--k-space-3);
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.b-stats__plot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--k-space-4);
+  height: 200px;
+  padding-bottom: 1.4rem;
+}
+.b-stats__axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}
+.b-stats__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--k-line);
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent calc(50% - 1px),
+    var(--k-grid) calc(50% - 1px),
+    var(--k-grid) 50%
+  );
+}
+.b-stats__day {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  outline: none;
+}
+.b-stats__day:hover,
+.b-stats__day:focus-visible {
+  background: var(--k-accent-soft);
+}
+.b-stats__day:focus-visible {
+  outline: 2px solid var(--k-focus);
+}
+.b-stats__stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  margin-inline: 15%;
+}
+.b-stats__seg {
+  min-height: 2px;
+}
+.b-stats__seg--top {
+  border-radius: 4px 4px 0 0;
+}
+.b-stats__tick {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--k-space-3);
+  white-space: nowrap;
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-label);
+  color: var(--k-ink-muted);
+}
+.b-stats__tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  z-index: 2;
+  display: none;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  min-width: 9rem;
+  padding: var(--k-space-4) var(--k-space-5);
+  transform: translateX(-50%);
+  border: 1px solid var(--k-line-strong);
+  background: var(--k-surface);
+  color: var(--k-ink);
+  font-size: var(--k-text-xs);
+  white-space: nowrap;
+}
+.b-stats__day:hover .b-stats__tip,
+.b-stats__day:focus-visible .b-stats__tip {
+  display: flex;
+}
+.b-stats__summary {
+  cursor: pointer;
+  font-size: var(--k-text-sm);
+}
+.b-stats__th {
+  text-align: left;
+  padding: var(--k-space-3) var(--k-space-4) var(--k-space-3) 0;
+  font-size: var(--k-text-xs);
+  color: var(--k-ink-muted);
+}

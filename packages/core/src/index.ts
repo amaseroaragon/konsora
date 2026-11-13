@@ -17,3 +17,4 @@ export * from "./rank.ts";
 export * from "./schema.ts";
 export * from "./semantics.ts";
 export * from "./serialize.ts";
+export * from "./stats.ts";

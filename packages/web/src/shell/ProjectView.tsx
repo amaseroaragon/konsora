@@ -21,6 +21,7 @@ import {
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Segmented, StateBadge, useToast } from "../ui/index.ts";
+import { ActivityView } from "./ActivityView.tsx";
 import { Board } from "./Board.tsx";
 import {
   confirmDelete,
@@ -121,6 +122,7 @@ const VIEW_KEYS: Record<ProjectViewName, MessageKey> = {
   board: "app.view.board",
   graph: "app.view.graph",
   history: "app.view.history",
+  activity: "app.view.activity",
   settings: "app.view.settings",
 };
 
@@ -498,7 +500,9 @@ export function ProjectView({
           <div
             className={view === "graph" ? "b-layout__main b-layout__main--graph" : "b-layout__main"}
           >
-            {view === "history" ? (
+            {view === "activity" ? (
+              <ActivityView doc={doc} archive={board.archive} />
+            ) : view === "history" ? (
               <HistoryView
                 projectId={projectId}
                 doc={doc}
