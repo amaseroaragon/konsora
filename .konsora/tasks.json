@@ -2778,7 +2778,7 @@
     {
       "id": "UI-15",
       "title": "Avisar en el navegador cuando un agente pregunta o termina una tarea",
-      "state": "todo",
+      "state": "doing",
       "group": "UI",
       "rank": "zzzzzr",
       "desc": "La UI se actualiza en vivo, pero si la pestaña está en segundo plano no te enteras de que un agente espera respuesta. Usar las notificaciones del navegador (con permiso explícito y un interruptor en Ajustes) y un contador en el título de la pestaña.",
@@ -2803,7 +2803,45 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:40:58Z"
+      "started": {
+        "at": "2026-11-13T17:29:17Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:34:59Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T17:29:17Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Interruptor de avisos en Ajustes (permiso explícito, preferencia en localStorage), notificación del navegador por cada pregunta nueva con la pestaña oculta que al pulsarla abre la tarea, y contador de preguntas pendientes en el título."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:34:59Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Hecho y con commit (e640618). Comprobado en Chrome headless: el título muestra «(N) Konsora»; sin permiso, Ajustes explica que los avisos están bloqueados y no se lanza nada; con permiso concedido (simulado, porque headless deniega las notificaciones) y la pestaña oculta, una pregunta nueva crea la notificación y pulsarla abre la tarea. Falta la prueba manual de ac1 en un Chrome real con notificaciones del sistema."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-13T17:34:59Z",
+          "by": "agent:claude",
+          "kind": "question",
+          "text": "Falta la prueba manual en tu Chrome: activa los avisos en Ajustes, deja la pestaña en segundo plano y haz que un agente pregunte. ¿Aparece la notificación y al pulsarla se abre la tarea?",
+          "options": [
+            "Funciona",
+            "No funciona"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T17:29:17Z",
+          "by": "agent:claude",
+          "type": "start"
+        }
+      ]
     },
     {
       "id": "UI-16",
@@ -3393,7 +3431,7 @@
     {
       "id": "UI-27",
       "title": "Paleta de comandos y atajos de teclado",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzy",
       "desc": "El grafo se navega con el teclado, pero el resto de la UI depende del ratón. Una paleta (Ctrl+K) para saltar a una tarea por id o título, cambiar de vista o de proyecto, crear una tarea o abrir el panel de IA, y atajos para lo más frecuente.",
@@ -3418,12 +3456,64 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:36Z"
+      "started": {
+        "at": "2026-11-13T17:30:40Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:34:59Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T17:30:40Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Paleta Ctrl+K (también Cmd+K) que busca tareas por id o título, cambia de vista o de proyecto, crea una tarea y abre el panel de IA; atajos de una tecla fuera de los campos (g t/g g/g h, n, i, ?) y una ayuda que los lista."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:34:59Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Paleta Ctrl+K (⌘K) y atajos de teclado: ? ayuda, N nueva tarea, I panel de IA, 1–5 vistas.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "commands.test.tsx y Chrome headless: Ctrl+K abre la paleta, «cli-05» la encuentra y Enter abre su panel"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "La paleta ofrece vistas, otros proyectos, preguntas, crear tarea y panel de IA (commands.test.tsx); en Chrome, la tecla 2 llevó al Grafo"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Con el foco en el buscador, «n» se escribió en el campo y no abrió nada; «?» abre la ayuda que lista todos los atajos"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "d59f486"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T17:30:40Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:34:59Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "UI-28",
       "title": "Copiar un encargo para el agente desde una tarea",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzz",
       "desc": "Konsora no lanza agentes: para que uno trabaje una tarea concreta hay que escribírselo en la terminal. Un botón en el panel de tarea que copie al portapapeles un encargo listo para pegar («Trabaja la tarea UI-12 de Konsora siguiendo su skill»), y otro que copie solo el id.",
@@ -3448,7 +3538,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:42:50Z"
+      "started": {
+        "at": "2026-11-13T17:28:34Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-13T17:34:58Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-13T17:28:34Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "agentBrief(task) en core (inglés, con test); dos botones en el panel de tareas listas o en curso: copiar encargo y copiar id, con aviso. Solo portapapeles."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-13T17:34:58Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Botones «Copiar encargo para un agente» y «Copiar id» en el panel de tareas listas o en curso; el texto sale de agentBrief en core.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "brief.test.tsx: se ofrecen en tareas listas y en curso, no en bloqueadas, ideas ni hechas; en Chrome headless se copió y apareció el aviso «Encargo de CLI-03 copiado»"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "agentBrief en core, en inglés, con brief.test.ts; en Chrome se capturó el texto exacto escrito en el portapapeles"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Solo navigator.clipboard.writeText; no hay llamada al daemon ni nada que ejecute"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "ae8a557"
+      ],
+      "events": [
+        {
+          "at": "2026-11-13T17:28:34Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-13T17:34:58Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "UI-29",
