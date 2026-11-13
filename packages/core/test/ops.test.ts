@@ -2,7 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { applyOp, type Op, type OpContext, type OpResult, taskHash } from "../src/ops.ts";
 import type { Task, TaskState, TasksDocument } from "../src/schema.ts";
-import { validateDocument } from "../src/semantics.ts";
+import { parseTasksFile, validateDocument } from "../src/semantics.ts";
+import { serializeDocument } from "../src/serialize.ts";
 import { documentArb } from "./arbitraries.ts";
 
 const at = "2026-11-02T10:00:00Z";
@@ -213,6 +214,47 @@ describe("transitions", () => {
     expect(
       err(applyOp(doc(task("BE-01", "todo")), { op: "ask", task: "BE-01", text: "?" }, agent)),
     ).toBe("invalid_transition");
+  });
+
+  it("ask may offer options; they are kept on the question and answered as text", () => {
+    const d = doc(task("BE-01", "doing"));
+    const asked = ok(
+      applyOp(
+        d,
+        { op: "ask", task: "BE-01", text: "Which DB?", options: [" SQLite ", "Postgres"] },
+        agent,
+      ),
+    ).document;
+    expect(asked.tasks[0]?.notes?.[0]).toMatchObject({
+      kind: "question",
+      options: ["SQLite", "Postgres"],
+    });
+    expect(parseTasksFile(serializeDocument(asked)).ok).toBe(true);
+    const answered = ok(
+      applyOp(asked, { op: "answer", task: "BE-01", text: "Postgres" }, human),
+    ).document;
+    expect(answered.tasks[0]?.notes?.at(-1)).toMatchObject({ kind: "answer", text: "Postgres" });
+    expect(answered.tasks[0]?.notes?.at(-1)?.options).toBeUndefined();
+    // No options at all is a plain question; one option, repeated or blank ones are refused.
+    expect(
+      ok(applyOp(d, { op: "ask", task: "BE-01", text: "?", options: [] }, agent)).document.tasks[0]
+        ?.notes?.[0]?.options,
+    ).toBeUndefined();
+    for (const options of [["Only"], ["A", " A"], ["A", "  "]]) {
+      expect(
+        err(applyOp(d, { op: "ask", task: "BE-01", text: "?", options }, agent)),
+        options.join(","),
+      ).toBe("invalid");
+    }
+  });
+
+  it("only a question may carry options", () => {
+    const d = doc(task("BE-01", "doing"));
+    const noted = ok(applyOp(d, { op: "note", task: "BE-01", text: "x" }, agent)).document;
+    const note = noted.tasks[0]?.notes?.[0];
+    if (note) note.options = ["A", "B"];
+    const result = validateDocument(noted);
+    expect(result.ok ? [] : result.issues.map((i) => i.code)).toEqual(["options_not_question"]);
   });
 
   it("delete removes a task and drops it from its dependents, with a note", () => {

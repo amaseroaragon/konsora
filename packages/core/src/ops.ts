@@ -95,7 +95,8 @@ export type Op = Base &
     | { op: "start"; task: string; text?: string }
     | { op: "pause"; task: string; text?: string }
     | { op: "note"; task: string; text: string }
-    | { op: "ask"; task: string; text: string }
+    /** `options`: two or more answers the human may pick from (they can still write their own). */
+    | { op: "ask"; task: string; text: string; options?: string[] }
     | { op: "answer"; task: string; text: string }
     | { op: "finish"; task: string; summary: string }
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
@@ -248,11 +249,12 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
     task.updated_at = ctx.at;
     changed.add(task.id);
   };
-  const addNote = (task: Task, kind: NoteKind, text: string) => {
+  const addNote = (task: Task, kind: NoteKind, text: string, options?: string[]) => {
     const body = text.trim();
     const notes = task.notes ?? [];
     const next = Math.max(0, ...notes.map((n) => Number(n.id.slice(1)))) + 1;
     const note: Note = { id: `n${next}`, at: ctx.at, by: ctx.actor, kind, text: body };
+    if (options?.length) note.options = options;
     task.notes = [...notes, note];
     touch(task);
   };
@@ -507,7 +509,12 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
         fail("invalid_transition", `${task.id} is ${task.state}; ask needs doing`, {
           task: task.id,
         });
-      addNote(task, "question", requireText(op.text, "text_required", "a question"));
+      const options = (op.options ?? []).map((option) => option.trim());
+      if (options.length === 1)
+        fail("invalid", "Offer at least two options, or none", { task: task.id });
+      if (new Set(options).size !== options.length)
+        fail("invalid", "Options must be different from each other", { task: task.id });
+      addNote(task, "question", requireText(op.text, "text_required", "a question"), options);
       break;
     }
     case "answer": {

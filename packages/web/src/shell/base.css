@@ -419,6 +419,17 @@
   gap: var(--k-space-2);
   min-width: 0;
 }
+.a-note__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.a-note__options .a-chip {
+  text-transform: none;
+}
 /* On a warning-tinted note (feedback, question) text and links keep the note's ink. */
 .a-note--feedback .md,
 .a-note--question .md,

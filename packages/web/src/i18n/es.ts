@@ -248,6 +248,8 @@ export const es = {
   "action.answer": "Responder",
   "action.reopen": "Reabrir",
   "action.text.answer": "Tu respuesta",
+  "answer.options": "Opciones de respuesta",
+  "answer.comment": "Comentario (opcional) u otra respuesta",
   "action.text.reopen": "Motivo (opcional)",
   "external.title": "Cambios externos que requieren tu visto bueno",
   "external.count": "{n} cambio(s) externo(s) por revisar.",

@@ -131,3 +131,9 @@ export function externalText(flag: ExternalFlag): string {
       return flag.message;
   }
 }
+
+/** The answer sent when the human picks an option: the option, then their comment if any. */
+export function choiceAnswer(option: string, comment: string): string {
+  const extra = comment.trim();
+  return extra ? `${option}\n\n${extra}` : option;
+}

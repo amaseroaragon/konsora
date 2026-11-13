@@ -239,12 +239,28 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
       title: "Ask the human",
       description:
         "Ask the human a question about a task you are doing. Then stop and wait for the answer.",
-      inputSchema: { id, question: text("the decision you need") },
+      inputSchema: {
+        id,
+        question: text("the decision you need"),
+        options: z
+          .array(z.string().min(1).max(200))
+          .min(2)
+          .max(10)
+          .optional()
+          .describe(
+            "when the decision is a choice, the answers the human can pick with one click (they can still write their own)",
+          ),
+      },
       annotations: WRITE,
     },
     (args) =>
       apply(
-        () => ({ op: "ask", task: args.id.toUpperCase(), text: args.question }),
+        () => ({
+          op: "ask",
+          task: args.id.toUpperCase(),
+          text: args.question,
+          ...(args.options ? { options: args.options } : {}),
+        }),
         "Stop here and wait for the human's answer.",
       ),
   );

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { actionBody, type BoardTask, moveBody } from "../src/api/board.ts";
 import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
+import { choiceAnswer } from "../src/shell/board-model.ts";
 import { TaskPanel } from "../src/shell/TaskPanel.tsx";
 import { ToastProvider } from "../src/ui/index.ts";
 
@@ -74,5 +75,54 @@ describe("back to the ideas (CORE-12)", () => {
     const expected = { op: "demote", task: "BE-02", expect: { "BE-02": todo.hash } };
     expect(actionBody({ task: todo, action: "demote" })).toEqual(expected);
     expect(moveBody({ task: todo, op: "demote", to: "proposed" })).toEqual(expected);
+  });
+});
+
+describe("questions with options (CORE-16)", () => {
+  const asked = (options?: string[]): TasksDocument => ({
+    ...doc,
+    tasks: doc.tasks.map((t) =>
+      t.id === "BE-03"
+        ? {
+            ...t,
+            notes: [
+              {
+                id: "n1",
+                at,
+                by: "agent:claude",
+                kind: "question",
+                text: "¿Qué base de datos?",
+                ...(options ? { options } : {}),
+              },
+            ],
+          }
+        : t,
+    ),
+  });
+
+  it("shows each option as a button next to the free-text answer", () => {
+    const html = panel("BE-03", asked(["SQLite", "Postgres"]));
+    expect(buttons(html)).toEqual(expect.arrayContaining(["SQLite", "Postgres", "Responder"]));
+    expect(html).toContain("Comentario (opcional) u otra respuesta");
+  });
+
+  it("a question without options keeps the plain answer form", () => {
+    const html = panel("BE-03", asked());
+    expect(buttons(html)).not.toContain("SQLite");
+    expect(html).toContain("Tu respuesta");
+  });
+
+  it("an option is sent as the answer, followed by the comment if any", () => {
+    const task = boardTasks(asked(["SQLite", "Postgres"])).find(
+      (t) => t.id === "BE-03",
+    ) as BoardTask;
+    expect(choiceAnswer("Postgres", "  ")).toBe("Postgres");
+    expect(choiceAnswer("Postgres", " con réplica ")).toBe("Postgres\n\ncon réplica");
+    expect(actionBody({ task, action: "answer", text: choiceAnswer("SQLite", "") })).toEqual({
+      op: "answer",
+      task: "BE-03",
+      expect: { "BE-03": task.hash },
+      text: "SQLite",
+    });
   });
 });

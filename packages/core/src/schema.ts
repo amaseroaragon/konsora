@@ -93,12 +93,19 @@ export const AcceptanceSchema = strict({
 
 export const NoteKindSchema = z.enum(["note", "question", "answer", "feedback", "summary"]);
 
+export const QuestionOptionSchema = z
+  .string()
+  .max(200)
+  .refine((s) => s.trim().length > 0, "An option must not be blank");
+
 export const NoteSchema = strict({
   id: z.string().regex(/^n\d+$/, "Note id must look like n1"),
   at: TimestampSchema,
   by: ActorSchema,
   kind: NoteKindSchema,
   text: z.string().min(1).max(16_384),
+  /** Only on a `question`: the answers the agent offers, so the human can pick one. */
+  options: z.array(QuestionOptionSchema).min(2).max(10).optional(),
   edited: TimestampSchema.optional(),
 });
 

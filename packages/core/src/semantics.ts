@@ -109,6 +109,24 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
           `Task ${task.id} repeats note ${id}`,
         ),
     );
+    task.notes?.forEach((note, j) => {
+      if (note.options === undefined) return;
+      if (note.kind !== "question")
+        add(
+          ["tasks", i, "notes", j, "options"],
+          "options_not_question",
+          `Note ${note.id} of ${task.id} has options, but only questions can`,
+        );
+      checkUnique(
+        note.options.map((option) => option.trim()),
+        (k, option) =>
+          add(
+            ["tasks", i, "notes", j, "options", k],
+            "duplicate_option",
+            `Question ${note.id} of ${task.id} repeats option "${option}"`,
+          ),
+      );
+    });
   });
 
   for (const [group, max] of maxNumber) {

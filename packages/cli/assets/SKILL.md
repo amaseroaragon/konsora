@@ -31,7 +31,7 @@ Tasks go `todo → doing → done`. There is **no approval and no review**: what
 2. Pick work: `konsora ready`, then `konsora show <ID>` and read the description, acceptance criteria and notes.
 3. `konsora start <ID> -m "<your plan>"`.
 4. Work. Record progress with `konsora note <ID> "<what changed>"` at meaningful steps.
-5. Blocked on a decision? `konsora ask <ID> "<question>"`, ask the human in the conversation too, then **stop** and wait.
+5. Blocked on a decision? `konsora ask <ID> "<question>"`, ask the human in the conversation too, then **stop** and wait. When the decision is a choice, offer the answers with `--option "<A>" --option "<B>"` (`options` in the MCP tool): the human picks one with a click.
 6. Done? Commit your work, then `konsora finish <ID> --summary "<what you did and how it meets each acceptance criterion>"`. Stopping midway: `konsora pause <ID> -m "<why>"`.
 
 ## Planning

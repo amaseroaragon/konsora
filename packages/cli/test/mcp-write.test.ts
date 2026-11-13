@@ -187,6 +187,11 @@ describe("konsora mcp: agent write tools", () => {
       ["start", { id: "BE-04", plan: "Plan" }, ["start", "BE-04", "-m", "Plan"]],
       ["note", { id: "BE-04", text: "Progress" }, ["note", "BE-04", "Progress"]],
       ["ask", { id: "BE-04", question: "Which TTL?" }, ["ask", "BE-04", "Which TTL?"]],
+      [
+        "ask",
+        { id: "BE-04", question: "Which store?", options: ["Memory", "Redis"] },
+        ["ask", "BE-04", "Which store?", "--option", "Memory", "--option", "Redis"],
+      ],
       ["pause", { id: "BE-04", reason: "Waiting" }, ["pause", "BE-04", "-m", "Waiting"]],
       ["start", { id: "BE-04" }, ["start", "BE-04"]],
       ["finish", { id: "BE-04", summary: "Done it" }, ["finish", "BE-04", "--summary", "Done it"]],

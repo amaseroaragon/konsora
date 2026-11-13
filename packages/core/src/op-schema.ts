@@ -7,6 +7,7 @@ import type { Op } from "./ops.ts";
 import {
   AcceptanceSchema,
   GroupSchema,
+  QuestionOptionSchema,
   TaskIdSchema,
   TaskSchema,
   TemplateSchema,
@@ -77,7 +78,13 @@ export const OpSchema = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("start"), expect, task: id, text: text.optional() }),
   z.strictObject({ op: z.literal("pause"), expect, task: id, text: text.optional() }),
   z.strictObject({ op: z.literal("note"), expect, task: id, text }),
-  z.strictObject({ op: z.literal("ask"), expect, task: id, text }),
+  z.strictObject({
+    op: z.literal("ask"),
+    expect,
+    task: id,
+    text,
+    options: z.array(QuestionOptionSchema).max(10).optional(),
+  }),
   z.strictObject({ op: z.literal("answer"), expect, task: id, text }),
   z.strictObject({ op: z.literal("finish"), expect, task: id, summary: text }),
   z.strictObject({

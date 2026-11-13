@@ -259,6 +259,15 @@
                   "minLength": 1,
                   "maxLength": 16384
                 },
+                "options": {
+                  "minItems": 2,
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
                 "edited": {
                   "type": "string",
                   "format": "date-time",

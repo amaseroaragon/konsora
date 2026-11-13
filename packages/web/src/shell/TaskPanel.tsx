@@ -10,7 +10,7 @@ import { type BoardTask, type ExternalFlag, useTaskAction } from "../api/board.t
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { askConfirm, Button, Field, StateBadge, useToast } from "../ui/index.ts";
-import { confirmDelete, opErrorText } from "./board-model.ts";
+import { choiceAnswer, confirmDelete, opErrorText } from "./board-model.ts";
 import { ExternalChanges } from "./External.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { PanelSection } from "./PanelSection.tsx";
@@ -81,6 +81,8 @@ function Actions({
     void run(open, text.trim());
   };
   const question = [...(task.notes ?? [])].reverse().find((n) => n.kind === "question");
+  // A question with options is answered with one click; the text adds a comment (or another answer).
+  const choices = open === "answer" ? (question?.options ?? []) : [];
   const busy = (action: TaskAction) => mutation.isPending && mutation.variables?.action === action;
   if (open) {
     return (
@@ -93,10 +95,27 @@ function Actions({
             <b>{t("detail.question")}</b> {question.text}
           </p>
         )}
+        {choices.length > 0 && (
+          // biome-ignore lint/a11y/useSemanticElements: a group of answer buttons, not form fields.
+          <div className="a-actions" role="group" aria-label={t("answer.options")}>
+            {choices.map((option) => (
+              <Button
+                key={option}
+                variant="secondary"
+                disabled={mutation.isPending}
+                onClick={() => void run("answer", choiceAnswer(option, text))}
+              >
+                {option}
+              </Button>
+            ))}
+          </div>
+        )}
         <Field
           multiline
-          rows={4}
-          label={t(TEXT_LABEL[open] ?? "action.text.reopen")}
+          rows={choices.length > 0 ? 2 : 4}
+          label={
+            choices.length > 0 ? t("answer.comment") : t(TEXT_LABEL[open] ?? "action.text.reopen")
+          }
           required={ACTION_TEXT[open] === "required"}
           value={text}
           onChange={(event) => setText(event.target.value)}
@@ -318,6 +337,15 @@ export function TaskPanel({
                       {t(`note.${note.kind}`)}
                     </b>
                     <Markdown className="md--compact" text={note.text} />
+                    {note.options && (
+                      <ul className="a-note__options" aria-label={t("answer.options")}>
+                        {note.options.map((option) => (
+                          <li key={option} className="a-chip">
+                            {option}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </li>
               ))}

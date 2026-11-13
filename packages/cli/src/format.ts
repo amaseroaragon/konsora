@@ -118,6 +118,7 @@ export function showText(doc: TasksDocument, view: TaskView): string {
     for (const n of view.notes) {
       lines.push(`  ${n.at.replace("T", " ").slice(0, 16)}  ${n.by}  ${n.kind}`);
       for (const line of n.text.split("\n")) lines.push(`      ${line}`);
+      if (n.options?.length) lines.push(`      options: ${n.options.join(" | ")}`);
     }
   }
   return `${lines.join("\n")}\n`;

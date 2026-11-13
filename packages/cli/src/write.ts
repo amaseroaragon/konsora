@@ -514,15 +514,25 @@ export function registerWriteCommands(
     .description("ask the human a question about a task you are doing; then stop and wait")
     .argument("<id>")
     .argument("[question]")
+    .option(
+      "--option <answer>",
+      "an answer the human can pick with one click; repeat for each (at least two)",
+      collect,
+    )
     .action(
       async (
         id: string,
         question: string | undefined,
-        opts: TextOptions & { as?: string; json?: boolean },
+        opts: TextOptions & { option?: string[]; as?: string; json?: boolean },
       ) => {
         const body = await readText(io, question, opts, "question");
         await apply(
-          { op: "ask", task: id.toUpperCase(), text: body },
+          {
+            op: "ask",
+            task: id.toUpperCase(),
+            text: body,
+            ...(opts.option ? { options: opts.option } : {}),
+          },
           opts,
           () => `Asked on ${id.toUpperCase()}. Stop here and wait for the human's answer.\n`,
         );

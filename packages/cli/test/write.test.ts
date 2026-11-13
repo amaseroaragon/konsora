@@ -371,6 +371,8 @@ describe("work commands", () => {
     expect((await run(["ask", "BE-04", "Which TTL?", "--as", "claude"])).stdout).toContain(
       "Stop here",
     );
+    await run(["ask", "BE-04", "Which store?", "--option", "Memory", "--option", "Redis"]);
+    expect((await run(["show", "BE-04"])).stdout).toContain("options: Memory | Redis");
     expect((await run(["finish", "BE-04", "--as", "claude"])).code).toBe(EXIT.usage); // no summary
     const done = await run([
       "finish",
@@ -382,11 +384,16 @@ describe("work commands", () => {
     ]);
     expect(done.stdout).toBe("Finished BE-04: done.\n");
     expect(task("BE-04").state).toBe("done");
+    expect(task("BE-04").notes?.find((n) => n.text === "Which store?")?.options).toEqual([
+      "Memory",
+      "Redis",
+    ]);
     expect(task("BE-04").notes?.map((n) => [n.kind, n.text])).toEqual([
       ["note", "Plan: add an LRU"],
       ["note", "Line one\nLínea dos ✓"],
       ["note", "From stdin"],
       ["question", "Which TTL?"],
+      ["question", "Which store?"],
       ["summary", "LRU with TTL, tests added"],
     ]);
   });

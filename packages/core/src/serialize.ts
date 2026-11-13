@@ -37,11 +37,19 @@ const ORDER = {
   ],
   acceptance: ["id", "text"],
   created: ["at", "by"],
-  note: ["id", "at", "by", "kind", "text", "edited"],
+  note: ["id", "at", "by", "kind", "text", "options", "edited"],
 } as const;
 
 /** Optional fields dropped when empty. Required arrays (`groups`, `tasks`) are always kept. */
-const OMIT_WHEN_EMPTY = new Set(["deps", "desc", "acceptance", "labels", "notes", "templates"]);
+const OMIT_WHEN_EMPTY = new Set([
+  "deps",
+  "desc",
+  "acceptance",
+  "labels",
+  "notes",
+  "templates",
+  "options",
+]);
 
 function isEmpty(value: unknown): boolean {
   return value === undefined || value === "" || (Array.isArray(value) && value.length === 0);

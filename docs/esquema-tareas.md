@@ -99,12 +99,12 @@ La implementación de referencia es `packages/core`. Este documento la describe;
 
 **`Acceptance`**: `id` (`^ac\d+$`, único en la tarea) y `text` (1–500). Cada criterio describe algo verificable: un comando que pasa o un resultado observable. El agente explica en su resumen cómo cumple cada uno.
 
-**`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB) y `edited` (opcional: fecha). Tipos de `kind`:
+**`Note`**: `id` (`^n\d+$`, único en la tarea), `at`, `by`, `kind`, `text` (1–16 KB), `options` (opcional, solo en una `question`: de 2 a 10 respuestas distintas, de hasta 200 caracteres, que el humano puede elegir con un clic) y `edited` (opcional: fecha). Tipos de `kind`:
 
 | `kind` | Quién | Significado |
 |---|---|---|
 | `note` | cualquiera | Comentario o progreso. |
-| `question` | agente | El agente necesita al humano. La tarea queda `waiting` hasta que llega un `answer` posterior. |
+| `question` | agente | El agente necesita al humano. La tarea queda `waiting` hasta que llega un `answer` posterior. Con `konsora ask --option A --option B` (u `options` en el MCP) lleva opciones de respuesta. |
 | `answer` | humano | Responde a la última `question`. |
 | `feedback` | humano | Heredado de versiones con revisión (devoluciones); se conserva al migrar. |
 | `summary` | agente | Resumen al terminar (`doing → done`). Obligatorio. La UI lo muestra destacado en las tareas hechas. |
