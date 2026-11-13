@@ -359,7 +359,9 @@ export function createApp(options: AppOptions): Hono {
   /** The project's chat: its messages so far and whether the agent is answering. */
   api.get("/projects/:id/chat", async (c) => {
     const project = await registry.get(c.req.param("id"));
-    return c.json({ chat: chatsOf().view(project.id) });
+    const chats = chatsOf();
+    await chats.load(project.id);
+    return c.json({ chat: chats.view(project.id) });
   });
 
   /** Sends the human's message; the answer streams over the WebSocket as `chat.*`. */
@@ -384,7 +386,7 @@ export function createApp(options: AppOptions): Hono {
   /** Starts over: stops the agent and forgets the conversation. */
   api.delete("/projects/:id/chat", async (c) => {
     const project = await registry.get(c.req.param("id"));
-    chatsOf().reset(project.id);
+    await chatsOf().reset(project.id);
     return c.body(null, 204);
   });
 

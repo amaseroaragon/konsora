@@ -110,6 +110,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
   const url = `http://127.0.0.1:${port}`;
   const chats = new ChatManager({
     publish: (project, payload) => hub?.publish(project, payload),
+    storeDir: dir,
     ...options.chat,
   });
   app = createApp({
@@ -137,6 +138,7 @@ export async function startDaemon(options: StartOptions = {}): Promise<RunningDa
     dataDir: dir,
     chats,
     close: async () => {
+      await chats.flush();
       chats.close();
       events.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));

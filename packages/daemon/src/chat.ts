@@ -1,5 +1,7 @@
 /**
- * The AI panel's planning chats (one per project, in memory). Each message of the human runs
+ * The AI panel's planning chats (one per project). With `storeDir` (the daemon's data dir, never
+ * a project) each chat is also kept in `projects/<id>/chat.json` (0600), so a restart of the
+ * daemon neither loses the conversation nor its Claude Code session (DMN-05). Each message of the human runs
  * one turn of the user's own Claude Code in headless mode (`claude -p`, stream-json), with the
  * interview prompt from core on the first turn and `--resume` on the next ones. The agent gets
  * only Konsora's MCP server, in plan mode (KONSORA_PLAN=1): it reads the plan and can only create,
@@ -12,9 +14,12 @@
  * the panel change files.
  */
 import { type ChildProcess, spawn } from "node:child_process";
+import { unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { buildPlanPrompt, PLAN_BUILTIN_TOOLS, PLAN_DENIED_TOOLS, PLAN_TOOLS } from "@konsora/core";
 import { readTasks } from "@konsora/core/store";
+import { readJson, writePrivateFile } from "./files.ts";
 import { mcpCommand } from "./paths.ts";
 import type { Project } from "./registry.ts";
 
@@ -42,7 +47,32 @@ export type ChatManagerOptions = {
   mcp?: { command: string; args: string[] };
   env?: NodeJS.ProcessEnv;
   now?: () => Date;
+  /** Where chats are kept between restarts (the daemon's data dir); without it, memory only. */
+  storeDir?: string;
 };
+
+/** What `chat.json` holds: the conversation, the session to resume and whether a turn ran. */
+type StoredChat = { session?: string; next: number; messages: ChatMessage[]; busy?: boolean };
+
+const ROLES: readonly ChatRole[] = ["human", "agent", "tool", "error", "stopped"];
+
+function isStoredChat(value: unknown): value is StoredChat {
+  const chat = value as StoredChat | undefined;
+  return (
+    typeof chat === "object" &&
+    chat !== null &&
+    Number.isInteger(chat.next) &&
+    (chat.session === undefined || typeof chat.session === "string") &&
+    Array.isArray(chat.messages) &&
+    chat.messages.every(
+      (m) =>
+        Number.isInteger(m?.id) &&
+        ROLES.includes(m.role) &&
+        typeof m.text === "string" &&
+        typeof m.at === "string",
+    )
+  );
+}
 
 type Chat = {
   messages: ChatMessage[];
@@ -73,6 +103,10 @@ function toolLine(name: string, input: unknown): string {
 
 export class ChatManager {
   readonly #chats = new Map<string, Chat>();
+  /** Per project: the save in progress, and whether another one is due after it. */
+  readonly #saves = new Map<string, { running: Promise<void>; again: boolean }>();
+  /** Closing: what is on disk stays as it is (a turn cut short is marked when loaded again). */
+  #closed = false;
   /** Processes the human stopped, so their exit reads as stopped, not as a failure. */
   readonly #stopped = new WeakSet<ChildProcess>();
   readonly #options: ChatManagerOptions;
@@ -101,6 +135,72 @@ export class ChatManager {
 
   #publish(project: string) {
     this.#options.publish(project, { type: "chat.updated", project, chat: this.view(project) });
+    this.#save(project);
+  }
+
+  #file(project: string): string | undefined {
+    const dir = this.#options.storeDir;
+    // Project ids come from the registry; never let one reach outside the data dir.
+    if (!dir || !/^[A-Za-z0-9_-]+$/.test(project)) return undefined;
+    return join(dir, "projects", project, "chat.json");
+  }
+
+  /**
+   * Loads the project's saved chat, once, before it is shown or continued. A turn that was
+   * running when the daemon stopped is over: it is marked as stopped.
+   */
+  async load(project: string): Promise<void> {
+    const file = this.#file(project);
+    if (!file || this.#chats.has(project)) return;
+    await this.#saves.get(project)?.running;
+    const stored = await readJson<unknown>(file).catch(() => undefined);
+    if (this.#chats.has(project) || !isStoredChat(stored)) return;
+    const chat: Chat = {
+      messages: stored.messages.slice(-MAX_MESSAGES),
+      next: stored.next,
+      ...(stored.session ? { session: stored.session } : {}),
+    };
+    this.#chats.set(project, chat);
+    if (stored.busy) {
+      this.#add(project, "stopped", "Interrupted when the Konsora daemon stopped.");
+      this.#save(project);
+    }
+  }
+
+  /** Writes the chat as it is now; saves never overlap and the last state always lands. */
+  #save(project: string) {
+    const file = this.#file(project);
+    if (!file || this.#closed) return;
+    const pending = this.#saves.get(project);
+    if (pending) {
+      pending.again = true;
+      return;
+    }
+    const entry = { running: Promise.resolve(), again: false };
+    const run = async () => {
+      do {
+        entry.again = false;
+        const chat = this.#chats.get(project);
+        if (!chat) await unlink(file).catch(() => undefined);
+        else {
+          const stored: StoredChat = {
+            ...(chat.session ? { session: chat.session } : {}),
+            next: chat.next,
+            messages: chat.messages,
+            ...(chat.child ? { busy: true } : {}),
+          };
+          await writePrivateFile(file, JSON.stringify(stored)).catch(() => undefined);
+        }
+      } while (entry.again);
+      this.#saves.delete(project);
+    };
+    entry.running = run();
+    this.#saves.set(project, entry);
+  }
+
+  /** Waits for the pending saves (tests, shutdown). */
+  async flush(): Promise<void> {
+    await Promise.all([...this.#saves.values()].map((entry) => entry.running));
   }
 
   #add(project: string, role: ChatRole, text: string) {
@@ -119,6 +219,7 @@ export class ChatManager {
   async send(project: Project, text: string, options: { model?: string } = {}): Promise<ChatView> {
     if (options.model !== undefined && !CHAT_MODEL.test(options.model))
       throw new ChatError("bad_request", `Invalid model "${options.model}"`);
+    await this.load(project.id);
     const chat = this.#chat(project.id);
     if (chat.child) throw new ChatError("busy", "The agent is still answering; wait or stop it");
     let prompt = text;
@@ -178,7 +279,10 @@ export class ChatManager {
       } catch {
         return;
       }
-      if (typeof event.session_id === "string") chat.session = event.session_id;
+      if (typeof event.session_id === "string" && chat.session !== event.session_id) {
+        chat.session = event.session_id;
+        this.#save(project.id);
+      }
       if (event.type === "assistant") {
         const content = (event.message as { content?: unknown } | undefined)?.content;
         for (const block of Array.isArray(content) ? content : []) {
@@ -232,8 +336,8 @@ export class ChatManager {
     return this.view(project);
   }
 
-  /** Stops the agent and forgets the conversation. */
-  reset(project: string) {
+  /** Stops the agent and forgets the conversation, on disk too. */
+  async reset(project: string): Promise<void> {
     const chat = this.#chats.get(project);
     if (chat?.child) {
       const child = chat.child;
@@ -242,9 +346,13 @@ export class ChatManager {
     }
     this.#chats.delete(project);
     this.#publish(project);
+    await this.#saves.get(project)?.running;
+    const file = this.#file(project);
+    if (file) await unlink(file).catch(() => undefined);
   }
 
   close() {
+    this.#closed = true;
     for (const chat of this.#chats.values()) chat.child?.kill("SIGTERM");
     this.#chats.clear();
   }

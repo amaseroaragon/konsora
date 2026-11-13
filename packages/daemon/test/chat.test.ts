@@ -1,4 +1,14 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildPlanPrompt, serializeDocument, type TasksDocument } from "@konsora/core";
@@ -60,13 +70,14 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-function manager(mode = "") {
+function manager(mode = "", storeDir?: string) {
   return new ChatManager({
     publish: (_project, payload) => events.push(payload),
     command: fake,
     mcp: { command: "/node", args: ["/bin.ts", "mcp"] },
     env: { ...process.env, FAKE_OUT: out, FAKE_MODE: mode },
     now: () => new Date(at),
+    ...(storeDir ? { storeDir } : {}),
   });
 }
 
@@ -225,5 +236,63 @@ describe("chat routes", () => {
     expect(after.chat.messages).toEqual([]);
     const none = createApp({ token, port, registry, now: () => new Date(at) });
     expect((await none.request(url, { headers })).status).toBe(503);
+  });
+});
+
+describe("chats kept between daemon restarts (DMN-05)", () => {
+  it("a new daemon shows the conversation and continues the same Claude Code session", async () => {
+    const data = join(dir, "data");
+    const before = manager("", data);
+    await before.send(proj(), "A forecast cache");
+    await idle(before, "p1");
+    await before.flush();
+    before.close();
+
+    const file = join(data, "projects", "p1", "chat.json");
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(statSync(join(data, "projects", "p1")).mode & 0o777).toBe(0o700);
+    // Nothing is written inside the project.
+    expect(readdirSync(join(project, ".konsora"))).toEqual(["tasks.json"]);
+
+    const after = manager("", data);
+    expect(after.view("p1").messages).toEqual([]); // not loaded yet
+    await after.load("p1");
+    expect(after.view("p1").messages.map((m) => [m.role, m.text])).toEqual([
+      ["human", "A forecast cache"],
+      ["agent", "What should the cache keep?"],
+      ["tool", 'propose "Add cache"'],
+    ]);
+    await after.send(proj(), "Keep it 10 minutes");
+    await idle(after, "p1");
+    const second = runs()[1]?.args ?? [];
+    expect(second[1]).toBe("Keep it 10 minutes"); // no interview prompt again
+    expect(second.slice(-2)).toEqual(["--resume", "sess-1"]);
+    await after.flush();
+    expect(JSON.parse(readFileSync(file, "utf8")).messages).toHaveLength(6);
+
+    // Starting over removes it from disk.
+    await after.reset("p1");
+    expect(existsSync(file)).toBe(false);
+    const fresh = manager("", data);
+    await fresh.load("p1");
+    expect(fresh.view("p1").messages).toEqual([]);
+  });
+
+  it("a turn cut short by the restart shows as stopped; a damaged file is ignored", async () => {
+    const data = join(dir, "data");
+    const running = manager("hang", data);
+    await running.send(proj(), "Plan it");
+    await running.flush();
+    running.close();
+    const after = manager("", data);
+    await after.load("p1");
+    const view = after.view("p1");
+    expect(view.busy).toBe(false);
+    expect(view.messages.map((m) => m.role)).toEqual(["human", "stopped"]);
+
+    writeFileSync(join(data, "projects", "p1", "chat.json"), '{"messages": "nope"}');
+    const damaged = manager("", data);
+    await damaged.load("p1");
+    expect(damaged.view("p1").messages).toEqual([]);
   });
 });
