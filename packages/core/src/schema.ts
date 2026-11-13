@@ -213,6 +213,11 @@ export const DeletedTaskSchema = strict({
 export const EVENTS_LIMIT = 50;
 export const DELETED_LIMIT = 200;
 
+/** A git commit hash, abbreviated or full: 7 to 40 lowercase hex characters (CORE-14). */
+export const CommitSchema = z
+  .string()
+  .regex(/^[0-9a-f]{7,40}$/, "A commit must be 7 to 40 lowercase hexadecimal characters");
+
 export const TaskSchema = strict({
   id: TaskIdSchema,
   title: z
@@ -238,6 +243,11 @@ export const TaskSchema = strict({
   started: strict({ at: TimestampSchema, by: ActorSchema }).optional(),
   updated_at: TimestampSchema,
   notes: z.array(NoteSchema).optional(),
+  /**
+   * CORE-14: the commits of the work, as the agent passed them to `finish`, oldest first. Konsora
+   * never runs git: it only keeps the hashes.
+   */
+  commits: z.array(CommitSchema).max(100).optional(),
   /** CORE-17: the latest changes to the task, oldest first (at most `EVENTS_LIMIT`). */
   events: z.array(TaskEventSchema).optional(),
 });

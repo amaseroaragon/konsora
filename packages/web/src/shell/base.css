@@ -473,3 +473,14 @@
 .a-evidence--missing b {
   color: var(--k-warn-ink);
 }
+
+/* The commits of a task (CORE-14) */
+.a-commits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-3) var(--k-space-6);
+  font-size: var(--k-text-sm);
+}

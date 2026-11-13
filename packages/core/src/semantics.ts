@@ -107,6 +107,13 @@ export function validateSemantics(doc: TasksDocument): SchemaIssue[] {
     checkUnique(task.deps, (j, dep) =>
       add(["tasks", i, "deps", j], "duplicate_dependency", `Task ${task.id} lists ${dep} twice`),
     );
+    checkUnique(task.commits, (j, commit) =>
+      add(
+        ["tasks", i, "commits", j],
+        "duplicate_commit",
+        `Task ${task.id} lists commit ${commit} twice`,
+      ),
+    );
     checkUnique(task.labels, (j, label) =>
       add(["tasks", i, "labels", j], "duplicate_label", `Task ${task.id} repeats label ${label}`),
     );

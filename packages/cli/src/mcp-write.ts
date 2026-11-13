@@ -409,6 +409,10 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           )
           .optional()
           .describe("evidence per acceptance criterion; the human sees it next to each criterion"),
+        commits: z
+          .array(z.string().min(7).max(40))
+          .optional()
+          .describe("the hashes of this work's commits (7 to 40 hex characters)"),
       },
       annotations: WRITE,
     },
@@ -427,6 +431,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
                 })),
               }
             : {}),
+          ...(args.commits?.length ? { commits: args.commits } : {}),
         }),
         () => "The task is done.",
       ),

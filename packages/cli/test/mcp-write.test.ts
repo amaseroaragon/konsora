@@ -225,8 +225,22 @@ describe("konsora mcp: agent write tools", () => {
       ["start", { id: "BE-04" }, ["start", "BE-04"]],
       [
         "finish",
-        { id: "BE-04", summary: "Done it", evidence: [{ ac: "ac1", text: "bench: 3 ms" }] },
-        ["finish", "BE-04", "--summary", "Done it", "--evidence", "ac1=bench: 3 ms"],
+        {
+          id: "BE-04",
+          summary: "Done it",
+          evidence: [{ ac: "ac1", text: "bench: 3 ms" }],
+          commits: ["abcdef1"],
+        },
+        [
+          "finish",
+          "BE-04",
+          "--summary",
+          "Done it",
+          "--evidence",
+          "ac1=bench: 3 ms",
+          "--commit",
+          "abcdef1",
+        ],
       ],
     ];
     const { call, close } = await connect(viaMcp);

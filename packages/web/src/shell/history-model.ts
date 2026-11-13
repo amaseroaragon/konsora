@@ -125,7 +125,10 @@ export function historyMarkdown(days: readonly HistoryDay[]): string {
         ...day.entries.map(({ entry, time }) => {
           const who = entry.by ? ` — ${actorName(entry.by)}` : "";
           const line = entry.summary ? `: ${summaryLine(entry.summary)}` : "";
-          return `- ${time} **${entry.id}** ${entry.title}${who}${line}`;
+          const commits = entry.commits?.length
+            ? ` (${entry.commits.map((sha) => `\`${sha.slice(0, 7)}\``).join(", ")})`
+            : "";
+          return `- ${time} **${entry.id}** ${entry.title}${who}${line}${commits}`;
         }),
       ].join("\n"),
     )

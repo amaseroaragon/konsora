@@ -477,6 +477,16 @@ describe("planning commands", () => {
     expect(bad.stderr).toContain('Invalid stale threshold "soon"');
   });
 
+  it("finish --commit keeps the hashes and show lists them; a bad one is refused (CORE-14)", async () => {
+    await run(["start", "BE-04"]);
+    const bad = await run(["finish", "BE-04", "--summary", "s", "--commit", "main"]);
+    expect(bad.code).toBe(EXIT.failure);
+    expect(bad.stderr).toContain('"main" is not a commit hash');
+    await run(["finish", "BE-04", "--summary", "s", "--commit", "24476d1", "--commit", "8B8E7DF"]);
+    expect(task("BE-04").commits).toEqual(["24476d1", "8b8e7df"]);
+    expect((await run(["show", "BE-04"])).stdout).toContain("Commits: 24476d1 8b8e7df");
+  });
+
   it("depend rejects cycles", async () => {
     const r = await run(["depend", "BE-02", "BE-03"]);
     expect(r.code).toBe(EXIT.failure);

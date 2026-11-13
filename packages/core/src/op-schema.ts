@@ -139,6 +139,7 @@ export const OpSchema = z.discriminatedUnion("op", [
       )
       .max(50)
       .optional(),
+    commits: z.array(z.string().max(40)).max(100).optional(),
   }),
   z.strictObject({
     op: z.literal("set-templates"),

@@ -414,6 +414,14 @@
               }
             }
           },
+          "commits": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{7,40}$"
+            }
+          },
           "events": {
             "type": "array",
             "items": {

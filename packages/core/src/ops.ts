@@ -21,6 +21,7 @@ import { contentHash } from "./hash.ts";
 import { rankAfterAll, rankBetween } from "./rank.ts";
 import {
   type Acceptance,
+  CommitSchema,
   DELETED_LIMIT,
   DIFFICULTIES,
   type Difficulty,
@@ -142,7 +143,14 @@ export type Op = Base &
      * `evidence` (CORE-15): per acceptance criterion of the task, how the work meets it (`met`,
      * the default) or why it does not. Optional: finishing without evidence is still valid.
      */
-    | { op: "finish"; task: string; summary: string; evidence?: EvidenceInput[] }
+    | {
+        op: "finish";
+        task: string;
+        summary: string;
+        evidence?: EvidenceInput[];
+        /** CORE-14: the hashes of the work's commits; added to the task's, without repeats. */
+        commits?: string[];
+      }
     /** The human sets the project's task templates (it replaces them all); `[]` removes them. */
     | { op: "set-templates"; templates: Template[] }
     /**
@@ -798,7 +806,14 @@ function apply(input: TasksDocument, op: Op, ctx: OpContext): OpResult {
           });
         return { ac, met: item.met ?? true, text };
       });
+      const commits = (op.commits ?? []).map((sha) => sha.trim().toLowerCase());
+      const bad = commits.find((sha) => !CommitSchema.safeParse(sha).success);
+      if (bad !== undefined)
+        fail("invalid", `"${bad}" is not a commit hash (7 to 40 hexadecimal characters)`, {
+          task: task.id,
+        });
       transition(task, ["doing"], "done");
+      if (commits.length) task.commits = [...new Set([...(task.commits ?? []), ...commits])];
       addNote(task, "summary", summary, undefined, evidence);
       break;
     }

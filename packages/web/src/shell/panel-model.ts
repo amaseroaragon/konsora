@@ -2,7 +2,7 @@
  * Folding of the task panel's sections (UI-09). The summary and the actions stay on top and never
  * fold; the rest fold, and each remembers its state for every task (a per-viewer preference).
  */
-export const FOLDABLE_SECTIONS = ["desc", "criteria", "deps", "notes"] as const;
+export const FOLDABLE_SECTIONS = ["desc", "criteria", "commits", "deps", "notes"] as const;
 
 export type FoldableSection = (typeof FOLDABLE_SECTIONS)[number];
 

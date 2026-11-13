@@ -166,6 +166,7 @@ export function showText(doc: TasksDocument, view: TaskView): string {
     lines.push("", "Acceptance:");
     for (const a of view.acceptance) lines.push(`  ${a.id.padEnd(4)} ${a.text}`);
   }
+  if (view.commits?.length) lines.push("", `Commits: ${view.commits.join(" ")}`);
   if (view.notes?.length) {
     lines.push("", "Notes:");
     for (const n of view.notes) {

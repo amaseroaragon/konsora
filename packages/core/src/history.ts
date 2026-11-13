@@ -25,6 +25,8 @@ export type LogEntry = {
   summary?: string;
   /** Moved to `.konsora/archive.json` (`konsora archive`). */
   archived?: true;
+  /** CORE-14: the commits of the work; absent when none were given. */
+  commits?: string[];
   /** CORE-15: criteria the closing summary gives no evidence for; absent when none. */
   unproven?: number;
   /** CORE-15: criteria the closing summary declares not met; absent when none. */
@@ -80,6 +82,7 @@ export function completionLog(
       at: summary?.at ?? task.updated_at,
       ...(summary ? { by: summary.by, summary: summary.text } : {}),
       ...(isArchived ? { archived: true as const } : {}),
+      ...(task.commits?.length ? { commits: task.commits } : {}),
       ...(unproven ? { unproven } : {}),
       ...(unmet ? { unmet } : {}),
     });

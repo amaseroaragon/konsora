@@ -191,6 +191,35 @@ export function Actions({
   );
 }
 
+/** The commits of the work (CORE-14), as the agent passed them; one click copies them all. */
+function Commits({ commits }: { commits: readonly string[] }) {
+  const toast = useToast();
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(commits.join(" "));
+      toast.show(t("commits.copied", { n: commits.length }), "success");
+    } catch {
+      toast.show(t("commits.copy.error"), "error");
+    }
+  };
+  return (
+    <div className="a-stack">
+      <ul className="a-commits">
+        {commits.map((sha) => (
+          <li key={sha} className="k-mono">
+            {sha}
+          </li>
+        ))}
+      </ul>
+      <div className="a-actions">
+        <Button size="sm" variant="secondary" onClick={() => void copy()}>
+          {t("commits.copy")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** The human's note for the agent (UI-12): it lands in the timeline and `konsora show`. */
 function NoteForm({ projectId, taskId }: { projectId: string; taskId: string }) {
   const mutation = useAddNote(projectId);
@@ -437,6 +466,15 @@ export function TaskPanel({
               </PanelSection>
             )}
           </>
+        )}
+        {(task.commits?.length ?? 0) > 0 && (
+          <PanelSection
+            section="commits"
+            title={t("detail.commits")}
+            count={task.commits?.length ?? 0}
+          >
+            <Commits commits={task.commits ?? []} />
+          </PanelSection>
         )}
         {(deps.length > 0 || (editing && canEdit)) && (
           <PanelSection

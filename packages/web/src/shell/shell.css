@@ -1128,6 +1128,11 @@
   font-size: var(--k-text-xs);
   color: var(--k-ink-muted);
 }
+/* The commits of a closure (CORE-14) */
+.b-history__commits {
+  margin-left: var(--k-space-4);
+}
+
 /* A closure with criteria lacking evidence or not met (CORE-15) */
 .b-history__flag {
   margin-left: var(--k-space-4);

@@ -39,6 +39,11 @@ function Entry({
         <span className="b-history__meta">
           {entry.by ? t("history.by", { who: actorName(entry.by) }) : t("history.no_summary")}
           {entry.archived && ` · ${t("history.archived")}`}
+          {entry.commits?.length ? (
+            <span className="b-history__commits k-mono">
+              {entry.commits.map((sha) => sha.slice(0, 7)).join(" ")}
+            </span>
+          ) : null}
           {entry.unmet ? (
             <span className="b-history__flag b-history__flag--unmet">
               {t(entry.unmet === 1 ? "history.unmet.one" : "history.unmet.many", {

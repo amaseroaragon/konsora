@@ -728,6 +728,11 @@ export function registerWriteCommands(
       collect,
     )
     .option(
+      "--commit <sha>",
+      "a commit of this work (7 to 40 hex characters); repeat for each",
+      collect,
+    )
+    .option(
       "--unmet <ac=reason>",
       "a criterion that is not met and why, e.g. ac2='left for BE-07'; repeat as needed",
       collect,
@@ -741,6 +746,7 @@ export function registerWriteCommands(
           stdin?: boolean;
           evidence?: string[];
           unmet?: string[];
+          commit?: string[];
           as?: string;
           json?: boolean;
         },
@@ -765,6 +771,7 @@ export function registerWriteCommands(
             task: id.toUpperCase(),
             summary,
             ...(evidence.length ? { evidence } : {}),
+            ...(opts.commit?.length ? { commits: opts.commit } : {}),
           },
           opts,
           () => `Finished ${id.toUpperCase()}: done.\n`,

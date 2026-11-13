@@ -114,6 +114,7 @@ Ninguna de estas operaciones cambia tareas, así que no se pueden deshacer desde
 | `started` | `{at, by}` | no | Quién empezó la tarea y cuándo (CORE-09). Lo pone `start`; `pause` y `reopen` lo quitan, porque ya nadie la tiene; `finish` lo conserva, así que una tarea hecha sigue diciendo quién la tomó. Lo escribe `core`, nunca quien llama. Se ve en `konsora status` (sección *Doing*), `konsora show`, la tarjeta y el panel. Una tarea empezada antes de que existiera el campo toma su último evento `start`, si lo tiene. |
 | `updated_at` | ISO-8601 UTC | sí | |
 | `notes` | `Note[]` | no | Línea de tiempo; solo se añaden notas (se pueden editar, pero no borrar). |
+| `commits` | `string[]` | no | Los commits del trabajo (CORE-14): hashes de 7 a 40 caracteres hexadecimales en minúsculas, sin repetidos, de los más antiguos a los más recientes. Los pasa el agente al terminar (`finish --commit <sha>`, repetible; `commits` en el MCP) y se añaden a los que ya tuviera la tarea. Konsora **no ejecuta git**: solo guarda lo que recibe y no comprueba que existan. El panel los lista con un botón para copiarlos, `konsora show` los imprime y el Historial muestra su forma corta (y los incluye en el Markdown que copia). |
 | `events` | `TaskEvent[]` | no | Quién cambió la tarea, qué y cuándo (ver *Actividad*). Como mucho 50, de la más antigua a la más reciente. |
 
 **Hitos** (CORE-19). Un hito agrupa tareas en un objetivo: `{id, name, criterion?}`, con `id` en `^[a-z0-9][a-z0-9-]{0,30}$` (único), `name` (1–80) y `criterion` (opcional, 1–500): cuándo se da por hecho. No tiene rama, ni merge, ni ninguna relación con git (a diferencia de los bloques retirados en M14): es solo un nombre, su criterio y sus tareas. Operaciones, para agentes y humano (en una sesión de planificación, `out_of_scope`):
@@ -240,6 +241,8 @@ Escriben en el archivo la CLI, el MCP de cada agente, el daemon (la UI) y, a vec
 Límite honesto: un proceso con los permisos del usuario puede escribir cualquier archivo. Los roles se aplican en la CLI, el MCP y la UI, y las violaciones se **detectan y señalan**; no existe una frontera de seguridad contra un agente decidido a engañar.
 
 ## 6. Migraciones
+
+**Commits (CORE-14)**: `commits` es opcional; no hay migración.
 
 **Evidencias (CORE-15)**: `evidence` es opcional en las notas `summary`; los cierres anteriores siguen siendo válidos y aparecen con sus criterios «sin evidencia».
 
