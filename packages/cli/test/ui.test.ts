@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findDaemon } from "@konsora/daemon";
@@ -146,4 +154,60 @@ describe("konsora ui", () => {
     }
     expect(await findDaemon(data)).toBeUndefined();
   }, 40_000);
+});
+
+describe("konsora ui --status and --stop (DMN-07)", () => {
+  it("reports a real daemon with its projects, stops it, and is fine when none runs", async () => {
+    const data = join(base, "data");
+    const web = join(base, "web-dist");
+    const project = join(base, "proj");
+    mkdirSync(web);
+    mkdirSync(project);
+    writeFileSync(join(web, "index.html"), "<!doctype html><title>Konsora</title>");
+    const env = {
+      ...process.env,
+      KONSORA_DATA_DIR: data,
+      KONSORA_WEB_DIR: web,
+      XDG_STATE_HOME: join(base, "state"),
+    };
+    const none = await run(["ui", "--status"], base, env);
+    expect(none.code).toBe(EXIT.ok);
+    expect(none.out).toBe("The Konsora daemon is not running. Start it with `konsora ui`.\n");
+
+    expect((await run(["init", "--no-claude"], project, env)).code).toBe(EXIT.ok);
+    expect((await run(["ui", "--no-open"], project, env)).code).toBe(EXIT.ok);
+    const info = await findDaemon(data);
+    try {
+      const status = await run(["ui", "--status"], base, env);
+      expect(status.code).toBe(EXIT.ok);
+      expect(status.out).toContain(
+        `The Konsora daemon is running at ${info?.url} (pid ${info?.pid}, version 0.0.0`,
+      );
+      expect(status.out).toMatch(
+        /Linked projects \(1\):\n {2}p-[0-9a-f]{12} {2}proj {2}.+\(0 tasks\)/,
+      );
+      expect(status.out).not.toContain(info?.token);
+
+      const stopped = await run(["ui", "--stop"], base, env);
+      expect(stopped.code).toBe(EXIT.ok);
+      expect(stopped.out).toBe(`Stopped the Konsora daemon (pid ${info?.pid}).\n`);
+      expect(await findDaemon(data)).toBeUndefined();
+      expect(existsSync(join(data, "daemon.json"))).toBe(false);
+
+      const again = await run(["ui", "--stop"], base, env);
+      expect(again.code).toBe(EXIT.ok);
+      expect(again.out).toBe("The Konsora daemon is not running.\n");
+      // A leftover daemon.json of a dead process is cleaned up.
+      writeFileSync(join(data, "daemon.json"), JSON.stringify({ ...info, pid: 2 ** 22 + 7 }));
+      expect((await run(["ui", "--stop"], base, env)).code).toBe(EXIT.ok);
+      expect(existsSync(join(data, "daemon.json"))).toBe(false);
+      expect((await run(["ui", "--status", "--stop"], base, env)).code).toBe(EXIT.usage);
+    } finally {
+      try {
+        if (info) process.kill(info.pid, "SIGTERM");
+      } catch {
+        // already stopped
+      }
+    }
+  }, 30_000);
 });

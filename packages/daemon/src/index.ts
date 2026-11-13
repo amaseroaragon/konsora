@@ -10,7 +10,7 @@ export {
   type ChatView,
 } from "./chat.ts";
 export { diffTasks, EventHub, WS_PATH } from "./events.ts";
-export { codeStamp, dataDir, logDir, mcpCommand, webDir } from "./paths.ts";
+export { codeStamp, DAEMON_FILE, dataDir, logDir, mcpCommand, webDir } from "./paths.ts";
 export { type Project, projectId, Registry, RegistryError } from "./registry.ts";
 export {
   type DaemonInfo,

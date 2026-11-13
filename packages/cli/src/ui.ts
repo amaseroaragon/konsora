@@ -7,14 +7,14 @@
  * `KONSORA_WEB_DIR` points at a prebuilt bundle instead and skips that step.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, openSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, readdirSync, rmSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DaemonInfo } from "@konsora/daemon";
 import type { Command } from "commander";
 import { findRoot } from "./project.ts";
-import { CliError, type Io } from "./shared.ts";
+import { CliError, EXIT, type Io } from "./shared.ts";
 
 const START_TIMEOUT_MS = 10_000;
 
@@ -125,6 +125,62 @@ function openBrowser(url: string): Promise<boolean> {
   });
 }
 
+type ProjectRow = {
+  id: string;
+  name: string;
+  path: string;
+  plan: { status: string; tasks?: number };
+};
+
+/** `konsora ui --status` (DMN-07): whether the daemon runs, its version, URL and projects. */
+async function showStatus(lib: Daemon, io: Io) {
+  const daemon = await lib.findDaemon(lib.dataDir(io.env));
+  if (!daemon) {
+    io.stdout("The Konsora daemon is not running. Start it with `konsora ui`.\n");
+    return;
+  }
+  const health = await api<{ version: string }>(daemon, "/health");
+  const { projects } = await api<{ projects: ProjectRow[] }>(daemon, "/projects");
+  const lines = [
+    `The Konsora daemon is running at ${daemon.url} (pid ${daemon.pid}, version ${health.version}, since ${daemon.started_at}).`,
+  ];
+  if (lib.daemonIsStale(daemon))
+    lines.push("It runs code older than this checkout; `konsora ui` will restart it.");
+  if (projects.length === 0) lines.push("No linked projects.");
+  else {
+    lines.push(`Linked projects (${projects.length}):`);
+    for (const project of projects) {
+      const plan =
+        project.plan.status === "ok"
+          ? `${project.plan.tasks} tasks`
+          : `plan ${project.plan.status}`;
+      lines.push(`  ${project.id}  ${project.name}  ${project.path}  (${plan})`);
+    }
+  }
+  lines.push("Open it with `konsora ui` (the URL with your session token is printed there).");
+  io.stdout(`${lines.join("\n")}\n`);
+}
+
+/** `konsora ui --stop` (DMN-07): stops the daemon and removes its daemon.json. */
+async function stop(lib: Daemon, io: Io) {
+  const dir = lib.dataDir(io.env);
+  const file = join(dir, lib.DAEMON_FILE);
+  const daemon = await lib.findDaemon(dir);
+  if (!daemon) {
+    // A daemon.json whose process is gone (a crash) is removed too.
+    rmSync(file, { force: true });
+    io.stdout("The Konsora daemon is not running.\n");
+    return;
+  }
+  if (!(await lib.stopDaemon(daemon)))
+    throw new CliError(
+      `The Konsora daemon (pid ${daemon.pid}) did not stop.`,
+      `Stop it by hand (kill ${daemon.pid}).`,
+    );
+  rmSync(file, { force: true });
+  io.stdout(`Stopped the Konsora daemon (pid ${daemon.pid}).\n`);
+}
+
 export function registerUi(program: Command, io: Io, root: () => string | undefined) {
   program
     .command("ui")
@@ -132,57 +188,71 @@ export function registerUi(program: Command, io: Io, root: () => string | undefi
     .option("--no-open", "print the URL instead of opening the browser")
     .option("--no-link", "do not link the current project folder")
     .option("--restart", "restart the running daemon (open AI chats in the UI are closed)")
-    .action(async (opts: { open: boolean; link: boolean; restart?: boolean }) => {
-      const lib: Daemon = await import("@konsora/daemon");
-      const web = lib.webDir(io.env);
-      if (!io.env.KONSORA_WEB_DIR) {
-        const webPackage = dirname(web);
-        if (bundleIsStale(webPackage)) {
-          io.stderr("Building the web UI…\n");
-          buildBundle(webPackage, io);
+    .option("--status", "say whether the daemon is running, its version, URL and linked projects")
+    .option("--stop", "stop the running daemon")
+    .action(
+      async (opts: {
+        open: boolean;
+        link: boolean;
+        restart?: boolean;
+        status?: boolean;
+        stop?: boolean;
+      }) => {
+        const lib: Daemon = await import("@konsora/daemon");
+        if (opts.status && opts.stop)
+          throw new CliError("Use --status or --stop, not both.", undefined, EXIT.usage);
+        if (opts.status) return showStatus(lib, io);
+        if (opts.stop) return stop(lib, io);
+        const web = lib.webDir(io.env);
+        if (!io.env.KONSORA_WEB_DIR) {
+          const webPackage = dirname(web);
+          if (bundleIsStale(webPackage)) {
+            io.stderr("Building the web UI…\n");
+            buildBundle(webPackage, io);
+          }
         }
-      }
 
-      let daemon = await lib.findDaemon(lib.dataDir(io.env));
-      if (daemon && (opts.restart || lib.daemonIsStale(daemon))) {
-        // A daemon started before this checkout's code changed serves a newer web UI than its
-        // API: restart it.
-        if (!(await lib.stopDaemon(daemon))) {
-          throw new CliError(
-            `The Konsora daemon (pid ${daemon.pid}) did not stop.`,
-            "Stop it by hand and run `konsora ui` again.",
+        let daemon = await lib.findDaemon(lib.dataDir(io.env));
+        if (daemon && (opts.restart || lib.daemonIsStale(daemon))) {
+          // A daemon started before this checkout's code changed serves a newer web UI than its
+          // API: restart it.
+          if (!(await lib.stopDaemon(daemon))) {
+            throw new CliError(
+              `The Konsora daemon (pid ${daemon.pid}) did not stop.`,
+              "Stop it by hand and run `konsora ui` again.",
+            );
+          }
+          io.stdout(
+            opts.restart
+              ? "Stopped the Konsora daemon.\n"
+              : "Stopped the Konsora daemon: it ran code older than this checkout.\n",
           );
+          daemon = undefined;
         }
-        io.stdout(
-          opts.restart
-            ? "Stopped the Konsora daemon.\n"
-            : "Stopped the Konsora daemon: it ran code older than this checkout.\n",
-        );
-        daemon = undefined;
-      }
-      if (daemon) io.stdout(`Using the Konsora daemon at ${daemon.url} (pid ${daemon.pid}).\n`);
-      else {
-        daemon = await startDetached(lib, io, web);
-        io.stdout(`Started the Konsora daemon at ${daemon.url} (pid ${daemon.pid}).\n`);
-      }
+        if (daemon) io.stdout(`Using the Konsora daemon at ${daemon.url} (pid ${daemon.pid}).\n`);
+        else {
+          daemon = await startDetached(lib, io, web);
+          io.stdout(`Started the Konsora daemon at ${daemon.url} (pid ${daemon.pid}).\n`);
+        }
 
-      const params = new URLSearchParams({ token: daemon.token });
-      const folder = opts.link ? findRoot(io.cwd, root(), io.env) : null;
-      if (folder) {
-        const { project } = await api<{ project: { id: string; name: string } }>(
-          daemon,
-          "/projects",
-          { method: "POST", body: JSON.stringify({ path: folder }) },
-        );
-        params.set("project", project.id);
-        io.stdout(`Linked project "${project.name}" (${project.id}).\n`);
-      }
+        const params = new URLSearchParams({ token: daemon.token });
+        const folder = opts.link ? findRoot(io.cwd, root(), io.env) : null;
+        if (folder) {
+          const { project } = await api<{ project: { id: string; name: string } }>(
+            daemon,
+            "/projects",
+            { method: "POST", body: JSON.stringify({ path: folder }) },
+          );
+          params.set("project", project.id);
+          io.stdout(`Linked project "${project.name}" (${project.id}).\n`);
+        }
 
-      const url = `${daemon.url}/#${params}`;
-      if (opts.open && (await openBrowser(url))) {
-        io.stdout("Opened Konsora in your browser.\n");
-      } else {
-        io.stdout(`Open this URL in your browser (it carries your session token):\n  ${url}\n`);
-      }
-    });
+        const url = `${daemon.url}/#${params}`;
+        if (opts.open && (await openBrowser(url))) {
+          io.stdout("Opened Konsora in your browser.\n");
+        } else {
+          io.stdout(`Open this URL in your browser (it carries your session token):\n  ${url}\n`);
+        }
+      },
+    );
 }
