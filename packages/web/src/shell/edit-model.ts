@@ -10,6 +10,7 @@ import {
   indexTasks,
   type Task,
   type TasksDocument,
+  transitiveDependents,
   transitiveDeps,
 } from "@konsora/core";
 import { t } from "../i18n/index.ts";
@@ -179,6 +180,49 @@ export function dependencyProblem(
   if (transitiveDeps(on, index).has(task)) return t("edit.deps.error.cycle", { id: task, on });
   if (index.get(task)?.state === "done") return t("edit.deps.error.done", { id: task });
   return null;
+}
+
+/** Lower case without accents, so «diseno» finds «Diseño». */
+const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+export type DependencyOption = { id: string; title: string; state: Task["state"] };
+
+/**
+ * The tasks a dependency picker offers for `task` (UI-25), matching `query` by id or title: never
+ * the task itself (`null` while creating it), the ones already chosen, nor those that depend on it
+ * (they would close a cycle). Id matches come first, then plan order; at most `limit`.
+ */
+export function dependencyOptions(
+  doc: Pick<TasksDocument, "tasks">,
+  task: string | null,
+  chosen: readonly string[],
+  query: string,
+  limit = 8,
+): DependencyOption[] {
+  const excluded = new Set(chosen);
+  if (task) {
+    excluded.add(task);
+    for (const id of transitiveDependents(task, doc)) excluded.add(id);
+  }
+  const q = fold(query.trim());
+  const scored = doc.tasks.flatMap((candidate, order) => {
+    if (excluded.has(candidate.id)) return [];
+    const id = fold(candidate.id);
+    const score = !q
+      ? 2
+      : id.startsWith(q)
+        ? 0
+        : id.includes(q)
+          ? 1
+          : fold(candidate.title).includes(q)
+            ? 2
+            : -1;
+    return score < 0 ? [] : [{ score, order, candidate }];
+  });
+  return scored
+    .sort((a, b) => a.score - b.score || a.order - b.order)
+    .slice(0, limit)
+    .map(({ candidate }) => ({ id: candidate.id, title: candidate.title, state: candidate.state }));
 }
 
 /** The daemon's refusal of an edit, depend or undepend, in Spanish. */

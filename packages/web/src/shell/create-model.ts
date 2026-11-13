@@ -37,6 +37,11 @@ export function emptyDraft(group: string): CreateDraft {
   };
 }
 
+/** Task ids from comma-separated text, upper-cased and without repeats. */
+export function depIds(text: string): string[] {
+  return [...new Set(parseLabels(text).map((id) => id.toUpperCase()))];
+}
+
 export type CreateField = "title" | "desc" | "group" | "acceptance" | "deps" | "template";
 
 export type CreateOp = {
@@ -71,7 +76,7 @@ export function createOp(
   const criteria = draft.acceptance.map((row) => row.text.trim()).filter(Boolean);
   if (criteria.some((text) => text.length > 500))
     return { ok: false, field: "acceptance", message: t("edit.error.criterion.long") };
-  const deps = [...new Set(parseLabels(draft.deps).map((id) => id.toUpperCase()))];
+  const deps = depIds(draft.deps);
   const unknown = deps.find((id) => !ctx.tasks.some((task) => task.id === id));
   if (unknown) return { ok: false, field: "deps", message: t("create.error.dep", { id: unknown }) };
   if (draft.template && !ctx.templates?.some((template) => template.id === draft.template))

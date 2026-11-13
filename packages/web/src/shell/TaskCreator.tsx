@@ -5,7 +5,14 @@ import { ApiError } from "../api/client.ts";
 import { t } from "../i18n/index.ts";
 import { Button, Field, useToast } from "../ui/index.ts";
 import { opErrorText } from "./board-model.ts";
-import { type CreateDraft, type CreateField, createOp, emptyDraft } from "./create-model.ts";
+import {
+  type CreateDraft,
+  type CreateField,
+  createOp,
+  depIds,
+  emptyDraft,
+} from "./create-model.ts";
+import { DepPicker } from "./DepPicker.tsx";
 import { DescField } from "./DescField.tsx";
 import { Criteria, DifficultySelect, GroupSelect } from "./TaskEditor.tsx";
 
@@ -33,6 +40,18 @@ export function TaskCreator({
   const set = <K extends keyof CreateDraft>(key: K, value: CreateDraft[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
     setError(null);
+  };
+  const chosenDeps = depIds(draft.deps);
+  /** A suggestion, or ids typed or pasted (comma-separated): each must exist in the plan. */
+  const addDeps = (text: string) => {
+    const ids = depIds(text);
+    const unknown = ids.find((id) => !doc.tasks.some((task) => task.id === id));
+    if (unknown) {
+      setError({ field: "deps", text: t("create.error.dep", { id: unknown }) });
+      return false;
+    }
+    set("deps", [...new Set([...chosenDeps, ...ids])].join(", "));
+    return true;
   };
   const fieldError = (field: CreateField) => (error?.field === field ? error.text : undefined);
 
@@ -135,14 +154,33 @@ export function TaskCreator({
           onChange={(e) => set("labels", e.target.value)}
         />
         <DifficultySelect value={draft.difficulty} onChange={(value) => set("difficulty", value)} />
-        <Field
-          mono
-          label={t("create.deps")}
-          hint={t("create.deps.hint")}
-          value={draft.deps}
-          error={fieldError("deps")}
-          onChange={(e) => set("deps", e.target.value)}
-        />
+        <div className="b-deps a-stack">
+          {chosenDeps.length > 0 && (
+            <ul className="b-deps__remove" aria-label={t("create.deps")}>
+              {chosenDeps.map((dep) => (
+                <li key={dep}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => set("deps", chosenDeps.filter((id) => id !== dep).join(", "))}
+                  >
+                    ✕ {t("edit.deps.remove", { on: dep })}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <DepPicker
+            doc={doc}
+            task={null}
+            chosen={chosenDeps}
+            label={t("create.deps")}
+            hint={t("create.deps.hint")}
+            error={fieldError("deps")}
+            onPick={addDeps}
+            onType={() => setError(null)}
+          />
+        </div>
         <label className="b-create__check">
           <input
             type="checkbox"

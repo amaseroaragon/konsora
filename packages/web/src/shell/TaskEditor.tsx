@@ -4,6 +4,7 @@ import { type BoardTask, useEditTask } from "../api/board.ts";
 import { ApiError } from "../api/client.ts";
 import { type MessageKey, t } from "../i18n/index.ts";
 import { Button, difficultyLabel, Field, useToast } from "../ui/index.ts";
+import { DepPicker } from "./DepPicker.tsx";
 import { DescField } from "./DescField.tsx";
 import {
   changesFrom,
@@ -346,11 +347,9 @@ export function DependencyEditor({
   task: BoardTask;
   doc: TasksDocument;
 }) {
-  const [on, setOn] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
   const mutation = useEditTask(projectId);
   const toast = useToast();
-  const listId = useId();
   const run = (op: "depend" | "undepend", target: string) =>
     mutation.mutate(
       { op, task: task.id, hash: task.hash, on: target },
@@ -363,7 +362,6 @@ export function DependencyEditor({
             }),
             "success",
           );
-          if (op === "depend") setOn("");
           setProblem(null);
         },
         onError: (err) => {
@@ -372,14 +370,17 @@ export function DependencyEditor({
         },
       },
     );
-  const add = (event: FormEvent) => {
-    event.preventDefault();
-    const target = on.trim().toUpperCase();
+  /** A suggestion, or an id typed or pasted: checked with core's rules before it is sent. */
+  const add = (text: string) => {
+    const target = text.trim().toUpperCase();
     const why = dependencyProblem(doc, task.id, target);
-    if (why) setProblem(why);
-    else run("depend", target);
+    if (why) {
+      setProblem(why);
+      return false;
+    }
+    run("depend", target);
+    return true;
   };
-  const candidates = doc.tasks.filter((x) => x.id !== task.id && !(task.deps ?? []).includes(x.id));
   return (
     <div className="b-deps a-stack">
       {(task.deps ?? []).length > 0 && (
@@ -403,35 +404,16 @@ export function DependencyEditor({
           ))}
         </ul>
       )}
-      <form className="b-deps__add" onSubmit={add}>
-        <Field
-          mono
-          label={t("edit.deps.label")}
-          placeholder={t("edit.deps.placeholder")}
-          list={listId}
-          value={on}
-          error={problem ?? undefined}
-          onChange={(e) => {
-            setOn(e.target.value);
-            setProblem(null);
-          }}
-        />
-        <datalist id={listId}>
-          {candidates.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.title}
-            </option>
-          ))}
-        </datalist>
-        <Button
-          type="submit"
-          size="sm"
-          variant="secondary"
-          busy={mutation.isPending && mutation.variables?.op === "depend"}
-        >
-          {t("edit.deps.add")}
-        </Button>
-      </form>
+      <DepPicker
+        doc={doc}
+        task={task.id}
+        chosen={task.deps ?? []}
+        label={t("edit.deps.label")}
+        error={problem ?? undefined}
+        busy={mutation.isPending && mutation.variables?.op === "depend"}
+        onPick={add}
+        onType={() => setProblem(null)}
+      />
     </div>
   );
 }

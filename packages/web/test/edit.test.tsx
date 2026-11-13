@@ -6,9 +6,11 @@ import { describe, expect, it } from "vitest";
 import { type BoardTask, editBody } from "../src/api/board.ts";
 import { createApi } from "../src/api/client.ts";
 import { ApiContext } from "../src/api/projects.ts";
+import { DepPicker } from "../src/shell/DepPicker.tsx";
 import {
   changesFrom,
   criteriaFrom,
+  dependencyOptions,
   dependencyProblem,
   draftFrom,
   editErrorText,
@@ -221,5 +223,50 @@ describe("editor and panel (UI-09)", () => {
     expect(readOnly).not.toContain(">Editar<");
     expect(readOnly).not.toContain("<form");
     expect(readOnly).not.toContain("Añadir dependencia");
+  });
+});
+
+describe("dependency picker (UI-25)", () => {
+  const plan: TasksDocument = {
+    ...doc,
+    tasks: [
+      task("BE-01", { title: "Diseño del esquema" }),
+      task("BE-02", { deps: ["BE-01"], title: "Migraciones" }),
+      task("BE-03", { deps: ["BE-02"], title: "API" }),
+      task("FE-01", { group: "FE", title: "Pantalla de diseño" }),
+    ],
+  };
+  const ids = (options: { id: string }[]) => options.map((o) => o.id);
+
+  it("finds tasks by id or by title, ignoring case and accents, id matches first", () => {
+    expect(ids(dependencyOptions(plan, null, [], "fe"))).toEqual(["FE-01"]);
+    expect(ids(dependencyOptions(plan, null, [], "diseno"))).toEqual(["BE-01", "FE-01"]);
+    expect(ids(dependencyOptions(plan, null, [], ""))).toEqual([
+      "BE-01",
+      "BE-02",
+      "BE-03",
+      "FE-01",
+    ]);
+  });
+
+  it("never offers the task itself, its current deps, nor tasks that depend on it", () => {
+    // BE-02 and BE-03 depend on BE-01: picking them would close a cycle.
+    expect(ids(dependencyOptions(plan, "BE-01", [], ""))).toEqual(["FE-01"]);
+    expect(ids(dependencyOptions(plan, "BE-03", ["BE-02"], ""))).toEqual(["BE-01", "FE-01"]);
+  });
+
+  it("renders as a combobox in the editor and in the creator", () => {
+    const html = renderToStaticMarkup(
+      <DepPicker
+        doc={plan}
+        task="BE-03"
+        chosen={[]}
+        label="Añadir dependencia"
+        onPick={() => true}
+      />,
+    );
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('aria-autocomplete="list"');
+    expect(html).toContain('role="listbox"');
   });
 });
