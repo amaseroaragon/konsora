@@ -218,3 +218,49 @@ export function writeDoneWindow(days: DoneWindow) {
     // Not persisted; the choice still works for this page.
   }
 }
+
+/** Cards a board cell shows before «Ver N más» (UI-32). */
+export const CELL_LIMIT = 8;
+
+/** The key of a board cell: its lane and its state, e.g. `BE:todo`. */
+export const cellKey = (lane: string, state: TaskState) => `${lane}:${state}`;
+
+/**
+ * What a cell shows (UI-32): its first `limit` cards in rank order, unless it is expanded or one of
+ * `reveal` (the open or selected tasks) is among the rest, which unfolds it by itself.
+ */
+export function cellView<T extends { id: string }>(
+  cards: readonly T[],
+  expanded: boolean,
+  reveal: ReadonlySet<string> = new Set(),
+  limit = CELL_LIMIT,
+): { shown: readonly T[]; hidden: number; canCollapse: boolean } {
+  if (cards.length <= limit) return { shown: cards, hidden: 0, canCollapse: false };
+  const forced = cards.slice(limit).some((card) => reveal.has(card.id));
+  if (expanded || forced) return { shown: cards, hidden: 0, canCollapse: !forced };
+  return { shown: cards.slice(0, limit), hidden: cards.length - limit, canCollapse: false };
+}
+
+/** A per-project set of strings remembered in this browser (expanded cells, folded lanes). */
+export function readBoardSet(name: "expanded" | "lanes", project: string): Set<string> {
+  try {
+    const raw = JSON.parse(
+      window.localStorage.getItem(`konsora.board.${name}.${project}`) ?? "[]",
+    ) as unknown;
+    return new Set(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function writeBoardSet(
+  name: "expanded" | "lanes",
+  project: string,
+  values: ReadonlySet<string>,
+) {
+  try {
+    window.localStorage.setItem(`konsora.board.${name}.${project}`, JSON.stringify([...values]));
+  } catch {
+    // Not persisted; it still works for this page.
+  }
+}

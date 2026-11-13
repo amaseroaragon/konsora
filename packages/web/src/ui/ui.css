@@ -396,6 +396,22 @@ a {
   border-right: 1px solid var(--k-line);
   border-bottom: 1px solid var(--k-line);
 }
+/* A folded lane (UI-32): its cells only say how many tasks they hold. */
+.k-matrix__lane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.k-matrix__cell--folded {
+  min-height: 0;
+  padding-block: var(--k-space-3);
+}
+.k-matrix__folded-count {
+  font-family: var(--k-font-mono);
+  font-size: var(--k-text-xs);
+  color: var(--k-ink-muted);
+}
 .k-state-mark {
   width: 10px;
   height: 10px;

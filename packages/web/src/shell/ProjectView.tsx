@@ -536,6 +536,7 @@ export function ProjectView({
                 visible={visible}
                 readOnly={readOnly}
                 doneDays={doneDays}
+                openId={openId}
               />
             )}
           </div>

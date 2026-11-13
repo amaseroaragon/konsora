@@ -38,14 +38,18 @@ import {
 } from "../ui/index.ts";
 import {
   boardLanes,
+  cellKey,
+  cellView,
   DEFAULT_DONE_WINDOW,
   dropTargets,
   oldDone,
   opErrorText,
   type Reorder,
+  readBoardSet,
   readCollapsed,
   refusalText,
   reorderOnto,
+  writeBoardSet,
   writeCollapsed,
 } from "./board-model.ts";
 import { projectHref } from "./route.ts";
@@ -246,6 +250,7 @@ export function Board({
   readOnly = false,
   doneDays = DEFAULT_DONE_WINDOW,
   now,
+  openId = null,
 }: {
   board: BoardOk;
   swimlanes: boolean;
@@ -262,6 +267,8 @@ export function Board({
   doneDays?: number;
   /** For tests: the instant `doneDays` counts back from. */
   now?: Date;
+  /** The task open in the panel: its cell unfolds if it was among the hidden cards (UI-32). */
+  openId?: string | null;
 }) {
   const doc = useMemo(() => toDocument(board), [board]);
   const [active, setActive] = useState<BoardTask | null>(null);
@@ -287,6 +294,30 @@ export function Board({
     setCollapsed(next);
     writeCollapsed(next);
   };
+  // UI-32: cells beyond CELL_LIMIT cards and folded lanes, remembered per project.
+  const project = board.project.id;
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
+    readBoardSet("expanded", project),
+  );
+  const [foldedLanes, setFoldedLanes] = useState<ReadonlySet<string>>(() =>
+    readBoardSet("lanes", project),
+  );
+  const flip = (
+    name: "expanded" | "lanes",
+    set: ReadonlySet<string>,
+    save: (next: ReadonlySet<string>) => void,
+    key: string,
+  ) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    save(next);
+    writeBoardSet(name, project, next);
+  };
+  const reveal = useMemo(
+    () => new Set([...selection.selected, ...(openId ? [openId] : [])]),
+    [selection.selected, openId],
+  );
   const historyHref = projectHref(board.project.id, { view: "history" });
   const byId = useMemo(() => new Map(board.tasks.map((task) => [task.id, task])), [board.tasks]);
   const flagged = useMemo(() => new Set(board.external.map((f) => f.task)), [board.external]);
@@ -399,8 +430,38 @@ export function Board({
           lanes={lanes.map((lane) => ({
             id: lane.id,
             name: lane.name,
+            ...(swimlanes
+              ? {
+                  collapsed: foldedLanes.has(lane.id),
+                  onToggle: () => flip("lanes", foldedLanes, setFoldedLanes, lane.id),
+                  counts: lane.cells.map((cell) => cell.length),
+                }
+              : {}),
             cells: lane.cells.map((cell, index) => {
-              const cards = cell.map((task) => (
+              const key = cellKey(lane.id, taskStates[index] as TaskState);
+              const view = cellView(cell, expanded.has(key), reveal);
+              const toggleCell = () => flip("expanded", expanded, setExpanded, key);
+              const more =
+                view.hidden > 0 ? (
+                  <button
+                    key="cell-more"
+                    type="button"
+                    className="b-cell-more"
+                    onClick={toggleCell}
+                  >
+                    {t("board.cell.more", { n: view.hidden })}
+                  </button>
+                ) : view.canCollapse ? (
+                  <button
+                    key="cell-less"
+                    type="button"
+                    className="b-cell-more"
+                    onClick={toggleCell}
+                  >
+                    {t("board.cell.less")}
+                  </button>
+                ) : null;
+              const cards = view.shown.map((task) => (
                 <DraggableCard
                   key={task.id}
                   task={task}
@@ -411,9 +472,10 @@ export function Board({
                   selection={selection}
                 />
               ));
-              if (taskStates[index] !== "done" || lane.hiddenDone === 0) return cards;
+              const withMore = more ? [...cards, more] : cards;
+              if (taskStates[index] !== "done" || lane.hiddenDone === 0) return withMore;
               return [
-                ...cards,
+                ...withMore,
                 <a key="more" className="b-done-more" href={historyHref}>
                   {t("board.done.more", { n: lane.hiddenDone })}
                 </a>,

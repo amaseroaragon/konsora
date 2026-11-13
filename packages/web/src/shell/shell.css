@@ -1071,6 +1071,24 @@
   text-align: center;
   text-decoration: none;
 }
+/* «Ver N más» / «Ver menos» of a long cell (UI-32) */
+.b-cell-more {
+  padding: var(--k-space-3) var(--k-space-4);
+  border: 1px dashed var(--k-line);
+  background: none;
+  color: var(--k-ink-muted);
+  font: inherit;
+  font-size: var(--k-text-xs);
+  cursor: pointer;
+}
+.b-cell-more:hover {
+  border-color: var(--k-accent);
+  color: var(--k-ink);
+}
+.b-cell-more:focus-visible {
+  outline: 2px solid var(--k-focus);
+  outline-offset: 1px;
+}
 .b-done-more:hover {
   border-color: var(--k-done);
   color: var(--k-ink);

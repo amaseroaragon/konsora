@@ -10,6 +10,15 @@ export type MatrixLane = {
   meta?: string | undefined;
   /** One cell per column, in the same order as `columns`. */
   cells: readonly ReactNode[];
+  /**
+   * Folded to its head (UI-32): its cells stay (they still take drops) and show only how many
+   * tasks each holds, from `counts`.
+   */
+  collapsed?: boolean | undefined;
+  /** Offers the fold/unfold button in the lane's head. */
+  onToggle?: (() => void) | undefined;
+  /** Tasks per column, shown while folded. */
+  counts?: readonly number[] | undefined;
 };
 
 export type MatrixCellProps = {
@@ -114,8 +123,26 @@ function Lane({
 }) {
   return (
     <>
-      <div className="k-matrix__lane">
-        <div className="k-matrix__lane-id">{lane.id}</div>
+      <div className={cx("k-matrix__lane", lane.collapsed && "k-matrix__lane--collapsed")}>
+        <div className="k-matrix__lane-head">
+          <div className="k-matrix__lane-id">{lane.id}</div>
+          {lane.onToggle && (
+            <button
+              type="button"
+              className="k-matrix__fold"
+              aria-expanded={!lane.collapsed}
+              aria-label={t(lane.collapsed ? "board.lane.unfold" : "board.lane.fold", {
+                name: lane.name,
+              })}
+              title={t(lane.collapsed ? "board.lane.unfold" : "board.lane.fold", {
+                name: lane.name,
+              })}
+              onClick={lane.onToggle}
+            >
+              <span aria-hidden="true">{lane.collapsed ? "▸" : "▾"}</span>
+            </button>
+          )}
+        </div>
         <div className="k-matrix__lane-name">{lane.name}</div>
         {lane.meta && <div className="k-matrix__lane-meta">{lane.meta}</div>}
       </div>
@@ -125,8 +152,18 @@ function Lane({
             lane: lane.id,
             state: column.state,
             label: `${lane.name} · ${stateLabel(column.state)}`,
-            className: cx("k-matrix__cell", column.collapsed && "k-matrix__cell--collapsed"),
-            children: column.collapsed ? null : lane.cells[index],
+            className: cx(
+              "k-matrix__cell",
+              column.collapsed && "k-matrix__cell--collapsed",
+              lane.collapsed && "k-matrix__cell--folded",
+            ),
+            children: column.collapsed ? null : lane.collapsed ? (
+              <span className="k-matrix__folded-count">
+                {t("board.lane.count", { n: lane.counts?.[index] ?? 0 })}
+              </span>
+            ) : (
+              lane.cells[index]
+            ),
           })}
         </Fragment>
       ))}
