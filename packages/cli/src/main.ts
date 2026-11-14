@@ -157,9 +157,16 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
         "only tasks of this difficulty: low, medium, high, or none",
         (value: string) => parseDifficulty(value, true),
       )
+      .option("--label <label>", "only tasks with this label")
+      .option(
+        "--search <text>",
+        "only tasks whose id, title or description contain every word (ignoring case)",
+      )
       .option("--json", "machine-readable output")
       .action(
         async (opts: {
+          label?: string;
+          search?: string;
           state?: TaskState;
           group?: string;
           ready?: boolean;

@@ -2,7 +2,7 @@
 name: konsora
 description: Plan and track work in this project's Konsora board (.konsora/tasks.json). Use it whenever you plan tasks, pick what to work on, report progress, ask the human something, or finish a task.
 ---
-<!-- konsora-skill-version: 1 -->
+<!-- konsora-skill-version: 2 -->
 
 # Konsora protocol
 
@@ -53,6 +53,7 @@ JSON
 - A task with `"idea": true` is created as an idea (`proposed`) instead of in `todo`: use it for loose ideas the human has not committed to.
 - If `konsora status` lists templates that fit, start from one with `"template": "<id>"` (or `--template <id>`): the task takes its description, criteria and labels, and what you pass completes or replaces them.
 - Each task: an imperative title, a `desc` saying what it achieves, acceptance criteria that can be verified, and a `difficulty` you estimate: `low` (mechanical, a few files), `medium` (a feature within one area) or `high` (cross-cutting, design decisions or risky). `--difficulty` in `propose` and `edit`.
+- Before creating a task, check that it is not already planned: `konsora list --search "<words>"` (and `--label <label>`; `search` and `label` in the MCP `list` tool).
 - Keep each task small enough for one working session; split bigger work into tasks with `deps`. A task nobody started that turns out too big: `konsora split <ID> --into "<part 1>" --into "<part 2>"` (the parts inherit its group, labels and dependencies, and its dependents follow the last part).
 - `konsora status` lists the groups. To use a new one, add it in the batch: `"groups": [{"id": "FE", "name": "Frontend"}]`, or with `konsora group add FE Frontend`. `konsora group rename` and `konsora group remove` (only a group no task uses) manage them.
 - One task: `konsora propose "<title>" --group BE --criterion "<check>" --deps BE-01`. An idea for later: `konsora propose "<title>" --group BE --idea`.

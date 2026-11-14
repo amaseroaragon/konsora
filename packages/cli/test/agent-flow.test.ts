@@ -336,3 +336,64 @@ describe("konsora next", () => {
     await close();
   });
 });
+
+describe("list --label and --search (CLI-07)", () => {
+  const labelled = (): TasksDocument => {
+    const doc = plan();
+    const edit = (id: string, extra: Partial<Task>) => {
+      const i = doc.tasks.findIndex((x) => x.id === id);
+      doc.tasks[i] = { ...(doc.tasks[i] as Task), ...extra };
+    };
+    edit("BE-04", { labels: ["bug", "api"], desc: "Retry the Forecast endpoint." });
+    edit("BE-05", { labels: ["bug"] });
+    edit("BE-06", { labels: ["ux"], title: "Show the FORECAST age" });
+    return doc;
+  };
+  const ids = (r: { json: () => { id: string }[] }) => r.json().map((x) => x.id);
+
+  it("--label keeps the tasks with that label and --search matches title or description, ignoring case", async () => {
+    seed(labelled());
+    expect(ids(await run(["list", "--label", "bug", "--json"]))).toEqual(["BE-05", "BE-04"]);
+    expect(ids(await run(["list", "--search", "forecast", "--json"]))).toEqual(["BE-04", "BE-06"]);
+    expect(ids(await run(["list", "--search", "first READY", "--json"]))).toEqual(["BE-05"]);
+    expect((await run(["list", "--label", "nope"])).stdout).toBe("No tasks match.\n");
+    const text = await run(["list", "--label", "ux"]);
+    expect(text.stdout).toContain("BE-06");
+    expect(text.stdout).not.toMatch(/^BE-04 /m);
+  });
+
+  it("combines with the other filters", async () => {
+    seed(labelled());
+    expect(ids(await run(["list", "--label", "bug", "--search", "forecast", "--json"]))).toEqual([
+      "BE-04",
+    ]);
+    // ready comes in rank order: BE-05 (b) before BE-04 (c).
+    expect(ids(await run(["ready", "--label", "bug", "--json"]))).toEqual(["BE-05", "BE-04"]);
+    expect(ids(await run(["list", "--search", "forecast", "--blocked", "--json"]))).toEqual([
+      "BE-06",
+    ]);
+    expect(ids(await run(["list", "--state", "done", "--label", "bug", "--json"]))).toEqual([]);
+  });
+
+  it("the MCP list tool takes the same filters", async () => {
+    seed(labelled());
+    const { call, close } = await connect();
+    const cases: [Record<string, unknown>, string[]][] = [
+      [{ label: "bug" }, ["--label", "bug"]],
+      [{ search: "FORECAST" }, ["--search", "FORECAST"]],
+      [
+        { label: "bug", search: "forecast", ready: false },
+        ["--label", "bug", "--search", "forecast"],
+      ],
+      [{ label: "bug", blocked: true }, ["--label", "bug", "--blocked"]],
+    ];
+    for (const [args, flags] of cases) {
+      const result = await call("list", args);
+      expect(result.isError).toBe(false);
+      expect(result.json(), JSON.stringify(args)).toEqual(
+        (await run(["list", ...flags, "--json"])).json(),
+      );
+    }
+    await close();
+  });
+});

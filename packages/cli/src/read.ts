@@ -11,6 +11,7 @@ import {
   type Task,
   type TaskState,
   type TasksDocument,
+  taskMatches,
 } from "@konsora/core";
 import { ARCHIVE_FILE, readArchive, readTasks, type StoreError } from "@konsora/core/store";
 import { parseBefore } from "./archive.ts";
@@ -57,6 +58,10 @@ export type ListFilter = {
   waiting?: boolean | undefined;
   /** `low`, `medium`, `high`, or `none` for the tasks without one. */
   difficulty?: string | undefined;
+  /** Only tasks with this label (CLI-07). */
+  label?: string | undefined;
+  /** Words that must all appear in the id, title or description, ignoring case (CLI-07). */
+  search?: string | undefined;
 };
 
 /** The presets behind `list`, `ready` and `blocked`. */
@@ -86,7 +91,12 @@ export function listData(
       (!filter.ready || t.ready) &&
       (!filter.blocked || t.blocked) &&
       (!filter.waiting || t.waiting) &&
-      (!filter.difficulty || (t.difficulty ?? "none") === filter.difficulty),
+      (!filter.difficulty || (t.difficulty ?? "none") === filter.difficulty) &&
+      // The same rule as the board's filter bar (core's taskMatches).
+      taskMatches(t, {
+        ...(filter.label ? { label: filter.label } : {}),
+        ...(filter.search ? { text: filter.search } : {}),
+      }),
   );
   // What is ready comes in priority order (rank), so the first one is the next to take.
   return preset === LIST_PRESETS.ready || filter.ready ? readyViews(list) : list;

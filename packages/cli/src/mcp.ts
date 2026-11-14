@@ -34,6 +34,14 @@ const listFilter = {
     .enum([...DIFFICULTIES, "none"])
     .optional()
     .describe("only tasks of this difficulty (none: without one)"),
+  label: z.string().min(1).optional().describe("only tasks with this label"),
+  search: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "only tasks whose id, title or description contain every word, ignoring case; use it to check whether something is already planned",
+    ),
 };
 
 const GUIDE =
