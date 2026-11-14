@@ -3,13 +3,17 @@
  * the CLI prints with `--json`, so both surfaces stay identical by construction.
  */
 import {
+  completionLog,
   isStale,
+  type LogEntry,
   milestoneProgress,
   STALE_AFTER_HOURS,
+  type Task,
   type TaskState,
   type TasksDocument,
 } from "@konsora/core";
 import { ARCHIVE_FILE, readArchive, readTasks, type StoreError } from "@konsora/core/store";
+import { parseBefore } from "./archive.ts";
 import { issuesText, readyViews, STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
 import { CliError, EXIT } from "./shared.ts";
@@ -123,4 +127,50 @@ export async function checkData(root: string): Promise<CheckData> {
         hash: result.hash,
       }
     : { ok: false, error: result.error };
+}
+
+/**
+ * The done tasks of `.konsora/archive.json` when the plan has archived some; an unreadable archive
+ * is an error, so `log` never presents a partial history as the whole one.
+ */
+export async function archivedTasks(root: string, doc: TasksDocument): Promise<Task[]> {
+  if (!doc.archived?.length) return [];
+  const read = await readArchive(root);
+  if (!read.ok)
+    throw new CliError(
+      `${ARCHIVE_FILE} cannot be read: ${read.error.message}`,
+      read.error.issues?.length ? issuesText(read.error.issues).trimEnd() : undefined,
+    );
+  return read.archive.tasks;
+}
+
+export type LogFilter = {
+  /** Only tasks finished at or after this moment (a date or an ISO timestamp). */
+  since?: string | undefined;
+  /** At most this many entries, the most recent ones. */
+  limit?: number | undefined;
+};
+
+export function parseLimit(value: string): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0)
+    throw new CliError(
+      `Invalid limit "${value}".`,
+      "Give a positive whole number, e.g. --limit 10.",
+      EXIT.usage,
+    );
+  return n;
+}
+
+/** The completion log (core's `completionLog`, archived tasks included), newest first. */
+export async function logData(
+  root: string,
+  doc: TasksDocument,
+  filter: LogFilter = {},
+): Promise<LogEntry[]> {
+  const since = filter.since === undefined ? undefined : parseBefore(filter.since);
+  const entries = completionLog(doc, await archivedTasks(root, doc)).filter(
+    (entry) => since === undefined || entry.at >= since,
+  );
+  return filter.limit === undefined ? entries : entries.slice(0, filter.limit);
 }

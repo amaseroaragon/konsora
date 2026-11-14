@@ -5,6 +5,7 @@ import {
   deriveFlags,
   indexTasks,
   isStale,
+  type LogEntry,
   milestoneProgress,
   recommendedModel,
   type SchemaIssue,
@@ -183,3 +184,29 @@ export function showText(doc: TasksDocument, view: TaskView): string {
 export function issuesText(issues: readonly SchemaIssue[]): string {
   return `${issues.map((i) => `  ${i.path || "/"}  ${i.code}  ${i.message}`).join("\n")}\n`;
 }
+
+/** `konsora log`: one line per closed task, newest first, with the summary's first line. */
+export function logText(entries: readonly LogEntry[]): string {
+  if (entries.length === 0) return "No finished tasks match.\n";
+  const idWidth = Math.max(2, ...entries.map((e) => e.id.length));
+  const byWidth = Math.max(2, ...entries.map((e) => who(e.by).length));
+  const rows = entries.map((e) => {
+    const first = e.summary
+      ?.split("\n")
+      .find((line) => line.trim())
+      ?.trim();
+    const flags = [
+      e.archived ? "archived" : undefined,
+      e.unmet ? `${e.unmet} not met` : undefined,
+      e.unproven ? `${e.unproven} without evidence` : undefined,
+    ].filter(Boolean);
+    return (
+      `${minute(e.at)}  ${e.id.padEnd(idWidth)}  ${who(e.by).padEnd(byWidth)}  ${e.title}` +
+      `${flags.length ? `  [${flags.join("; ")}]` : ""}\n` +
+      `${"".padEnd(18 + idWidth + byWidth)}${first ?? "(no closing summary)"}`
+    );
+  });
+  return `${rows.join("\n")}\n`;
+}
+
+const who = (by: string | undefined) => (by ? by.replace(/^agent:/, "") : "-");

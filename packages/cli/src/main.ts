@@ -7,12 +7,28 @@ import { GroupIdSchema, SCHEMA_VERSION, type TaskState, type TasksDocument } fro
 import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
 import { registerArchive } from "./archive.ts";
-import { issuesText, STATES, showText, statusText, type TaskView, taskTable } from "./format.ts";
+import {
+  issuesText,
+  logText,
+  STATES,
+  showText,
+  statusText,
+  type TaskView,
+  taskTable,
+} from "./format.ts";
 import { serveStdio } from "./mcp.ts";
 import { CONFIG_TARGETS, type ConfigTarget, configHint, configSnippet } from "./mcp-config.ts";
 import { registerMigrate } from "./migrate.ts";
 import { registerPlan } from "./plan.ts";
-import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./read.ts";
+import {
+  checkData,
+  LIST_PRESETS,
+  listData,
+  logData,
+  parseLimit,
+  showAnyData,
+  statusData,
+} from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, staleHours, VERSION } from "./shared.ts";
 import { describeInstall, installSkill, registerSkill } from "./skill.ts";
 import { registerUi } from "./ui.ts";
@@ -172,6 +188,19 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
       const view = await showAnyData(dir, doc, id);
       if (opts.json) json(io, view);
       else io.stdout(showText(doc, view));
+    });
+
+  program
+    .command("log")
+    .description("finished tasks, newest first: when, who closed it and its summary's first line")
+    .option("--since <date>", "only tasks finished on or after this date (e.g. 2026-11-01)")
+    .option("--limit <n>", "at most this many, the most recent", parseLimit)
+    .option("--json", "machine-readable output (core's completionLog entries)")
+    .action(async (opts: { since?: string; limit?: number; json?: boolean }) => {
+      const { root: dir, doc } = await load(io, root());
+      const entries = await logData(dir, doc, opts);
+      if (opts.json) json(io, entries);
+      else io.stdout(logText(entries));
     });
 
   program

@@ -11,7 +11,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
-import { checkData, LIST_PRESETS, listData, showAnyData, statusData } from "./read.ts";
+import { checkData, LIST_PRESETS, listData, logData, showAnyData, statusData } from "./read.ts";
 import { type Io, load, locate, sessionScope, staleHours, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
@@ -30,7 +30,8 @@ const listFilter = {
 
 const GUIDE =
   "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
-  "show. Plan by creating tasks (propose, batch): they go straight to todo, no approval. Work " +
+  "show, and log for what was finished lately. Plan by creating tasks (propose, batch): they " +
+  "go straight to todo, no approval. Work " +
   "one task at a time: start it, add notes as you go, ask when blocked on a decision (then " +
   "stop and wait), and finish with a summary of how you met each acceptance criterion. Humans " +
   "reopen tasks and change finished work; there are no tools for that. Never edit " +
@@ -95,6 +96,33 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
       guarded(async () => {
         const { root: dir, doc } = await load(io, root);
         return ok(await showAnyData(dir, doc, id));
+      }),
+  );
+
+  server.registerTool(
+    "log",
+    {
+      title: "Completion log",
+      description:
+        "Finished tasks, newest first (archived ones included): when, who closed each one and its closing summary. Use it to see what was done lately before picking work.",
+      inputSchema: {
+        since: z
+          .string()
+          .optional()
+          .describe("only tasks finished on or after this date or timestamp, e.g. 2026-11-01"),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("at most this many, the most recent"),
+      },
+      annotations: READ_ONLY,
+    },
+    (filter) =>
+      guarded(async () => {
+        const { root: dir, doc } = await load(io, root);
+        return ok(await logData(dir, doc, filter));
       }),
   );
 

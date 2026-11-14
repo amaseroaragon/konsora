@@ -119,6 +119,7 @@ describe("konsora mcp: read tools", () => {
       "blocked",
       "check",
       "list",
+      "log",
       "ready",
       "show",
       "status",

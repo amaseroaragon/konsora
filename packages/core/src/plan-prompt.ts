@@ -25,6 +25,7 @@ export const PLAN_TOOLS: readonly string[] = [
   "ready",
   "blocked",
   "show",
+  "log",
   "check",
   "propose",
   "batch",
