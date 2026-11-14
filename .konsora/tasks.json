@@ -2128,7 +2128,7 @@
     {
       "id": "CLI-10",
       "title": "Añadir konsora doctor: diagnosticar la instalación del proyecto",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzy",
       "desc": "Cuando algo no funciona (el MCP no aparece, el panel de IA falla, el daemon es antiguo) hay que revisar varias piezas a mano. Un comando que compruebe todo lo que Konsora necesita y diga cómo arreglar cada cosa.",
@@ -2153,12 +2153,62 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T17:43:24Z",
+      "started": {
+        "at": "2026-11-14T18:27:27Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T18:29:50Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T18:27:27Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "doctor.ts: comprobaciones puras de solo lectura (Node, plan, skill, .mcp.json, claude en PATH, daemon y versión, lock huérfano), una línea por comprobación con pista; código 1 si alguna falla; --json."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T18:29:50Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`konsora doctor` hace cada comprobación en una línea con su pista y sale con 1 si alguna falla. Añadido `inspectLock` en el store de core para diagnosticar el lock sin tocarlo.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "packages/cli/test/doctor.test.ts: node, plan, lock, skill, mcp, claude y daemon en ese orden, una línea cada uno; tests específicos de versión de Node, versión de la skill, entrada MCP, lock (vivo, huérfano, de otra máquina, ilegible) y estado y versión del daemon"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test 'fails with a hint per problem…': cada línea FAIL o warn va seguida de su Hint y el código de salida es 1 (también con --json); con solo avisos sale 0"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Test 'writes nothing and prints no path outside the project': instantánea del proyecto y del directorio de datos sin cambios, incluso con un lock huérfano; la salida no contiene rutas temporales; el token del daemon solo se usa en la petición /health"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "63021d5"
+      ],
       "events": [
         {
           "at": "2026-11-14T17:43:24Z",
           "by": "human",
           "type": "promote"
+        },
+        {
+          "at": "2026-11-14T18:27:27Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T18:29:50Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     },
