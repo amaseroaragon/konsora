@@ -9,6 +9,7 @@ import { Command, CommanderError, Option } from "commander";
 import { registerArchive } from "./archive.ts";
 import { codexHint, codexSnippet, describeCodex, installCodex } from "./codex.ts";
 import { registerDoctor } from "./doctor.ts";
+import { registerExport } from "./export.ts";
 import {
   issuesText,
   logText,
@@ -312,6 +313,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   registerUi(program, io, root);
   registerHook(program, io, root);
   registerDoctor(program, io, root);
+  registerExport(program, io, root);
 
   try {
     await program.parseAsync([...argv], { from: "user" });

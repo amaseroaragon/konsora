@@ -1,0 +1,36 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`konsora export > --done --since prints the closed tasks by group with id, title and summary 1`] = `
+"# Weather: done since 2026-11-03
+
+3 tasks finished.
+
+## BE · Backend
+
+- **BE-02** Title BE-02 (2026-11-04, codex) · commits abc1234
+  Cached responses for 10 min.
+
+  - TTL is configurable
+  - Tests added
+
+## FE · Frontend
+
+- **FE-02** Title FE-02 (2026-11-06)
+  _(no closing summary)_
+- **FE-01** Title FE-01 (2026-11-05, human)
+  Showed the cache age.
+"
+`;
+
+exports[`konsora export > --pending prints what is left in dependency order 1`] = `
+"# Weather: pending
+
+3 tasks to do, 1 in progress, in dependency order.
+
+- **BE-03** Title BE-03 (in progress, claude, medium)
+  - [ ] Retries on 503
+  - [ ] Gives up after 3 tries
+- **BE-04** Title BE-04 (blocked by BE-03)
+- **FE-03** Title FE-03 (ready, waiting for an answer)
+"
+`;
