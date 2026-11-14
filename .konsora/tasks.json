@@ -2297,7 +2297,7 @@
     {
       "id": "CLI-12",
       "title": "Exportar el plan y los cierres a Markdown",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzzzzzzy",
       "desc": "Para una descripción de PR, unas notas de versión o un resumen de la semana hoy hay que copiar resúmenes a mano. `konsora export` generaría Markdown con lo cerrado en un periodo (o con el plan pendiente), sin escribir nada salvo que se indique un fichero.",
@@ -2322,7 +2322,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:39:23Z"
+      "started": {
+        "at": "2026-11-14T18:31:54Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T18:33:36Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T18:31:54Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "export.ts: markdown determinista; --done [--since] agrupado por grupo desde completionLog (con archivadas), --pending en orden topológico con estado y bloqueadores; --output escribe atómicamente y no sobrescribe sin --force; test con snapshot."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T18:33:36Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`konsora export` genera Markdown: `--done [--since]` (agrupado por grupo con id, título, fecha, autor, commits y resumen completo) y `--pending` (orden de dependencias, con estado, bloqueadores y criterios). Solo escribe con `--output`, de forma atómica y sin sobrescribir salvo con `--force`. Las ideas (proposed) no entran en --pending.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Snapshot '--done --since prints the closed tasks by group…' en packages/cli/test/export.test.ts; otro test incluye las tareas archivadas"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Snapshot '--pending prints what is left in dependency order': BE-03 antes que BE-04, y las ideas fuera"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Snapshots en packages/cli/test/__snapshots__/export.test.ts.snap; dos ejecuciones seguidas dan el mismo texto y no hay marcas de tiempo de generación"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "a8667f0"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T18:31:54Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T18:33:36Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "MCP-01",
