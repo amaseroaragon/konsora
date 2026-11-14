@@ -359,6 +359,36 @@ export function watchTasks(
   };
 }
 
+/**
+ * The plan's lock as a diagnostic sees it (CLI-10), without touching it:
+ * - `none`: no lock file.
+ * - `held`: a live process on this host holds it (a write in progress).
+ * - `stale`: its process is gone; the next write on this host removes it.
+ * - `foreign`: held by another host, so Konsora cannot tell whether it is alive and never removes
+ *   it: writes wait for it until they time out.
+ * - `unreadable`: not a lock Konsora wrote; writes wait for it too.
+ */
+export type LockState =
+  | { status: "none" }
+  | { status: "held" | "stale" | "foreign"; pid: number; host: string; at?: string }
+  | { status: "unreadable" };
+
+export async function inspectLock(root: string): Promise<LockState> {
+  const raw = await readFile(join(root, KONSORA_DIR, LOCK_FILE), "utf8").catch(
+    (error: NodeJS.ErrnoException) => (error.code === "ENOENT" ? null : ""),
+  );
+  if (raw === null) return { status: "none" };
+  const holder = parseLock(raw);
+  if (!holder) return { status: "unreadable" };
+  const status = holder.host !== hostname() ? "foreign" : isAlive(holder.pid) ? "held" : "stale";
+  return {
+    status,
+    pid: holder.pid,
+    host: holder.host,
+    ...(typeof holder.at === "string" ? { at: holder.at } : {}),
+  };
+}
+
 /** Leftover temp files from a crashed writer (for diagnostics; safe to delete when unlocked). */
 export async function strayTempFiles(root: string): Promise<string[]> {
   const names = await readdir(join(root, KONSORA_DIR)).catch(() => []);

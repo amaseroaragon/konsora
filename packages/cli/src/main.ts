@@ -8,6 +8,7 @@ import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
 import { registerArchive } from "./archive.ts";
 import { codexHint, codexSnippet, describeCodex, installCodex } from "./codex.ts";
+import { registerDoctor } from "./doctor.ts";
 import {
   issuesText,
   logText,
@@ -310,6 +311,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   registerSkill(program, io, root);
   registerUi(program, io, root);
   registerHook(program, io, root);
+  registerDoctor(program, io, root);
 
   try {
     await program.parseAsync([...argv], { from: "user" });
