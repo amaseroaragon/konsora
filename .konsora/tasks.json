@@ -27,7 +27,7 @@
   ],
   "seq": {
     "CORE": 23,
-    "CLI": 12,
+    "CLI": 13,
     "MCP": 2,
     "DMN": 7,
     "UI": 32
@@ -2375,6 +2375,26 @@
           "type": "finish"
         }
       ]
+    },
+    {
+      "id": "CLI-13",
+      "title": "Identificar el test intermitente de npm run check",
+      "state": "proposed",
+      "group": "CLI",
+      "rank": "zzzzzzzzzzzzx",
+      "desc": "Al comprobar MCP-02 (commit ad3e44e), una ejecución de npm run check dio 1 test fallido de 950 y no se guardó cuál. Nueve ejecuciones posteriores pasaron enteras. Probablemente es uno de los tests con procesos reales (daemon, stdio de MCP o claude) que agota su tiempo bajo carga.",
+      "acceptance": [
+        {
+          "id": "ac1",
+          "text": "Se identifica el test (por ejemplo, repitiendo la suite con carga) y se corrige o se le da margen, con la causa anotada"
+        }
+      ],
+      "difficulty": "medium",
+      "created": {
+        "at": "2026-11-14T18:50:18Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T18:50:18Z"
     },
     {
       "id": "MCP-01",
