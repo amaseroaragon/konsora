@@ -25,6 +25,15 @@ describe("session bootstrap", () => {
     expect(storage.data.get(TOKEN_KEY)).toBe(token);
   });
 
+  it("opens a task's panel when the fragment names one", () => {
+    const storage = memoryStorage();
+    const route = bootstrapSession(`#token=${token}&project=p-0123456789ab&task=BE-04`, storage);
+    expect(route).toEqual({ token, route: "#/p/p-0123456789ab?task=BE-04" });
+    expect(parseRoute(route.route ?? "")).toMatchObject({ id: "p-0123456789ab", task: "BE-04" });
+    // A task without a project has nowhere to open.
+    expect(bootstrapSession(`#token=${token}&task=BE-04`, storage).route).toBe("#/");
+  });
+
   it("routes home when no project is given, and reuses a stored token later", () => {
     const storage = memoryStorage();
     expect(bootstrapSession(`#token=${token}`, storage).route).toBe("#/");

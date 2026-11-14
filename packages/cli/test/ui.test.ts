@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { findDaemon } from "@konsora/daemon";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EXIT, main } from "../src/main.ts";
-import { bundleIsStale } from "../src/ui.ts";
+import { bundleIsStale, uiUrl } from "../src/ui.ts";
 
 let base: string;
 beforeEach(() => {
@@ -210,4 +210,74 @@ describe("konsora ui --status and --stop (DMN-07)", () => {
       }
     }
   }, 30_000);
+});
+
+describe("konsora ui <id> (CLI-11)", () => {
+  it("builds the URL with the project and the task after the token", () => {
+    const token = "ab".repeat(32);
+    expect(
+      uiUrl("http://127.0.0.1:4545", token, { project: "p-0123456789ab", task: "BE-04" }),
+    ).toBe(`http://127.0.0.1:4545/#token=${token}&project=p-0123456789ab&task=BE-04`);
+    expect(uiUrl("http://127.0.0.1:4545", token, { task: "BE-04" })).toBe(
+      `http://127.0.0.1:4545/#token=${token}`,
+    );
+    expect(uiUrl("http://127.0.0.1:4545", token)).toBe(`http://127.0.0.1:4545/#token=${token}`);
+  });
+
+  it("an unknown or archived id is an actionable error and starts nothing", async () => {
+    const data = join(base, "data");
+    const project = join(base, "proj");
+    mkdirSync(project);
+    const env = { ...process.env, KONSORA_DATA_DIR: data, KONSORA_WEB_DIR: join(base, "nowhere") };
+    expect((await run(["init", "--no-claude"], project, env)).code).toBe(EXIT.ok);
+    const unknown = await run(["ui", "TASK-99", "--no-open"], project, env);
+    expect(unknown.code).toBe(EXIT.failure);
+    expect(unknown.err).toContain("Error: Task TASK-99 does not exist.");
+    expect(unknown.err).toContain("Hint: Use `konsora list` to see task ids.");
+    expect(unknown.out).toBe("");
+    expect(existsSync(data)).toBe(false);
+    for (const flags of [["--status"], ["--stop"], ["--no-link"]]) {
+      const r = await run(["ui", "TASK-01", ...flags], project, env);
+      expect(r.code, flags.join(" ")).toBe(EXIT.usage);
+    }
+    const outside = await run(["ui", "TASK-01", "--no-open"], base, env);
+    expect(outside.code).toBe(EXIT.failure);
+    expect(outside.err).toContain("No .konsora/ folder found");
+    expect(existsSync(data)).toBe(false);
+  });
+
+  it("--no-open prints the URL that opens the task's panel", async () => {
+    const data = join(base, "data");
+    const web = join(base, "web-dist");
+    const project = join(base, "proj");
+    mkdirSync(web);
+    mkdirSync(project);
+    writeFileSync(join(web, "index.html"), "<!doctype html><title>Konsora</title>");
+    const env = {
+      ...process.env,
+      KONSORA_DATA_DIR: data,
+      KONSORA_WEB_DIR: web,
+      XDG_STATE_HOME: join(base, "state"),
+    };
+    expect((await run(["init", "--no-claude"], project, env)).code).toBe(EXIT.ok);
+    expect(
+      (await run(["propose", "Add a cache", "--group", "TASK", "--as", "claude"], project, env))
+        .code,
+    ).toBe(EXIT.ok);
+    const r = await run(["ui", "task-01", "--no-open"], project, env);
+    const info = await findDaemon(data);
+    try {
+      expect(r.code).toBe(EXIT.ok);
+      expect(r.out).toContain("Open this URL in your browser (it opens TASK-01)");
+      const url = /\s(http:\/\/127\.0\.0\.1:\d+\/#\S+)/.exec(r.out)?.[1] ?? "";
+      const fragment = new URLSearchParams(new URL(url).hash.slice(1));
+      expect(fragment.get("token")).toBe(info?.token);
+      expect(fragment.get("project")).toMatch(/^p-[0-9a-f]{12}$/);
+      expect(fragment.get("task")).toBe("TASK-01");
+    } finally {
+      if (info) process.kill(info.pid, "SIGTERM");
+      for (let i = 0; i < 50 && (await findDaemon(data)); i++)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }, 20_000);
 });

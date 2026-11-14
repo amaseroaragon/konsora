@@ -1,5 +1,6 @@
 /**
- * Session token bootstrap (docs/arquitectura.md §4). `konsora ui` opens `/#token=…[&project=…]`;
+ * Session token bootstrap (docs/arquitectura.md §4). `konsora ui` opens
+ * `/#token=…[&project=…[&task=…]]`;
  * the token moves to sessionStorage and the fragment is replaced by a route, so it never stays in
  * the address bar or history. A later visit in the same tab reuses the stored token.
  */
@@ -25,7 +26,11 @@ export function bootstrapSession(
     const token = params.get("token");
     if (token !== null) {
       const project = params.get("project");
-      const route = project ? `#/p/${encodeURIComponent(project)}` : "#/";
+      // `konsora ui <id>` (CLI-11) also names a task: the board opens with its panel.
+      const task = project ? params.get("task") : null;
+      const route = project
+        ? `#/p/${encodeURIComponent(project)}${task ? `?${new URLSearchParams({ task })}` : ""}`
+        : "#/";
       if (!TOKEN.test(token)) return { token: readStored(storage), route };
       try {
         storage.setItem(TOKEN_KEY, token);

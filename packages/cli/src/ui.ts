@@ -14,7 +14,8 @@ import { fileURLToPath } from "node:url";
 import type { DaemonInfo } from "@konsora/daemon";
 import type { Command } from "commander";
 import { findRoot } from "./project.ts";
-import { CliError, EXIT, type Io } from "./shared.ts";
+import { showData } from "./read.ts";
+import { CliError, EXIT, type Io, load } from "./shared.ts";
 
 const START_TIMEOUT_MS = 10_000;
 
@@ -181,26 +182,65 @@ async function stop(lib: Daemon, io: Io) {
   io.stdout(`Stopped the Konsora daemon (pid ${daemon.pid}).\n`);
 }
 
+/**
+ * The URL `konsora ui` opens: the daemon with the session token in the fragment, and the project
+ * and the task (CLI-11) whose panel the board opens with, when given.
+ */
+export function uiUrl(
+  daemonUrl: string,
+  token: string,
+  target: { project?: string; task?: string } = {},
+): string {
+  const params = new URLSearchParams({ token });
+  if (target.project) params.set("project", target.project);
+  if (target.project && target.task) params.set("task", target.task);
+  return `${daemonUrl}/#${params}`;
+}
+
 export function registerUi(program: Command, io: Io, root: () => string | undefined) {
   program
     .command("ui")
-    .description("start (or reuse) the local daemon and open the Konsora web UI in the browser")
+    .description(
+      "start (or reuse) the local daemon and open the Konsora web UI in the browser; with a task id, its panel",
+    )
+    .argument("[id]", "a task of this project to open, e.g. CORE-01")
     .option("--no-open", "print the URL instead of opening the browser")
     .option("--no-link", "do not link the current project folder")
     .option("--restart", "restart the running daemon (open AI chats in the UI are closed)")
     .option("--status", "say whether the daemon is running, its version, URL and linked projects")
     .option("--stop", "stop the running daemon")
     .action(
-      async (opts: {
-        open: boolean;
-        link: boolean;
-        restart?: boolean;
-        status?: boolean;
-        stop?: boolean;
-      }) => {
-        const lib: Daemon = await import("@konsora/daemon");
+      async (
+        id: string | undefined,
+        opts: {
+          open: boolean;
+          link: boolean;
+          restart?: boolean;
+          status?: boolean;
+          stop?: boolean;
+        },
+      ) => {
         if (opts.status && opts.stop)
           throw new CliError("Use --status or --stop, not both.", undefined, EXIT.usage);
+        let task: string | undefined;
+        if (id !== undefined) {
+          if (opts.status || opts.stop || !opts.link)
+            throw new CliError(
+              "A task id opens it in this project, so it does not go with --status, --stop or --no-link.",
+              "Run `konsora ui <id>` from the project folder.",
+              EXIT.usage,
+            );
+          // Checked before starting anything, so an unknown id opens nothing.
+          const { doc } = await load(io, root());
+          task = id.toUpperCase();
+          if (doc.archived?.includes(task))
+            throw new CliError(
+              `${task} is archived, so the board has no panel for it.`,
+              "See it in the History of `konsora ui`, or with `konsora show`.",
+            );
+          showData(doc, task);
+        }
+        const lib: Daemon = await import("@konsora/daemon");
         if (opts.status) return showStatus(lib, io);
         if (opts.stop) return stop(lib, io);
         const web = lib.webDir(io.env);
@@ -235,23 +275,27 @@ export function registerUi(program: Command, io: Io, root: () => string | undefi
           io.stdout(`Started the Konsora daemon at ${daemon.url} (pid ${daemon.pid}).\n`);
         }
 
-        const params = new URLSearchParams({ token: daemon.token });
         const folder = opts.link ? findRoot(io.cwd, root(), io.env) : null;
+        let project: string | undefined;
         if (folder) {
-          const { project } = await api<{ project: { id: string; name: string } }>(
-            daemon,
-            "/projects",
-            { method: "POST", body: JSON.stringify({ path: folder }) },
-          );
-          params.set("project", project.id);
-          io.stdout(`Linked project "${project.name}" (${project.id}).\n`);
+          const linked = await api<{ project: { id: string; name: string } }>(daemon, "/projects", {
+            method: "POST",
+            body: JSON.stringify({ path: folder }),
+          });
+          project = linked.project.id;
+          io.stdout(`Linked project "${linked.project.name}" (${project}).\n`);
         }
 
-        const url = `${daemon.url}/#${params}`;
+        const url = uiUrl(daemon.url, daemon.token, {
+          ...(project ? { project } : {}),
+          ...(task ? { task } : {}),
+        });
         if (opts.open && (await openBrowser(url))) {
-          io.stdout("Opened Konsora in your browser.\n");
+          io.stdout(`Opened ${task ? `${task} in ` : ""}Konsora in your browser.\n`);
         } else {
-          io.stdout(`Open this URL in your browser (it carries your session token):\n  ${url}\n`);
+          io.stdout(
+            `Open this URL in your browser${task ? ` (it opens ${task})` : ""}; it carries your session token:\n  ${url}\n`,
+          );
         }
       },
     );
