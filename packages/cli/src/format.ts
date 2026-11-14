@@ -185,6 +185,19 @@ export function issuesText(issues: readonly SchemaIssue[]): string {
   return `${issues.map((i) => `  ${i.path || "/"}  ${i.code}  ${i.message}`).join("\n")}\n`;
 }
 
+/** The closing summaries of a task's done dependencies (CLI-05); nothing when there are none. */
+export function dependenciesText(entries: readonly LogEntry[]): string {
+  if (entries.length === 0) return "";
+  const blocks = entries.map((e) => {
+    const head = `  ${e.id} · ${e.title}  (done ${minute(e.at)}${e.by ? ` by ${who(e.by)}` : ""})`;
+    const body = e.summary
+      ? e.summary.split("\n").map((line) => `      ${line}`)
+      : ["      (no closing summary)"];
+    return [head, ...body].join("\n");
+  });
+  return `\nDone dependencies (their closing summaries):\n${blocks.join("\n")}\n`;
+}
+
 /** `konsora log`: one line per closed task, newest first, with the summary's first line. */
 export function logText(entries: readonly LogEntry[]): string {
   if (entries.length === 0) return "No finished tasks match.\n";

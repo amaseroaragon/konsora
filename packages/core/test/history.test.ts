@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completionLog } from "../src/history.ts";
+import { completionLog, dependencySummaries } from "../src/history.ts";
 import type { Note, Task, TaskState } from "../src/schema.ts";
 
 const created = { at: "2026-11-01T09:00:00Z", by: "human" };
@@ -80,5 +80,27 @@ describe("completionLog", () => {
 
   it("is empty for an empty plan", () => {
     expect(completionLog({ tasks: [] })).toEqual([]);
+  });
+});
+
+describe("dependencySummaries", () => {
+  it("returns the done direct dependencies in deps order, archived ones included", () => {
+    const doc = {
+      tasks: [
+        task("A-1", "done", { notes: [note("n1", "summary", "2026-11-02T09:00:00Z", "one")] }),
+        task("A-2", "todo"),
+        task("A-4", "done"),
+      ],
+    };
+    const archived = [
+      task("A-3", "done", { notes: [note("n1", "summary", "2026-11-01T10:00:00Z", "three")] }),
+    ];
+    const entries = dependencySummaries({ deps: ["A-4", "A-3", "A-2", "A-1"] }, doc, archived);
+    expect(entries.map((e) => [e.id, e.summary, e.archived])).toEqual([
+      ["A-4", undefined, undefined],
+      ["A-3", "three", true],
+      ["A-1", "one", undefined],
+    ]);
+    expect(dependencySummaries({}, doc)).toEqual([]);
   });
 });

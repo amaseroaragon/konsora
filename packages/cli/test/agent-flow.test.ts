@@ -175,3 +175,65 @@ describe("konsora log", () => {
     expect(PLAN_TOOLS).toContain("mcp__konsora__log");
   });
 });
+
+describe("start hands over the dependencies' closing summaries", () => {
+  it("the CLI prints each done direct dependency with its id, title and summary", async () => {
+    seed();
+    const r = await run(["start", "BE-04", "--as", "claude"]);
+    expect(r.code).toBe(EXIT.ok);
+    expect(r.stdout).toContain("Started BE-04 (doing).");
+    const section = r.stdout.slice(r.stdout.indexOf("Done dependencies"));
+    expect(section).toBe(
+      [
+        "Done dependencies (their closing summaries):",
+        "  BE-01 · Title BE-01  (done 2026-11-03 09:00 by claude)",
+        "      Added the API client.",
+        "      With retries.",
+        "  BE-02 · Title BE-02  (done 2026-11-05 09:00 by codex)",
+        "      Cached responses for 10 min.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("--json adds them under dependencies, and the MCP start tool returns the same", async () => {
+    seed();
+    const cli = (await run(["start", "BE-04", "--as", "claude", "--json"])).json();
+    const expected = completionLog(plan()).filter((e) => e.id === "BE-01" || e.id === "BE-02");
+    expect(cli.dependencies).toEqual([expected[1], expected[0]]);
+    expect(cli.tasks[0]).toMatchObject({ id: "BE-04", state: "doing" });
+
+    seed();
+    const { call, close } = await connect({ KONSORA_AGENT: "claude" });
+    const mcp = await call("start", { id: "be-04" });
+    expect(mcp.isError).toBe(false);
+    expect(mcp.json()).toEqual(cli);
+    await close();
+  });
+
+  it("finds an archived dependency's summary in the archive", async () => {
+    seed();
+    expect((await run(["archive", "--before", "2026-11-04", "--write"])).code).toBe(EXIT.ok);
+    const cli = (await run(["start", "BE-04", "--as", "claude", "--json"])).json();
+    expect(
+      cli.dependencies.map((e: { id: string; archived?: true }) => [e.id, e.archived]),
+    ).toEqual([
+      ["BE-01", true],
+      ["BE-02", undefined],
+    ]);
+  });
+
+  it("a task without dependencies adds no empty section", async () => {
+    seed();
+    const r = await run(["start", "BE-05", "--as", "claude"]);
+    expect(r.stdout).not.toContain("Done dependencies");
+    seed();
+    expect((await run(["start", "BE-05", "--as", "claude", "--json"])).json()).not.toHaveProperty(
+      "dependencies",
+    );
+    seed();
+    const { call, close } = await connect({ KONSORA_AGENT: "claude" });
+    expect((await call("start", { id: "BE-05" })).json()).not.toHaveProperty("dependencies");
+    await close();
+  });
+});

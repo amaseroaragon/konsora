@@ -19,7 +19,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { opHint } from "./hints.ts";
 import { failure, guarded, ok } from "./mcp-result.ts";
-import type { Io } from "./shared.ts";
+import { type Io, locate } from "./shared.ts";
 import {
   agentActor,
   BatchSchema,
@@ -29,6 +29,8 @@ import {
   runOp,
   SplitSchema,
   splitOp,
+  startResult,
+  type WriteOutcome,
   writeJson,
 } from "./write.ts";
 
@@ -49,8 +51,15 @@ const ids = z.array(z.string().min(1));
 const text = (what: string) => z.string().min(1).describe(what);
 
 export function registerWriteTools(server: McpServer, io: Io, root: string | undefined) {
-  /** Applies one op as this session's agent; `next` tells the agent what to do afterwards. */
-  const apply = (build: () => Op, next?: string | ((doc: TasksDocument) => string)) =>
+  /**
+   * Applies one op as this session's agent; `next` tells the agent what to do afterwards, and
+   * `value` replaces the write's JSON (as `start` does with its dependencies' summaries).
+   */
+  const apply = (
+    build: () => Op,
+    next?: string | ((doc: TasksDocument) => string),
+    value?: (outcome: Extract<WriteOutcome, { ok: true }>) => Promise<unknown>,
+  ) =>
     guarded(async (): Promise<CallToolResult> => {
       const op = build();
       const actor = mcpActor(io.env, server.server.getClientVersion()?.name);
@@ -61,7 +70,7 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           `Error (${outcome.error.code}): ${outcome.error.message}${hint ? `\nHint: ${hint}` : ""}`,
         );
       }
-      const result = ok(writeJson(outcome));
+      const result = ok(value ? await value(outcome) : writeJson(outcome));
       if (next)
         result.content.push({
           type: "text",
@@ -347,6 +356,9 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
           // CORE-23: the human's recommendation for this difficulty, only a hint.
           return `${model ? `Recommended model for this ${task?.difficulty} task: ${model}.\n` : ""}Work on it, then finish it.`;
         },
+        // CLI-05: the closing summaries of its done dependencies, as `konsora start --json`.
+        async (outcome) =>
+          (await startResult(locate(io, root), outcome, args.id.toUpperCase())).json,
       ),
   );
 

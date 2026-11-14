@@ -11,7 +11,9 @@ import { resolve } from "node:path";
 import {
   type Difficulty,
   DifficultySchema,
+  dependencySummaries,
   type EvidenceInput,
+  type LogEntry,
   type Op,
   type OpContext,
   type OpError,
@@ -21,8 +23,9 @@ import {
 import { mutate } from "@konsora/core/store";
 import type { Command } from "commander";
 import { z } from "zod";
-import { showText, views } from "./format.ts";
+import { dependenciesText, showText, type TaskView, views } from "./format.ts";
 import { HINTS, opHint } from "./hints.ts";
+import { archivedTasks } from "./read.ts";
 import {
   CliError,
   EXIT,
@@ -334,6 +337,28 @@ export function writeJson(outcome: Extract<WriteOutcome, { ok: true }>) {
   };
 }
 
+/**
+ * What `start` returns (CLI-05): the write's JSON plus, when the task has done dependencies,
+ * each one's closing summary under `dependencies`, and the matching text for the CLI.
+ */
+export async function startResult(
+  root: string,
+  outcome: Extract<WriteOutcome, { ok: true }>,
+  id: string,
+) {
+  const doc = outcome.document;
+  const view = views(doc).find((t) => t.id === id) as TaskView;
+  const deps = view.deps?.some((d) => doc.archived?.includes(d))
+    ? dependencySummaries(view, doc, await archivedTasks(root, doc))
+    : dependencySummaries(view, doc);
+  const json: ReturnType<typeof writeJson> & { dependencies?: LogEntry[] } = writeJson(outcome);
+  if (deps.length) json.dependencies = deps;
+  return {
+    json,
+    text: `Started ${id} (doing).\n\n${showText(doc, view)}${dependenciesText(deps)}`,
+  };
+}
+
 export function registerWriteCommands(
   program: Command,
   io: Io,
@@ -356,6 +381,13 @@ export function registerWriteCommands(
     opts: { as?: string; json?: boolean },
     describe: (doc: TasksDocument, created: string[]) => string,
   ) {
+    const outcome = await applied(op, opts);
+    if (opts.json) json(io, writeJson(outcome));
+    else io.stdout(describe(outcome.document, outcome.created));
+  }
+
+  /** Runs one op; a refusal is printed (as JSON with --json) and ends the command. */
+  async function applied(op: Op, opts: { as?: string; json?: boolean }) {
     const outcome = await runOp(io, rootOption(), op, agentActor(opts.as ?? io.env.KONSORA_AGENT));
     if (!outcome.ok) {
       if (opts.json) {
@@ -364,8 +396,7 @@ export function registerWriteCommands(
       }
       throw new CliError(outcome.error.message, opHint(outcome.error));
     }
-    if (opts.json) json(io, writeJson(outcome));
-    else io.stdout(describe(outcome.document, outcome.created));
+    return outcome;
   }
 
   withAgent(program.command("propose"))
@@ -632,12 +663,11 @@ export function registerWriteCommands(
         opts.message || opts.file || opts.stdin
           ? await readText(io, undefined, opts, "plan")
           : undefined;
-      await apply(
-        { op: "start", task: id.toUpperCase(), ...(plan ? { text: plan } : {}) },
-        opts,
-        (doc) =>
-          `Started ${id.toUpperCase()} (doing).\n\n${showText(doc, views(doc).find((t) => t.id === id.toUpperCase()) as never)}`,
-      );
+      const task = id.toUpperCase();
+      const outcome = await applied({ op: "start", task, ...(plan ? { text: plan } : {}) }, opts);
+      const result = await startResult(locate(io, rootOption()), outcome, task);
+      if (opts.json) json(io, result.json);
+      else io.stdout(result.text);
     });
 
   withText(withAgent(program.command("pause")))

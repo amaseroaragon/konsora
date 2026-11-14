@@ -97,6 +97,21 @@ export function completionLog(
   );
 }
 
+/**
+ * The closing summaries of a task's direct dependencies that are done, in the order of its `deps`
+ * (CLI-05): the context an agent starting it gets from the work it builds on. A dependency that
+ * was archived is found among `archived` (the tasks of `.konsora/archive.json`).
+ */
+export function dependencySummaries(
+  task: Pick<Task, "deps">,
+  doc: Pick<TasksDocument, "tasks">,
+  archived: readonly Task[] = [],
+): LogEntry[] {
+  if (!task.deps?.length) return [];
+  const log = new Map(completionLog(doc, archived).map((entry) => [entry.id, entry]));
+  return task.deps.flatMap((id) => log.get(id) ?? []);
+}
+
 /** A plan at a glance (UI-14): what is moving and where the human is needed. */
 export type PlanSummary = {
   tasks: number;
