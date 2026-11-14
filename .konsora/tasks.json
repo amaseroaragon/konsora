@@ -1583,7 +1583,7 @@
     {
       "id": "CLI-05",
       "title": "Entregar al empezar una tarea los resúmenes de cierre de sus dependencias",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzy",
       "desc": "El resumen con el que un agente cierra una tarea es el mejor contexto para quien hace la siguiente, pero hoy hay que ir a buscarlo con `show` dependencia a dependencia. Que `start` (CLI y MCP) devuelva, junto a la tarea, el resumen de cierre de cada dependencia directa.",
@@ -1608,7 +1608,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:38:13Z"
+      "started": {
+        "at": "2026-11-14T17:35:55Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:37:14Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:35:55Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Función dependencySummaries en core (history.ts) sobre completionLog; start de CLI y MCP añaden 'dependencies' al JSON y una sección al texto solo si hay dependencias hechas."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:37:14Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`start` (CLI y MCP) entrega el resumen de cierre de cada dependencia directa hecha, con `dependencySummaries` de core (incluye las archivadas).",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Test 'the CLI prints each done direct dependency…' en packages/cli/test/agent-flow.test.ts: sección con id, título, fecha, autor y resumen completo"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test '--json adds them under dependencies, and the MCP start tool returns the same': el JSON del MCP es igual al de start --json"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Test 'a task without dependencies adds no empty section': ni sección en texto ni clave dependencies en CLI y MCP"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "3552dd8"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T17:35:55Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T17:37:14Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-06",
