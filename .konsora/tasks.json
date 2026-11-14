@@ -2034,7 +2034,7 @@
     {
       "id": "CLI-09",
       "title": "Integrar otros agentes en init: Codex y AGENTS.md",
-      "state": "doing",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzx",
       "desc": "Idea del roadmap («Otros agentes»). `init` solo integra Claude Code y `--print-config` solo conoce `claude`. Añadir la integración de Codex (instrucciones en `AGENTS.md` y su configuración del servidor MCP), tras verificar sus condiciones y formatos oficiales.",
@@ -2063,7 +2063,7 @@
         "at": "2026-11-14T17:55:20Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T17:57:46Z",
+      "updated_at": "2026-11-14T18:21:03Z",
       "notes": [
         {
           "id": "n1",
@@ -2078,7 +2078,34 @@
           "by": "agent:claude",
           "kind": "note",
           "text": "Código y tests hechos (084736e): ac1 y ac2 cumplidos y verificados. Falta ac3, la sesión real de Codex: pendiente de que el humano autorice usar su cuenta de Codex."
+        },
+        {
+          "id": "n3",
+          "at": "2026-11-14T18:21:03Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`init --agent codex` y `skill --agent codex` dejan el protocolo en AGENTS.md (bloque entre marcas, sin tocar el resto) y registran el servidor MCP en .codex/config.toml (configuración de proyecto, que Codex solo carga si el proyecto es de confianza). `mcp --print-config codex` imprime la tabla TOML. Formatos verificados en la documentación oficial de Codex. Nunca escribe en HOME.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "packages/cli/test/codex.test.ts: el contenido previo de AGENTS.md se conserva, la tabla se añade al final de un config.toml existente, todo es idempotente, se rechaza un mcp_servers en línea y no se crea nada en HOME/CODEX_HOME"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test 'prints a TOML table for this checkout's server…': command y args absolutos, KONSORA_AGENT=codex y la pista en stderr"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Sesión real con codex exec (codex-cli 0.166.0, -s workspace-write) en un proyecto temporal: propose, start y finish por el MCP; BE-01 queda created/started/summary por agent:codex. El servidor se pasó con -c en lugar de .codex/config.toml, porque cargar este último exige marcar el proyecto como de confianza en ~/.codex"
+            }
+          ]
         }
+      ],
+      "commits": [
+        "084736e"
       ],
       "events": [
         {
@@ -2090,6 +2117,11 @@
           "at": "2026-11-14T17:55:20Z",
           "by": "agent:claude",
           "type": "start"
+        },
+        {
+          "at": "2026-11-14T18:21:03Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     },
