@@ -5,8 +5,8 @@
  *   runs the global `konsora mcp` (installed with `npm run install:global`), so the file can be
  *   committed and works from any checkout. It never touches other entries, and never writes the
  *   user's own configuration (~/.claude).
- * - `konsora mcp --print-config claude` only prints a snippet with absolute paths to this
- *   checkout's `bin.ts`, for a session without the global command.
+ * - `konsora mcp --print-config claude` (or `codex`, as TOML, see codex.ts) only prints a snippet
+ *   with absolute paths to this checkout's `bin.ts`, for a session without the global command.
  * - `konsora plan` and the UI's AI panel start the server with the absolute command too.
  */
 import { constants } from "node:fs";
@@ -14,7 +14,7 @@ import { open, readFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const CONFIG_TARGETS = ["claude"] as const;
+export const CONFIG_TARGETS = ["claude", "codex"] as const;
 export type ConfigTarget = (typeof CONFIG_TARGETS)[number];
 
 export type ServerCommand = { command: string; args: string[]; env: Record<string, string> };

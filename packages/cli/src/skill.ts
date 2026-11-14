@@ -13,6 +13,7 @@ import { constants } from "node:fs";
 import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Command } from "commander";
+import { type CodexInstall, describeCodex, installCodex } from "./codex.ts";
 import { describeHooks, type HooksInstall, installHooks } from "./hooks.ts";
 import { installMcpJson, MCP_JSON, type McpJsonInstall } from "./mcp-config.ts";
 import { CliError, EXIT, type Io, json, locate } from "./shared.ts";
@@ -163,11 +164,30 @@ export function describeInstall(result: SkillInstall): string {
   return `${lines.join("\n")}\n`;
 }
 
+export const AGENTS = ["claude", "codex"] as const;
+export type Agent = (typeof AGENTS)[number];
+
+/** `--agent` (repeatable): the agents to integrate, each once. */
+export function collectAgent(value: string, previous: Agent[] = []): Agent[] {
+  if (!(AGENTS as readonly string[]).includes(value))
+    throw new CliError(
+      `Unknown agent "${value}".`,
+      `Use ${AGENTS.join(" or ")}, e.g. --agent codex.`,
+      EXIT.usage,
+    );
+  return previous.includes(value as Agent) ? previous : [...previous, value as Agent];
+}
+
 export function registerSkill(program: Command, io: Io, rootOption: () => string | undefined) {
   program
     .command("skill")
     .description(
-      "install the Claude Code integration: the protocol skill and the MCP server in .mcp.json (never overwrites, except the skill with --update)",
+      "install the agent integration: for Claude Code the protocol skill and the MCP server in .mcp.json, for Codex AGENTS.md and .codex/config.toml (never overwrites, except the skill with --update)",
+    )
+    .option(
+      "--agent <name>",
+      "agent to integrate: claude (default) or codex; repeat for both",
+      collectAgent,
     )
     .option("--no-mcp", "only the skill, without touching .mcp.json")
     .option(
@@ -182,34 +202,50 @@ export function registerSkill(program: Command, io: Io, rootOption: () => string
     .option("--json", "machine-readable output")
     .action(
       async (opts: {
+        agent?: Agent[];
         mcp: boolean;
         update?: boolean;
         force?: boolean;
         hooks?: boolean;
         json?: boolean;
       }) => {
+        const agents = opts.agent ?? ["claude"];
         if (opts.force && !opts.update)
           throw new CliError(
             "--force only goes with --update.",
             "Run `konsora skill --update --force`.",
             EXIT.usage,
           );
+        if ((opts.hooks || opts.update) && !agents.includes("claude"))
+          throw new CliError(
+            "--hooks and --update are for the Claude Code integration.",
+            "Add --agent claude, or drop them.",
+            EXIT.usage,
+          );
         const root = locate(io, rootOption());
-        const install = opts.update
-          ? updateSkill(root, { mcp: opts.mcp, force: Boolean(opts.force) })
-          : installSkill(root, { mcp: opts.mcp });
-        const result: SkillInstall & { hooks?: HooksInstall } = await install.catch(
-          (error: Error) => {
-            if (error instanceof CliError) throw error;
-            throw new CliError(`Could not install the integration: ${error.message}`);
-          },
-        );
-        if (opts.hooks)
-          result.hooks = await installHooks(root).catch((error: Error) => {
-            throw new CliError(`Could not add the hooks: ${error.message}`);
-          });
+        const fail = (what: string) => (error: Error) => {
+          if (error instanceof CliError) throw error;
+          throw new CliError(`Could not install ${what}: ${error.message}`);
+        };
+        const result: Partial<SkillInstall> & { hooks?: HooksInstall; codex?: CodexInstall } = {};
+        let text = "";
+        if (agents.includes("claude")) {
+          const install = opts.update
+            ? updateSkill(root, { mcp: opts.mcp, force: Boolean(opts.force) })
+            : installSkill(root, { mcp: opts.mcp });
+          Object.assign(result, await install.catch(fail("the integration")));
+          text += describeInstall(result as SkillInstall);
+          if (opts.hooks) {
+            result.hooks = await installHooks(root).catch(fail("the hooks"));
+            text += describeHooks(result.hooks);
+          }
+        }
+        if (agents.includes("codex")) {
+          result.codex = await installCodex(root).catch(fail("the Codex integration"));
+          text += describeCodex(result.codex);
+        }
         if (opts.json) json(io, result);
-        else io.stdout(describeInstall(result) + (result.hooks ? describeHooks(result.hooks) : ""));
+        else io.stdout(text);
       },
     );
 }

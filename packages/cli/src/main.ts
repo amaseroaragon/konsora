@@ -7,6 +7,7 @@ import { GroupIdSchema, SCHEMA_VERSION, type TaskState, type TasksDocument } fro
 import { initTasks, tasksPath } from "@konsora/core/store";
 import { Command, CommanderError, Option } from "commander";
 import { registerArchive } from "./archive.ts";
+import { codexHint, codexSnippet, describeCodex, installCodex } from "./codex.ts";
 import {
   issuesText,
   logText,
@@ -32,7 +33,15 @@ import {
   statusSkill,
 } from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, staleHours, VERSION } from "./shared.ts";
-import { describeInstall, installSkill, isOutdated, outdatedText, registerSkill } from "./skill.ts";
+import {
+  type Agent,
+  collectAgent,
+  describeInstall,
+  installSkill,
+  isOutdated,
+  outdatedText,
+  registerSkill,
+} from "./skill.ts";
 import { registerUi } from "./ui.ts";
 import { parseDifficulty, registerWriteCommands } from "./write.ts";
 
@@ -60,9 +69,11 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .option("--group <id>", "id of the first group, 1–6 uppercase letters/digits", "TASK")
     .option("--group-name <name>", "name of the first group", "Tasks")
     .option(
-      "--no-claude",
-      "do not install the Claude Code integration (.claude/skills/konsora and .mcp.json)",
+      "--agent <name>",
+      "agent to integrate: claude (default: .claude/skills/konsora and .mcp.json) or codex (AGENTS.md and .codex/config.toml); repeat for both",
+      collectAgent,
     )
+    .option("--no-claude", "do not install any agent integration")
     .option(
       "--hooks",
       "also add the Claude Code hooks to .claude/settings.json (plan status at session start, reminder at stop)",
@@ -73,15 +84,23 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
         name?: string;
         group: string;
         groupName: string;
+        agent?: Agent[];
         claude: boolean;
         hooks?: boolean;
         json?: boolean;
       }) => {
         const target = resolve(io.cwd, root() ?? ".");
-        if (opts.hooks && !opts.claude)
+        if (opts.agent && !opts.claude)
           throw new CliError(
-            "--hooks are part of the Claude Code integration, which --no-claude skips.",
+            "--agent and --no-claude contradict each other.",
             "Drop one of the two options.",
+            EXIT.usage,
+          );
+        const agents: Agent[] = opts.agent ?? (opts.claude ? ["claude"] : []);
+        if (opts.hooks && !agents.includes("claude"))
+          throw new CliError(
+            "--hooks are part of the Claude Code integration, which this init skips.",
+            "Add --agent claude, or drop --hooks.",
             EXIT.usage,
           );
         if (!GroupIdSchema.safeParse(opts.group).success) {
@@ -114,7 +133,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
           }
           throw new CliError(result.error.message);
         }
-        const skill = opts.claude
+        const skill = agents.includes("claude")
           ? await installSkill(target).catch((error: Error) => {
               throw new CliError(
                 `Created the plan, but could not install the Claude Code integration: ${error.message}`,
@@ -130,12 +149,21 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
               );
             })
           : undefined;
+        const codex = agents.includes("codex")
+          ? await installCodex(target).catch((error: Error) => {
+              throw new CliError(
+                `Created the plan, but could not install the Codex integration: ${error.message}`,
+                "Fix it and run `konsora skill --agent codex`.",
+              );
+            })
+          : undefined;
         if (opts.json) json(io, result.document);
         else {
           io.stdout(
             `Created ${relative(io.cwd, tasksPath(target)) || tasksPath(target)} (project "${doc.project.name}", group ${opts.group}).\n` +
               (skill ? describeInstall(skill) : "") +
               (hooks ? describeHooks(hooks) : "") +
+              (codex ? describeCodex(codex) : "") +
               "Next: open the board with `konsora ui`, and ask Claude to plan with you (or use `konsora plan`): its tasks go straight to the board, ready to work on.\n",
           );
         }
@@ -267,8 +295,9 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .action(async (opts: { printConfig?: ConfigTarget }) => {
       if (opts.printConfig) {
         const dir = locate(io, root());
-        io.stdout(configSnippet(opts.printConfig, dir));
-        io.stderr(configHint(opts.printConfig));
+        const codex = opts.printConfig === "codex";
+        io.stdout(codex ? codexSnippet(dir) : configSnippet(opts.printConfig, dir));
+        io.stderr(codex ? codexHint() : configHint(opts.printConfig));
         return;
       }
       await serveStdio(io, root());
