@@ -102,6 +102,7 @@ Más comandos de la CLI: `init`, `skill`, `export --done [--since <fecha>] | --p
 
 - **Sesión de planificación**: `konsora plan [objetivo] [--model …]` abre en la terminal una sesión interactiva de Claude Code con el prompt de entrevista de `core` y solo el MCP de Konsora con `KONSORA_PLAN=1` (`--strict-mcp-config --mcp-config <json> --allowedTools=<PLAN_TOOLS>`). El panel de IA hace lo mismo en modo `-p`. En ese modo la regla de `core` (`OpContext.plan`) solo deja crear tareas, revisar, reordenar, dividir, enlazar, pasar a `todo` o devolver a idea y borrar las que nadie empezó; el resto da `out_of_scope`.
 - **Sesión normal**: el agente usa `konsora` o el MCP de `.mcp.json`, que funcionan sin daemon, y sigue la skill.
+- **Prompts y recursos MCP**: el servidor ofrece los prompts `next` (la siguiente tarea lista con su detalle y los pasos del protocolo), `resume` (las tareas en curso del propio agente, con sus notas) y `plan` (la entrevista de `buildPlanPrompt`, con un objetivo opcional), que Claude Code muestra como `/mcp__konsora__next`, etc. También ofrece el recurso de solo lectura `konsora://status`, con el mismo JSON que la herramienta `status`. Los prompts solo leen el plan: el agente actúa después con las herramientas y sus reglas.
 - Los mensajes de la CLI y el MCP están en inglés y los errores son accionables: `Error: BE-03 is blocked by BE-02. Pick another task with konsora ready…`.
 
 ## 7. UI

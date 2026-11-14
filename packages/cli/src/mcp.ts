@@ -9,6 +9,7 @@ import { DIFFICULTIES, TaskStateSchema } from "@konsora/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { registerPromptsAndResources } from "./mcp-prompts.ts";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
 import {
@@ -159,6 +160,7 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
   );
 
   registerWriteTools(server, io, root);
+  registerPromptsAndResources(server, io, root);
   return server;
 }
 
