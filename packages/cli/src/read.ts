@@ -17,6 +17,7 @@ import { parseBefore } from "./archive.ts";
 import { issuesText, readyViews, STATES, type TaskView, views } from "./format.ts";
 import { HINTS } from "./hints.ts";
 import { CliError, EXIT } from "./shared.ts";
+import { isOutdated, type SkillState, skillState } from "./skill.ts";
 
 /** When `status` looks at the clock: what counts as an abandoned task in progress (CORE-10). */
 export type StaleCheck = { now: Date; hours: number };
@@ -24,6 +25,7 @@ export type StaleCheck = { now: Date; hours: number };
 export function statusData(
   doc: TasksDocument,
   stale: StaleCheck = { now: new Date(), hours: STALE_AFTER_HOURS },
+  skill?: SkillState,
 ) {
   const list = views(doc);
   const byState = Object.fromEntries(
@@ -42,6 +44,8 @@ export function statusData(
     proposed: list.filter((t) => t.state === "proposed").map((t) => t.id),
     // CORE-19: each milestone with its done and total tasks; absent when the plan has none.
     ...(doc.milestones?.length ? { milestones: milestoneProgress(doc) } : {}),
+    // CLI-03: the installed protocol skill, only when it is older than this checkout's.
+    ...(skill && isOutdated(skill) ? { skillOutdated: skill } : {}),
   };
 }
 
@@ -204,4 +208,9 @@ export async function logData(
     (entry) => since === undefined || entry.at >= since,
   );
   return filter.limit === undefined ? entries : entries.slice(0, filter.limit);
+}
+
+/** The installed skill's state for `status`; a skill that cannot be read is not reported. */
+export function statusSkill(root: string): Promise<SkillState | undefined> {
+  return skillState(root).catch(() => undefined);
 }

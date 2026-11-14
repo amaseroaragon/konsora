@@ -2,6 +2,7 @@
 name: konsora
 description: Plan and track work in this project's Konsora board (.konsora/tasks.json). Use it whenever you plan tasks, pick what to work on, report progress, ask the human something, or finish a task.
 ---
+<!-- konsora-skill-version: 1 -->
 
 # Konsora protocol
 
@@ -11,7 +12,7 @@ Run each `konsora` command on its own, not chained with `&&`, `;` or pipes: perm
 
 ## MCP tools
 
-If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `check`. Writes: `propose`, `batch`, `edit`, `move`, `split`, `delete`, `promote`, `demote`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`, and `add_group`, `rename_group`, `remove_group` for groups and `add_milestone`, `edit_milestone`, `remove_milestone` for milestones. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
+If this session has Konsora's MCP server (tools named like `mcp__konsora__status`), **prefer its tools over the shell commands**: they are the same operations with the same rules and errors, they need no shell quoting, and they sign your writes for you (no `--as`). Reads: `status`, `list`, `ready`, `blocked`, `show`, `log`, `check`, and `next` (with `start: true` it also starts the task). Writes: `propose`, `batch`, `edit`, `move`, `split`, `delete`, `promote`, `demote`, `depend`, `undepend`, `start`, `pause`, `note`, `ask`, `finish`, and `add_group`, `rename_group`, `remove_group` for groups and `add_milestone`, `edit_milestone`, `remove_milestone` for milestones. Without the server, use the `konsora` command as described below. `konsora init` (or `konsora skill`) adds the server to the project's `.mcp.json`.
 
 In a planning session (`konsora plan` or the AI panel of the Konsora UI; the server's instructions say so), interview the human, then create the tasks with `batch`; you may only create, revise, split or delete tasks nobody started, and nothing is started.
 
@@ -27,9 +28,9 @@ Tasks go `todo → doing → done`. There is **no approval and no review**: what
 
 ## Session flow
 
-1. `konsora status`: what is waiting for an answer, what is in progress and what is ready.
-2. Pick work: `konsora ready`, then `konsora show <ID>` and read the description, acceptance criteria and notes.
-3. `konsora start <ID> -m "<your plan>"`.
+1. `konsora status`: what is waiting for an answer, what is in progress and what is ready. `konsora log` lists what was finished lately, newest first (`--since <date>`, `--limit <n>`).
+2. Pick work: `konsora next` shows the next ready task with its description, acceptance criteria and notes (or explains why none is ready). To choose another, `konsora ready`, then `konsora show <ID>`.
+3. `konsora start <ID> -m "<your plan>"` (or `konsora next --start -m "<your plan>"`). It prints the closing summary of each dependency the task builds on: read them before you work.
 4. Work. Record progress with `konsora note <ID> "<what changed>"` at meaningful steps.
 5. Blocked on a decision? `konsora ask <ID> "<question>"`, ask the human in the conversation too, then **stop** and wait. When the decision is a choice, offer the answers with `--option "<A>" --option "<B>"` (`options` in the MCP tool): the human picks one with a click.
 6. Done? Commit your work, then `konsora finish <ID> --summary "<what you did and how it meets each acceptance criterion>"`, with the evidence for each criterion: `--evidence ac1="<command that passes or result>"` (repeat per criterion; `--unmet ac2="<why>"` for one you could not meet; `evidence` in the MCP tool). The human sees it next to each criterion. Pass the hashes of the commits you made for the task with `--commit <sha>` (repeat per commit; `commits` in the MCP tool), so the human can find the code. Stopping midway: `konsora pause <ID> -m "<why>"`.

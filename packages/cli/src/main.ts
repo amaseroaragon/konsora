@@ -28,9 +28,10 @@ import {
   parseLimit,
   showAnyData,
   statusData,
+  statusSkill,
 } from "./read.ts";
 import { CliError, EXIT, type Io, json, load, locate, staleHours, VERSION } from "./shared.ts";
-import { describeInstall, installSkill, registerSkill } from "./skill.ts";
+import { describeInstall, installSkill, isOutdated, outdatedText, registerSkill } from "./skill.ts";
 import { registerUi } from "./ui.ts";
 import { parseDifficulty, registerWriteCommands } from "./write.ts";
 
@@ -131,10 +132,14 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
     .action(async (opts: { json?: boolean; staleAfter?: string }) => {
       const check = { now: io.now?.() ?? new Date(), hours: staleHours(io.env, opts.staleAfter) };
       const { root: dir, doc } = await load(io, root());
+      const skill = await statusSkill(dir);
       if (opts.json) {
-        json(io, statusData(doc, check));
+        json(io, statusData(doc, check, skill));
       } else {
-        io.stdout(statusText(doc, relative(io.cwd, tasksPath(dir)) || tasksPath(dir), check));
+        io.stdout(
+          statusText(doc, relative(io.cwd, tasksPath(dir)) || tasksPath(dir), check) +
+            (skill && isOutdated(skill) ? outdatedText(skill) : ""),
+        );
       }
     });
 

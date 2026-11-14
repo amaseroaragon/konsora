@@ -11,7 +11,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { guarded, ok } from "./mcp-result.ts";
 import { registerWriteTools } from "./mcp-write.ts";
-import { checkData, LIST_PRESETS, listData, logData, showAnyData, statusData } from "./read.ts";
+import {
+  checkData,
+  LIST_PRESETS,
+  listData,
+  logData,
+  showAnyData,
+  statusData,
+  statusSkill,
+} from "./read.ts";
 import { type Io, load, locate, sessionScope, staleHours, VERSION } from "./shared.ts";
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
@@ -57,13 +65,14 @@ export function createMcpServer(io: Io, root: string | undefined): McpServer {
     {
       title: "Plan status",
       description:
-        "Summary of the plan: counts per state, ids that are ready, blocked, waiting, abandoned (stale: in progress with no recent activity) or ideas (proposed), the milestones with their progress, and the project (its task templates in project.templates).",
+        "Summary of the plan: counts per state, ids that are ready, blocked, waiting, abandoned (stale: in progress with no recent activity) or ideas (proposed), the milestones with their progress, the project (its task templates in project.templates), and skillOutdated when the project's Konsora skill is older than this server's (tell the human to run `konsora skill --update`).",
       annotations: READ_ONLY,
     },
     () =>
       guarded(async () => {
-        const { doc } = await load(io, root);
-        return ok(statusData(doc, { now: io.now?.() ?? new Date(), hours: staleHours(io.env) }));
+        const { root: dir, doc } = await load(io, root);
+        const check = { now: io.now?.() ?? new Date(), hours: staleHours(io.env) };
+        return ok(statusData(doc, check, await statusSkill(dir)));
       }),
   );
 
