@@ -1519,7 +1519,7 @@
     {
       "id": "CLI-03",
       "title": "Actualizar la skill instalada cuando cambia el protocolo",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzv",
       "desc": "`konsora init` y `konsora skill` nunca sobrescriben `SKILL.md`, así que un proyecto inicializado antes de M12 o M14 conserva una skill que habla de aprobación o de bloques, y el agente sigue un protocolo que ya no existe. Marcar la skill con su versión, avisar cuando la instalada es anterior y permitir actualizarla de forma explícita.",
@@ -1544,7 +1544,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:37:52Z"
+      "started": {
+        "at": "2026-11-14T17:39:06Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:41:28Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:39:06Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Marca <!-- konsora-skill-version: N --> en assets/SKILL.md y assets/skill-releases.json con los sha256 de cada versión publicada (las 18 anteriores sin marca cuentan como v0). status avisa si la instalada es anterior; skill --update la sustituye si su hash es conocido, y con --force si se editó a mano."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:41:28Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "La skill lleva marca de versión y skill-releases.json registra el hash de cada versión publicada; status avisa si la instalada es anterior y `konsora skill --update` la sustituye si no se editó a mano (con --force si se editó).",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Tests 'the asset carries the current version…' y 'status warns with a hint…' en packages/cli/test/skill.test.ts; en este repo, status avisó de v0 frente a v1 con la pista antes de actualizar"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Tests '--update replaces an unedited older skill…' y '--update refuses a skill edited by hand unless --force' en repos temporales (git init); escritura atómica sin restos de .tmp"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Test '--update installs a missing skill; without --update nothing is overwritten' y el test previo de konsora skill ajustado: init y skill siguen sin tocar una skill existente"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "ef83f42"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T17:39:06Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T17:41:28Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-04",
