@@ -1856,7 +1856,7 @@
     {
       "id": "CLI-07",
       "title": "Filtrar konsora list por etiqueta y por texto",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzi",
       "desc": "`list` filtra por estado, grupo y derivados, pero no por etiqueta ni por texto, así que un agente no puede comprobar si algo ya está planificado sin leer el plan entero. Añadir `--label` y `--search` a la CLI y a la herramienta `list` del MCP.",
@@ -1881,12 +1881,64 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:38:28Z"
+      "started": {
+        "at": "2026-11-14T17:46:01Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:48:01Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:46:01Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir label y search a ListFilter reutilizando taskMatches de core; opciones --label/--search en la CLI y en la herramienta list del MCP; tests."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:48:01Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`list` (y `ready`/`blocked`) aceptan `--label` y `--search`, con `taskMatches` de core (la misma regla que la barra de filtro de la UI); la herramienta `list` del MCP acepta `label` y `search`. La búsqueda también mira el id y exige todas las palabras.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Test '--label keeps the tasks with that label and --search matches…' en packages/cli/test/agent-flow.test.ts (mayúsculas y minúsculas mezcladas)"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test 'combines with the other filters': --label con --search, ready, --blocked y --state, todo con --json"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Test 'the MCP list tool takes the same filters': el JSON del MCP coincide con el de la CLI en cuatro combinaciones"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "2a90453"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T17:46:01Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T17:48:01Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-08",
       "title": "Instalar hooks de Claude Code: plan al abrir sesión y aviso al parar con tareas en curso",
-      "state": "proposed",
+      "state": "todo",
       "group": "CLI",
       "rank": "zzzzzzr",
       "desc": "Hoy el agente solo sigue el protocolo si decide cargar la skill. Con hooks de Claude Code en el proyecto (opcionales en `konsora init`), cada sesión arrancaría viendo el estado del plan, y al terminar un turno con una tarea suya en `doing` recibiría el recordatorio de anotar, pausar o terminar. Hay que comprobar antes en la documentación oficial qué hooks y qué formato admite `.claude/settings.json`.",
@@ -1915,12 +1967,19 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "updated_at": "2026-11-14T17:43:39Z",
+      "events": [
+        {
+          "at": "2026-11-14T17:43:39Z",
+          "by": "human",
+          "type": "promote"
+        }
+      ]
     },
     {
       "id": "CLI-09",
       "title": "Integrar otros agentes en init: Codex y AGENTS.md",
-      "state": "proposed",
+      "state": "todo",
       "group": "CLI",
       "rank": "zzzzzzx",
       "desc": "Idea del roadmap («Otros agentes»). `init` solo integra Claude Code y `--print-config` solo conoce `claude`. Añadir la integración de Codex (instrucciones en `AGENTS.md` y su configuración del servidor MCP), tras verificar sus condiciones y formatos oficiales.",
@@ -1945,12 +2004,19 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "updated_at": "2026-11-14T17:43:37Z",
+      "events": [
+        {
+          "at": "2026-11-14T17:43:37Z",
+          "by": "human",
+          "type": "promote"
+        }
+      ]
     },
     {
       "id": "CLI-10",
       "title": "Añadir konsora doctor: diagnosticar la instalación del proyecto",
-      "state": "proposed",
+      "state": "todo",
       "group": "CLI",
       "rank": "zzzzzzy",
       "desc": "Cuando algo no funciona (el MCP no aparece, el panel de IA falla, el daemon es antiguo) hay que revisar varias piezas a mano. Un comando que compruebe todo lo que Konsora necesita y diga cómo arreglar cada cosa.",
@@ -1975,7 +2041,14 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "updated_at": "2026-11-14T17:43:24Z",
+      "events": [
+        {
+          "at": "2026-11-14T17:43:24Z",
+          "by": "human",
+          "type": "promote"
+        }
+      ]
     },
     {
       "id": "CLI-11",
@@ -2082,7 +2155,7 @@
     {
       "id": "MCP-02",
       "title": "Ofrecer prompts y recursos MCP: el plan como recurso y «trabaja la siguiente tarea»",
-      "state": "proposed",
+      "state": "todo",
       "group": "MCP",
       "rank": "zzzzzzv",
       "desc": "El servidor MCP solo expone herramientas. Con prompts MCP, Claude Code ofrecería como comandos «trabaja la siguiente tarea lista», «planifica» o «retoma lo que está en curso»; con un recurso, el plan se podría adjuntar a la conversación con una mención.",
@@ -2107,7 +2180,14 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "updated_at": "2026-11-14T17:43:52Z",
+      "events": [
+        {
+          "at": "2026-11-14T17:43:52Z",
+          "by": "human",
+          "type": "promote"
+        }
+      ]
     },
     {
       "id": "DMN-01",
@@ -3981,7 +4061,7 @@
     {
       "id": "UI-31",
       "title": "Prueba de humo automática de la UI en un navegador real",
-      "state": "proposed",
+      "state": "todo",
       "group": "UI",
       "rank": "zzzzzzzzzzzzi",
       "desc": "Los criterios de UI de cada hito se han verificado a mano en Chrome, y los tests de web son de modelo y de componente: nada comprueba que la UI compilada, servida por el daemon real, cargue y funcione de punta a punta. Una prueba de humo lo cubriría; añade una dependencia de desarrollo (Playwright o similar) que hay que justificar.",
@@ -4006,7 +4086,14 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:31:45Z"
+      "updated_at": "2026-11-14T17:44:00Z",
+      "events": [
+        {
+          "at": "2026-11-14T17:44:00Z",
+          "by": "human",
+          "type": "promote"
+        }
+      ]
     },
     {
       "id": "UI-32",
