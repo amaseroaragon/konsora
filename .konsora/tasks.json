@@ -1613,7 +1613,7 @@
     {
       "id": "CLI-06",
       "title": "Añadir konsora log: el historial de cierres en la terminal y en el MCP",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzz",
       "desc": "El Historial (`completionLog`) solo se ve en la web. Un agente que empieza sesión no puede preguntar qué se cerró últimamente sin listar todas las tareas hechas. Exponerlo en la CLI y como herramienta de lectura del MCP.",
@@ -1638,7 +1638,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:38:21Z"
+      "started": {
+        "at": "2026-11-14T17:33:25Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:35:49Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:33:25Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Añadir logData en read.ts sobre completionLog (con el archivo), el comando log con --since/--limit/--json, la herramienta MCP log de solo lectura y añadirla a PLAN_TOOLS; tests de CLI y MCP."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:35:49Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Comando `konsora log` y herramienta MCP `log` sobre `completionLog` de core, con las tareas archivadas.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Test 'lists the done tasks newest first…' en packages/cli/test/agent-flow.test.ts: fecha, quién cerró y primera línea del resumen, de la más reciente a la más antigua"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Tests de --since (fecha y marca de tiempo), --limit y --json igual a completionLog(plan); opciones inválidas salen con código 2 y pista"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Herramienta MCP log con readOnlyHint, mismo JSON que la CLI, probada con KONSORA_PLAN=1 y añadida a PLAN_TOOLS"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "2e0f78f"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T17:33:25Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T17:35:49Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-07",
