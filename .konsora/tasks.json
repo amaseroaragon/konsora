@@ -1549,7 +1549,7 @@
     {
       "id": "CLI-04",
       "title": "Añadir konsora next: la siguiente tarea lista con todo su contexto",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzx",
       "desc": "Para elegir trabajo el agente encadena `status`, `ready` y `show`. Un solo comando (y su herramienta MCP) que devuelva la primera tarea lista según `rank` con su descripción, criterios y notas, y opcionalmente la empiece.",
@@ -1578,7 +1578,64 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:38:01Z"
+      "started": {
+        "at": "2026-11-14T17:37:25Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:38:44Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:37:25Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "nextData en read.ts (primera tarea lista por rank, o un CliError que explica por qué no hay: plan sin tareas por hacer, todo bloqueado, preguntas sin responder); comando next con --start (igual que start) y herramienta MCP next; test e2e por stdio."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:38:44Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Comando `konsora next` y herramienta MCP `next`: la tarea lista de menor rank con todo el detalle de show, y opcionalmente la empiezan.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Test 'prints the ready task with the lowest rank like show…' en packages/cli/test/agent-flow.test.ts: el texto es idéntico a show y --json a show --json"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test '--start also starts it…': la tarea queda en doing con la nota del plan firmada por agent:claude; con --json devuelve lo mismo que start --json (dependencias incluidas)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Test 'with nothing ready says why…': plan vacío, todo bloqueado (con bloqueadores, en curso y esperando respuesta) y sin tareas por hacer (ideas); sale con código 1 y pista"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "Test e2e por stdio (StdioClientTransport con el binario real): next devuelve lo mismo que next --json y start: true la empieza"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "fbaed2a"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T17:37:25Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T17:38:44Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-05",
