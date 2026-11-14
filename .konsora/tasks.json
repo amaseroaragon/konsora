@@ -2421,7 +2421,7 @@
     {
       "id": "MCP-02",
       "title": "Ofrecer prompts y recursos MCP: el plan como recurso y «trabaja la siguiente tarea»",
-      "state": "todo",
+      "state": "done",
       "group": "MCP",
       "rank": "zzzzzzv",
       "desc": "El servidor MCP solo expone herramientas. Con prompts MCP, Claude Code ofrecería como comandos «trabaja la siguiente tarea lista», «planifica» o «retoma lo que está en curso»; con un recurso, el plan se podría adjuntar a la conversación con una mención.",
@@ -2446,12 +2446,62 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T17:43:52Z",
+      "started": {
+        "at": "2026-11-14T18:45:02Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T18:47:16Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T18:45:02Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Prompts MCP (work-next, resume, plan) con argumentos opcionales y recurso konsora://status de solo lectura con el JSON de status; test por stdio; prueba manual en Claude Code."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T18:47:16Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Prompts MCP `next`, `resume` y `plan`, y recurso `konsora://status` de solo lectura. Los prompts solo leen el plan y, si no pueden leerlo, lo explican en el propio prompt.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "packages/cli/test/mcp-prompts.test.ts por stdio con el binario real: listPrompts da next, resume y plan; getPrompt de cada uno (siguiente tarea con show completo, nada listo, plan inválido, tareas propias en curso, plan con y sin objetivo)"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test 'the status resource has the same content as the status tool…': readResource konsora://status (application/json) coincide con la herramienta status y no escribe nada"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "claude -p (haiku) con el servidor de este checkout: el init lista mcp__konsora__next, mcp__konsora__resume y mcp__konsora__plan, y /mcp__konsora__next hizo que el agente leyera BE-01 e intentara empezarla (start rechazado por los permisos de la prueba). No probado en la sesión interactiva"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "ad3e44e"
+      ],
       "events": [
         {
           "at": "2026-11-14T17:43:52Z",
           "by": "human",
           "type": "promote"
+        },
+        {
+          "at": "2026-11-14T18:45:02Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T18:47:16Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     },
