@@ -2379,7 +2379,7 @@
     {
       "id": "CLI-13",
       "title": "Identificar el test intermitente de npm run check",
-      "state": "proposed",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzzzzzzzx",
       "desc": "Al comprobar MCP-02 (commit ad3e44e), una ejecución de npm run check dio 1 test fallido de 950 y no se guardó cuál. Nueve ejecuciones posteriores pasaron enteras. Probablemente es uno de los tests con procesos reales (daemon, stdio de MCP o claude) que agota su tiempo bajo carga.",
@@ -2394,7 +2394,54 @@
         "at": "2026-11-14T18:50:18Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T18:50:18Z"
+      "started": {
+        "at": "2026-11-14T19:31:51Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T19:42:52Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T19:31:51Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Reproducir con la suite bajo carga (dos ejecuciones a la vez, con reporter JSON para guardar el nombre del test que falla), identificar la causa y corregirla o darle margen."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T19:42:52Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "El fallo intermitente tenía dos causas, reproducidas al ejecutar la suite dos y tres veces a la vez (fallaron 7 de 8 ejecuciones). (1) Los tests que lanzan procesos reales de Node (konsora mcp por stdio, el binario) o hacen muchas escrituras reales con fsync usaban el límite de 5 s de vitest; cada arranque del servidor tarda unos 0,6 s sin carga. Ahora usan SLOW_TIMEOUT (30 s). (2) La prueba de rendimiento de validar 2000 tareas medía una sola ejecución en reloj de pared; ahora toma la mejor de 5 en tiempo de CPU del propio proceso. El fallo original de MCP-02 era casi seguro uno de los tests de stdio, aunque no guardé su salida.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "Identificados por nombre con el reporter JSON bajo carga: los tests de stdio de mcp-config, mcp-prompts, mcp y agent-flow, el de mcp-write y el de rendimiento de semantics. Corregidos con límite propio y midiendo tiempo de CPU, con la causa en el commit f2817be y en packages/cli/test/slow-timeout.ts. Tras el cambio, 16 ejecuciones con tres y dos suites a la vez, ninguna fallida"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "f2817be"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T19:31:25Z",
+          "by": "human",
+          "type": "promote"
+        },
+        {
+          "at": "2026-11-14T19:31:51Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T19:42:52Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "MCP-01",
