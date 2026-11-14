@@ -88,6 +88,37 @@ export function listData(
   return preset === LIST_PRESETS.ready || filter.ready ? readyViews(list) : list;
 }
 
+/**
+ * The next task to take (CLI-04): the ready task with the lowest `rank`, in the shape of `show`.
+ * With none ready, the error says why: nothing left to do, everything blocked, and which tasks
+ * wait for an answer from the human.
+ */
+export function nextData(doc: TasksDocument): TaskView {
+  const list = views(doc);
+  const first = readyViews(list)[0];
+  if (first) return first;
+  const ids = (items: TaskView[]) => items.map((t) => t.id).join(", ");
+  const todo = list.filter((t) => t.state === "todo");
+  const doing = list.filter((t) => t.state === "doing");
+  const ideas = list.filter((t) => t.state === "proposed");
+  const waiting = list.filter((t) => t.waiting);
+  const facts: string[] = [];
+  if (doing.length) facts.push(`In progress: ${ids(doing)}.`);
+  if (waiting.length) facts.push(`Waiting for an answer from the human: ${ids(waiting)}.`);
+  if (todo.length === 0) {
+    const what =
+      list.length === 0
+        ? "The plan is empty."
+        : `No task is left to do${ideas.length ? ` (ideas: ${ids(ideas)})` : ""}.`;
+    throw new CliError([`No task is ready. ${what}`, ...facts].join("\n"), HINTS.nothingToDo);
+  }
+  const blocked = todo.map((t) => `${t.id} by ${t.blockers.join(", ")}`).join("; ");
+  throw new CliError(
+    [`No task is ready: every todo task is blocked (${blocked}).`, ...facts].join("\n"),
+    HINTS.allBlocked,
+  );
+}
+
 export function showData(doc: TasksDocument, id: string): TaskView {
   const view = views(doc).find((t) => t.id === id.toUpperCase());
   if (!view) throw new CliError(`Task ${id} does not exist.`, HINTS.unknownTask);

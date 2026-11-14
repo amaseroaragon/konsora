@@ -31,8 +31,8 @@ const listFilter = {
 const GUIDE =
   "Konsora keeps this project's plan in .konsora/tasks.json. Read it with status, ready and " +
   "show, and log for what was finished lately. Plan by creating tasks (propose, batch): they " +
-  "go straight to todo, no approval. Work " +
-  "one task at a time: start it, add notes as you go, ask when blocked on a decision (then " +
+  "go straight to todo, no approval. Work one task at a time (next gives the one to take): " +
+  "start it, add notes as you go, ask when blocked on a decision (then " +
   "stop and wait), and finish with a summary of how you met each acceptance criterion. Humans " +
   "reopen tasks and change finished work; there are no tools for that. Never edit " +
   ".konsora/tasks.json by hand.";

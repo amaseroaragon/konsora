@@ -86,6 +86,14 @@ export const HINTS = {
     cli: "Human actions (reopen, answer) happen in the Konsora UI.",
     mcp: "Human actions (reopen, answer) happen in the Konsora UI; set KONSORA_AGENT to the agent's name.",
   },
+  nothingToDo: {
+    cli: "Promote an idea with `konsora promote <id>`, or create tasks with `konsora propose` or `konsora batch`.",
+    mcp: "Promote an idea with the promote tool, or create tasks with propose or batch.",
+  },
+  allBlocked: {
+    cli: "Finish the tasks in progress that the others depend on (`konsora list --state doing`), or wait for them.",
+    mcp: "Finish the tasks in progress that the others depend on (list with state doing), or wait for them.",
+  },
   agentName: {
     cli: "Use lowercase letters, digits, dots, dashes or underscores, e.g. --as claude.",
     mcp: "Set KONSORA_AGENT to lowercase letters, digits, dots, dashes or underscores, e.g. claude.",

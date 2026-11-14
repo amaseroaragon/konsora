@@ -25,12 +25,13 @@ import type { Command } from "commander";
 import { z } from "zod";
 import { dependenciesText, showText, type TaskView, views } from "./format.ts";
 import { HINTS, opHint } from "./hints.ts";
-import { archivedTasks } from "./read.ts";
+import { archivedTasks, nextData } from "./read.ts";
 import {
   CliError,
   EXIT,
   type Io,
   json,
+  load,
   locate,
   sessionScope,
   storeError,
@@ -666,6 +667,32 @@ export function registerWriteCommands(
       const task = id.toUpperCase();
       const outcome = await applied({ op: "start", task, ...(plan ? { text: plan } : {}) }, opts);
       const result = await startResult(locate(io, rootOption()), outcome, task);
+      if (opts.json) json(io, result.json);
+      else io.stdout(result.text);
+    });
+
+  withText(withAgent(program.command("next")))
+    .description(
+      "the next task to take: the ready one with the lowest rank, in full (exit 1 if none is ready)",
+    )
+    .option("--start", "also start it, as `konsora start <id>` (the text options note your plan)")
+    .action(async (opts: TextOptions & { start?: boolean; as?: string; json?: boolean }) => {
+      const { doc } = await load(io, rootOption());
+      const view = nextData(doc);
+      if (!opts.start) {
+        if (opts.json) json(io, view);
+        else io.stdout(showText(doc, view));
+        return;
+      }
+      const plan =
+        opts.message || opts.file || opts.stdin
+          ? await readText(io, undefined, opts, "plan")
+          : undefined;
+      const outcome = await applied(
+        { op: "start", task: view.id, ...(plan ? { text: plan } : {}) },
+        opts,
+      );
+      const result = await startResult(locate(io, rootOption()), outcome, view.id);
       if (opts.json) json(io, result.json);
       else io.stdout(result.text);
     });

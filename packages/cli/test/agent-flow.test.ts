@@ -6,8 +6,10 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { completionLog, serializeDocument, type Task, type TasksDocument } from "@konsora/core";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -234,6 +236,103 @@ describe("start hands over the dependencies' closing summaries", () => {
     seed();
     const { call, close } = await connect({ KONSORA_AGENT: "claude" });
     expect((await call("start", { id: "BE-05" })).json()).not.toHaveProperty("dependencies");
+    await close();
+  });
+});
+
+describe("konsora next", () => {
+  it("prints the ready task with the lowest rank like show, and --json like show --json", async () => {
+    seed();
+    const r = await run(["next"]);
+    expect(r.code).toBe(EXIT.ok);
+    expect(r.stdout).toBe((await run(["show", "BE-05"])).stdout);
+    expect((await run(["next", "--json"])).json()).toEqual(
+      (await run(["show", "BE-05", "--json"])).json(),
+    );
+  });
+
+  it("--start also starts it, with what start prints", async () => {
+    seed();
+    const r = await run(["next", "--start", "--as", "claude", "-m", "Do it"]);
+    expect(r.code).toBe(EXIT.ok);
+    expect(r.stdout).toMatch(/^Started BE-05 \(doing\)\./);
+    const started = (await run(["show", "BE-05", "--json"])).json();
+    expect(started.state).toBe("doing");
+    expect(started.notes.at(-1)).toMatchObject({ by: "agent:claude", text: "Do it" });
+    // The next one is BE-04, whose start hands over its dependencies' summaries.
+    const json = (await run(["next", "--start", "--as", "claude", "--json"])).json();
+    expect(json.tasks[0]).toMatchObject({ id: "BE-04", state: "doing" });
+    expect(json.dependencies.map((e: { id: string }) => e.id)).toEqual(["BE-01", "BE-02"]);
+  });
+
+  it("with nothing ready says why and exits non-zero", async () => {
+    seed({ ...plan(), tasks: [] });
+    let r = await run(["next"]);
+    expect(r.code).toBe(EXIT.failure);
+    expect(r.stderr).toContain("No task is ready. The plan is empty.");
+    expect(r.stderr).toContain("Hint: Promote an idea");
+
+    const base = plan();
+    const at = "2026-11-06T10:00:00Z";
+    seed({
+      ...base,
+      tasks: [
+        t("BE-01", "doing", [], {
+          notes: [{ id: "n1", at, by: "agent:claude", kind: "question", text: "Which API?" }],
+        }),
+        t("BE-02", "todo", ["BE-01"]),
+        t("BE-03", "proposed"),
+      ],
+    });
+    r = await run(["next"]);
+    expect(r.code).toBe(EXIT.failure);
+    expect(r.stderr).toContain("every todo task is blocked (BE-02 by BE-01)");
+    expect(r.stderr).toContain("In progress: BE-01.");
+    expect(r.stderr).toContain("Waiting for an answer from the human: BE-01.");
+    expect(r.stderr).toContain("Hint: Finish the tasks in progress");
+
+    seed({ ...base, tasks: [t("BE-01", "done"), t("BE-03", "proposed")] });
+    r = await run(["next", "--start", "--as", "claude"]);
+    expect(r.code).toBe(EXIT.failure);
+    expect(r.stderr).toContain("No task is left to do (ideas: BE-03).");
+  });
+
+  it("the MCP next tool returns the same over stdio, and starts it with start: true", async () => {
+    seed();
+    const expected = (await run(["next", "--json"])).json();
+    const bin = fileURLToPath(new URL("../src/bin.ts", import.meta.url));
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [bin, "mcp", "--root", dir],
+      cwd: tmpdir(),
+      env: { ...process.env, KONSORA_AGENT: "claude" } as Record<string, string>,
+      stderr: "pipe",
+    });
+    const client = new Client({ name: "test", version: "0.0.0" });
+    await client.connect(transport);
+    const call = async (args: Record<string, unknown>) => {
+      const result = (await client.callTool({ name: "next", arguments: args })) as CallToolResult;
+      const first = result.content[0];
+      return { isError: Boolean(result.isError), text: first?.type === "text" ? first.text : "" };
+    };
+    const shown = await call({});
+    expect(shown.isError).toBe(false);
+    expect(JSON.parse(shown.text)).toEqual(expected);
+    const started = await call({ start: true, plan: "Go" });
+    expect(started.isError).toBe(false);
+    expect(JSON.parse(started.text).tasks[0]).toMatchObject({ id: "BE-05", state: "doing" });
+    await client.close();
+    expect((await run(["show", "BE-05", "--json"])).json().notes.at(-1)).toMatchObject({
+      by: "agent:claude",
+      text: "Go",
+    });
+
+    seed({ ...plan(), tasks: [] });
+    const { call: inMemory, close } = await connect();
+    const none = await inMemory("next");
+    expect(none.isError).toBe(true);
+    expect(none.text).toContain("No task is ready. The plan is empty.");
+    expect(none.text).toContain("Hint: Promote an idea with the promote tool");
     await close();
   });
 });

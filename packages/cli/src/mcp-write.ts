@@ -19,7 +19,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { opHint } from "./hints.ts";
 import { failure, guarded, ok } from "./mcp-result.ts";
-import { type Io, locate } from "./shared.ts";
+import { nextData } from "./read.ts";
+import { type Io, load, locate } from "./shared.ts";
 import {
   agentActor,
   BatchSchema,
@@ -335,31 +336,51 @@ export function registerWriteTools(server: McpServer, io: Io, root: string | und
     );
   }
 
+  /** Starts a task; shared by the start tool and `next` with start. */
+  const startTool = (task: string, plan: string | undefined) =>
+    apply(
+      () => ({ op: "start", task, ...(plan ? { text: plan } : {}) }),
+      (doc) => {
+        const found = doc.tasks.find((t) => t.id === task);
+        const model = found && recommendedModel(doc.project, found);
+        // CORE-23: the human's recommendation for this difficulty, only a hint.
+        return `${model ? `Recommended model for this ${found?.difficulty} task: ${model}.\n` : ""}Work on it, then finish it.`;
+      },
+      // CLI-05: the closing summaries of its done dependencies, as `konsora start --json`.
+      async (outcome) => (await startResult(locate(io, root), outcome, task)).json,
+    );
+
   server.registerTool(
     "start",
     {
       title: "Start a task",
-      description: "Start a ready task (todo → doing). Optionally note your plan.",
+      description:
+        "Start a ready task (todo → doing). Optionally note your plan. The result includes the closing summary of each done dependency (dependencies).",
       inputSchema: { id, plan: z.string().min(1).optional().describe("your plan, as a note") },
       annotations: WRITE,
     },
+    (args) => startTool(args.id.toUpperCase(), args.plan),
+  );
+
+  server.registerTool(
+    "next",
+    {
+      title: "Next task",
+      description:
+        "The next task to take: the ready task with the lowest rank, with the same detail as show. With start: true it is also started, and the result is the start tool's. When none is ready, the error says why (all blocked, waiting for answers, or nothing to do).",
+      inputSchema: {
+        start: z.boolean().optional().describe("also start it (todo → doing)"),
+        plan: z.string().min(1).optional().describe("with start: your plan, as a note"),
+      },
+      annotations: WRITE,
+    },
     (args) =>
-      apply(
-        () => ({
-          op: "start",
-          task: args.id.toUpperCase(),
-          ...(args.plan ? { text: args.plan } : {}),
-        }),
-        (doc) => {
-          const task = doc.tasks.find((t) => t.id === args.id.toUpperCase());
-          const model = task && recommendedModel(doc.project, task);
-          // CORE-23: the human's recommendation for this difficulty, only a hint.
-          return `${model ? `Recommended model for this ${task?.difficulty} task: ${model}.\n` : ""}Work on it, then finish it.`;
-        },
-        // CLI-05: the closing summaries of its done dependencies, as `konsora start --json`.
-        async (outcome) =>
-          (await startResult(locate(io, root), outcome, args.id.toUpperCase())).json,
-      ),
+      guarded(async () => {
+        const { doc } = await load(io, root);
+        const view = nextData(doc);
+        if (!args.start) return ok(view);
+        return startTool(view.id, args.plan);
+      }),
   );
 
   server.registerTool(
