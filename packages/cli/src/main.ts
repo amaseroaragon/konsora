@@ -16,6 +16,7 @@ import {
   type TaskView,
   taskTable,
 } from "./format.ts";
+import { describeHooks, installHooks, registerHook } from "./hooks.ts";
 import { serveStdio } from "./mcp.ts";
 import { CONFIG_TARGETS, type ConfigTarget, configHint, configSnippet } from "./mcp-config.ts";
 import { registerMigrate } from "./migrate.ts";
@@ -62,6 +63,10 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
       "--no-claude",
       "do not install the Claude Code integration (.claude/skills/konsora and .mcp.json)",
     )
+    .option(
+      "--hooks",
+      "also add the Claude Code hooks to .claude/settings.json (plan status at session start, reminder at stop)",
+    )
     .option("--json", "print the created plan as JSON")
     .action(
       async (opts: {
@@ -69,9 +74,16 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
         group: string;
         groupName: string;
         claude: boolean;
+        hooks?: boolean;
         json?: boolean;
       }) => {
         const target = resolve(io.cwd, root() ?? ".");
+        if (opts.hooks && !opts.claude)
+          throw new CliError(
+            "--hooks are part of the Claude Code integration, which --no-claude skips.",
+            "Drop one of the two options.",
+            EXIT.usage,
+          );
         if (!GroupIdSchema.safeParse(opts.group).success) {
           throw new CliError(
             `Invalid group id "${opts.group}".`,
@@ -110,11 +122,20 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
               );
             })
           : undefined;
+        const hooks = opts.hooks
+          ? await installHooks(target).catch((error: Error) => {
+              throw new CliError(
+                `Created the plan, but could not add the hooks: ${error.message}`,
+                "Fix it and run `konsora skill --hooks`.",
+              );
+            })
+          : undefined;
         if (opts.json) json(io, result.document);
         else {
           io.stdout(
             `Created ${relative(io.cwd, tasksPath(target)) || tasksPath(target)} (project "${doc.project.name}", group ${opts.group}).\n` +
               (skill ? describeInstall(skill) : "") +
+              (hooks ? describeHooks(hooks) : "") +
               "Next: open the board with `konsora ui`, and ask Claude to plan with you (or use `konsora plan`): its tasks go straight to the board, ready to work on.\n",
           );
         }
@@ -259,6 +280,7 @@ export async function main(argv: readonly string[], io: Io): Promise<number> {
   registerPlan(program, io, root);
   registerSkill(program, io, root);
   registerUi(program, io, root);
+  registerHook(program, io, root);
 
   try {
     await program.parseAsync([...argv], { from: "user" });

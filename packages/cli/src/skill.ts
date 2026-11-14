@@ -13,6 +13,7 @@ import { constants } from "node:fs";
 import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Command } from "commander";
+import { describeHooks, type HooksInstall, installHooks } from "./hooks.ts";
 import { installMcpJson, MCP_JSON, type McpJsonInstall } from "./mcp-config.ts";
 import { CliError, EXIT, type Io, json, locate } from "./shared.ts";
 
@@ -174,23 +175,41 @@ export function registerSkill(program: Command, io: Io, rootOption: () => string
       "replace an older skill with the current protocol (only if not edited by hand)",
     )
     .option("--force", "with --update: replace it even if it was edited by hand")
+    .option(
+      "--hooks",
+      "also add the Claude Code hooks to .claude/settings.json (plan status at session start, reminder at stop)",
+    )
     .option("--json", "machine-readable output")
-    .action(async (opts: { mcp: boolean; update?: boolean; force?: boolean; json?: boolean }) => {
-      if (opts.force && !opts.update)
-        throw new CliError(
-          "--force only goes with --update.",
-          "Run `konsora skill --update --force`.",
-          EXIT.usage,
+    .action(
+      async (opts: {
+        mcp: boolean;
+        update?: boolean;
+        force?: boolean;
+        hooks?: boolean;
+        json?: boolean;
+      }) => {
+        if (opts.force && !opts.update)
+          throw new CliError(
+            "--force only goes with --update.",
+            "Run `konsora skill --update --force`.",
+            EXIT.usage,
+          );
+        const root = locate(io, rootOption());
+        const install = opts.update
+          ? updateSkill(root, { mcp: opts.mcp, force: Boolean(opts.force) })
+          : installSkill(root, { mcp: opts.mcp });
+        const result: SkillInstall & { hooks?: HooksInstall } = await install.catch(
+          (error: Error) => {
+            if (error instanceof CliError) throw error;
+            throw new CliError(`Could not install the integration: ${error.message}`);
+          },
         );
-      const root = locate(io, rootOption());
-      const install = opts.update
-        ? updateSkill(root, { mcp: opts.mcp, force: Boolean(opts.force) })
-        : installSkill(root, { mcp: opts.mcp });
-      const result = await install.catch((error: Error) => {
-        if (error instanceof CliError) throw error;
-        throw new CliError(`Could not install the integration: ${error.message}`);
-      });
-      if (opts.json) json(io, result);
-      else io.stdout(describeInstall(result));
-    });
+        if (opts.hooks)
+          result.hooks = await installHooks(root).catch((error: Error) => {
+            throw new CliError(`Could not add the hooks: ${error.message}`);
+          });
+        if (opts.json) json(io, result);
+        else io.stdout(describeInstall(result) + (result.hooks ? describeHooks(result.hooks) : ""));
+      },
+    );
 }
