@@ -15,6 +15,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EXIT, main } from "../src/main.ts";
 import { createMcpServer } from "../src/mcp.ts";
+import { SLOW_TIMEOUT } from "./slow-timeout.ts";
 
 const at = "2026-11-02T10:00:00Z";
 const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial<Task> = {}) =>
@@ -240,7 +241,7 @@ describe("start hands over the dependencies' closing summaries", () => {
   });
 });
 
-describe("konsora next", () => {
+describe("konsora next", { timeout: SLOW_TIMEOUT }, () => {
   it("prints the ready task with the lowest rank like show, and --json like show --json", async () => {
     seed();
     const r = await run(["next"]);

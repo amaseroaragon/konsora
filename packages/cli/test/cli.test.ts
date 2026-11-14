@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { serializeDocument, type Task, type TasksDocument } from "@konsora/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EXIT, main } from "../src/main.ts";
+import { SLOW_TIMEOUT } from "./slow-timeout.ts";
 
 const at = "2026-11-02T10:00:00Z";
 const t = (
@@ -296,7 +297,7 @@ describe("errors and discovery", () => {
   });
 });
 
-describe("the real binary", () => {
+describe("the real binary", { timeout: SLOW_TIMEOUT }, () => {
   it("runs through Node type stripping and sets the exit code", () => {
     seed();
     const bin = fileURLToPath(new URL("../src/bin.ts", import.meta.url));

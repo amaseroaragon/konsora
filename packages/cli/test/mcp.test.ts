@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { main } from "../src/main.ts";
 import { createMcpServer } from "../src/mcp.ts";
 import type { Io } from "../src/shared.ts";
+import { SLOW_TIMEOUT } from "./slow-timeout.ts";
 
 const at = "2026-11-02T10:00:00Z";
 const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial<Task> = {}) =>
@@ -227,7 +228,7 @@ describe("konsora mcp: read tools", () => {
   });
 });
 
-describe("konsora mcp over stdio", () => {
+describe("konsora mcp over stdio", { timeout: SLOW_TIMEOUT }, () => {
   it("serves the tools to a real stdio client and exits when it disconnects", async () => {
     seed();
     const bin = fileURLToPath(new URL("../src/bin.ts", import.meta.url));

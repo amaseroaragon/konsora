@@ -15,6 +15,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { skillText } from "../src/skill.ts";
+import { SLOW_TIMEOUT } from "./slow-timeout.ts";
 
 const bin = fileURLToPath(new URL("../src/bin.ts", import.meta.url));
 
@@ -52,7 +53,7 @@ function files(dir: string): string[] {
     .sort();
 }
 
-describe("konsora mcp --print-config", () => {
+describe("konsora mcp --print-config", { timeout: SLOW_TIMEOUT }, () => {
   it("prints valid JSON for Claude Code (.mcp.json) pointing to this project's konsora", () => {
     expect(konsora(["init"]).code).toBe(0);
     const r = konsora(["mcp", "--print-config", "claude"]);
@@ -97,7 +98,7 @@ describe("konsora mcp --print-config", () => {
   });
 });
 
-describe("agent configuration", () => {
+describe("agent configuration", { timeout: SLOW_TIMEOUT }, () => {
   it("init writes the skill and .mcp.json in the project, never HOME; print-config writes nothing", () => {
     expect(konsora(["init"]).code).toBe(0);
     const before = files(project);

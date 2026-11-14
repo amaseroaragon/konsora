@@ -9,6 +9,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { main } from "../src/main.ts";
 import { STATUS_URI } from "../src/mcp-prompts.ts";
+import { SLOW_TIMEOUT } from "./slow-timeout.ts";
 
 const at = "2026-11-02T10:00:00Z";
 const t = (id: string, state: Task["state"], deps: string[] = [], extra: Partial<Task> = {}) =>
@@ -76,7 +77,7 @@ async function connect(env: Record<string, string> = {}) {
   return { client, text };
 }
 
-describe("MCP prompts and resources over stdio", () => {
+describe("MCP prompts and resources over stdio", { timeout: SLOW_TIMEOUT }, () => {
   it("lists the prompts and the status resource", async () => {
     seed(plan([t("BE-01", "todo")]));
     const { client } = await connect();

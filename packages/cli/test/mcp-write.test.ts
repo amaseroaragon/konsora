@@ -11,6 +11,7 @@ import { main } from "../src/main.ts";
 import { createMcpServer } from "../src/mcp.ts";
 import { mcpActor } from "../src/mcp-write.ts";
 import type { Io } from "../src/shared.ts";
+import { SLOW_TIMEOUT } from "./slow-timeout.ts";
 
 const at = "2026-11-02T10:00:00Z";
 const now = () => new Date("2026-11-03T08:30:00Z");
@@ -109,7 +110,7 @@ async function cli(dir: string, args: string[]) {
   return { code, stderr, json: () => JSON.parse(stdout) };
 }
 
-describe("konsora mcp: agent write tools", () => {
+describe("konsora mcp: agent write tools", { timeout: SLOW_TIMEOUT }, () => {
   it("each tool writes exactly what the equivalent CLI command writes", async () => {
     const viaCli = project();
     const viaMcp = project();

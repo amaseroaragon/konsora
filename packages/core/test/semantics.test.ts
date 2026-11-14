@@ -174,11 +174,18 @@ describe("validateSemantics", () => {
     });
     const value = JSON.parse(JSON.stringify({ ...doc(), seq: { BE: 2000, FE: 0 }, tasks }));
     validateDocument(value); // warm up the JIT
-    const start = performance.now();
-    const result = validateDocument(value);
-    const elapsed = performance.now() - start;
-    expect(result.ok).toBe(true);
-    expect(elapsed).toBeLessThan(200);
+    // CPU time of this process (each test file runs in its own), best of 5: it measures the code,
+    // not how busy the machine is. Wall-clock time took 200–340 ms with other suites running
+    // alongside, against about 20 ms idle (CLI-13).
+    let best = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < 5; run++) {
+      const start = process.cpuUsage();
+      const result = validateDocument(value);
+      const used = process.cpuUsage(start);
+      best = Math.min(best, (used.user + used.system) / 1000);
+      expect(result.ok).toBe(true);
+    }
+    expect(best).toBeLessThan(200);
   });
 });
 
