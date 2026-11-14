@@ -38,6 +38,7 @@ npm run typecheck              # tsc --noEmit de los paquetes
 npm run format                 # aplica el formato y las correcciones seguras de Biome
 npm test -- packages/core      # tests de un paquete
 npm run schema                 # regenera schema/tasks.v5.schema.json
+npm run smoke                  # prueba de humo de la UI en Chrome sin cabeza (fuera de check)
 npm run install:global         # enlaza el comando `konsora` global (npm link)
 ```
 

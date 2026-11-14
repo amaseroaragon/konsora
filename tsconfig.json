@@ -3,6 +3,12 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["packages/*/src", "packages/*/test", "vitest.config.ts", "packages/*/scripts"],
+  "include": [
+    "packages/*/src",
+    "packages/*/test",
+    "vitest.config.ts",
+    "packages/*/scripts",
+    "scripts"
+  ],
   "exclude": ["packages/web"]
 }

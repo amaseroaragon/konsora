@@ -57,6 +57,7 @@ Dependencias permitidas entre capas: `web → (HTTP/WS) → daemon → core` y `
 | dnd-kit | Arrastrar y soltar accesible | react-beautiful-dnd (abandonado) |
 | vitest + fast-check | Tests y tests de propiedades | jest |
 | @biomejs/biome | Lint y formato en una sola herramienta | eslint + prettier |
+| playwright-core (desarrollo) | Prueba de humo de la UI (`npm run smoke`) en el Google Chrome instalado, sin descargar navegadores | @playwright/test (descarga Chromium y es otro runner), manejar Chrome por CDP a mano (código propio que mantener) |
 
 Cualquier dependencia nueva fuera de esta lista se justifica en el commit que la añade.
 
