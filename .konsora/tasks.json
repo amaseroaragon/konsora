@@ -2215,7 +2215,7 @@
     {
       "id": "CLI-11",
       "title": "Abrir una tarea en la UI desde la terminal",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzzzzzzv",
       "desc": "`konsora ui` abre la lista de proyectos o el proyecto actual, pero no una tarea concreta. Con `konsora ui <ID>` se abriría el tablero con el panel de esa tarea, y `konsora show <ID>` podría imprimir su enlace.",
@@ -2240,7 +2240,59 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-12T21:39:16Z"
+      "started": {
+        "at": "2026-11-14T18:29:56Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T18:31:38Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T18:29:56Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Función pura que genera la URL (#token…&project…&task…), validación del id contra el plan antes de abrir nada, konsora ui [id] y --no-open."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T18:31:38Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "`konsora ui <ID>` abre el tablero con el panel de la tarea: la URL lleva task tras token y project, y bootstrapSession de la web la convierte en la ruta #/p/<proyecto>?task=<ID>, que ya abría el panel. No he añadido el enlace en `show` (la tarea decía que «podría»), porque necesita el daemon en marcha.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "packages/cli/test/ui.test.ts: uiUrl, y e2e con daemon real cuyo --no-open imprime #token=…&project=p-…&task=TASK-01; packages/web/test/shell.test.ts: el fragmento con task se convierte en #/p/<id>?task=BE-04 y parseRoute da task BE-04. No se abrió en un navegador real"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Test 'an unknown or archived id is an actionable error and starts nothing': error con pista, sin salida y sin crear el directorio de datos del daemon (no arranca)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Mismo e2e: --no-open imprime 'Open this URL in your browser (it opens TASK-01)' con la URL de la tarea"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "41e5832"
+      ],
+      "events": [
+        {
+          "at": "2026-11-14T18:29:56Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T18:31:38Z",
+          "by": "agent:claude",
+          "type": "finish"
+        }
+      ]
     },
     {
       "id": "CLI-12",
