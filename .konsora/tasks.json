@@ -1938,7 +1938,7 @@
     {
       "id": "CLI-08",
       "title": "Instalar hooks de Claude Code: plan al abrir sesión y aviso al parar con tareas en curso",
-      "state": "todo",
+      "state": "done",
       "group": "CLI",
       "rank": "zzzzzzr",
       "desc": "Hoy el agente solo sigue el protocolo si decide cargar la skill. Con hooks de Claude Code en el proyecto (opcionales en `konsora init`), cada sesión arrancaría viendo el estado del plan, y al terminar un turno con una tarea suya en `doing` recibiría el recordatorio de anotar, pausar o terminar. Hay que comprobar antes en la documentación oficial qué hooks y qué formato admite `.claude/settings.json`.",
@@ -1967,12 +1967,67 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T17:43:39Z",
+      "started": {
+        "at": "2026-11-14T17:48:27Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:55:02Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:48:27Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Comando de solo lectura 'konsora hook session-start|stop'; instalación con init --hooks / skill --hooks en .claude/settings.json (fusión sin tocar otras claves, nunca sobrescribe un fichero inválido); SessionStart imprime el estado del plan; Stop bloquea una sola vez (stop_hook_active) si hay tareas del agente en doing sin pregunta pendiente."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:55:02Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Hooks opcionales de Claude Code (`init --hooks`, `skill --hooks`) en .claude/settings.json: SessionStart da al agente el estado del plan y Stop le recuerda una vez anotar, pausar o terminar su tarea en curso. Formato verificado en la documentación oficial de hooks. Ambos solo leen el plan. Al probarlo se cambió decision:block por additionalContext, porque block se mostraba como error del hook y el agente lo tomaba como obligatorio.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "packages/cli/test/hooks.test.ts: init --hooks crea los hooks; skill --hooks fusiona respetando permissions, PreToolUse y un Stop propio, y es idempotente; cuatro ficheros inválidos se dejan intactos"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "Sesión real con claude -p (haiku) en un proyecto temporal: sin herramientas respondió 'BE-01 Primera… claimed by claude' solo con el contexto del hook SessionStart; el Stop llegó como feedback una sola vez. En sesión interactiva Claude Code retiene los hooks hasta aceptar la confianza de la carpeta (no probado de forma interactiva)"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Test 'only reads the plan': tasks.json idéntico y sin lock tras ambos hooks; el código solo usa readTasks y no lanza procesos"
+            },
+            {
+              "ac": "ac4",
+              "met": true,
+              "text": "Test 'init without --hooks writes no hook': no existe .claude/settings.json"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "9186263"
+      ],
       "events": [
         {
           "at": "2026-11-14T17:43:39Z",
           "by": "human",
           "type": "promote"
+        },
+        {
+          "at": "2026-11-14T17:48:27Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T17:55:02Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     },
