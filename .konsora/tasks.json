@@ -4397,7 +4397,7 @@
     {
       "id": "UI-31",
       "title": "Prueba de humo automática de la UI en un navegador real",
-      "state": "todo",
+      "state": "done",
       "group": "UI",
       "rank": "zzzzzzzzzzzzi",
       "desc": "Los criterios de UI de cada hito se han verificado a mano en Chrome, y los tests de web son de modelo y de componente: nada comprueba que la UI compilada, servida por el daemon real, cargue y funcione de punta a punta. Una prueba de humo lo cubriría; añade una dependencia de desarrollo (Playwright o similar) que hay que justificar.",
@@ -4422,12 +4422,62 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T17:44:00Z",
+      "started": {
+        "at": "2026-11-14T19:03:18Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T19:08:37Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T19:03:18Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "playwright-core como devDependency (usa el Chrome del sistema, sin descargar navegadores). Script scripts/smoke-ui.ts con 'npm run smoke', fuera de npm run check: proyecto temporal, daemon real con directorios temporales, tablero, grafo e Historial, crear una tarea desde la UI y verla en el tablero y en konsora list."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T19:08:37Z",
+          "by": "agent:claude",
+          "kind": "summary",
+          "text": "Prueba de humo `npm run smoke` (scripts/smoke-ui.ts) con playwright-core 1.64.1 sobre el Google Chrome instalado, sin descargar navegadores. Elegido por el humano frente a @playwright/test y a manejar Chrome por CDP a mano, y justificado en el commit y en arquitectura.md. Encontró un 404 real: la web no declaraba favicon. Arreglado con un icono vacío.",
+          "evidence": [
+            {
+              "ac": "ac1",
+              "met": true,
+              "text": "npm run smoke: proyecto temporal y daemon real con directorios temporales; en Chrome sin cabeza comprueba el tablero (tarjetas y columnas), el grafo (nodos y aristas) y el Historial (cierre con su resumen), y falla ante cualquier error de página, de consola o petición fallida"
+            },
+            {
+              "ac": "ac2",
+              "met": true,
+              "text": "La prueba abre «Nueva tarea», rellena el título y crea BE-04; la ve en el tablero y en konsora list --json con su título"
+            },
+            {
+              "ac": "ac3",
+              "met": true,
+              "text": "Fuera de npm run check (necesita Chrome) y tarda unos 4 s; dependencia justificada en el commit 359dee6 y en la tabla de dependencias"
+            }
+          ]
+        }
+      ],
+      "commits": [
+        "359dee6"
+      ],
       "events": [
         {
           "at": "2026-11-14T17:44:00Z",
           "by": "human",
           "type": "promote"
+        },
+        {
+          "at": "2026-11-14T19:03:18Z",
+          "by": "agent:claude",
+          "type": "start"
+        },
+        {
+          "at": "2026-11-14T19:08:37Z",
+          "by": "agent:claude",
+          "type": "finish"
         }
       ]
     },
