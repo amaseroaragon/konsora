@@ -2034,7 +2034,7 @@
     {
       "id": "CLI-09",
       "title": "Integrar otros agentes en init: Codex y AGENTS.md",
-      "state": "todo",
+      "state": "doing",
       "group": "CLI",
       "rank": "zzzzzzx",
       "desc": "Idea del roadmap («Otros agentes»). `init` solo integra Claude Code y `--print-config` solo conoce `claude`. Añadir la integración de Codex (instrucciones en `AGENTS.md` y su configuración del servidor MCP), tras verificar sus condiciones y formatos oficiales.",
@@ -2059,12 +2059,37 @@
         "at": "2026-11-12T21:31:45Z",
         "by": "agent:claude"
       },
-      "updated_at": "2026-11-14T17:43:37Z",
+      "started": {
+        "at": "2026-11-14T17:55:20Z",
+        "by": "agent:claude"
+      },
+      "updated_at": "2026-11-14T17:57:46Z",
+      "notes": [
+        {
+          "id": "n1",
+          "at": "2026-11-14T17:55:20Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "init/skill --agent claude|codex (repetible; por defecto claude). Codex: bloque delimitado con el protocolo en AGENTS.md (sin tocar lo demás) y [mcp_servers.konsora] en .codex/config.toml (configuración de proyecto, solo para proyectos de confianza); mcp --print-config codex imprime el TOML. Sin dependencia de TOML: se añade la tabla al final y se rechaza un mcp_servers en línea."
+        },
+        {
+          "id": "n2",
+          "at": "2026-11-14T17:57:46Z",
+          "by": "agent:claude",
+          "kind": "note",
+          "text": "Código y tests hechos (084736e): ac1 y ac2 cumplidos y verificados. Falta ac3, la sesión real de Codex: pendiente de que el humano autorice usar su cuenta de Codex."
+        }
+      ],
       "events": [
         {
           "at": "2026-11-14T17:43:37Z",
           "by": "human",
           "type": "promote"
+        },
+        {
+          "at": "2026-11-14T17:55:20Z",
+          "by": "agent:claude",
+          "type": "start"
         }
       ]
     },
